@@ -7,6 +7,7 @@ const handlerNames = [
   'initialize',
   'note',
   'cc',
+  'sustain',
   'motif',
   'pitch_mode',
   'meter_mode',
@@ -24,21 +25,25 @@ const handlerNames = [
   'panic',
   'list_motifs',
   'dump_context',
-  'host',
+  'song_context',
 ];
 
-const deviceFooter = handlerNames
-  .map(
+const deviceFooter = [
+  ...handlerNames.map(
     (name) =>
       `function ${name}() { return globalThis.__motifHandlers.${name}.apply(null, arguments); }`,
-  )
-  .join('\n');
-
-const previewFooter = [
-  'function data() { return globalThis.__motifPreviewHandlers.data.apply(null, arguments); }',
-  'function clear() { return globalThis.__motifPreviewHandlers.clear.apply(null, arguments); }',
-  'function paint() { return globalThis.__motifPreviewHandlers.paint.apply(null, arguments); }',
+  ),
+  `function anything() {
+  const handler = globalThis.__motifHandlers[this.messagename];
+  if (typeof handler !== 'function') {
+    error('Motif: unknown message ' + this.messagename + '\\n');
+    return;
+  }
+  return handler.apply(null, arguments);
+}`,
 ].join('\n');
+
+
 
 await mkdir('dist', { recursive: true });
 await mkdir('max', { recursive: true });
@@ -55,18 +60,8 @@ await build({
   footer: { js: deviceFooter },
 });
 
-await build({
-  entryPoints: ['src/max/preview.ts'],
-  outfile: 'dist/motif-preview.js',
-  bundle: true,
-  format: 'iife',
-  platform: 'neutral',
-  target: 'es2020',
-  sourcemap: true,
-  legalComments: 'none',
-  footer: { js: previewFooter },
-});
 
-for (const filename of ['motif-device.js', 'motif-device.js.map', 'motif-preview.js', 'motif-preview.js.map']) {
+
+for (const filename of ['motif-device.js', 'motif-device.js.map']) {
   await copyFile(`dist/${filename}`, `max/${filename}`);
 }

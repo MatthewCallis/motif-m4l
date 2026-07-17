@@ -2,14 +2,19 @@
 
 1. Open the existing `.amxd` in Live and choose **Edit in Max**.
 2. Unlock the device patcher with **⌘E**.
-3. Delete every old object so obsolete JavaScript objects and patch cords cannot remain connected.
+3. Delete every old object. This matters: stale gates, JavaScript objects, and patch cords can silently block MIDI.
 4. Open `Motif.maxpat`, unlock it, select all, copy, and paste into the device patcher.
-5. Keep `motif-device.js` and `motif-preview.js` beside the `.amxd` while testing.
+5. Keep `motif-device.js` beside the `.amxd` while testing.
 6. Save the device in Max. The patch forces Presentation Mode on load.
-7. Resize the device to the complete 860 px presentation, then use **View → Set Device Width**.
+7. Resize the device to the complete 820 px presentation, then use **View → Set Device Width**.
 8. Remove and re-add the device in Live.
-9. Confirm tempo/scale updates, `Ready` status, preview rendering, and MIDI output.
-10. Freeze and save the device to embed both JavaScript dependencies.
+9. Confirm, in order:
+   - BPM and key match Live.
+   - Status reaches `Ready`.
+   - The orange pitch contour and note names appear.
+   - Notes outside the trigger zone pass through.
+   - Notes inside the trigger zone play the motif.
+10. Freeze and save the device to embed `motif-device.js`.
 
 The native `live.path` / `live.observer` graph supplies tempo, root, scale, meter, transport, and song position. JavaScript is not used to query the Live Object Model.
 

@@ -25,8 +25,8 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 ## 0.3 — Performance device ✅
 
 - [x] Native Song observers for tempo, Current Scale, meter, transport, and song position.
-- [x] Compact Presentation Mode interface with Live-style dark panels and orange accents.
-- [x] Max 9 `v8ui` preview of note pitch, duration, phrase position, and bar boundaries.
+- [x] Compact 820 × 169 Presentation Mode interface with Live-style dark panels and orange accents.
+- [x] Native `multislider` pitch-contour preview plus exact resulting MIDI note names.
 - [x] Preview recalculation for Live scale changes, pitch mode, meter fit, motif selection, and trigger transposition.
 - [x] Selected-motif description, note count, bar length, source meter, tags, and suggested modes.
 - [x] Help annotations and hover hints for every interactive control.
@@ -34,13 +34,13 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 - [x] Launch quantization, performance trigger modes, keyboard zone, sustain behavior, and pass-through policies.
 - [x] External JSON libraries, MIDI import/export, validation, and canonical Mitsuda Lick preset.
 - [x] Native Max `pipe` scheduling with replace/overlap behavior and panic handling.
-- [x] Automated coverage for host timing, preview pitch mapping, UI structure, control help, MIDI conversion, and overlap safety.
+- [x] Automated coverage for host timing, preview pitch mapping, 169px UI bounds, fail-open MIDI routing, native Song displays, compiled-runtime behavior, control help, MIDI conversion, and overlap safety.
 
 ### 0.3 validation still required in Live
 
-- [ ] Confirm the `v8ui` preview renders correctly in the target Max 9 build.
+- [ ] Confirm the native contour preview and exact note names render correctly in the target Max 9 build.
 - [ ] Check text wrapping and control spacing at default and HiDPI display scaling.
-- [ ] Freeze the device and verify both JavaScript dependencies are embedded.
+- [ ] Freeze the device and verify `motif-device.js` is embedded.
 - [ ] Smoke-test all controls, automation recall, pass-through modes, and tempo automation.
 
 ## 0.4 — Harmonic adaptation

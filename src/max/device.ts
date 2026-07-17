@@ -20,6 +20,7 @@ interface MotifHandlers {
   initialize: () => void;
   note: (pitch: number, velocity: number, channel?: number) => void;
   cc: (controller: number, value: number, channel?: number) => void;
+  sustain: (value: number, channel?: number) => void;
   motif: (id: string) => void;
   pitch_mode: (mode: string) => void;
   meter_mode: (mode: string) => void;
@@ -37,7 +38,7 @@ interface MotifHandlers {
   panic: () => void;
   list_motifs: () => void;
   dump_context: () => void;
-  host: (property: string, ...values: unknown[]) => void;
+  song_context: (property: string, ...values: unknown[]) => void;
 }
 
 const store = new MotifStore();
@@ -109,11 +110,8 @@ function emitSelectedMotifUi(): void {
     pitchModeOverride,
     meterMode,
   );
-  const totalTicks = Math.max(
-    1,
-    ...preview.notes.map((note) => note.atTicks + note.durationTicks),
-  );
-  const noteData = preview.notes.flatMap((note) => [note.atTicks, note.durationTicks, note.pitch]);
+  const normalizedPitches = preview.notes.map((note) => note.pitch - preview.lowPitch);
+  const previewRange = Math.max(1, preview.highPitch - preview.lowPitch);
   const sourceMeter = `${selected.sourceMeter.numerator}/${selected.sourceMeter.denominator}`;
   const tags = selected.metadata?.tags?.join(' · ') ?? 'custom motif';
   const suggested = selected.metadata?.suggestedModes?.join(', ');
@@ -122,17 +120,8 @@ function emitSelectedMotifUi(): void {
   const stats = `${preview.notes.length} notes  •  ${bars}  •  ${sourceMeter} source  •  ${preview.effectivePitchMode}`;
   const root = `${midiNoteName(preview.triggerPitch)} anchor  •  ${hostContext.scaleName}  •  ${preview.effectivePitchMode}`;
 
-  emit(
-    'ui',
-    'preview',
-    'data',
-    preview.lowPitch,
-    preview.highPitch,
-    preview.bars,
-    hostContext.rootNote,
-    totalTicks,
-    ...noteData,
-  );
+  emit('ui', 'preview-pitches', ...normalizedPitches);
+  emit('ui', 'preview-range', previewRange);
   emit('ui', 'preview-notes', preview.noteNames.join('  ·  '));
   emit('ui', 'preview-root', root);
   emit('ui', 'motif-title', selected.name);
@@ -229,7 +218,7 @@ function updateHost(property: string, values: readonly unknown[]): void {
   }
 }
 
-function host(property: string, ...values: unknown[]): void {
+function song_context(property: string, ...values: unknown[]): void {
   updateHost(String(property), values);
 }
 
@@ -343,7 +332,7 @@ function note(pitchValue: number, velocityValue: number, channelValue = 1): void
   }
 }
 
-function cc(controllerValue: number, valueValue: number): void {
+function cc(controllerValue: number, valueValue: number, _channel = 1): void {
   const controller = Math.round(clamp(controllerValue, 0, 127));
   const value = Math.round(clamp(valueValue, 0, 127));
   if (controller !== 64) return;
@@ -355,6 +344,10 @@ function cc(controllerValue: number, valueValue: number): void {
     sustainedReleases.clear();
   }
   emitStatus('sustain', sustainDown ? 'on' : 'off');
+}
+
+function sustain(value: number, channel = 1): void {
+  cc(64, value, channel);
 }
 
 function motif(value: string): void {
@@ -534,6 +527,7 @@ const handlers: MotifHandlers = {
   initialize,
   note,
   cc,
+  sustain,
   motif,
   pitch_mode,
   meter_mode,
@@ -551,7 +545,7 @@ const handlers: MotifHandlers = {
   panic,
   list_motifs: listMotifs,
   dump_context,
-  host,
+  song_context,
 };
 
 (globalThis as typeof globalThis & { __motifHandlers?: MotifHandlers }).__motifHandlers = handlers;

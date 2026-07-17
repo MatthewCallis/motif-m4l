@@ -5,8 +5,8 @@ const boxes = [];
 const lines = [];
 const ids = {};
 
-const WIDTH = 860;
-const HEIGHT = 238;
+const WIDTH = 820;
+const HEIGHT = 169;
 
 const COLORS = {
   frame: [0.34, 0.34, 0.35, 1],
@@ -69,6 +69,7 @@ function uiComment(name, text, rect, options = {}) {
     linecount: options.linecount,
     presentation: 1,
     presentation_rect: rect,
+    varname: name,
     ignoreclick: options.ignoreclick ?? 1,
     ...(options.help ? helpAttrs(options.help.name, options.help.description) : {}),
   });
@@ -233,10 +234,19 @@ function uiButton(name, text, rect, help, options = {}) {
 }
 
 function uiPreview(name, rect, help) {
-  return add(name, 'v8ui', rect, {
-    filename: 'motif-preview.js',
-    border: 0,
-    nofsaa: 0,
+  return add(name, 'multislider', rect, {
+    settype: 0,
+    setstyle: 0,
+    setminmax: [0, 12],
+    size: 6,
+    thickness: 3,
+    spacing: 5,
+    drawpeaks: 0,
+    contdata: 2,
+    listresize: 1,
+    bgcolor: COLORS.panel,
+    slidercolor: COLORS.accent,
+    bordercolor: COLORS.border,
     ignoreclick: 1,
     parameter_enable: 0,
     presentation: 1,
@@ -257,59 +267,63 @@ function connect(source, sourceOutlet, destination, destinationInlet, order) {
 
 // ---------- Presentation UI ----------
 uiPanel('ui-background', [0, 0, WIDTH, HEIGHT], COLORS.frame, 0);
-uiPanel('ui-header', [3, 3, WIDTH - 6, 29], COLORS.header, 5);
-uiPanel('ui-accent', [3, 31, WIDTH - 6, 2], COLORS.accent, 0);
-uiPanel('ui-preview-panel', [8, 39, 535, 120], COLORS.panel, 6);
-uiPanel('ui-info-panel', [550, 39, 302, 120], COLORS.panel, 6);
-uiPanel('ui-controls-panel', [8, 166, 844, 64], COLORS.panel, 6);
+uiPanel('ui-header', [3, 3, WIDTH - 6, 25], COLORS.header, 5);
+uiPanel('ui-accent', [3, 27, WIDTH - 6, 1], COLORS.accent, 0);
+uiPanel('ui-preview-panel', [8, 33, 500, 76], COLORS.panel, 6);
+uiPanel('ui-info-panel', [514, 33, 298, 76], COLORS.panel, 6);
+uiPanel('ui-controls-panel', [8, 114, 804, 48], COLORS.panel, 6);
 
-uiComment('title', 'MOTIF', [14, 7, 72, 20], { fontsize: 15, fontface: 1, textcolor: COLORS.accent });
-uiComment('subtitle', 'scale-aware phrase trigger', [88, 9, 160, 18], { fontsize: 9, textcolor: COLORS.muted });
-uiDynamicMenu(
-  'root-display',
-  ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'],
-  [360, 7, 44, 20],
-  { name: 'Live Scale Root', description: "Live Set's current scale root. This display is observed directly from Song.root_note." },
-  { ignoreclick: 1, fontsize: 10 },
-);
-uiComment('scale-name-display', 'Major', [407, 8, 92, 18], {
-  fontsize: 10,
+uiComment('title', 'MOTIF', [14, 5, 58, 18], { fontsize: 13, fontface: 1, textcolor: COLORS.accent });
+uiComment('subtitle', 'scale-aware phrase trigger', [74, 7, 142, 15], { fontsize: 8, textcolor: COLORS.muted });
+uiComment('root-display', 'C', [348, 6, 34, 16], {
+  fontsize: 9,
+  fontface: 1,
+  justification: 1,
+  help: { name: 'Live Scale Root', description: "Live Set's current scale root, observed directly from Song.root_note." },
+});
+uiComment('scale-name-display', 'Major', [386, 6, 90, 16], {
+  fontsize: 9,
   fontface: 1,
   help: { name: 'Live Scale Name', description: "Live Set's current scale name, observed directly from Song.scale_name." },
 });
-uiComment('scale-mode-display', 'Scale On', [500, 9, 54, 16], {
-  fontsize: 8,
+uiComment('scale-mode-display', 'Scale On', [477, 7, 50, 14], {
+  fontsize: 7,
   textcolor: COLORS.success,
   help: { name: 'Live Scale Mode', description: "Whether Live's Scale Mode is active, observed from Song.scale_mode." },
 });
-uiReadOnlyNumber('tempo-display', [566, 6, 48, 21], 120, {
-  name: 'Live Tempo',
-  description: "Current Live Set tempo in BPM, observed directly from Song.tempo. Motif timing follows this value on each trigger.",
+uiComment('tempo-display', '120', [536, 6, 44, 16], {
+  fontsize: 9,
+  fontface: 1,
+  justification: 2,
+  help: {
+    name: 'Live Tempo',
+    description: "Current Live Set tempo in BPM, observed directly from Song.tempo. Motif timing follows this value on each trigger.",
+  },
 });
-uiComment('tempo-unit', 'BPM', [614, 9, 28, 16], { fontsize: 8, textcolor: COLORS.muted });
-uiComment('meter-display', '4/4', [650, 8, 40, 18], {
-  fontsize: 10,
+uiComment('tempo-unit', 'BPM', [581, 7, 25, 14], { fontsize: 7, textcolor: COLORS.muted });
+uiComment('meter-display', '4/4', [610, 6, 34, 16], {
+  fontsize: 9,
   fontface: 1,
   justification: 1,
   help: { name: 'Live Meter', description: "Current Live Set time signature from Song.signature_numerator and Song.signature_denominator." },
 });
-uiComment('transport-display', 'Stopped', [697, 9, 65, 16], {
-  fontsize: 9,
+uiComment('transport-display', 'Stopped', [649, 7, 58, 14], {
+  fontsize: 8,
   justification: 1,
   help: { name: 'Live Transport', description: "Current Live transport state observed from Song.is_playing." },
 });
-uiComment('status-display', 'Loading…', [768, 9, 80, 16], { fontsize: 8, textcolor: COLORS.muted, justification: 2 });
+uiComment('status-display', 'Loading…', [712, 7, 94, 14], { fontsize: 7, textcolor: COLORS.muted, justification: 2 });
 
-uiComment('motif-label', 'MOTIF', [16, 44, 205, 14], { fontsize: 8, textcolor: COLORS.muted });
-uiDynamicMenu('motif-menu', ['Loading…'], [16, 58, 205, 22], {
+uiComment('motif-label', 'MOTIF', [16, 36, 196, 10], { fontsize: 7, textcolor: COLORS.muted });
+uiDynamicMenu('motif-menu', ['Loading…'], [16, 47, 196, 20], {
   name: 'Selected Motif',
   description: 'Choose the phrase played when a trigger note is received. The preview and motif details update immediately.',
-});
-uiComment('pitch-label', 'PITCH MODE', [228, 44, 105, 14], { fontsize: 8, textcolor: COLORS.muted });
+}, { fontsize: 9 });
+uiComment('pitch-label', 'PITCH MODE', [218, 36, 92, 10], { fontsize: 7, textcolor: COLORS.muted });
 uiLiveMenu(
   'pitch-menu',
   ['auto', 'scale', 'chromatic', 'hybrid'],
-  [228, 58, 105, 22],
+  [218, 47, 92, 20],
   'Pitch Mode',
   'Pitch',
   0,
@@ -318,132 +332,139 @@ uiLiveMenu(
     description: 'Auto uses the motif default. Scale maps stored degrees through Live’s current scale; Chromatic preserves semitone intervals; Hybrid combines scale degrees with accidentals.',
   },
 );
-uiComment('preview-root-display', 'C3 anchor  •  Major  •  chromatic', [341, 46, 193, 18], {
-  fontsize: 8,
+uiComment('preview-root-display', 'C3 anchor  •  Major  •  chromatic', [316, 37, 184, 14], {
+  fontsize: 7,
   textcolor: COLORS.accent,
   justification: 2,
   help: { name: 'Preview Context', description: 'Shows the trigger anchor, Live scale, and effective pitch mode used to calculate the preview.' },
 });
-uiPreview('motif-preview', [16, 84, 518, 50], {
+uiPreview('motif-preview', [16, 71, 484, 24], {
   name: 'Motif Note Preview',
   description: 'A time-and-pitch preview of the selected motif after applying the current Live scale, pitch mode, meter mode, and most recent trigger note.',
 });
-uiComment('preview-notes-display', 'C3  ·  A♯2  ·  D♯3  ·  D3  ·  C♯3  ·  C3', [16, 137, 518, 17], {
-  fontsize: 8,
+uiComment('preview-notes-display', 'C3  ·  A♯2  ·  D♯3  ·  D3  ·  C♯3  ·  C3', [16, 97, 484, 10], {
+  fontsize: 7,
   textcolor: COLORS.muted,
   justification: 1,
   help: { name: 'Preview Notes', description: 'The exact MIDI note names that the current preview will play.' },
 });
 
-uiComment('motif-title-display', 'Mitsuda Lick', [560, 46, 280, 20], {
-  fontsize: 13,
+uiComment('motif-title-display', 'Mitsuda Lick', [524, 37, 278, 16], {
+  fontsize: 11,
   fontface: 1,
   textcolor: COLORS.accent,
   help: { name: 'Motif Name', description: 'Human-readable name of the selected motif.' },
 });
-uiComment('motif-stats-display', '6 notes  •  2 bars  •  4/4 source  •  chromatic', [560, 69, 280, 16], {
-  fontsize: 8,
+uiComment('motif-stats-display', '6 notes  •  2 bars  •  4/4 source  •  chromatic', [524, 54, 278, 11], {
+  fontsize: 7,
   textcolor: COLORS.muted,
   help: { name: 'Motif Statistics', description: 'Note count, effective length, source meter, and effective pitch interpretation.' },
 });
-uiComment('motif-description-display', 'Canonical two-bar contour: long tonic, step down, leap up a fourth, then a fast chromatic descent to tonic.', [560, 88, 280, 39], {
-  fontsize: 9,
-  linecount: 3,
+uiComment('motif-description-display', 'Canonical two-bar contour: long tonic, step down, leap up a fourth, then a fast chromatic descent to tonic.', [524, 67, 278, 26], {
+  fontsize: 8,
+  linecount: 2,
   help: { name: 'Motif Description', description: 'Description stored with the selected motif.' },
 });
-uiComment('motif-tags-display', 'mitsuda · chromatic · cadence', [560, 134, 280, 17], {
-  fontsize: 8,
+uiComment('motif-tags-display', 'mitsuda · chromatic · cadence', [524, 96, 278, 10], {
+  fontsize: 7,
   textcolor: COLORS.accentDim,
   help: { name: 'Motif Tags', description: 'Tags and suggested modes stored in the motif metadata.' },
 });
 
-const labelY = 171;
-const controlY = 187;
-uiComment('trigger-label', 'TRIGGER', [16, labelY, 112, 14], { fontsize: 8, textcolor: COLORS.muted });
-uiLiveMenu('trigger-menu', ['one-shot', 'hold', 'toggle', 'latch', 'release-tail'], [16, controlY, 112, 24], 'Trigger Mode', 'Trigger', 0, {
+const labelY = 116;
+const controlY = 128;
+uiComment('trigger-label', 'TRIGGER', [16, labelY, 90, 9], { fontsize: 7, textcolor: COLORS.muted });
+uiLiveMenu('trigger-menu', ['one-shot', 'hold', 'toggle', 'latch', 'release-tail'], [16, controlY, 92, 21], 'Trigger Mode', 'Trigger', 0, {
   name: 'Trigger Mode',
   description: 'One-shot plays the full motif; Hold stops on key release; Toggle alternates on/off; Latch replaces the active phrase; Release-tail lets scheduled notes finish.',
 });
-uiComment('quant-label', 'LAUNCH', [134, labelY, 88, 14], { fontsize: 8, textcolor: COLORS.muted });
-uiLiveMenu('quant-menu', ['immediate', '1/16', '1/8', '1/4', 'bar'], [134, controlY, 88, 24], 'Launch Quantization', 'Launch', 0, {
+uiComment('quant-label', 'LAUNCH', [114, labelY, 72, 9], { fontsize: 7, textcolor: COLORS.muted });
+uiLiveMenu('quant-menu', ['immediate', '1/16', '1/8', '1/4', 'bar'], [114, controlY, 76, 21], 'Launch Quantization', 'Launch', 0, {
   name: 'Launch Quantization',
   description: 'Delay phrase start to the selected musical boundary while Live is playing. Immediate starts as soon as the trigger is received.',
 });
-uiComment('pass-label', 'MIDI PASS', [228, labelY, 110, 14], { fontsize: 8, textcolor: COLORS.muted });
-uiLiveMenu('pass-menu', ['none', 'non-triggers', 'all'], [228, controlY, 110, 24], 'MIDI Pass Through', 'MIDI Pass', 1, {
+uiComment('pass-label', 'MIDI PASS', [196, labelY, 94, 9], { fontsize: 7, textcolor: COLORS.muted });
+uiLiveMenu('pass-menu', ['none', 'non-triggers', 'all'], [196, controlY, 100, 21], 'MIDI Pass Through', 'MIDI Pass', 1, {
   name: 'MIDI Pass Through',
   description: 'None blocks dry notes; Non-triggers consumes trigger-zone notes but passes other MIDI; All passes every incoming note alongside the motif.',
 });
-uiComment('meter-label', 'METER', [344, labelY, 120, 14], { fontsize: 8, textcolor: COLORS.muted });
-uiLiveTab('meter-tab', ['preserve', 'fit-bar'], [344, controlY, 120, 24], 'Meter Mode', 'Meter', 0, {
+uiComment('meter-label', 'METER', [302, labelY, 92, 9], { fontsize: 7, textcolor: COLORS.muted });
+uiLiveTab('meter-tab', ['preserve', 'fit-bar'], [302, controlY, 98, 21], 'Meter Mode', 'Meter', 0, {
   name: 'Meter Mode',
   description: 'Preserve keeps the motif’s original timing. Fit Bar scales its source bars to the Live Set’s current time signature.',
 });
-uiComment('retrigger-label', 'RETRIGGER', [470, labelY, 120, 14], { fontsize: 8, textcolor: COLORS.muted });
-uiLiveTab('retrigger-tab', ['replace', 'overlap'], [470, controlY, 120, 24], 'Retrigger Mode', 'Retrigger', 0, {
+uiComment('retrigger-label', 'RETRIGGER', [406, labelY, 94, 9], { fontsize: 7, textcolor: COLORS.muted });
+uiLiveTab('retrigger-tab', ['replace', 'overlap'], [406, controlY, 100, 21], 'Retrigger Mode', 'Retrigger', 0, {
   name: 'Retrigger Mode',
   description: 'Replace clears scheduled motif notes before starting the next phrase. Overlap allows multiple triggered phrases to play together.',
 });
-uiComment('zone-label', 'TRIGGER ZONE', [596, labelY, 104, 14], { fontsize: 8, textcolor: COLORS.muted });
-uiLiveNumber('low-number', [596, controlY, 50, 24], 'Trigger Low', 'Low', 36, {
+uiComment('zone-label', 'ZONE', [512, labelY, 80, 9], { fontsize: 7, textcolor: COLORS.muted });
+uiLiveNumber('low-number', [512, controlY, 38, 21], 'Trigger Low', 'Low', 36, {
   name: 'Trigger Zone Low',
   description: 'Lowest MIDI note treated as a motif trigger. Notes below this value follow the MIDI Pass setting.',
 });
-uiLiveNumber('high-number', [650, controlY, 50, 24], 'Trigger High', 'High', 84, {
+uiLiveNumber('high-number', [554, controlY, 38, 21], 'Trigger High', 'High', 84, {
   name: 'Trigger Zone High',
   description: 'Highest MIDI note treated as a motif trigger. Notes above this value follow the MIDI Pass setting.',
 });
-uiComment('library-label', 'LIBRARY', [706, labelY, 98, 14], { fontsize: 8, textcolor: COLORS.muted });
-uiButton('choose-library', 'Choose', [706, controlY, 51, 24], {
+uiComment('library-label', 'LIBRARY', [598, labelY, 80, 9], { fontsize: 7, textcolor: COLORS.muted });
+uiButton('choose-library', 'Choose', [598, controlY, 48, 21], {
   name: 'Choose Motif Library',
   description: 'Select a folder containing additional motif JSON files. Built-in motifs remain available.',
-});
-uiButton('refresh-button', '↻', [761, controlY, 35, 24], {
+}, { fontsize: 8 });
+uiButton('refresh-button', '↻', [650, controlY, 28, 21], {
   name: 'Refresh Motif Library',
   description: 'Reload built-in motifs and all JSON motifs from the selected library folder.',
-}, { fontsize: 13 });
-uiButton('panic-button', '!', [800, controlY, 36, 24], {
+}, { fontsize: 11 });
+uiComment('panic-label', 'PANIC', [684, labelY, 34, 9], { fontsize: 7, textcolor: COLORS.muted });
+uiButton('panic-button', '!', [684, controlY, 34, 21], {
   name: 'Panic',
   description: 'Immediately clears scheduled phrase events and sends note-offs for active MIDI notes.',
-}, { danger: true, fontsize: 13 });
+}, { danger: true, fontsize: 11 });
+
 
 // ---------- MIDI engine ----------
+// The MIDI stream is fail-open until the TypeScript engine reports Ready.
+// Once ready, midiselect removes only note messages for processing and passes
+// every unselected MIDI byte downstream unchanged, following Cycling '74's
+// documented Max for Live MIDI Effect pattern.
 object('midiin', 'midiin', 30, 270, 50);
-object('midiparse', 'midiparse', 30, 305, 70);
-object('note-unpack', 'unpack 0 0', 30, 345, 80);
-object('note-pack', 'pack 0 0 1', 30, 380, 85);
-object('note-prepend', 'prepend note', 30, 415, 90);
-object('cc-unpack', 'unpack 0 0', 130, 345, 80);
-object('cc-pack', 'pack 0 0 1', 130, 380, 85);
-object('cc-prepend', 'prepend cc', 130, 415, 85);
-object('v8', 'v8 motif-device.js', 260, 415, 175, { numinlets: 1, numoutlets: 1, outlettype: [''] });
+object('input-gate', 'gate 2 1', 30, 305, 65);
+object('input-bypass-default', 'loadmess 1', 105, 305, 75);
+message('input-engine-mode', '2', 185, 305, 30);
+object('midiselect', 'midiselect @ch all @note all', 30, 345, 190);
+object('sustain-parser', 'midiparse', 230, 345, 70);
+object('note-unpack', 'unpack 0 0', 30, 385, 80);
+object('note-pack', 'pack 0 0 1', 30, 420, 85);
+object('note-prepend', 'prepend note', 30, 455, 90);
+object('sustain-route', 'route 64', 230, 385, 65);
+object('sustain-pack', 'pack 0 1', 230, 420, 65);
+object('sustain-prepend', 'prepend sustain', 230, 455, 110);
+object('v8', 'v8 motif-device.js', 360, 415, 175, { numinlets: 1, numoutlets: 1, outlettype: [''] });
 
-object('engine-route', 'route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui', 260, 460, 765);
-object('event-unpack', 'unpack 0 0 0 0.', 260, 500, 115);
-object('event-pipe', 'pipe 0 0 0 0.', 260, 540, 105);
-object('note-output-pack', 'pack 0 0', 260, 580, 65);
-object('note-midiformat', 'midiformat', 260, 620, 75);
+object('engine-route', 'route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui', 360, 460, 765);
+object('event-unpack', 'unpack 0 0 0 0.', 360, 500, 115);
+object('event-pipe', 'pipe 0 0 0 0.', 360, 540, 105);
+object('note-output-pack', 'pack 0 0', 360, 580, 65);
+object('note-midiformat', 'midiformat', 360, 620, 75);
 object('midiflush', 'midiflush', 170, 660, 65);
 object('midiout', 'midiout', 170, 700, 55);
-object('panic-trigger', 't b b', 385, 500, 45);
-message('clear-pipe-message', 'clear', 440, 540, 40);
-object('status-set', 'prepend set', 500, 500, 80);
-object('error-set', 'prepend set', 590, 500, 80);
-message('menu-clear', 'clear', 680, 500, 40);
-object('menu-append', 'prepend append', 730, 500, 100);
-object('menu-select', 'prepend setsymbol', 840, 500, 115);
-object('ui-route', 'route preview preview-notes preview-root motif-title motif-description motif-stats motif-tags', 1035, 500, 660);
-object('preview-notes-set', 'prepend set', 1035, 540, 80);
-object('preview-root-set', 'prepend set', 1125, 540, 80);
-object('motif-title-set', 'prepend set', 1215, 540, 80);
-object('motif-description-set', 'prepend set', 1305, 540, 80);
-object('motif-stats-set', 'prepend set', 1395, 540, 80);
-object('motif-tags-set', 'prepend set', 1485, 540, 80);
-
-object('poly-reverse', 'zl rev', 30, 460, 45);
-object('other-midiformat', 'midiformat', 30, 495, 75);
-object('other-gate', 'gate 1 1', 30, 535, 60);
-object('load-gate', 'loadmess 1', 105, 535, 75);
+object('panic-trigger', 't b b', 485, 500, 45);
+message('clear-pipe-message', 'clear', 540, 540, 40);
+object('status-set', 'prepend set', 600, 500, 80);
+object('error-set', 'prepend set', 690, 500, 80);
+message('menu-clear', 'clear', 780, 500, 40);
+object('menu-append', 'prepend append', 830, 500, 100);
+object('menu-select', 'prepend setsymbol', 940, 500, 115);
+object('ui-route', 'route preview-pitches preview-range preview-notes preview-root motif-title motif-description motif-stats motif-tags', 1065, 500, 760);
+object('preview-pitches-set', 'prepend setlist', 1065, 540, 95);
+object('preview-range-set', 'prepend setmax', 1170, 540, 95);
+object('preview-notes-set', 'prepend set', 1275, 540, 80);
+object('preview-root-set', 'prepend set', 1365, 540, 80);
+object('motif-title-set', 'prepend set', 1455, 540, 80);
+object('motif-description-set', 'prepend set', 1545, 540, 80);
+object('motif-stats-set', 'prepend set', 1635, 540, 80);
+object('motif-tags-set', 'prepend set', 1725, 540, 80);
 
 // ---------- Native Live Song observers ----------
 object('thisdevice', 'live.thisdevice', 520, 270, 95);
@@ -452,6 +473,10 @@ object('property-fanout', 't b b b b b b b b b', 600, 305, 155);
 object('live-path', 'live.path live_set', 520, 345, 115);
 object('initialize-defer', 'deferlow', 520, 385, 60);
 message('initialize-message', 'initialize', 520, 420, 65);
+object('song-context-defer', 'deferlow', 600, 420, 60);
+object('ready-route', 'route Ready', 670, 420, 80);
+object('ready-trigger', 't b b', 760, 420, 45);
+object('observer-refresh', 't b b b b b b b b b', 815, 420, 175);
 message('presentation-message', 'presentation 1', 425, 385, 90);
 object('thispatcher', 'thispatcher', 425, 420, 75);
 object('force-presentation', 'loadmess presentation 1', 425, 345, 145);
@@ -472,30 +497,38 @@ observers.forEach(([name, property, x, y], index) => {
   message(`${name}-property`, `property ${property}`, x, y, 170);
   object(`${name}-observer`, 'live.observer', x + 180, y, 90);
   object(`${name}-property-name`, `prepend ${property}`, x + 280, y, 180);
-  object(`${name}-host`, 'prepend host', x + 470, y, 105);
+  object(`${name}-song-context`, 'prepend song_context', x + 470, y, 145);
   connect('property-fanout', index, `${name}-property`, 0);
   connect(`${name}-property`, 0, `${name}-observer`, 0);
   connect('live-path', 0, `${name}-observer`, 1);
   connect(`${name}-observer`, 0, `${name}-property-name`, 0);
-  connect(`${name}-property-name`, 0, `${name}-host`, 0);
-  connect(`${name}-host`, 0, 'v8', 0);
+  connect(`${name}-property-name`, 0, `${name}-song-context`, 0);
+  connect(`${name}-song-context`, 0, 'song-context-defer', 0);
 });
 
 // Native UI formatting. These displays never depend on JavaScript.
-message('root-set-message', 'set $1', 620, 560, 55);
-object('scale-name-set', 'prepend set', 685, 560, 80);
-object('scale-mode-select', 'sel 0 1', 775, 560, 55);
-message('scale-off-message', 'set Scale Off', 840, 550, 90);
-message('scale-on-message', 'set Scale On', 840, 575, 90);
-object('meter-pak', 'pak 4 4', 940, 560, 60);
-object('meter-format', 'sprintf %ld/%ld', 1010, 560, 100);
-object('meter-set', 'prepend set', 1120, 560, 80);
-object('transport-select', 'sel 0 1', 1210, 560, 55);
-message('stopped-message', 'set Stopped', 1275, 550, 80);
-message('playing-message', 'set Playing', 1275, 575, 80);
+object('root-select', 'sel 0 1 2 3 4 5 6 7 8 9 10 11', 620, 560, 220);
+const rootNames = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+rootNames.forEach((name, index) => {
+  message(`root-${index}-message`, `set ${name}`, 620 + index * 48, 595, 45);
+  connect('root-select', index, `root-${index}-message`, 0);
+  connect(`root-${index}-message`, 0, 'root-display', 0);
+});
+object('tempo-set', 'prepend set', 850, 560, 80);
+object('scale-name-set', 'prepend set', 940, 560, 80);
+object('scale-mode-select', 'sel 0 1', 1030, 560, 55);
+message('scale-off-message', 'set Scale Off', 1095, 550, 90);
+message('scale-on-message', 'set Scale On', 1095, 575, 90);
+object('meter-pak', 'pak 4 4', 1195, 560, 60);
+object('meter-format', 'sprintf %ld/%ld', 1265, 560, 100);
+object('meter-set', 'prepend set', 1375, 560, 80);
+object('transport-select', 'sel 0 1', 1465, 560, 55);
+message('stopped-message', 'set Stopped', 1530, 550, 80);
+message('playing-message', 'set Playing', 1530, 575, 80);
 
-connect('root-note-observer', 0, 'root-set-message', 0);
-connect('root-set-message', 0, 'root-display', 0);
+connect('root-note-observer', 0, 'root-select', 0);
+connect('tempo-observer', 0, 'tempo-set', 0);
+connect('tempo-set', 0, 'tempo-display', 0);
 connect('scale-name-observer', 0, 'scale-name-set', 0);
 connect('scale-name-set', 0, 'scale-name-display', 0);
 connect('scale-mode-observer', 0, 'scale-mode-select', 0);
@@ -503,7 +536,6 @@ connect('scale-mode-select', 0, 'scale-off-message', 0);
 connect('scale-mode-select', 1, 'scale-on-message', 0);
 connect('scale-off-message', 0, 'scale-mode-display', 0);
 connect('scale-on-message', 0, 'scale-mode-display', 0);
-connect('tempo-observer', 0, 'tempo-display', 0);
 connect('numerator-observer', 0, 'meter-pak', 0);
 connect('denominator-observer', 0, 'meter-pak', 1);
 connect('meter-pak', 0, 'meter-format', 0);
@@ -515,37 +547,51 @@ connect('transport-select', 1, 'playing-message', 0);
 connect('stopped-message', 0, 'transport-display', 0);
 connect('playing-message', 0, 'transport-display', 0);
 
-// Proven startup ordering: property first, live_set id second, TypeScript initialization last.
+// Startup ordering: configure observable Song properties, assign live_set,
+// initialize TypeScript, then request a complete observer snapshot when Ready.
 connect('thisdevice', 0, 'init-order', 0);
 connect('init-order', 2, 'property-fanout', 0);
 connect('init-order', 1, 'live-path', 0);
 connect('init-order', 0, 'initialize-defer', 0);
 connect('initialize-defer', 0, 'initialize-message', 0);
 connect('initialize-message', 0, 'v8', 0);
+connect('song-context-defer', 0, 'v8', 0);
+connect('engine-route', 3, 'ready-route', 0);
+connect('ready-route', 0, 'ready-trigger', 0);
+// Switch MIDI from fail-open bypass to processing, then request the full Song snapshot.
+connect('ready-trigger', 1, 'input-engine-mode', 0);
+connect('input-engine-mode', 0, 'input-gate', 0);
+connect('ready-trigger', 0, 'observer-refresh', 0);
+observers.forEach(([name], index) => {
+  connect('observer-refresh', index, `${name}-observer`, 0);
+});
 connect('force-presentation', 0, 'thispatcher', 0);
 connect('presentation-message', 0, 'thispatcher', 0);
 
 // ---------- MIDI input/output wiring ----------
-connect('midiin', 0, 'midiparse', 0);
-connect('midiparse', 0, 'note-unpack', 0);
-connect('midiparse', 6, 'note-pack', 2);
+// Fail-open raw MIDI bypass until the engine reports Ready.
+connect('midiin', 0, 'input-gate', 1);
+connect('input-bypass-default', 0, 'input-gate', 0);
+connect('input-gate', 0, 'midiflush', 0);
+connect('input-gate', 1, 'midiselect', 0);
+connect('input-gate', 1, 'sustain-parser', 0);
+
+// midiselect handles every note while its rightmost outlet passes all other
+// raw MIDI unchanged, as required for a Max for Live MIDI Effect.
+connect('midiselect', 7, 'midiflush', 0);
+connect('midiselect', 0, 'note-unpack', 0);
+connect('midiselect', 6, 'note-pack', 2);
 connect('note-unpack', 1, 'note-pack', 1);
 connect('note-unpack', 0, 'note-pack', 0);
 connect('note-pack', 0, 'note-prepend', 0);
 connect('note-prepend', 0, 'v8', 0);
-connect('midiparse', 2, 'cc-unpack', 0);
-connect('midiparse', 6, 'cc-pack', 2);
-connect('cc-unpack', 1, 'cc-pack', 1);
-connect('cc-unpack', 0, 'cc-pack', 0);
-connect('cc-pack', 0, 'cc-prepend', 0);
-connect('cc-prepend', 0, 'v8', 0);
-connect('midiparse', 1, 'poly-reverse', 0);
-connect('poly-reverse', 0, 'other-midiformat', 1);
-for (let outlet = 2; outlet <= 5; outlet += 1) connect('midiparse', outlet, 'other-midiformat', outlet);
-connect('midiparse', 6, 'other-midiformat', 6);
-connect('other-midiformat', 0, 'other-gate', 1);
-connect('load-gate', 0, 'other-gate', 0);
-connect('other-gate', 0, 'midiflush', 0);
+
+// Observe sustain without removing it from the native raw pass-through path.
+connect('sustain-parser', 6, 'sustain-pack', 1);
+connect('sustain-parser', 2, 'sustain-route', 0);
+connect('sustain-route', 0, 'sustain-pack', 0);
+connect('sustain-pack', 0, 'sustain-prepend', 0);
+connect('sustain-prepend', 0, 'v8', 0);
 
 connect('v8', 0, 'engine-route', 0);
 connect('engine-route', 0, 'event-unpack', 0);
@@ -571,20 +617,22 @@ connect('engine-route', 7, 'menu-append', 0);
 connect('menu-append', 0, 'motif-menu', 0);
 connect('engine-route', 8, 'menu-select', 0);
 connect('menu-select', 0, 'motif-menu', 0);
-connect('engine-route', 9, 'other-gate', 0);
 connect('engine-route', 10, 'ui-route', 0);
-connect('ui-route', 0, 'motif-preview', 0);
-connect('ui-route', 1, 'preview-notes-set', 0);
+connect('ui-route', 0, 'preview-pitches-set', 0);
+connect('preview-pitches-set', 0, 'motif-preview', 0);
+connect('ui-route', 1, 'preview-range-set', 0);
+connect('preview-range-set', 0, 'motif-preview', 0);
+connect('ui-route', 2, 'preview-notes-set', 0);
 connect('preview-notes-set', 0, 'preview-notes-display', 0);
-connect('ui-route', 2, 'preview-root-set', 0);
+connect('ui-route', 3, 'preview-root-set', 0);
 connect('preview-root-set', 0, 'preview-root-display', 0);
-connect('ui-route', 3, 'motif-title-set', 0);
+connect('ui-route', 4, 'motif-title-set', 0);
 connect('motif-title-set', 0, 'motif-title-display', 0);
-connect('ui-route', 4, 'motif-description-set', 0);
+connect('ui-route', 5, 'motif-description-set', 0);
 connect('motif-description-set', 0, 'motif-description-display', 0);
-connect('ui-route', 5, 'motif-stats-set', 0);
+connect('ui-route', 6, 'motif-stats-set', 0);
 connect('motif-stats-set', 0, 'motif-stats-display', 0);
-connect('ui-route', 6, 'motif-tags-set', 0);
+connect('ui-route', 7, 'motif-tags-set', 0);
 connect('motif-tags-set', 0, 'motif-tags-display', 0);
 
 // ---------- UI controls ----------
@@ -669,13 +717,12 @@ const patch = {
     toolbarvisible: 1,
     devicewidth: WIDTH,
     description: 'Scale-aware triggerable motif engine with native Live Song synchronization and visual note preview',
-    digest: 'Native Song observers for tempo and scale; TypeScript motif processing; Max 9 v8ui preview',
+    digest: 'Native Song observers for tempo and scale; fail-open MIDI routing; TypeScript motif processing; native multislider preview',
     tags: 'midi motif phrase scale preview',
     boxes,
     lines,
     dependency_cache: [
       { name: 'motif-device.js', bootpath: '.', patcherrelativepath: '.', type: 'TEXT', implicit: 1 },
-      { name: 'motif-preview.js', bootpath: '.', patcherrelativepath: '.', type: 'TEXT', implicit: 1 },
     ],
     autosave: 0,
   },

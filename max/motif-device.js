@@ -109,7 +109,7 @@
     const scaled = base * (note2.velocityScale ?? 1);
     return Math.round(clamp(scaled + (note2.velocityOffset ?? 0), 1, 127));
   }
-  function resolveMotifPitch(note2, motif2, host2, options) {
+  function resolveMotifPitch(note2, motif2, host, options) {
     const pitchMode = options.pitchMode ?? motif2.pitchMode;
     switch (pitchMode) {
       case "chromatic":
@@ -119,15 +119,15 @@
           options.triggerPitch,
           note2.pitch,
           note2.accidental ?? 0,
-          host2.rootNote,
-          host2.scaleIntervals
+          host.rootNote,
+          host.scaleIntervals
         );
       default:
         return transposeByScaleDegree(
           options.triggerPitch,
           note2.pitch,
-          host2.rootNote,
-          host2.scaleIntervals
+          host.rootNote,
+          host.scaleIntervals
         );
     }
   }
@@ -142,8 +142,8 @@
     }
     return duration;
   }
-  function compileMotif(motif2, host2, options) {
-    const targetBar = barLengthTicks(host2.timeSignature);
+  function compileMotif(motif2, host, options) {
+    const targetBar = barLengthTicks(host.timeSignature);
     const sourceBar = barLengthTicks(motif2.sourceMeter);
     const timeScale = options.meterMode === "fit-bar" ? targetBar / sourceBar : 1;
     const channel = Math.round(clamp(options.channel, 1, 16));
@@ -156,7 +156,7 @@
         continue;
       }
       const next = motif2.notes[index + 1];
-      const pitch = resolveMotifPitch(note2, motif2, host2, options);
+      const pitch = resolveMotifPitch(note2, motif2, host, options);
       const velocity = resolveVelocity(note2, motif2, options.triggerVelocity);
       const noteOnTicks = launchOffsetTicks2 + Math.max(0, note2.at * timeScale);
       const duration = effectiveDuration(note2, next, motif2) * timeScale;
@@ -166,7 +166,7 @@
         velocity,
         channel,
         offsetTicks: noteOnTicks,
-        offsetMs: ticksToMilliseconds(noteOnTicks, host2.tempo),
+        offsetMs: ticksToMilliseconds(noteOnTicks, host.tempo),
         instanceId
       });
       events.push({
@@ -174,7 +174,7 @@
         velocity: 0,
         channel,
         offsetTicks: noteOffTicks,
-        offsetMs: ticksToMilliseconds(noteOffTicks, host2.tempo),
+        offsetMs: ticksToMilliseconds(noteOffTicks, host.tempo),
         instanceId
       });
     }
@@ -193,13 +193,13 @@
     const octave = Math.floor(pitch / 12) - 2;
     return `${names[pitch % 12] ?? "C"}${octave}`;
   }
-  function buildMotifPreview(motif2, host2, triggerPitch, pitchModeOverride2, meterMode2, maxNotes = 64) {
+  function buildMotifPreview(motif2, host, triggerPitch, pitchModeOverride2, meterMode2, maxNotes = 64) {
     const effectivePitchMode = pitchModeOverride2 ?? motif2.pitchMode;
     const sourceBarTicks = barLengthTicks(motif2.sourceMeter);
-    const targetBarTicks = barLengthTicks(host2.timeSignature);
+    const targetBarTicks = barLengthTicks(host.timeSignature);
     const timeScale = meterMode2 === "fit-bar" ? targetBarTicks / sourceBarTicks : 1;
     const notes = motif2.notes.slice(0, maxNotes).map((note2) => ({
-      pitch: resolveMotifPitch(note2, motif2, host2, {
+      pitch: resolveMotifPitch(note2, motif2, host, {
         channel: 1,
         meterMode: meterMode2,
         pitchMode: effectivePitchMode,
@@ -755,11 +755,8 @@
       pitchModeOverride,
       meterMode
     );
-    const totalTicks = Math.max(
-      1,
-      ...preview.notes.map((note2) => note2.atTicks + note2.durationTicks)
-    );
-    const noteData = preview.notes.flatMap((note2) => [note2.atTicks, note2.durationTicks, note2.pitch]);
+    const normalizedPitches = preview.notes.map((note2) => note2.pitch - preview.lowPitch);
+    const previewRange = Math.max(1, preview.highPitch - preview.lowPitch);
     const sourceMeter = `${selected.sourceMeter.numerator}/${selected.sourceMeter.denominator}`;
     const tags = selected.metadata?.tags?.join(" \xB7 ") ?? "custom motif";
     const suggested = selected.metadata?.suggestedModes?.join(", ");
@@ -767,17 +764,8 @@
     const bars = `${formatNumber(preview.bars)} ${preview.bars === 1 ? "bar" : "bars"}`;
     const stats = `${preview.notes.length} notes  \u2022  ${bars}  \u2022  ${sourceMeter} source  \u2022  ${preview.effectivePitchMode}`;
     const root = `${midiNoteName(preview.triggerPitch)} anchor  \u2022  ${hostContext.scaleName}  \u2022  ${preview.effectivePitchMode}`;
-    emit(
-      "ui",
-      "preview",
-      "data",
-      preview.lowPitch,
-      preview.highPitch,
-      preview.bars,
-      hostContext.rootNote,
-      totalTicks,
-      ...noteData
-    );
+    emit("ui", "preview-pitches", ...normalizedPitches);
+    emit("ui", "preview-range", previewRange);
     emit("ui", "preview-notes", preview.noteNames.join("  \xB7  "));
     emit("ui", "preview-root", root);
     emit("ui", "motif-title", selected.name);
@@ -866,7 +854,7 @@
         return;
     }
   }
-  function host(property, ...values) {
+  function song_context(property, ...values) {
     updateHost(String(property), values);
   }
   function listMotifs() {
@@ -955,7 +943,7 @@
       activeTriggers.delete(pitch);
     }
   }
-  function cc(controllerValue, valueValue) {
+  function cc(controllerValue, valueValue, _channel = 1) {
     const controller = Math.round(clamp(controllerValue, 0, 127));
     const value = Math.round(clamp(valueValue, 0, 127));
     if (controller !== 64) return;
@@ -966,6 +954,9 @@
       sustainedReleases.clear();
     }
     emitStatus("sustain", sustainDown ? "on" : "off");
+  }
+  function sustain(value, channel = 1) {
+    cc(64, value, channel);
   }
   function motif(value) {
     const selected = resolveMotif(value);
@@ -1124,6 +1115,7 @@
     initialize,
     note,
     cc,
+    sustain,
     motif,
     pitch_mode,
     meter_mode,
@@ -1141,13 +1133,14 @@
     panic,
     list_motifs: listMotifs,
     dump_context,
-    host
+    song_context
   };
   globalThis.__motifHandlers = handlers;
 })();
 function initialize() { return globalThis.__motifHandlers.initialize.apply(null, arguments); }
 function note() { return globalThis.__motifHandlers.note.apply(null, arguments); }
 function cc() { return globalThis.__motifHandlers.cc.apply(null, arguments); }
+function sustain() { return globalThis.__motifHandlers.sustain.apply(null, arguments); }
 function motif() { return globalThis.__motifHandlers.motif.apply(null, arguments); }
 function pitch_mode() { return globalThis.__motifHandlers.pitch_mode.apply(null, arguments); }
 function meter_mode() { return globalThis.__motifHandlers.meter_mode.apply(null, arguments); }
@@ -1165,5 +1158,13 @@ function refresh_library() { return globalThis.__motifHandlers.refresh_library.a
 function panic() { return globalThis.__motifHandlers.panic.apply(null, arguments); }
 function list_motifs() { return globalThis.__motifHandlers.list_motifs.apply(null, arguments); }
 function dump_context() { return globalThis.__motifHandlers.dump_context.apply(null, arguments); }
-function host() { return globalThis.__motifHandlers.host.apply(null, arguments); }
+function song_context() { return globalThis.__motifHandlers.song_context.apply(null, arguments); }
+function anything() {
+  const handler = globalThis.__motifHandlers[this.messagename];
+  if (typeof handler !== 'function') {
+    error('Motif: unknown message ' + this.messagename + '\n');
+    return;
+  }
+  return handler.apply(null, arguments);
+}
 //# sourceMappingURL=motif-device.js.map

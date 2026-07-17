@@ -1,6 +1,27 @@
 # Changelog
 
-# Changelog
+## 0.3.6 — MIDI and host-display stabilization
+
+- Replaced the startup-blocking MIDI path with a fail-open `gate 2 1`: all raw MIDI passes directly to `midiout` until the TypeScript engine reports `Ready`.
+- Switched the active MIDI path to the documented `midiselect @ch all @note all` pattern. Notes are processed by Motif while the eighth outlet passes unrelated raw MIDI unchanged.
+- Changed Live scale root and tempo from UI controls to read-only text displays updated directly by native Song observers.
+- Replaced the `v8ui` preview and second JavaScript dependency with a native `multislider` contour preview.
+- Added a top-level `sustain()` Max handler and native sustain observation without removing CC64 from raw pass-through.
+- Added a compiled-runtime VM smoke test proving initialization, Song-context updates, preview output, motif scheduling, and non-trigger note pass-through.
+- Expanded patch validation to verify fail-open MIDI routing, the `midiselect` outlet graph, native host displays, native preview, and unversioned dependencies.
+- Updated the repository Max for Live skill to prevent regressions in MIDI routing, host telemetry, and preview dependencies.
+
+## 0.3.5 — Startup safety and 169px layout
+
+- Reduced the Presentation UI to 820 × 169 pixels, matching Live’s fixed Max for Live device height.
+- Added hard layout validation for every Presentation rectangle so generated controls cannot be cropped vertically or horizontally.
+- Added a closed `gate 1 0` between all native Song observers and the TypeScript `v8` engine.
+- The gate opens only after the engine emits `status Ready`; all nine observers are then banged to send a fresh, complete Song snapshot.
+- Renamed the JavaScript entry point from `host` to `song_context` and added a defensive top-level `anything()` dispatcher.
+- Added regression tests proving that no Song observer bypasses the startup gate or connects directly to `v8`.
+- Added `scripts/validate-max-device.mjs` and `npm run validate:max` for standalone patch validation.
+- Added a Max for Live repository skill at `.cursor/skills/max-for-live/SKILL.md` documenting the required lifecycle and UI invariants.
+- Adapted the Max 9 `v8ui` renderer for the shorter preview area.
 
 ## 0.3.4 — Preview and interface pass
 
