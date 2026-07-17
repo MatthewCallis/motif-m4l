@@ -1,51 +1,92 @@
 ---
-name: max-for-live-device
-description: Build and validate Motif as a Max 9 MIDI Effect for Ableton Live using native MIDI routing, native Live Object Model observers, and a TypeScript-compiled v8 engine.
+name: motif-max-for-live-development
+description: Build and validate the Motif Max for Live MIDI Effect without breaking Max v8 message dispatch, Live Song observers, MIDI pass-through, or the 169px device layout.
 ---
 
-# Max for Live device rules
+# Motif Max for Live development
 
-Use current official Cycling '74 and Ableton documentation as the source of truth. Do not substitute videos, forum guesses, or legacy examples when the current reference covers the API.
+## Non-negotiable runtime boundary
 
-## Non-negotiable invariants
+Max must discover exactly one hand-written top-level JavaScript handler:
 
-1. The Presentation UI must fit inside Live's fixed 169-pixel device height. Every `presentation_rect` must satisfy `y + height <= 169` and remain inside `devicewidth`.
-2. Read `Song.tempo`, `Song.root_note`, `Song.scale_mode`, `Song.scale_name`, `Song.scale_intervals`, meter, transport state, and song time with native `live.path live_set` and `live.observer` objects.
-3. Native observers must update visible BPM, key, scale, meter, and transport UI directly. JavaScript must not be required for those displays.
-4. Host telemetry is read-only UI. Never represent Live's root, tempo, scale name, meter, or transport as editable menus or parameter controls.
-5. MIDI must be fail-open while the TypeScript engine initializes: `midiin -> gate 2 1`, with outlet 1 passing raw MIDI directly to `midiflush -> midiout` until `status Ready` switches to outlet 2.
-6. Once ready, use `midiselect @ch all @note all`. Selected notes go to the engine; the eighth outlet must pass unselected raw MIDI directly to `midiflush`. Do not parse and reconstruct unrelated MIDI.
-7. The core preview must use a native Max UI object such as `multislider`; it must not require a second JavaScript runtime.
-8. All Max-callable TypeScript handlers must compile to real top-level functions. Keep the defensive top-level `anything()` dispatcher.
-9. Runtime dependency filenames are always unversioned: `Motif.maxpat` and `motif-device.js`.
-10. Every interactive Presentation control must have `annotation_name`, `annotation`, and `hint` metadata.
-11. Never hand-edit generated `max/Motif.maxpat`. Update `scripts/generate-max-patch.mjs`, rebuild, and test.
+```js
+function anything() {
+  var message = messagename;
+  var args = arrayfromargs(arguments);
+  return MotifEngine.dispatch(message, args);
+}
+```
 
-## Required workflow
+The bridge must appear before the generated TypeScript bundle in `motif-device.js`.
 
-Run after every patch, handler, observer, MIDI, or layout change:
+Do not expose Max handlers through:
+
+- esbuild `footer` declarations
+- functions created inside an IIFE
+- `globalThis` handler tables
+- one generated top-level function per message
+- `this.messagename` instead of Max's global `messagename`
+
+The TypeScript engine exports a single `dispatch(message, args)` function. Every symbolic message sent to `v8 motif-device.js` is handled by the bridge's `anything()` function.
+
+## Adding or changing a Max message
+
+When adding a new selector such as `prepend foo`:
+
+1. Add a `foo` handler to `src/max/device.ts`.
+2. Add it to the `handlers` table.
+3. Add a valid invocation to `tests/max-handler-contract.test.ts`.
+4. Run `npm run verify`.
+
+Do not add another global Max function.
+
+## Native Live state
+
+Use `live.path live_set` and `live.observer` for Song properties. Keep tempo, key, scale, meter, transport, and song-position reads out of JavaScript LiveAPI.
+
+Current observed properties:
+
+- `tempo`
+- `root_note`
+- `scale_mode`
+- `scale_name`
+- `scale_intervals`
+- `signature_numerator`
+- `signature_denominator`
+- `is_playing`
+- `current_song_time`
+
+The observer values may be forwarded to TypeScript for motif calculations, but the visible host-state displays should remain connected to native Max objects.
+
+## MIDI safety
+
+MIDI input must remain fail-open until the engine reports `Ready`. Non-note MIDI should bypass JavaScript. Do not remove the validator assertions around `midiin`, the startup gate, `midiselect`, `midiflush`, and `midiout`.
+
+## UI constraints
+
+- Presentation Mode must be enabled.
+- Device width is fixed by the patch generator.
+- Every Presentation object must fit within Live's 169px device height.
+- Every interactive control requires `annotation_name`, `annotation`, and `hint`.
+- Runtime filenames must remain unversioned.
+
+## Required verification
+
+Run before sharing any patch or JavaScript file:
 
 ```bash
 npm run verify
 ```
 
-Verification must fail when:
+The verification must cover:
 
-- any Presentation object exceeds 169 pixels;
-- raw MIDI cannot pass before JavaScript is ready;
-- `midiselect` does not pass unselected raw MIDI from outlet 8;
-- BPM or root is represented by an editable control;
-- the core preview uses `v8ui` or an extra JavaScript dependency;
-- a dependency uses a versioned filename;
-- `initialize()`, `note()`, `sustain()`, `song_context()`, or `anything()` is absent from the compiled bundle;
-- the compiled runtime cannot initialize, consume Song context, emit preview data, schedule a motif, and pass a non-trigger note in the VM smoke test;
-- any visible control lacks help text;
-- the patch declares an invalid `v8` outlet connection.
+- TypeScript compilation
+- motif engine tests
+- the Max `anything()` bridge contract
+- every selector sent by the patch
+- Song-context handling
+- MIDI scheduling and fail-open routing
+- Presentation bounds
+- unversioned dependencies
 
-When debugging, isolate the layer before editing musical logic:
-
-1. Confirm raw MIDI reaches `midiout` while the startup gate is in bypass mode.
-2. Confirm `status Ready` switches the gate to the engine path.
-3. Confirm `midiselect` emits note lists and channel values, while outlet 8 passes unrelated raw MIDI.
-4. Confirm native `live.observer` outputs reach the visible UI directly.
-5. Only then inspect TypeScript message handling or motif compilation.
+When replacing `motif-device.js` while Max is open, send `compile` to the `v8` object or close and reopen the device so Max recompiles the file.

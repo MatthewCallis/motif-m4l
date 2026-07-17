@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.7
+
+- Added oxlint with type-aware TypeScript rules (`npm run lint` / `lint:fix`), wired into `verify`.
+- Replaced generated top-level Max handlers with one hand-written `anything()` bridge.
+- The TypeScript bundle now exports a single `dispatch(message, args)` entry point.
+- Added a complete patch-message contract test, including `song_context`.
+- Added bridge validation and a Max for Live development skill to prevent handler regressions.
+- Removed stale JavaScript source-map files from the Max runtime folder.
+
 ## 0.3.6 — MIDI and host-display stabilization
 
 - Replaced the startup-blocking MIDI path with a fail-open `gate 2 1`: all raw MIDI passes directly to `midiout` until the TypeScript engine reports `Ready`.

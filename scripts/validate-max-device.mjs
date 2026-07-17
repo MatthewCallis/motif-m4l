@@ -64,10 +64,20 @@ assert.deepEqual(patch.dependency_cache.map(({ name }) => name), ['motif-device.
 assert.ok(!JSON.stringify(patch).match(/motif-(?:device|preview)-v\d/i), 'versioned runtime dependency found');
 
 const source = await readFile('dist/motif-device.js', 'utf8');
-for (const handler of ['initialize', 'note', 'sustain', 'song_context']) {
-  assert.match(source, new RegExp(`function ${handler}\\(\\)`), `compiled ${handler} handler missing`);
-}
-assert.match(source, /function anything\(\)/, 'compiled anything fallback missing');
+assert.match(
+  source.slice(0, 600),
+  /var inlets = 1;[\s\S]*var outlets = 1;[\s\S]*function anything\(\)/,
+  'hand-written Max bridge must be the first code in the compiled file',
+);
+assert.match(source, /var message = messagename;/, 'bridge must use Max messagename');
+assert.match(source, /arrayfromargs\(arguments\)/, 'bridge must normalize Max arguments');
+assert.match(source, /MotifEngine\.dispatch\(message, args\)/, 'bridge must use the single engine dispatcher');
+assert.doesNotMatch(
+  source.slice(0, source.indexOf('"use strict";')),
+  /function song_context\(/,
+  'named Max handlers must not be generated in the Max bridge',
+);
+assert.doesNotMatch(source, /__motifHandlers/, 'legacy global handler table found');
 assert.doesNotMatch(source, /function host(?:_|\()/, 'legacy host handler found');
 
 console.log(`Validated Motif.maxpat: ${patch.devicewidth}×${DEVICE_HEIGHT}, fail-open MIDI, native host displays, native preview.`);

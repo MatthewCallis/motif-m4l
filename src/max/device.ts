@@ -131,7 +131,12 @@ function emitSelectedMotifUi(): void {
 }
 
 function flattenValues(values: readonly unknown[]): unknown[] {
-  return values.flatMap((value) => (Array.isArray(value) ? value : [value]));
+  const out: unknown[] = [];
+  for (const value of values) {
+    if (Array.isArray(value)) out.push(...(value as unknown[]));
+    else out.push(value);
+  }
+  return out;
 }
 
 function numbers(values: readonly unknown[]): number[] {
@@ -548,4 +553,19 @@ const handlers: MotifHandlers = {
   song_context,
 };
 
-(globalThis as typeof globalThis & { __motifHandlers?: MotifHandlers }).__motifHandlers = handlers;
+/**
+ * Single message boundary used by the hand-written Max bridge.
+ *
+ * Max only needs to discover one top-level `anything()` function. Keeping the
+ * TypeScript bundle behind this dispatcher prevents esbuild scope changes from
+ * hiding individual Max message handlers.
+ */
+export function dispatch(message: string, args: readonly unknown[]): void {
+  const handler = (handlers as unknown as Record<string, (...values: unknown[]) => void>)[message];
+  if (!handler) {
+    emitError(`Unknown message: ${message}`);
+    return;
+  }
+
+  handler(...args);
+}

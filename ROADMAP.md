@@ -36,14 +36,29 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 - [x] Native Max `pipe` scheduling with replace/overlap behavior and panic handling.
 - [x] Automated coverage for host timing, preview pitch mapping, 169px UI bounds, fail-open MIDI routing, native Song displays, compiled-runtime behavior, control help, MIDI conversion, and overlap safety.
 
-### 0.3 validation still required in Live
+### 0.4 validation still required in Live
 
-- [ ] Confirm the native contour preview and exact note names render correctly in the target Max 9 build.
-- [ ] Check text wrapping and control spacing at default and HiDPI display scaling.
-- [ ] Freeze the device and verify `motif-device.js` is embedded.
-- [ ] Smoke-test all controls, automation recall, pass-through modes, and tempo automation.
+- [x] Confirm the native contour preview and exact note names render correctly in the target Max 9 build.
+- [x] Check text wrapping and control spacing at default and HiDPI display scaling.
+- [x] Freeze the device and verify `motif-device.js` is embedded.
+- [x] Smoke-test all controls, automation recall, pass-through modes, and tempo automation.
 
-## 0.4 — Harmonic adaptation
+## 0.5 — Authoring UI
+
+- [ ] Searchable browser with tags and favorites.
+- [ ] Record a played phrase and convert it into a motif.
+- [ ] Per-note editing of degree, accidental, timing, gate, and velocity.
+- [ ] UI for assigning specific motifs to individual trigger notes.
+
+## 1.0 — Productized device
+
+- [ ] Polished, resizable Presentation Mode UI.
+- [ ] macOS and Windows validation in supported Live versions.
+- [ ] CPU and scheduling stress tests.
+- [ ] Accessibility, undo behavior, automation mappings, and documentation.
+- [ ] Curated original/public-domain vocabulary library with clear provenance.
+
+## 2.0 — Harmonic adaptation
 
 - [ ] Chord input from held notes or a side-chain/control track.
 - [ ] Chord-tone targeting and avoid-note rules.
@@ -51,22 +66,3 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 - [ ] Fixed anchor notes mixed with scale-relative notes.
 - [ ] Approach tones, enclosures, and configurable chromatic alterations.
 - [ ] Major/minor/modal variation sets.
-
-## 0.5 — Authoring UI
-
-- [ ] Searchable browser with tags and favorites.
-- [ ] Piano-roll phrase preview.
-- [ ] Record a played phrase and convert it into a motif.
-- [ ] Per-note editing of degree, accidental, timing, gate, and velocity.
-- [ ] Variation controls for density, direction, octave, and rhythmic displacement.
-- [ ] Preset/state persistence using Live parameters and `pattr` where appropriate.
-- [ ] UI for assigning specific motifs to individual trigger notes.
-
-## 1.0 — Productized device
-
-- [ ] Polished, resizable Presentation Mode UI.
-- [ ] Frozen `.amxd` with embedded dependencies.
-- [ ] macOS and Windows validation in supported Live versions.
-- [ ] CPU and scheduling stress tests.
-- [ ] Accessibility, undo behavior, automation mappings, and documentation.
-- [ ] Curated original/public-domain vocabulary library with clear provenance.

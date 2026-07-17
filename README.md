@@ -46,3 +46,9 @@ Open an existing Max MIDI Effect using **Edit in Max**, replace every old patch 
 - After `Ready`, `midiselect @ch all @note all` extracts notes for motif processing.
 - The eighth `midiselect` outlet passes controllers, bend, pressure, program changes, and other unselected raw MIDI directly to `midiout`.
 - The default `non-triggers` policy consumes notes inside the trigger zone and passes notes outside it.
+
+## Max JavaScript message boundary
+
+`motif-device.js` intentionally exposes only one top-level Max function: `anything()`. It uses Max's global `messagename` and `arrayfromargs(arguments)` values, then forwards the message to the TypeScript engine's `dispatch()` function. This avoids relying on bundler-generated global functions for selectors such as `song_context`.
+
+After replacing the JavaScript file in an open device, send `compile` to the `v8 motif-device.js` object or reload the device.

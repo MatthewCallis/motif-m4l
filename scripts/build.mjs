@@ -1,67 +1,45 @@
 import { build } from 'esbuild';
-import { copyFile, mkdir } from 'node:fs/promises';
+import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import './generate-builtins.mjs';
 import './generate-max-patch.mjs';
 
-const handlerNames = [
-  'initialize',
-  'note',
-  'cc',
-  'sustain',
-  'motif',
-  'pitch_mode',
-  'meter_mode',
-  'retrigger',
-  'trigger_mode',
-  'launch_quantization',
-  'pass_through',
-  'trigger_low',
-  'trigger_high',
-  'map_trigger',
-  'unmap_trigger',
-  'clear_trigger_map',
-  'library_path',
-  'refresh_library',
-  'panic',
-  'list_motifs',
-  'dump_context',
-  'song_context',
-];
+const MAX_BRIDGE = `// Hand-written Max v8 bridge. Keep this at the top level and before the bundle.
+var inlets = 1;
+var outlets = 1;
 
-const deviceFooter = [
-  ...handlerNames.map(
-    (name) =>
-      `function ${name}() { return globalThis.__motifHandlers.${name}.apply(null, arguments); }`,
-  ),
-  `function anything() {
-  const handler = globalThis.__motifHandlers[this.messagename];
-  if (typeof handler !== 'function') {
-    error('Motif: unknown message ' + this.messagename + '\\n');
+function anything() {
+  var message = messagename;
+  var args = arrayfromargs(arguments);
+
+  if (typeof MotifEngine === "undefined" || typeof MotifEngine.dispatch !== "function") {
+    error("Motif: engine dispatcher is unavailable for " + message + "\\n");
     return;
   }
-  return handler.apply(null, arguments);
-}`,
-].join('\n');
 
-
+  return MotifEngine.dispatch(message, args);
+}
+`;
 
 await mkdir('dist', { recursive: true });
 await mkdir('max', { recursive: true });
 
+const enginePath = 'dist/.motif-engine.js';
 await build({
   entryPoints: ['src/max/device.ts'],
-  outfile: 'dist/motif-device.js',
+  outfile: enginePath,
   bundle: true,
   format: 'iife',
+  globalName: 'MotifEngine',
   platform: 'neutral',
   target: 'es2020',
-  sourcemap: true,
+  sourcemap: false,
   legalComments: 'none',
-  footer: { js: deviceFooter },
 });
 
-
-
-for (const filename of ['motif-device.js', 'motif-device.js.map']) {
-  await copyFile(`dist/${filename}`, `max/${filename}`);
-}
+const engine = await readFile(enginePath, 'utf8');
+const output = `${MAX_BRIDGE}\n${engine}`;
+await writeFile('dist/motif-device.js', output);
+await copyFile('dist/motif-device.js', 'max/motif-device.js');
+await rm(enginePath, { force: true });
+await rm('dist/motif-device.js.map', { force: true });
+await rm('max/motif-device.js.map', { force: true });

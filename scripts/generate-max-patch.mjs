@@ -193,22 +193,6 @@ function uiLiveNumber(name, rect, longName, shortName, initial, help) {
   });
 }
 
-function uiReadOnlyNumber(name, rect, initial, help) {
-  return add(name, 'live.numbox', rect, {
-    appearance: 4,
-    fontsize: 11,
-    ignoreclick: 1,
-    parameter_enable: 0,
-    presentation: 1,
-    presentation_rect: rect,
-    value: initial,
-    activebgcolor: COLORS.header,
-    bordercolor: COLORS.header,
-    textcolor: COLORS.text,
-    ...helpAttrs(help.name, help.description),
-  });
-}
-
 function uiButton(name, text, rect, help, options = {}) {
   const bg = options.danger ? COLORS.danger : COLORS.control;
   const active = options.danger ? COLORS.danger : COLORS.accent;

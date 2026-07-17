@@ -181,11 +181,13 @@ test('MIDI routing is fail-open and follows the documented midiselect pattern', 
   assert.ok(hasLine(lines, engineMode, 0, inputGate, 0));
 });
 
-test('compiled bundle exposes all real top-level Max handlers', async () => {
+test('compiled bundle uses one hand-written top-level Max dispatcher', async () => {
   const source = await readFile('dist/motif-device.js', 'utf8');
-  for (const handler of ['initialize', 'note', 'sustain', 'song_context']) {
-    assert.match(source, new RegExp(`function ${handler}\\(\\) \\{ return globalThis\\.__motifHandlers\\.${handler}`));
-  }
-  assert.match(source, /function anything\(\)/);
+  assert.match(source.slice(0, 600), /var inlets = 1;[\s\S]*var outlets = 1;[\s\S]*function anything\(\)/);
+  assert.match(source, /var message = messagename;/);
+  assert.match(source, /arrayfromargs\(arguments\)/);
+  assert.match(source, /MotifEngine\.dispatch\(message, args\)/);
+  assert.doesNotMatch(source.slice(0, source.indexOf('"use strict";')), /function song_context\(/);
+  assert.doesNotMatch(source, /__motifHandlers/);
   assert.doesNotMatch(source, /function host(?:_|\()/);
 });

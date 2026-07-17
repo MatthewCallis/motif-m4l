@@ -1,11 +1,50 @@
+// Hand-written Max v8 bridge. Keep this at the top level and before the bundle.
+var inlets = 1;
+var outlets = 1;
+
+function anything() {
+  var message = messagename;
+  var args = arrayfromargs(arguments);
+
+  if (typeof MotifEngine === "undefined" || typeof MotifEngine.dispatch !== "function") {
+    error("Motif: engine dispatcher is unavailable for " + message + "\n");
+    return;
+  }
+
+  return MotifEngine.dispatch(message, args);
+}
+
 "use strict";
-(() => {
+var MotifEngine = (() => {
+  var __defProp = Object.defineProperty;
+  var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+  var __getOwnPropNames = Object.getOwnPropertyNames;
+  var __hasOwnProp = Object.prototype.hasOwnProperty;
   var __typeError = (msg) => {
     throw TypeError(msg);
   };
+  var __export = (target, all) => {
+    for (var name in all)
+      __defProp(target, name, { get: all[name], enumerable: true });
+  };
+  var __copyProps = (to, from, except, desc) => {
+    if (from && typeof from === "object" || typeof from === "function") {
+      for (let key of __getOwnPropNames(from))
+        if (!__hasOwnProp.call(to, key) && key !== except)
+          __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+    }
+    return to;
+  };
+  var __toCommonJS = (mod2) => __copyProps(__defProp({}, "__esModule", { value: true }), mod2);
   var __accessCheck = (obj, member, msg) => member.has(obj) || __typeError("Cannot " + msg);
   var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
   var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
+
+  // src/max/device.ts
+  var device_exports = {};
+  __export(device_exports, {
+    dispatch: () => dispatch
+  });
 
   // src/core/math.ts
   function clamp(value, minimum, maximum) {
@@ -774,7 +813,12 @@
     emit("ui", "motif-tags", tagLine);
   }
   function flattenValues(values) {
-    return values.flatMap((value) => Array.isArray(value) ? value : [value]);
+    const out = [];
+    for (const value of values) {
+      if (Array.isArray(value)) out.push(...value);
+      else out.push(value);
+    }
+    return out;
   }
   function numbers(values) {
     return flattenValues(values).map(Number).filter(Number.isFinite);
@@ -1135,36 +1179,13 @@
     dump_context,
     song_context
   };
-  globalThis.__motifHandlers = handlers;
-})();
-function initialize() { return globalThis.__motifHandlers.initialize.apply(null, arguments); }
-function note() { return globalThis.__motifHandlers.note.apply(null, arguments); }
-function cc() { return globalThis.__motifHandlers.cc.apply(null, arguments); }
-function sustain() { return globalThis.__motifHandlers.sustain.apply(null, arguments); }
-function motif() { return globalThis.__motifHandlers.motif.apply(null, arguments); }
-function pitch_mode() { return globalThis.__motifHandlers.pitch_mode.apply(null, arguments); }
-function meter_mode() { return globalThis.__motifHandlers.meter_mode.apply(null, arguments); }
-function retrigger() { return globalThis.__motifHandlers.retrigger.apply(null, arguments); }
-function trigger_mode() { return globalThis.__motifHandlers.trigger_mode.apply(null, arguments); }
-function launch_quantization() { return globalThis.__motifHandlers.launch_quantization.apply(null, arguments); }
-function pass_through() { return globalThis.__motifHandlers.pass_through.apply(null, arguments); }
-function trigger_low() { return globalThis.__motifHandlers.trigger_low.apply(null, arguments); }
-function trigger_high() { return globalThis.__motifHandlers.trigger_high.apply(null, arguments); }
-function map_trigger() { return globalThis.__motifHandlers.map_trigger.apply(null, arguments); }
-function unmap_trigger() { return globalThis.__motifHandlers.unmap_trigger.apply(null, arguments); }
-function clear_trigger_map() { return globalThis.__motifHandlers.clear_trigger_map.apply(null, arguments); }
-function library_path() { return globalThis.__motifHandlers.library_path.apply(null, arguments); }
-function refresh_library() { return globalThis.__motifHandlers.refresh_library.apply(null, arguments); }
-function panic() { return globalThis.__motifHandlers.panic.apply(null, arguments); }
-function list_motifs() { return globalThis.__motifHandlers.list_motifs.apply(null, arguments); }
-function dump_context() { return globalThis.__motifHandlers.dump_context.apply(null, arguments); }
-function song_context() { return globalThis.__motifHandlers.song_context.apply(null, arguments); }
-function anything() {
-  const handler = globalThis.__motifHandlers[this.messagename];
-  if (typeof handler !== 'function') {
-    error('Motif: unknown message ' + this.messagename + '\n');
-    return;
+  function dispatch(message, args) {
+    const handler = handlers[message];
+    if (!handler) {
+      emitError(`Unknown message: ${message}`);
+      return;
+    }
+    handler(...args);
   }
-  return handler.apply(null, arguments);
-}
-//# sourceMappingURL=motif-device.js.map
+  return __toCommonJS(device_exports);
+})();
