@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "scale-turn",
+  "name": "Scale Turn",
+  "description": "Compact scale-aware turn used to validate one-key phrase triggering.",
+  "pitchMode": "scale",
+  "sourceMeter": { "numerator": 4, "denominator": 4 },
+  "length": 3360,
+  "defaultGate": 0.82,
+  "metadata": { "tags": ["demo", "scale", "turn"] },
+  "notes": [
+    { "at": 0, "duration": 480, "pitch": 0, "velocityOffset": 4 },
+    { "at": 480, "duration": 480, "pitch": 1 },
+    { "at": 960, "duration": 480, "pitch": 2, "velocityOffset": 3 },
+    { "at": 1440, "duration": 480, "pitch": 4, "velocityOffset": 7 },
+    { "at": 1920, "duration": 480, "pitch": 3 },
+    { "at": 2400, "duration": 480, "pitch": 1, "velocityOffset": -3 },
+    { "at": 2880, "duration": 480, "pitch": 0, "velocityOffset": 2, "gate": 0.95 }
+  ]
+}

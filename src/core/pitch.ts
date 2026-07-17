@@ -12,14 +12,6 @@ function normalizeScaleIntervals(intervals: readonly number[]): number[] {
   return normalized;
 }
 
-/**
- * Move by a number of scale degrees from an exact trigger pitch.
- *
- * When the trigger belongs to Live's current scale, the movement follows that
- * scale from the trigger's actual degree. If it is chromatic to the scale, the
- * selected interval pattern is anchored to the trigger so the first note still
- * starts exactly where the performer played.
- */
 export function transposeByScaleDegree(
   triggerPitch: number,
   degreeOffset: number,
@@ -48,4 +40,18 @@ export function transposeByScaleDegree(
 
 export function transposeChromatically(triggerPitch: number, semitones: number): number {
   return clamp(triggerPitch + semitones, 0, 127);
+}
+
+export function transposeHybrid(
+  triggerPitch: number,
+  degreeOffset: number,
+  accidental: number,
+  rootNote: number,
+  scaleIntervals: readonly number[],
+): number {
+  return clamp(
+    transposeByScaleDegree(triggerPitch, degreeOffset, rootNote, scaleIntervals) + accidental,
+    0,
+    127,
+  );
 }

@@ -1,5 +1,7 @@
 import { build } from 'esbuild';
 import { copyFile, mkdir } from 'node:fs/promises';
+import './generate-builtins.mjs';
+import './generate-max-patch.mjs';
 
 await mkdir('dist', { recursive: true });
 await mkdir('max', { recursive: true });

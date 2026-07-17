@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.local/motif.schema.json",
+  "title": "Motif v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "id", "name", "description", "pitchMode", "sourceMeter", "length", "notes"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "id": { "type": "string", "minLength": 1 },
+    "name": { "type": "string", "minLength": 1 },
+    "description": { "type": "string", "minLength": 1 },
+    "pitchMode": { "enum": ["scale", "chromatic", "hybrid"] },
+    "sourceMeter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["numerator", "denominator"],
+      "properties": {
+        "numerator": { "type": "integer", "minimum": 1 },
+        "denominator": { "enum": [1, 2, 4, 8, 16, 32] }
+      }
+    },
+    "length": { "type": "number", "exclusiveMinimum": 0 },
+    "defaultGate": { "type": "number", "exclusiveMinimum": 0 },
+    "velocityCurve": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "inputMin": { "type": "number" },
+        "inputMax": { "type": "number" },
+        "outputMin": { "type": "number" },
+        "outputMax": { "type": "number" },
+        "exponent": { "type": "number", "exclusiveMinimum": 0 }
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "author": { "type": "string" },
+        "source": { "type": "string" },
+        "license": { "type": "string" },
+        "tags": { "type": "array", "items": { "type": "string" } },
+        "suggestedModes": { "type": "array", "items": { "type": "string" } },
+        "pickupTicks": { "type": "number" }
+      }
+    },
+    "notes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["at", "duration", "pitch"],
+        "properties": {
+          "at": { "type": "number", "minimum": 0 },
+          "duration": { "type": "number", "exclusiveMinimum": 0 },
+          "pitch": { "type": "number" },
+          "accidental": { "type": "number" },
+          "velocity": { "type": "number", "minimum": 1, "maximum": 127 },
+          "velocityOffset": { "type": "number" },
+          "velocityScale": { "type": "number" },
+          "gate": { "type": "number", "exclusiveMinimum": 0 },
+          "legato": { "type": "boolean" },
+          "tie": { "type": "boolean" }
+        }
+      }
+    }
+  }
+}

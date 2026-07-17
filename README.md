@@ -1,25 +1,45 @@
-# Motif for Max for Live
+# Motif for Max for Live — v0.3.1
 
-A scale-aware MIDI effect that triggers a complete phrase from one incoming note.
-The musical engine is written in TypeScript and bundled into one JavaScript file
-for Max's modern `v8` object. Max's native `pipe` object schedules the generated
-MIDI events so JavaScript does not perform delayed callbacks.
+A scale-aware Max for Live MIDI Effect that triggers a complete phrase from one incoming note. The musical engine is written in TypeScript and bundled into one JavaScript file for Max's `v8` object. Max's native `pipe` objects schedule the phrase after TypeScript has generated the MIDI events.
 
-## Current prototype
+## What v0.3 includes
 
-- Reads Live's tempo, current scale, root note, and time signature through `LiveAPI`.
-- Triggers a motif from any note-on message.
-- Maps relative scale degrees from the exact played note.
-- Falls back to anchoring the selected scale shape when the trigger is outside the scale.
-- Supports fixed chromatic intervals.
-- Supports preserving the original rhythm or fitting a 4/4 source bar into Live's current bar length.
-- Uses a native Max scheduler for note-on and note-off events.
-- Supports replace and overlap retrigger modes.
-- Includes panic handling for queued and currently held notes.
+- Reads Live's tempo, root note, current scale, scale mode, time signature, and transport through native `live.observer` objects.
+- Built-in scale, chromatic, and hybrid scale-degree-plus-accidental mappings.
+- Max 9-native Presentation Mode UI using `live.menu`, `live.tab`, `live.numbox`, and `live.text`.
+- Trigger-note consumption by default, preventing the dry note from doubling the motif.
+- Configurable trigger zone and `none`, `non-triggers`, or `all` note pass-through.
+- Pass-through for CC, poly pressure, channel pressure, pitch bend, and program changes unless MIDI pass-through is set to `none`.
+- One-shot, hold, toggle, latch, and release-tail trigger modes.
+- Immediate, 1/16, 1/8, 1/4, and bar launch quantization.
+- Replace and overlap retrigger modes with note-instance accounting.
+- Sustain-pedal support for hold mode.
+- Tempo-relative scheduling while Live is playing and millisecond scheduling while stopped.
+- Editable JSON motif library, schema, validation, MIDI import/export, and external library loading.
+- A canonical two-bar Mitsuda Lick implementation.
 
-The included phrases are intentionally generic test motifs. The named Mitsuda lick
-should be added only after its notes, rhythm, articulation, and adaptation rules are
-written down explicitly.
+## Mitsuda Lick implementation
+
+The built-in `mitsuda-lick` follows the commonly described contour:
+
+1. A long tonic.
+2. A step down.
+3. A leap upward by a fourth from that lower note.
+4. A quick chromatic descent back to the tonic.
+
+Its chromatic offsets are:
+
+```text
+0, -2, +3, +2, +1, 0
+```
+
+Triggered from C, that becomes:
+
+```text
+C, B♭, E♭, D, D♭, C
+```
+
+The phrase is represented as a two-bar 4/4 motif. The contour comes directly from the linked explanation; the exact durations and articulation are a practical canonicalization rather than a transcription from one copyrighted recording.
 
 ## Build
 
@@ -28,52 +48,117 @@ npm install
 npm run verify
 ```
 
-The build writes the Max-compatible bundle to:
+The build:
+
+- validates TypeScript;
+- runs the automated tests;
+- regenerates built-in motifs from JSON;
+- regenerates `max/Motif.maxpat`;
+- bundles `src/max/device.ts` into `max/motif-device.js`.
+
+## Update an existing `.amxd`
+
+This repository intentionally does not contain a renamed/fake `.amxd`. Max itself must save the real device container.
+
+1. Run `npm run build`.
+2. Open your existing Motif Max MIDI Effect and choose **Edit in Max**.
+3. Unlock the patcher with **⌘E**.
+4. Select all existing objects and delete them.
+5. Open `max/Motif.maxpat`, unlock it, then select all and copy.
+6. Paste into the device patcher.
+7. Copy `max/motif-device.js` beside the `.amxd` while developing.
+8. Save the device in Max.
+9. Use **Freeze Device**, then save again when preparing a portable device.
+
+The patch sends `presentation 1` to `thispatcher` on load, so copy/pasting the objects into an existing device no longer depends on the destination patcher preserving its Presentation setting. Set the device width once after pasting, as described in `max/INSTALL.md`.
+
+## Default behavior
+
+- **Selected motif:** Mitsuda Lick.
+- **Trigger zone:** MIDI notes 36–84.
+- **Pass-through:** `non-triggers`.
+- Notes inside the trigger zone launch the motif and are consumed.
+- Notes outside the zone pass through unchanged.
+- Non-note MIDI passes through unchanged.
+
+This removes the previous dry-note-plus-motif doubling. Select `all` only when deliberate layering is desired.
+
+## UI controls
+
+- **Motif:** built-in and externally loaded motifs.
+- **Pitch:** motif-defined mode, scale, chromatic, or hybrid.
+- **Meter:** preserve phrase timing or fit each source bar to Live's meter.
+- **Retrigger:** replace or safely overlap phrases.
+- **Trigger:** one-shot, hold, toggle, latch, or release-tail.
+- **Quantize:** immediate, 1/16, 1/8, 1/4, or next bar.
+- **MIDI pass-through:** none, non-trigger notes, or all notes.
+- **Trigger zone:** inclusive low/high MIDI note range.
+- **Choose Library / Refresh:** load a directory of motif JSON files.
+- **Panic:** clear queues and release held notes.
+
+## Per-note trigger maps
+
+The v0.3 engine supports maps even though the graphical map editor is planned for v0.5. Send these messages to the `v8 motif-device.js` object from Max:
 
 ```text
-dist/motif-device.js
-max/motif-device.js
+map_trigger 60 mitsuda-lick
+map_trigger 61 scale-turn
+unmap_trigger 60
+clear_trigger_map
 ```
 
-## Run in Ableton Live
+A mapped note is always treated as a trigger even when it falls outside the trigger zone.
 
-1. Build the project.
-2. Open `max/Motif.amxd` in Live, or open a blank Max MIDI Effect and paste the contents of `max/Motif.maxpat` into it.
-3. Keep `motif-device.js` beside the device while developing.
-4. Put the device before an instrument.
-5. Play a MIDI note. The source note is consumed and replaced with the selected motif.
+## External motif library
 
-When preparing a distributable device, open it in Max and use **Freeze Device** so
-the JavaScript dependency is embedded into the `.amxd`.
+Choose a folder containing `.json` files through the UI. Each file is validated against the runtime rules. The formal schema is at:
 
-## Controls
+```text
+schemas/motif.schema.json
+```
 
-- **Motif:** selects a built-in phrase.
-- **Pitch mapping:** `auto` uses the motif's encoding; `scale` and `chromatic` force a mode.
-- **Meter behavior:** `preserve` keeps quarter-note timing; `fit-bar` scales a source bar to the current Live bar.
-- **Retrigger:** `replace` stops the current phrase before starting another; `overlap` allows polyphonic phrases.
-- **Panic:** clears queued notes and emits note-offs for active notes.
+Example motifs are under:
 
-## Known limitations
+```text
+motifs/builtin/
+```
 
-- The first event is generated by Max's low-priority JavaScript thread. Subsequent events are scheduled by native Max objects, but the initial trigger is not sample accurate.
-- CC, pitch bend, aftertouch, program change, sustain, and MPE data are not passed through yet.
-- Tempo is sampled when the phrase is triggered. Mid-phrase tempo automation does not retime already queued events.
-- The library is currently compiled into the bundle rather than loaded from editable JSON.
-- Chord detection, chord-aware remapping, voice leading, quantized launch, variation generation, recording/import, and a polished presentation UI are not implemented yet.
+## MIDI conversion
+
+Export a motif to MIDI:
+
+```bash
+npm run midi:export -- motifs/builtin/mitsuda-lick.json mitsuda.mid 60
+```
+
+Import a MIDI phrase and analyze it as chromatic, scale-relative, or hybrid:
+
+```bash
+npm run midi:import -- phrase.mid phrase.json hybrid
+```
+
+## Live host synchronization
+
+Max 9 now observes Song properties with native `live.path` and `live.observer` objects. Those values are forwarded to the TypeScript engine through explicit `host_*` messages. This avoids JavaScript observer lifecycle problems and makes tempo, scale, meter, and transport changes visible immediately. The only remaining JavaScript Live API read is the guarded song-position lookup used when a quantized phrase is triggered.
+
+## Current limitations
+
+- The trigger itself enters through Max's low-priority JavaScript thread, so the initial response is not sample-accurate.
+- Fixed controls now use `live.*` parameter objects and are stored with the device; the dynamically populated motif menu remains a regular `umenu`.
+- Per-note maps currently require Max messages rather than a graphical editor.
+- Chord recognition, harmony-aware remapping, voice leading, phrase recording, and piano-roll editing begin in v0.4–v0.5.
+- The generated `.maxpat` and JavaScript bundle are validated here, but the final `.amxd` must be created and tested inside Max for Live.
 
 ## Project layout
 
 ```text
-src/core/       Pure host-independent motif compiler
-src/library/    Built-in motif definitions
-src/max/        Max v8 adapter and Live API observers
-max/            Prototype Max patch and generated bundle
-tests/          Node-based engine tests
+motifs/builtin/  Built-in editable JSON motifs
+schemas/         Formal motif JSON schema
+scripts/         Build, patch generation, and MIDI conversion tools
+src/core/        Host-independent motif compiler and scheduler model
+src/library/     Runtime validation and motif store
+src/max/         Max v8 adapter and Live API integration
+src/tools/       MIDI import/export implementation
+max/             Generated Max patch and JavaScript bundle
+tests/           Node-based automated tests
 ```
-
-## Next milestone
-
-The next implementation pass should add a versioned external motif schema and a
-MIDI-file-to-relative-motif importer. That gives us a practical way to enter,
-inspect, and test the target lick without hard-coding every phrase in TypeScript.

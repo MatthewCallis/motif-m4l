@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "id": "mitsuda-lick",
+  "name": "Mitsuda Lick",
+  "description": "Canonical two-bar contour: long tonic, step down, leap up a fourth, then a fast chromatic descent to tonic.",
+  "pitchMode": "chromatic",
+  "sourceMeter": { "numerator": 4, "denominator": 4 },
+  "length": 7680,
+  "defaultGate": 0.92,
+  "velocityCurve": { "outputMin": 48, "outputMax": 118, "exponent": 0.85 },
+  "metadata": {
+    "author": "Traditional/canonical VGM vocabulary",
+    "source": "https://www.reddit.com/r/explainlikeimfive/comments/1cpt2p8/eli5_what_is_the_mitsuda_lick_and_why_is_it/",
+    "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
+    "tags": ["mitsuda", "chrono-trigger", "chromatic", "cadence", "two-bar"],
+    "suggestedModes": ["minor", "dorian", "aeolian"]
+  },
+  "notes": [
+    { "at": 0, "duration": 2880, "pitch": 0, "velocityOffset": 5, "gate": 0.96 },
+    { "at": 2880, "duration": 960, "pitch": -2, "velocityOffset": -4 },
+    { "at": 3840, "duration": 960, "pitch": 3, "velocityOffset": 7 },
+    { "at": 4800, "duration": 480, "pitch": 2, "velocityOffset": 1 },
+    { "at": 5280, "duration": 480, "pitch": 1, "velocityOffset": -2 },
+    { "at": 5760, "duration": 1920, "pitch": 0, "velocityOffset": 6, "gate": 0.98 }
+  ]
+}

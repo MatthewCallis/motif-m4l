@@ -1,5 +1,5 @@
 import { clamp } from './math.js';
-import { transposeByScaleDegree, transposeChromatically } from './pitch.js';
+import { transposeByScaleDegree, transposeChromatically, transposeHybrid } from './pitch.js';
 import { barLengthTicks, ticksToMilliseconds } from './timing.js';
 import type {
   CompileOptions,
@@ -7,12 +7,78 @@ import type {
   Motif,
   MotifNote,
   ScheduledMidiEvent,
+  VelocityCurve,
 } from './types.js';
 
-function resolveVelocity(note: MotifNote, triggerVelocity: number): number {
-  const base = note.velocity ?? triggerVelocity;
+function applyVelocityCurve(value: number, curve?: VelocityCurve): number {
+  if (!curve) {
+    return value;
+  }
+
+  const inputMin = curve.inputMin ?? 1;
+  const inputMax = curve.inputMax ?? 127;
+  const outputMin = curve.outputMin ?? 1;
+  const outputMax = curve.outputMax ?? 127;
+  const exponent = Math.max(0.01, curve.exponent ?? 1);
+  const normalized = clamp((value - inputMin) / Math.max(1, inputMax - inputMin), 0, 1);
+  return outputMin + (outputMax - outputMin) * normalized ** exponent;
+}
+
+function resolveVelocity(note: MotifNote, motif: Motif, triggerVelocity: number): number {
+  const curvedTrigger = applyVelocityCurve(triggerVelocity, motif.velocityCurve);
+  const base = note.velocity ?? curvedTrigger;
   const scaled = base * (note.velocityScale ?? 1);
   return Math.round(clamp(scaled + (note.velocityOffset ?? 0), 1, 127));
+}
+
+function resolvePitch(
+  note: MotifNote,
+  motif: Motif,
+  host: HostContext,
+  options: CompileOptions,
+): number {
+  const pitchMode = options.pitchMode ?? motif.pitchMode;
+
+  switch (pitchMode) {
+    case 'chromatic':
+      return transposeChromatically(options.triggerPitch, note.pitch + (note.accidental ?? 0));
+    case 'hybrid':
+      return transposeHybrid(
+        options.triggerPitch,
+        note.pitch,
+        note.accidental ?? 0,
+        host.rootNote,
+        host.scaleIntervals,
+      );
+    default:
+      return transposeByScaleDegree(
+        options.triggerPitch,
+        note.pitch,
+        host.rootNote,
+        host.scaleIntervals,
+      );
+  }
+}
+
+function effectiveDuration(note: MotifNote, next: MotifNote | undefined, motif: Motif): number {
+  const gate = Math.max(0.01, note.gate ?? motif.defaultGate ?? 1);
+  let duration = note.duration * gate;
+
+  if (note.legato && next && next.at > note.at) {
+    duration = Math.max(duration, next.at - note.at);
+  }
+
+  if (
+    note.tie &&
+    next &&
+    next.at <= note.at + note.duration &&
+    next.pitch === note.pitch &&
+    (next.accidental ?? 0) === (note.accidental ?? 0)
+  ) {
+    duration = Math.max(duration, next.at + next.duration - note.at);
+  }
+
+  return duration;
 }
 
 export function compileMotif(
@@ -20,26 +86,26 @@ export function compileMotif(
   host: HostContext,
   options: CompileOptions,
 ): ScheduledMidiEvent[] {
-  const pitchMode = options.pitchMode ?? motif.pitchMode;
   const targetBar = barLengthTicks(host.timeSignature);
   const sourceBar = barLengthTicks(motif.sourceMeter);
   const timeScale = options.meterMode === 'fit-bar' ? targetBar / sourceBar : 1;
   const channel = Math.round(clamp(options.channel, 1, 16));
+  const launchOffsetTicks = Math.max(0, options.launchOffsetTicks ?? 0);
+  const instanceId = options.instanceId ?? 0;
   const events: ScheduledMidiEvent[] = [];
 
-  for (const note of motif.notes) {
-    const pitch =
-      pitchMode === 'chromatic'
-        ? transposeChromatically(options.triggerPitch, note.pitch)
-        : transposeByScaleDegree(
-            options.triggerPitch,
-            note.pitch,
-            host.rootNote,
-            host.scaleIntervals,
-          );
-    const velocity = resolveVelocity(note, options.triggerVelocity);
-    const noteOnTicks = Math.max(0, note.at * timeScale);
-    const noteOffTicks = Math.max(noteOnTicks, (note.at + note.duration) * timeScale);
+  for (let index = 0; index < motif.notes.length; index += 1) {
+    const note = motif.notes[index];
+    if (!note) {
+      continue;
+    }
+
+    const next = motif.notes[index + 1];
+    const pitch = resolvePitch(note, motif, host, options);
+    const velocity = resolveVelocity(note, motif, options.triggerVelocity);
+    const noteOnTicks = launchOffsetTicks + Math.max(0, note.at * timeScale);
+    const duration = effectiveDuration(note, next, motif) * timeScale;
+    const noteOffTicks = Math.max(noteOnTicks, noteOnTicks + duration);
 
     events.push({
       pitch,
@@ -47,6 +113,7 @@ export function compileMotif(
       channel,
       offsetTicks: noteOnTicks,
       offsetMs: ticksToMilliseconds(noteOnTicks, host.tempo),
+      instanceId,
     });
     events.push({
       pitch,
@@ -54,6 +121,7 @@ export function compileMotif(
       channel,
       offsetTicks: noteOffTicks,
       offsetMs: ticksToMilliseconds(noteOffTicks, host.tempo),
+      instanceId,
     });
   }
 
@@ -62,7 +130,6 @@ export function compileMotif(
       return left.offsetTicks - right.offsetTicks;
     }
 
-    // End an existing note before starting another note at the same instant.
     return left.velocity - right.velocity;
   });
 }

@@ -10,9 +10,11 @@ const HOST: HostContext = {
   scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
   scaleMode: true,
   timeSignature: { numerator: 4, denominator: 4 },
+  isPlaying: false,
 };
 
 const MOTIF: Motif = {
+  schemaVersion: 1,
   id: 'test',
   name: 'Test',
   description: 'Test motif',
@@ -29,10 +31,11 @@ test('compiles note-on and note-off events', () => {
       meterMode: 'preserve',
       triggerPitch: 48,
       triggerVelocity: 90,
+      instanceId: 7,
     }),
     [
-      { pitch: 52, velocity: 90, channel: 2, offsetTicks: 0, offsetMs: 0 },
-      { pitch: 52, velocity: 0, channel: 2, offsetTicks: 960, offsetMs: 500 },
+      { pitch: 52, velocity: 90, channel: 2, offsetTicks: 0, offsetMs: 0, instanceId: 7 },
+      { pitch: 52, velocity: 0, channel: 2, offsetTicks: 960, offsetMs: 500, instanceId: 7 },
     ],
   );
 });
@@ -63,4 +66,17 @@ test('can override a scale motif with chromatic intervals', () => {
   });
 
   assert.equal(events[0]?.pitch, 50);
+});
+
+test('adds a quantized launch offset without altering phrase timing', () => {
+  const events = compileMotif(MOTIF, HOST, {
+    channel: 1,
+    meterMode: 'preserve',
+    triggerPitch: 48,
+    triggerVelocity: 100,
+    launchOffsetTicks: PPQ / 2,
+  });
+
+  assert.equal(events[0]?.offsetTicks, 480);
+  assert.equal(events[1]?.offsetTicks, 1440);
 });

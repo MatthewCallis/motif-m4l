@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "quick-answer",
+  "name": "Quick Answer",
+  "description": "Short sixteenth-note response with a wider final interval.",
+  "pitchMode": "scale",
+  "sourceMeter": { "numerator": 4, "denominator": 4 },
+  "length": 1920,
+  "defaultGate": 0.72,
+  "metadata": { "tags": ["demo", "response"] },
+  "notes": [
+    { "at": 0, "duration": 240, "pitch": 0 },
+    { "at": 240, "duration": 240, "pitch": 2 },
+    { "at": 480, "duration": 240, "pitch": 1 },
+    { "at": 720, "duration": 240, "pitch": 3 },
+    { "at": 960, "duration": 240, "pitch": 2 },
+    { "at": 1200, "duration": 240, "pitch": 5, "velocityOffset": 5 },
+    { "at": 1440, "duration": 480, "pitch": 4, "gate": 0.9 }
+  ]
+}
