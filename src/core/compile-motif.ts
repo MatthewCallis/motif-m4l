@@ -31,7 +31,7 @@ function resolveVelocity(note: MotifNote, motif: Motif, triggerVelocity: number)
   return Math.round(clamp(scaled + (note.velocityOffset ?? 0), 1, 127));
 }
 
-function resolvePitch(
+export function resolveMotifPitch(
   note: MotifNote,
   motif: Motif,
   host: HostContext,
@@ -101,7 +101,7 @@ export function compileMotif(
     }
 
     const next = motif.notes[index + 1];
-    const pitch = resolvePitch(note, motif, host, options);
+    const pitch = resolveMotifPitch(note, motif, host, options);
     const velocity = resolveVelocity(note, motif, options.triggerVelocity);
     const noteOnTicks = launchOffsetTicks + Math.max(0, note.at * timeScale);
     const duration = effectiveDuration(note, next, motif) * timeScale;

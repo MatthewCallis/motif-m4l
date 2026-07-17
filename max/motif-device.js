@@ -6,8 +6,6 @@
   var __accessCheck = (obj, member, msg) => member.has(obj) || __typeError("Cannot " + msg);
   var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
   var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
-  var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
-  var __privateMethod = (obj, member, method) => (__accessCheck(obj, member, "access private method"), method);
 
   // src/core/math.ts
   function clamp(value, minimum, maximum) {
@@ -111,7 +109,7 @@
     const scaled = base * (note2.velocityScale ?? 1);
     return Math.round(clamp(scaled + (note2.velocityOffset ?? 0), 1, 127));
   }
-  function resolvePitch(note2, motif2, host, options) {
+  function resolveMotifPitch(note2, motif2, host2, options) {
     const pitchMode = options.pitchMode ?? motif2.pitchMode;
     switch (pitchMode) {
       case "chromatic":
@@ -121,15 +119,15 @@
           options.triggerPitch,
           note2.pitch,
           note2.accidental ?? 0,
-          host.rootNote,
-          host.scaleIntervals
+          host2.rootNote,
+          host2.scaleIntervals
         );
       default:
         return transposeByScaleDegree(
           options.triggerPitch,
           note2.pitch,
-          host.rootNote,
-          host.scaleIntervals
+          host2.rootNote,
+          host2.scaleIntervals
         );
     }
   }
@@ -144,12 +142,12 @@
     }
     return duration;
   }
-  function compileMotif(motif2, host, options) {
-    const targetBar = barLengthTicks(host.timeSignature);
+  function compileMotif(motif2, host2, options) {
+    const targetBar = barLengthTicks(host2.timeSignature);
     const sourceBar = barLengthTicks(motif2.sourceMeter);
     const timeScale = options.meterMode === "fit-bar" ? targetBar / sourceBar : 1;
     const channel = Math.round(clamp(options.channel, 1, 16));
-    const launchOffsetTicks = Math.max(0, options.launchOffsetTicks ?? 0);
+    const launchOffsetTicks2 = Math.max(0, options.launchOffsetTicks ?? 0);
     const instanceId = options.instanceId ?? 0;
     const events = [];
     for (let index = 0; index < motif2.notes.length; index += 1) {
@@ -158,9 +156,9 @@
         continue;
       }
       const next = motif2.notes[index + 1];
-      const pitch = resolvePitch(note2, motif2, host, options);
+      const pitch = resolveMotifPitch(note2, motif2, host2, options);
       const velocity = resolveVelocity(note2, motif2, options.triggerVelocity);
-      const noteOnTicks = launchOffsetTicks + Math.max(0, note2.at * timeScale);
+      const noteOnTicks = launchOffsetTicks2 + Math.max(0, note2.at * timeScale);
       const duration = effectiveDuration(note2, next, motif2) * timeScale;
       const noteOffTicks = Math.max(noteOnTicks, noteOnTicks + duration);
       events.push({
@@ -168,7 +166,7 @@
         velocity,
         channel,
         offsetTicks: noteOnTicks,
-        offsetMs: ticksToMilliseconds(noteOnTicks, host.tempo),
+        offsetMs: ticksToMilliseconds(noteOnTicks, host2.tempo),
         instanceId
       });
       events.push({
@@ -176,7 +174,7 @@
         velocity: 0,
         channel,
         offsetTicks: noteOffTicks,
-        offsetMs: ticksToMilliseconds(noteOffTicks, host.tempo),
+        offsetMs: ticksToMilliseconds(noteOffTicks, host2.tempo),
         instanceId
       });
     }
@@ -188,136 +186,46 @@
     });
   }
 
-  // src/core/runtime-scheduler.ts
-  function noteKey(pitch, channel) {
-    return `${channel}:${pitch}`;
+  // src/core/preview.ts
+  function midiNoteName(pitchValue) {
+    const pitch = Math.max(0, Math.min(127, Math.round(pitchValue)));
+    const names = ["C", "C\u266F", "D", "D\u266F", "E", "F", "F\u266F", "G", "G\u266F", "A", "A\u266F", "B"];
+    const octave = Math.floor(pitch / 12) - 2;
+    return `${names[pitch % 12] ?? "C"}${octave}`;
   }
-  function parseNoteKey(key) {
-    const [channel = "1", pitch = "0"] = key.split(":");
-    return { channel: Number(channel), pitch: Number(pitch) };
+  function buildMotifPreview(motif2, host2, triggerPitch, pitchModeOverride2, meterMode2, maxNotes = 64) {
+    const effectivePitchMode = pitchModeOverride2 ?? motif2.pitchMode;
+    const sourceBarTicks = barLengthTicks(motif2.sourceMeter);
+    const targetBarTicks = barLengthTicks(host2.timeSignature);
+    const timeScale = meterMode2 === "fit-bar" ? targetBarTicks / sourceBarTicks : 1;
+    const notes = motif2.notes.slice(0, maxNotes).map((note2) => ({
+      pitch: resolveMotifPitch(note2, motif2, host2, {
+        channel: 1,
+        meterMode: meterMode2,
+        pitchMode: effectivePitchMode,
+        triggerPitch,
+        triggerVelocity: 100
+      }),
+      atTicks: Math.max(0, note2.at * timeScale),
+      durationTicks: Math.max(1, note2.duration * timeScale)
+    }));
+    const pitches = notes.map((note2) => note2.pitch);
+    const minimum = pitches.length > 0 ? Math.min(...pitches) : triggerPitch;
+    const maximum = pitches.length > 0 ? Math.max(...pitches) : triggerPitch;
+    const lowPitch = minimum === maximum ? minimum - 1 : minimum;
+    const highPitch = minimum === maximum ? maximum + 1 : maximum;
+    const totalTicks = Math.max(1, motif2.length * timeScale);
+    const bars = totalTicks / Math.max(1, meterMode2 === "fit-bar" ? targetBarTicks : sourceBarTicks);
+    return {
+      notes,
+      noteNames: notes.map((note2) => midiNoteName(note2.pitch)),
+      lowPitch,
+      highPitch,
+      bars,
+      effectivePitchMode,
+      triggerPitch
+    };
   }
-  var _queue, _activeByInstance, _activeTotals, _unit, _lastNow, _RuntimeScheduler_instances, apply_fn, rebuild_fn;
-  var RuntimeScheduler = class {
-    constructor() {
-      __privateAdd(this, _RuntimeScheduler_instances);
-      __privateAdd(this, _queue, []);
-      __privateAdd(this, _activeByInstance, /* @__PURE__ */ new Map());
-      __privateAdd(this, _activeTotals, /* @__PURE__ */ new Map());
-      __privateAdd(this, _unit);
-      __privateAdd(this, _lastNow, 0);
-    }
-    get unit() {
-      return __privateGet(this, _unit);
-    }
-    reset() {
-      const releases = [...__privateGet(this, _activeTotals).entries()].filter(([, count]) => count > 0).map(([key]) => {
-        const { pitch, channel } = parseNoteKey(key);
-        return { pitch, velocity: 0, channel, delay: 0, unit: "ms", instanceId: -1 };
-      });
-      __privateSet(this, _queue, []);
-      __privateGet(this, _activeByInstance).clear();
-      __privateGet(this, _activeTotals).clear();
-      __privateSet(this, _unit, void 0);
-      __privateSet(this, _lastNow, 0);
-      return releases;
-    }
-    advance(now, unit) {
-      if (__privateGet(this, _unit) !== void 0 && __privateGet(this, _unit) !== unit) {
-        this.reset();
-        __privateSet(this, _unit, unit);
-        __privateSet(this, _lastNow, now);
-        return;
-      }
-      if (__privateGet(this, _unit) === unit && now + 1 < __privateGet(this, _lastNow)) {
-        this.reset();
-      }
-      __privateSet(this, _unit, unit);
-      __privateSet(this, _lastNow, now);
-      const remaining = [];
-      for (const event of __privateGet(this, _queue)) {
-        if (event.due <= now + 0.5) {
-          __privateMethod(this, _RuntimeScheduler_instances, apply_fn).call(this, event);
-        } else {
-          remaining.push(event);
-        }
-      }
-      __privateSet(this, _queue, remaining);
-    }
-    add(events, now, unit) {
-      this.advance(now, unit);
-      for (const event of events) {
-        const offset = unit === "ticks" ? event.offsetTicks : event.offsetMs;
-        __privateGet(this, _queue).push({ ...event, due: now + offset, unit });
-      }
-      __privateGet(this, _queue).sort((left, right) => left.due - right.due || left.velocity - right.velocity);
-      return __privateMethod(this, _RuntimeScheduler_instances, rebuild_fn).call(this, now, unit);
-    }
-    cancelInstance(instanceId, now, unit) {
-      return this.cancelInstances([instanceId], now, unit);
-    }
-    cancelInstances(instanceIds, now, unit) {
-      this.advance(now, unit);
-      const ids = new Set(instanceIds);
-      __privateSet(this, _queue, __privateGet(this, _queue).filter((event) => !ids.has(event.instanceId)));
-      const releases = [];
-      for (const instanceId of ids) {
-        const instanceNotes = __privateGet(this, _activeByInstance).get(instanceId);
-        if (!instanceNotes) {
-          continue;
-        }
-        for (const [key, count] of instanceNotes.entries()) {
-          if (count <= 0) {
-            continue;
-          }
-          const total = Math.max(0, (__privateGet(this, _activeTotals).get(key) ?? 0) - count);
-          __privateGet(this, _activeTotals).set(key, total);
-          if (total === 0) {
-            const { pitch, channel } = parseNoteKey(key);
-            releases.push({ pitch, velocity: 0, channel, delay: 0, unit: "ms", instanceId });
-          }
-        }
-        __privateGet(this, _activeByInstance).delete(instanceId);
-      }
-      return [...releases, ...__privateMethod(this, _RuntimeScheduler_instances, rebuild_fn).call(this, now, unit)];
-    }
-  };
-  _queue = new WeakMap();
-  _activeByInstance = new WeakMap();
-  _activeTotals = new WeakMap();
-  _unit = new WeakMap();
-  _lastNow = new WeakMap();
-  _RuntimeScheduler_instances = new WeakSet();
-  apply_fn = function(event) {
-    const key = noteKey(event.pitch, event.channel);
-    const instance = __privateGet(this, _activeByInstance).get(event.instanceId) ?? /* @__PURE__ */ new Map();
-    const delta = event.velocity > 0 ? 1 : -1;
-    const instanceCount = Math.max(0, (instance.get(key) ?? 0) + delta);
-    const totalCount = Math.max(0, (__privateGet(this, _activeTotals).get(key) ?? 0) + delta);
-    instance.set(key, instanceCount);
-    __privateGet(this, _activeByInstance).set(event.instanceId, instance);
-    __privateGet(this, _activeTotals).set(key, totalCount);
-  };
-  rebuild_fn = function(now, unit) {
-    const simulatedTotals = new Map(__privateGet(this, _activeTotals));
-    const output = [];
-    for (const event of __privateGet(this, _queue)) {
-      const key = noteKey(event.pitch, event.channel);
-      const before = simulatedTotals.get(key) ?? 0;
-      const after = Math.max(0, before + (event.velocity > 0 ? 1 : -1));
-      simulatedTotals.set(key, after);
-      if (event.velocity > 0 && before === 0 || event.velocity === 0 && after === 0 && before > 0) {
-        output.push({
-          pitch: event.pitch,
-          velocity: event.velocity,
-          channel: event.channel,
-          delay: Math.max(0, event.due - now),
-          unit,
-          instanceId: event.instanceId
-        });
-      }
-    }
-    return output;
-  };
 
   // src/generated/builtins.ts
   var BUILTIN_MOTIFS = [
@@ -787,12 +695,9 @@
   _motifs = new WeakMap();
 
   // src/max/device.ts
-  inlets = 1;
-  outlets = 2;
   var store = new MotifStore();
-  var scheduler = new RuntimeScheduler();
   var triggerMap = /* @__PURE__ */ new Map();
-  var activeInstances = /* @__PURE__ */ new Map();
+  var activeTriggers = /* @__PURE__ */ new Set();
   var sustainedReleases = /* @__PURE__ */ new Set();
   var currentMotifId = "mitsuda-lick";
   var pitchModeOverride;
@@ -807,7 +712,8 @@
   var initialized = false;
   var instanceCounter = 1;
   var userLibraryPath = "";
-  var songApi;
+  var previewTriggerPitch = 60;
+  var previewWasTriggered = false;
   var hostContext = {
     tempo: 120,
     rootNote: 0,
@@ -815,267 +721,272 @@
     scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
     scaleMode: true,
     timeSignature: { numerator: 4, denominator: 4 },
-    isPlaying: false
+    isPlaying: false,
+    currentSongTime: 0
   };
+  function emit(...values) {
+    outlet(0, ...values);
+  }
   function emitStatus(...values) {
-    outlet(1, "status", ...values);
+    emit("status", ...values);
   }
   function emitError(message) {
-    outlet(1, "error", message);
+    emit("error", message);
     error(`Motif: ${message}
 `);
   }
-  function noteName(value) {
-    return ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][(Math.round(value) % 12 + 12) % 12] ?? "C";
+  function resolveMotif(value) {
+    const normalized = String(value).trim();
+    return store.get(normalized) ?? store.list().find((item) => item.name === normalized);
   }
-  function emitContext() {
-    const key = `${noteName(hostContext.rootNote)} ${hostContext.scaleName}${hostContext.scaleMode ? "" : " \xB7 Scale Off"}`;
-    const meter = `${hostContext.timeSignature.numerator}/${hostContext.timeSignature.denominator}`;
-    const tempo = `${Math.round(hostContext.tempo * 10) / 10} BPM`;
-    const transport = hostContext.isPlaying ? "Playing" : "Stopped";
-    outlet(1, "host-key", key);
-    outlet(1, "host-meter", meter);
-    outlet(1, "host-tempo", tempo);
-    outlet(1, "host-transport", transport);
-    outlet(1, "context", key, meter, tempo, transport);
+  function currentMotif() {
+    return store.get(currentMotifId);
+  }
+  function formatNumber(value) {
+    return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
+  }
+  function emitSelectedMotifUi() {
+    const selected = currentMotif();
+    if (!selected) return;
+    const preview = buildMotifPreview(
+      selected,
+      hostContext,
+      previewTriggerPitch,
+      pitchModeOverride,
+      meterMode
+    );
+    const totalTicks = Math.max(
+      1,
+      ...preview.notes.map((note2) => note2.atTicks + note2.durationTicks)
+    );
+    const noteData = preview.notes.flatMap((note2) => [note2.atTicks, note2.durationTicks, note2.pitch]);
+    const sourceMeter = `${selected.sourceMeter.numerator}/${selected.sourceMeter.denominator}`;
+    const tags = selected.metadata?.tags?.join(" \xB7 ") ?? "custom motif";
+    const suggested = selected.metadata?.suggestedModes?.join(", ");
+    const tagLine = suggested ? `${tags}  \u2022  suggested: ${suggested}` : tags;
+    const bars = `${formatNumber(preview.bars)} ${preview.bars === 1 ? "bar" : "bars"}`;
+    const stats = `${preview.notes.length} notes  \u2022  ${bars}  \u2022  ${sourceMeter} source  \u2022  ${preview.effectivePitchMode}`;
+    const root = `${midiNoteName(preview.triggerPitch)} anchor  \u2022  ${hostContext.scaleName}  \u2022  ${preview.effectivePitchMode}`;
+    emit(
+      "ui",
+      "preview",
+      "data",
+      preview.lowPitch,
+      preview.highPitch,
+      preview.bars,
+      hostContext.rootNote,
+      totalTicks,
+      ...noteData
+    );
+    emit("ui", "preview-notes", preview.noteNames.join("  \xB7  "));
+    emit("ui", "preview-root", root);
+    emit("ui", "motif-title", selected.name);
+    emit("ui", "motif-description", selected.description);
+    emit("ui", "motif-stats", stats);
+    emit("ui", "motif-tags", tagLine);
   }
   function flattenValues(values) {
     return values.flatMap((value) => Array.isArray(value) ? value : [value]);
   }
-  function unwrapNumbers(value) {
-    return flattenValues([value]).filter((item) => typeof item === "number");
+  function numbers(values) {
+    return flattenValues(values).map(Number).filter(Number.isFinite);
   }
-  function host_tempo(value) {
-    if (Number.isFinite(value) && value > 0) {
-      hostContext.tempo = value;
-      emitContext();
+  function clearScheduledNotes() {
+    emit("clear");
+    emit("panic");
+    activeTriggers.clear();
+    sustainedReleases.clear();
+  }
+  function updateHost(property, values) {
+    const numeric = numbers(values);
+    switch (property) {
+      case "tempo": {
+        const value = numeric[0];
+        if (value !== void 0 && value > 0) hostContext.tempo = value;
+        break;
+      }
+      case "root_note": {
+        const value = numeric[0];
+        if (value !== void 0) {
+          hostContext.rootNote = Math.round(value);
+          if (!previewWasTriggered) previewTriggerPitch = 60 + hostContext.rootNote;
+          emitSelectedMotifUi();
+        }
+        break;
+      }
+      case "scale_mode": {
+        hostContext.scaleMode = (numeric[0] ?? 0) !== 0;
+        emitSelectedMotifUi();
+        break;
+      }
+      case "scale_intervals": {
+        if (numeric.length > 0) {
+          hostContext.scaleIntervals = numeric.map(Math.round);
+          emitSelectedMotifUi();
+        }
+        break;
+      }
+      case "scale_name": {
+        const value = flattenValues(values).map(String).join(" ").trim();
+        if (value) {
+          hostContext.scaleName = value;
+          emitSelectedMotifUi();
+        }
+        break;
+      }
+      case "signature_numerator": {
+        const value = numeric[0];
+        if (value !== void 0 && value > 0) {
+          hostContext.timeSignature.numerator = Math.round(value);
+          emitSelectedMotifUi();
+        }
+        break;
+      }
+      case "signature_denominator": {
+        const value = numeric[0];
+        if (value !== void 0 && value > 0) {
+          hostContext.timeSignature.denominator = Math.round(value);
+          emitSelectedMotifUi();
+        }
+        break;
+      }
+      case "is_playing": {
+        const wasPlaying = hostContext.isPlaying;
+        hostContext.isPlaying = (numeric[0] ?? 0) !== 0;
+        if (wasPlaying && !hostContext.isPlaying) clearScheduledNotes();
+        break;
+      }
+      case "current_song_time": {
+        const value = numeric[0];
+        if (value !== void 0 && value >= 0) hostContext.currentSongTime = value;
+        break;
+      }
+      default:
+        emitError(`Unknown Song property: ${property}`);
+        return;
     }
   }
-  function host_root_note(value) {
-    if (Number.isFinite(value)) {
-      hostContext.rootNote = Math.round(value);
-      emitContext();
-    }
-  }
-  function host_scale_mode(value) {
-    hostContext.scaleMode = value !== 0;
-    emitContext();
-  }
-  function host_scale_intervals(...values) {
-    const intervals = flattenValues(values).filter((value) => typeof value === "number");
-    if (intervals.length > 0) {
-      hostContext.scaleIntervals = intervals;
-      emitContext();
-    }
-  }
-  function host_scale_name(...values) {
-    const name = flattenValues(values).map(String).join(" ").trim();
-    if (name) {
-      hostContext.scaleName = name;
-      emitContext();
-    }
-  }
-  function host_signature_numerator(value) {
-    if (Number.isFinite(value) && value > 0) {
-      hostContext.timeSignature.numerator = Math.round(value);
-      emitContext();
-    }
-  }
-  function host_signature_denominator(value) {
-    if (Number.isFinite(value) && value > 0) {
-      hostContext.timeSignature.denominator = Math.round(value);
-      emitContext();
-    }
-  }
-  function host_is_playing(value) {
-    const wasPlaying = hostContext.isPlaying;
-    hostContext.isPlaying = value !== 0;
-    if (wasPlaying && !hostContext.isPlaying) {
-      scheduler.reset();
-      activeInstances.clear();
-      sustainedReleases.clear();
-      outlet(1, "panic");
-    }
-    emitContext();
+  function host(property, ...values) {
+    updateHost(String(property), values);
   }
   function listMotifs() {
-    outlet(1, "motifs-reset");
-    for (const item of store.list()) {
-      outlet(1, "motif-item", item.id);
-    }
-    outlet(1, "motif-selected", currentMotifId);
+    emit("motifs-reset");
+    for (const item of store.list()) emit("motif-item", item.name);
+    emit("motif-selected", currentMotif()?.name ?? currentMotifId);
+    emitSelectedMotifUi();
+  }
+  function emitMidiPassState() {
+    emit("midi-pass", passThroughPolicy === "none" ? 0 : 1);
   }
   function initialize() {
     if (!initialized) {
       initialized = true;
-      songApi = new LiveAPI(void 0, "live_set");
-      emitStatus("ready", "v0.3.1");
+      emitStatus("Ready");
       emitMidiPassState();
     }
-    emitContext();
     listMotifs();
   }
-  function safeSongNumber(property) {
-    if (!songApi || songApi.valid !== 1) {
-      return void 0;
-    }
-    try {
-      return unwrapNumbers(songApi.get(property))[0];
-    } catch {
-      return void 0;
-    }
+  function launchOffsetTicks() {
+    if (!hostContext.isPlaying || launchQuantization === "immediate") return 0;
+    const grid = quantizationTicks(launchQuantization, hostContext.timeSignature);
+    return ticksUntilNextBoundary(Math.max(0, hostContext.currentSongTime * PPQ), grid);
   }
-  function currentClock() {
-    if (hostContext.isPlaying) {
-      const songBeats = safeSongNumber("current_song_time");
-      if (songBeats !== void 0) {
-        const now = songBeats * PPQ;
-        const grid = quantizationTicks(launchQuantization, hostContext.timeSignature);
-        return {
-          now,
-          unit: "ticks",
-          launchOffsetTicks: ticksUntilNextBoundary(now, grid)
-        };
-      }
-    }
-    return { now: Date.now(), unit: "ms", launchOffsetTicks: 0 };
-  }
-  function emitRuntimeEvent(event) {
-    outlet(0, event.unit, event.pitch, event.velocity, event.channel, event.delay);
-  }
-  function emitRuntimeEvents(events) {
-    for (const event of events) {
-      emitRuntimeEvent(event);
-    }
+  function emitScheduledEvent(pitch, velocity, channel, delayMilliseconds) {
+    emit("event", pitch, velocity, channel, Math.max(0, delayMilliseconds));
   }
   function emitDirectNote(pitch, velocity, channel) {
-    outlet(0, "ms", pitch, velocity, channel, 0);
-  }
-  function emitMidiPassState() {
-    outlet(1, "midi-pass", passThroughPolicy === "none" ? 0 : 1);
+    emitScheduledEvent(pitch, velocity, channel, 0);
   }
   function shouldPassDry(isTrigger) {
     return passThroughPolicy === "all" || passThroughPolicy === "non-triggers" && !isTrigger;
   }
   function triggerMotif(triggerPitch, triggerVelocity, channel) {
-    const mappedId = triggerMap.get(triggerPitch);
-    const motifId = mappedId ?? currentMotifId;
-    const selected = store.get(motifId);
+    const motifId = triggerMap.get(triggerPitch) ?? currentMotifId;
+    const selected = resolveMotif(motifId);
     if (!selected) {
       emitError(`Unknown motif: ${motifId}`);
       return void 0;
     }
+    if (retriggerMode === "replace" || triggerMode === "latch") clearScheduledNotes();
+    previewTriggerPitch = triggerPitch;
+    previewWasTriggered = true;
+    emitSelectedMotifUi();
     const instanceId = instanceCounter++;
-    const clock = currentClock();
-    if (retriggerMode === "replace" || triggerMode === "latch") {
-      scheduler.advance(clock.now, clock.unit);
-      scheduler.reset();
-      activeInstances.clear();
-      outlet(1, "panic");
-    } else {
-      outlet(1, "clear");
-    }
     const options = {
       channel: Math.round(clamp(channel, 1, 16)),
       meterMode,
       triggerPitch: Math.round(triggerPitch),
       triggerVelocity: Math.round(triggerVelocity),
-      launchOffsetTicks: clock.launchOffsetTicks,
+      launchOffsetTicks: launchOffsetTicks(),
       instanceId
     };
-    if (pitchModeOverride !== void 0) {
-      options.pitchMode = pitchModeOverride;
+    if (pitchModeOverride !== void 0) options.pitchMode = pitchModeOverride;
+    for (const event of compileMotif(selected, hostContext, options)) {
+      emitScheduledEvent(event.pitch, event.velocity, event.channel, event.offsetMs);
     }
-    const events = compileMotif(selected, hostContext, options);
-    emitRuntimeEvents(scheduler.add(events, clock.now, clock.unit));
     emitStatus("trigger", motifId, triggerPitch, instanceId);
     return instanceId;
   }
-  function rememberInstance(triggerPitch, instanceId) {
-    const current = activeInstances.get(triggerPitch) ?? [];
-    current.push(instanceId);
-    activeInstances.set(triggerPitch, current);
-  }
   function cancelTrigger(triggerPitch) {
-    const instances = activeInstances.get(triggerPitch);
-    if (!instances || instances.length === 0) {
-      return;
-    }
-    const clock = currentClock();
-    outlet(1, "clear");
-    emitRuntimeEvents(scheduler.cancelInstances(instances, clock.now, clock.unit));
-    activeInstances.delete(triggerPitch);
+    if (!activeTriggers.has(triggerPitch)) return;
+    clearScheduledNotes();
     emitStatus("release", triggerPitch);
   }
   function note(pitchValue, velocityValue, channelValue = 1) {
     const pitch = Math.round(clamp(pitchValue, 0, 127));
     const velocity = Math.round(clamp(velocityValue, 0, 127));
     const channel = Math.round(clamp(channelValue, 1, 16));
-    const mapped = triggerMap.has(pitch);
-    const inZone = pitch >= triggerLow && pitch <= triggerHigh;
-    const isTrigger = mapped || inZone;
-    if (shouldPassDry(isTrigger)) {
-      emitDirectNote(pitch, velocity, channel);
-    }
-    if (!isTrigger) {
-      return;
-    }
+    const isTrigger = triggerMap.has(pitch) || pitch >= triggerLow && pitch <= triggerHigh;
+    if (shouldPassDry(isTrigger)) emitDirectNote(pitch, velocity, channel);
+    if (!isTrigger) return;
     if (velocity > 0) {
-      if (triggerMode === "toggle" && activeInstances.has(pitch)) {
+      if (triggerMode === "toggle" && activeTriggers.has(pitch)) {
         cancelTrigger(pitch);
         return;
       }
       const instanceId = triggerMotif(pitch, velocity, channel);
-      if (instanceId !== void 0 && triggerMode !== "one-shot") {
-        rememberInstance(pitch, instanceId);
-      }
+      if (instanceId !== void 0 && triggerMode !== "one-shot") activeTriggers.add(pitch);
       return;
     }
     if (triggerMode === "hold") {
-      if (sustainDown) {
-        sustainedReleases.add(pitch);
-      } else {
-        cancelTrigger(pitch);
-      }
+      if (sustainDown) sustainedReleases.add(pitch);
+      else cancelTrigger(pitch);
     } else if (triggerMode === "release-tail") {
-      activeInstances.delete(pitch);
+      activeTriggers.delete(pitch);
     }
   }
   function cc(controllerValue, valueValue) {
     const controller = Math.round(clamp(controllerValue, 0, 127));
     const value = Math.round(clamp(valueValue, 0, 127));
-    if (controller !== 64) {
-      return;
-    }
+    if (controller !== 64) return;
     const wasDown = sustainDown;
     sustainDown = value >= 64;
     if (wasDown && !sustainDown) {
-      for (const pitch of sustainedReleases) {
-        cancelTrigger(pitch);
-      }
+      if (sustainedReleases.size > 0) clearScheduledNotes();
       sustainedReleases.clear();
     }
     emitStatus("sustain", sustainDown ? "on" : "off");
   }
-  function motif(id) {
-    if (!store.get(id)) {
-      emitError(`Unknown motif: ${id}`);
+  function motif(value) {
+    const selected = resolveMotif(value);
+    if (!selected) {
+      emitError(`Unknown motif: ${value}`);
       return;
     }
-    currentMotifId = id;
-    outlet(1, "motif-selected", id);
-    emitStatus("motif", id);
+    currentMotifId = selected.id;
+    emit("motif-selected", selected.name);
+    emitSelectedMotifUi();
+    emitStatus("Motif", selected.name);
   }
   function pitch_mode(mode) {
-    if (mode === "auto") {
-      pitchModeOverride = void 0;
-    } else if (mode === "scale" || mode === "chromatic" || mode === "hybrid") {
-      pitchModeOverride = mode;
-    } else {
+    if (mode === "auto") pitchModeOverride = void 0;
+    else if (mode === "scale" || mode === "chromatic" || mode === "hybrid") pitchModeOverride = mode;
+    else {
       emitError(`Unknown pitch mode: ${mode}`);
       return;
     }
-    emitStatus("pitch-mode", mode);
+    emitSelectedMotifUi();
+    emitStatus("Pitch", mode);
   }
   function meter_mode(mode) {
     if (mode !== "preserve" && mode !== "fit-bar") {
@@ -1083,14 +994,13 @@
       return;
     }
     meterMode = mode;
-    emitStatus("meter-mode", mode);
+    emitSelectedMotifUi();
+    emitStatus("Meter", mode);
   }
   function retrigger(mode) {
-    if (mode === 1 || mode === "replace") {
-      retriggerMode = "replace";
-    } else if (mode === 0 || mode === "overlap") {
-      retriggerMode = "overlap";
-    } else {
+    if (mode === 1 || mode === "replace") retriggerMode = "replace";
+    else if (mode === 0 || mode === "overlap") retriggerMode = "overlap";
+    else {
       emitError(`Unknown retrigger mode: ${String(mode)}`);
       return;
     }
@@ -1134,11 +1044,12 @@
   }
   function map_trigger(pitchValue, motifId) {
     const pitch = Math.round(clamp(pitchValue, 0, 127));
-    if (!store.get(motifId)) {
+    const selected = resolveMotif(motifId);
+    if (!selected) {
       emitError(`Cannot map ${pitch}: unknown motif ${motifId}`);
       return;
     }
-    triggerMap.set(pitch, motifId);
+    triggerMap.set(pitch, selected.id);
     emitStatus("mapped", pitch, motifId);
   }
   function unmap_trigger(pitchValue) {
@@ -1152,9 +1063,7 @@
   }
   function readJsonFile(filename) {
     const file = new File(filename, "read");
-    if (!file.isopen) {
-      throw new Error("could not open file");
-    }
+    if (!file.isopen) throw new Error("could not open file");
     try {
       return JSON.parse(file.readstring(file.eof));
     } finally {
@@ -1163,9 +1072,7 @@
   }
   function loadUserLibrary() {
     store.resetToBuiltins();
-    if (!userLibraryPath) {
-      return;
-    }
+    if (!userLibraryPath) return;
     const folder = new Folder(userLibraryPath);
     if (folder.end && folder.count === 0) {
       folder.close();
@@ -1179,9 +1086,7 @@
         const fullPath = `${folder.pathname}${separator}${filename}`;
         try {
           const errors = store.add(readJsonFile(fullPath));
-          if (errors.length > 0) {
-            emitError(`${filename}: ${errors.join("; ")}`);
-          }
+          if (errors.length > 0) emitError(`${filename}: ${errors.join("; ")}`);
         } catch (reason) {
           emitError(`${filename}: ${reason instanceof Error ? reason.message : String(reason)}`);
         }
@@ -1193,9 +1098,7 @@
   function library_path(path) {
     userLibraryPath = String(path);
     loadUserLibrary();
-    if (!store.get(currentMotifId)) {
-      currentMotifId = store.list()[0]?.id ?? "mitsuda-lick";
-    }
+    if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? "mitsuda-lick";
     listMotifs();
     emitStatus("library", userLibraryPath || "built-ins");
   }
@@ -1205,43 +1108,62 @@
     emitStatus("library-refreshed", store.list().length);
   }
   function panic() {
-    scheduler.reset();
-    activeInstances.clear();
-    sustainedReleases.clear();
-    outlet(1, "panic");
+    clearScheduledNotes();
     emitStatus("panic");
   }
   function dump_context() {
-    emitContext();
+    emit(
+      "context",
+      hostContext.tempo,
+      hostContext.rootNote,
+      hostContext.scaleName,
+      ...hostContext.scaleIntervals
+    );
   }
-  var maxGlobal = globalThis;
-  maxGlobal.initialize = initialize;
-  maxGlobal.note = note;
-  maxGlobal.cc = cc;
-  maxGlobal.motif = motif;
-  maxGlobal.pitch_mode = pitch_mode;
-  maxGlobal.meter_mode = meter_mode;
-  maxGlobal.retrigger = retrigger;
-  maxGlobal.trigger_mode = trigger_mode;
-  maxGlobal.launch_quantization = launch_quantization;
-  maxGlobal.pass_through = pass_through;
-  maxGlobal.trigger_low = trigger_low;
-  maxGlobal.trigger_high = trigger_high;
-  maxGlobal.map_trigger = map_trigger;
-  maxGlobal.unmap_trigger = unmap_trigger;
-  maxGlobal.clear_trigger_map = clear_trigger_map;
-  maxGlobal.library_path = library_path;
-  maxGlobal.refresh_library = refresh_library;
-  maxGlobal.panic = panic;
-  maxGlobal.list_motifs = listMotifs;
-  maxGlobal.dump_context = dump_context;
-  maxGlobal.host_tempo = host_tempo;
-  maxGlobal.host_root_note = host_root_note;
-  maxGlobal.host_scale_mode = host_scale_mode;
-  maxGlobal.host_scale_intervals = host_scale_intervals;
-  maxGlobal.host_scale_name = host_scale_name;
-  maxGlobal.host_signature_numerator = host_signature_numerator;
-  maxGlobal.host_signature_denominator = host_signature_denominator;
-  maxGlobal.host_is_playing = host_is_playing;
+  var handlers = {
+    initialize,
+    note,
+    cc,
+    motif,
+    pitch_mode,
+    meter_mode,
+    retrigger,
+    trigger_mode,
+    launch_quantization,
+    pass_through,
+    trigger_low,
+    trigger_high,
+    map_trigger,
+    unmap_trigger,
+    clear_trigger_map,
+    library_path,
+    refresh_library,
+    panic,
+    list_motifs: listMotifs,
+    dump_context,
+    host
+  };
+  globalThis.__motifHandlers = handlers;
 })();
+function initialize() { return globalThis.__motifHandlers.initialize.apply(null, arguments); }
+function note() { return globalThis.__motifHandlers.note.apply(null, arguments); }
+function cc() { return globalThis.__motifHandlers.cc.apply(null, arguments); }
+function motif() { return globalThis.__motifHandlers.motif.apply(null, arguments); }
+function pitch_mode() { return globalThis.__motifHandlers.pitch_mode.apply(null, arguments); }
+function meter_mode() { return globalThis.__motifHandlers.meter_mode.apply(null, arguments); }
+function retrigger() { return globalThis.__motifHandlers.retrigger.apply(null, arguments); }
+function trigger_mode() { return globalThis.__motifHandlers.trigger_mode.apply(null, arguments); }
+function launch_quantization() { return globalThis.__motifHandlers.launch_quantization.apply(null, arguments); }
+function pass_through() { return globalThis.__motifHandlers.pass_through.apply(null, arguments); }
+function trigger_low() { return globalThis.__motifHandlers.trigger_low.apply(null, arguments); }
+function trigger_high() { return globalThis.__motifHandlers.trigger_high.apply(null, arguments); }
+function map_trigger() { return globalThis.__motifHandlers.map_trigger.apply(null, arguments); }
+function unmap_trigger() { return globalThis.__motifHandlers.unmap_trigger.apply(null, arguments); }
+function clear_trigger_map() { return globalThis.__motifHandlers.clear_trigger_map.apply(null, arguments); }
+function library_path() { return globalThis.__motifHandlers.library_path.apply(null, arguments); }
+function refresh_library() { return globalThis.__motifHandlers.refresh_library.apply(null, arguments); }
+function panic() { return globalThis.__motifHandlers.panic.apply(null, arguments); }
+function list_motifs() { return globalThis.__motifHandlers.list_motifs.apply(null, arguments); }
+function dump_context() { return globalThis.__motifHandlers.dump_context.apply(null, arguments); }
+function host() { return globalThis.__motifHandlers.host.apply(null, arguments); }
 //# sourceMappingURL=motif-device.js.map

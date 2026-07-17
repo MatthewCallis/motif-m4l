@@ -24,28 +24,24 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 
 ## 0.3 — Performance device ✅
 
-- [x] Presentation Mode UI with motif and performance controls.
-- [x] Launch quantization: immediate, 1/16, 1/8, 1/4, and bar.
-- [x] Hold, toggle, one-shot, latch, and release-tail trigger modes.
-- [x] Per-note trigger-map API and configurable keyboard zone.
-- [x] Sustain-pedal behavior for held triggers.
-- [x] Pass-through policies: none, non-trigger notes, or all notes.
-- [x] Non-note MIDI pass-through for CC, pitch bend, pressure, and program changes.
-- [x] Trigger notes consumed by default to prevent doubled dry + motif playback.
-- [x] Tempo-relative native scheduling while Live is playing.
-- [x] Millisecond fallback while transport is stopped.
-- [x] Note-instance accounting for overlapping retriggers and cancellation.
-- [x] Panic on transport stop to avoid hanging scheduled notes.
-- [x] Deferred LiveAPI initialization and no eager `get()` calls during device load/save.
-- [x] Canonical Mitsuda Lick built-in motif.
-- [x] Automated tests for compilation, pitch mapping, quantization, MIDI conversion, validation, overlap safety, and the Mitsuda contour.
+- [x] Native Song observers for tempo, Current Scale, meter, transport, and song position.
+- [x] Compact Presentation Mode interface with Live-style dark panels and orange accents.
+- [x] Max 9 `v8ui` preview of note pitch, duration, phrase position, and bar boundaries.
+- [x] Preview recalculation for Live scale changes, pitch mode, meter fit, motif selection, and trigger transposition.
+- [x] Selected-motif description, note count, bar length, source meter, tags, and suggested modes.
+- [x] Help annotations and hover hints for every interactive control.
+- [x] Stable unversioned runtime filenames.
+- [x] Launch quantization, performance trigger modes, keyboard zone, sustain behavior, and pass-through policies.
+- [x] External JSON libraries, MIDI import/export, validation, and canonical Mitsuda Lick preset.
+- [x] Native Max `pipe` scheduling with replace/overlap behavior and panic handling.
+- [x] Automated coverage for host timing, preview pitch mapping, UI structure, control help, MIDI conversion, and overlap safety.
 
 ### 0.3 validation still required in Live
 
-- [ ] Open the generated patch in a real Max MIDI Effect and save as `.amxd`.
-- [ ] Freeze the device and confirm `motif-device.js` is embedded.
-- [ ] Smoke-test all menus and pass-through modes in the current Live release.
-- [ ] Confirm transport-relative `pipe` behavior across tempo automation and transport stop/start.
+- [ ] Confirm the `v8ui` preview renders correctly in the target Max 9 build.
+- [ ] Check text wrapping and control spacing at default and HiDPI display scaling.
+- [ ] Freeze the device and verify both JavaScript dependencies are embedded.
+- [ ] Smoke-test all controls, automation recall, pass-through modes, and tempo automation.
 
 ## 0.4 — Harmonic adaptation
 

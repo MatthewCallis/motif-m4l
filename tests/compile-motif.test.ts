@@ -11,6 +11,7 @@ const HOST: HostContext = {
   scaleMode: true,
   timeSignature: { numerator: 4, denominator: 4 },
   isPlaying: false,
+  currentSongTime: 0,
 };
 
 const MOTIF: Motif = {

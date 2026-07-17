@@ -1,6 +1,6 @@
 {
   "name": "motif-m4l",
-  "version": "0.3.1",
+  "version": "0.3.4",
   "private": true,
   "description": "A scale-aware, triggerable motif engine for Max for Live.",
   "type": "module",
@@ -8,8 +8,8 @@
     "generate": "node scripts/generate-builtins.mjs && node scripts/generate-max-patch.mjs",
     "build": "node scripts/build.mjs",
     "check": "npm run generate && tsc --noEmit",
-    "test": "npm run generate && tsx --test tests/**/*.test.ts",
-    "verify": "npm run check && npm test && npm run build",
+    "test": "npm run generate && npm run build && tsx --test tests/**/*.test.ts",
+    "verify": "npm run check && npm test",
     "midi:import": "tsx scripts/midi-to-motif.ts",
     "midi:export": "tsx scripts/motif-to-midi.ts"
   },

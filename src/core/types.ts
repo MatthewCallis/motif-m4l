@@ -22,6 +22,8 @@ export interface HostContext {
   scaleMode: boolean;
   timeSignature: TimeSignature;
   isPlaying: boolean;
+  /** Current Live Set position in beats, supplied by Song.current_song_time. */
+  currentSongTime: number;
 }
 
 export interface VelocityCurve {

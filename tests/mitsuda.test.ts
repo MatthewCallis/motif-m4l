@@ -12,6 +12,7 @@ const HOST: HostContext = {
   scaleMode: true,
   timeSignature: { numerator: 4, denominator: 4 },
   isPlaying: false,
+  currentSongTime: 0,
 };
 
 test('ships the canonical Mitsuda contour as a built-in motif', () => {

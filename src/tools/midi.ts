@@ -143,6 +143,7 @@ export function motifToMidiBytes(value: unknown, triggerPitch = 60): Uint8Array 
     scaleMode: true,
     timeSignature: validation.motif.sourceMeter,
     isPlaying: false,
+    currentSongTime: 0,
   };
   const events = compileMotif(validation.motif, host, {
     channel: 1,
