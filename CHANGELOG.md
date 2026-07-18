@@ -1,5 +1,28 @@
 # Changelog
 
+## Unreleased
+
+- MIDI preview sends `preview-size` before `setlist` so multislider columns match motifs with more than 6 notes.
+- Added built-in `salt-peanuts` motif (Gillespie shout figure: paired sixteenths + minor-third kick on beats 1 and 3).
+- Top row: tabs + motif + `BPM ×` + multiplier + Info/Panic; one bottom row: `Pitch` menu + `Scale` root/name.
+- Scale menus use theme-default `live.menu` (`ignoreclick`); `active` follows Song.scale_mode (no ♭♯ chip).
+- Pitch Mode `auto` renamed to `motif` (legacy `auto` still accepted).
+- Keep `parameter_enable` on Scale `live.menu`s so Max loads `parameter_enum` (avoids “there's no enum”).
+- Removed BPM readout and the anchor/debug metadata line from Presentation.
+- Theme-default `live.text` pills; unlocked patcher section comments (`§ MIDI`, `§ Engine`, …).
+
+## 0.3.8 — Theme-compliant Motif/Settings UI
+
+- Rebuilt Presentation Mode to 480 × 169 with Motif and Settings tabs (`live.tab` Live mode).
+- Enlarged the native `multislider` contour (bar style); moved key/scale next to the preview note names.
+- Moved Zone, Meter, Retrigger, MIDI Pass, Launch, and Trigger into the Settings tab.
+- Moved motif description/stats/tags and library Choose/Refresh into a floating Library/Info window (`pcontrol`, float, Presentation Mode).
+- Added a device-local BPM multiplier (`0.5` / `1` / `1.5` / `2`, default `1`) that scales motif scheduling without changing Song tempo.
+- Switched UI chrome to Ableton Sans; `live.*` keep theme defaults; non-live chrome uses fixed Live-like gray/orange RGBA (no invalid `live_lcd_*` tokens).
+- Tab hide/show uses short per-object `script sendbox` messages (avoids Max message truncation).
+- Spread patching layout so Presentation UI and logic no longer overlap.
+- Updated patch validation, handler contract, and timing tests for the new layout and multiplier.
+
 ## 0.3.7
 
 - Added oxlint with type-aware TypeScript rules (`npm run lint` / `lint:fix`), wired into `verify`.

@@ -25,10 +25,10 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 ## 0.3 — Performance device ✅
 
 - [x] Native Song observers for tempo, Current Scale, meter, transport, and song position.
-- [x] Compact 820 × 169 Presentation Mode interface with Live-style dark panels and orange accents.
-- [x] Native `multislider` pitch-contour preview plus exact resulting MIDI note names.
-- [x] Preview recalculation for Live scale changes, pitch mode, meter fit, motif selection, and trigger transposition.
-- [x] Selected-motif description, note count, bar length, source meter, tags, and suggested modes.
+- [x] Compact Presentation Mode interface with Motif/Settings tabs (480 × 169), theme-aware `live.*` controls, and Ableton Sans.
+- [x] Native `multislider` pitch-contour preview plus exact resulting MIDI note names beside Live key/scale.
+- [x] Preview recalculation for Live scale changes, pitch mode, meter fit, motif selection, BPM multiplier, and trigger transposition.
+- [x] Selected-motif description, note count, bar length, source meter, tags, and suggested modes in a floating Library/Info window.
 - [x] Help annotations and hover hints for every interactive control.
 - [x] Stable unversioned runtime filenames.
 - [x] Launch quantization, performance trigger modes, keyboard zone, sustain behavior, and pass-through policies.
@@ -38,14 +38,14 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 
 ### 0.4 validation still required in Live
 
-- [x] Confirm the native contour preview and exact note names render correctly in the target Max 9 build.
-- [x] Check text wrapping and control spacing at default and HiDPI display scaling.
-- [x] Freeze the device and verify `motif-device.js` is embedded.
-- [x] Smoke-test all controls, automation recall, pass-through modes, and tempo automation.
+- [ ] Confirm Motif/Settings tabs, enlarged contour, and Library/Info floating window in the target Max 9 / Live themes.
+- [ ] Check text wrapping and control spacing at default and HiDPI display scaling.
+- [ ] Freeze the device and verify `motif-device.js` is embedded.
+- [ ] Smoke-test all controls, automation recall, pass-through modes, BPM multiplier, and tempo automation.
 
 ## 0.5 — Authoring UI
 
-- [ ] Searchable browser with tags and favorites.
+- [ ] Expand the Library/Info floating window into a searchable browser with tags and favorites.
 - [ ] Record a played phrase and convert it into a motif.
 - [ ] Per-note editing of degree, accidental, timing, gate, and velocity.
 - [ ] UI for assigning specific motifs to individual trigger notes.

@@ -328,6 +328,549 @@ var MotifEngine = (() => {
     },
     {
       "schemaVersion": 1,
+      "id": "david-baker-bebop-tritone-resolved",
+      "name": "David Baker Bebop \u2014 Tritone Resolved",
+      "description": "Tritone-shifted David Baker fragment resolving its flat ninth down by semitone to the tonic.",
+      "pitchMode": "chromatic",
+      "sourceMeter": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length": 3840,
+      "defaultGate": 0.9,
+      "velocityCurve": {
+        "inputMin": 1,
+        "inputMax": 127,
+        "outputMin": 48,
+        "outputMax": 120,
+        "exponent": 0.9
+      },
+      "metadata": {
+        "author": "David Baker variation by Jeff Schneider",
+        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
+        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
+        "tags": [
+          "bebop",
+          "dominant",
+          "tritone-substitution",
+          "flat-nine-resolution",
+          "david-baker",
+          "one-bar"
+        ],
+        "suggestedModes": [
+          "altered",
+          "mixolydian",
+          "dominant"
+        ]
+      },
+      "notes": [
+        {
+          "at": 0,
+          "duration": 480,
+          "pitch": 6,
+          "velocityOffset": 7
+        },
+        {
+          "at": 480,
+          "duration": 480,
+          "pitch": 5,
+          "velocityOffset": -2
+        },
+        {
+          "at": 960,
+          "duration": 480,
+          "pitch": 4,
+          "velocityOffset": 5
+        },
+        {
+          "at": 1440,
+          "duration": 480,
+          "pitch": 3,
+          "velocityOffset": -2
+        },
+        {
+          "at": 1920,
+          "duration": 480,
+          "pitch": 1,
+          "velocityOffset": 2
+        },
+        {
+          "at": 2400,
+          "duration": 1440,
+          "pitch": 0,
+          "velocityOffset": 7,
+          "gate": 0.98
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "david-baker-bebop-tritone",
+      "name": "David Baker Bebop \u2014 Tritone",
+      "description": "The David Baker dominant-bebop fragment shifted up a tritone for altered tension over the original dominant chord.",
+      "pitchMode": "chromatic",
+      "sourceMeter": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length": 3840,
+      "defaultGate": 0.9,
+      "velocityCurve": {
+        "inputMin": 1,
+        "inputMax": 127,
+        "outputMin": 48,
+        "outputMax": 120,
+        "exponent": 0.9
+      },
+      "metadata": {
+        "author": "David Baker variation by Jeff Schneider",
+        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
+        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
+        "tags": [
+          "bebop",
+          "dominant",
+          "tritone-substitution",
+          "altered",
+          "david-baker",
+          "one-bar"
+        ],
+        "suggestedModes": [
+          "altered",
+          "mixolydian",
+          "dominant"
+        ]
+      },
+      "notes": [
+        {
+          "at": 0,
+          "duration": 480,
+          "pitch": 6,
+          "velocityOffset": 7
+        },
+        {
+          "at": 480,
+          "duration": 480,
+          "pitch": 5,
+          "velocityOffset": -2
+        },
+        {
+          "at": 960,
+          "duration": 480,
+          "pitch": 4,
+          "velocityOffset": 5
+        },
+        {
+          "at": 1440,
+          "duration": 480,
+          "pitch": 3,
+          "velocityOffset": -2
+        },
+        {
+          "at": 1920,
+          "duration": 960,
+          "pitch": 1,
+          "velocityOffset": 4,
+          "gate": 0.94
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "david-baker-bebop",
+      "name": "David Baker Bebop",
+      "description": "Descending dominant-bebop fragment: root, chromatic major seventh, flat seventh, sixth, then fifth.",
+      "pitchMode": "chromatic",
+      "sourceMeter": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length": 3840,
+      "defaultGate": 0.9,
+      "velocityCurve": {
+        "inputMin": 1,
+        "inputMax": 127,
+        "outputMin": 48,
+        "outputMax": 120,
+        "exponent": 0.9
+      },
+      "metadata": {
+        "author": "David Baker; presented by Jeff Schneider",
+        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
+        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
+        "tags": [
+          "bebop",
+          "dominant",
+          "chromatic-passing-tone",
+          "david-baker",
+          "one-bar"
+        ],
+        "suggestedModes": [
+          "mixolydian",
+          "dominant-bebop",
+          "dorian"
+        ]
+      },
+      "notes": [
+        {
+          "at": 0,
+          "duration": 480,
+          "pitch": 0,
+          "velocityOffset": 7
+        },
+        {
+          "at": 480,
+          "duration": 480,
+          "pitch": -1,
+          "velocityOffset": -2
+        },
+        {
+          "at": 960,
+          "duration": 480,
+          "pitch": -2,
+          "velocityOffset": 5
+        },
+        {
+          "at": 1440,
+          "duration": 480,
+          "pitch": -3,
+          "velocityOffset": -2
+        },
+        {
+          "at": 1920,
+          "duration": 960,
+          "pitch": -5,
+          "velocityOffset": 4,
+          "gate": 0.96
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "donna-lee-lick-tritone-fancy-resolution",
+      "name": "Donna Lee Lick \u2014 Tritone Fancy Resolution",
+      "description": "Tritone-shifted Donna Lee fragment resolving with a chromatic enclosure around the original tonic.",
+      "pitchMode": "chromatic",
+      "sourceMeter": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length": 3840,
+      "defaultGate": 0.9,
+      "velocityCurve": {
+        "inputMin": 1,
+        "inputMax": 127,
+        "outputMin": 48,
+        "outputMax": 120,
+        "exponent": 0.9
+      },
+      "metadata": {
+        "author": "Charlie Parker / Miles Davis vocabulary; variation by Jeff Schneider",
+        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
+        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
+        "tags": [
+          "bebop",
+          "donna-lee",
+          "tritone-substitution",
+          "chromatic-enclosure",
+          "resolution",
+          "one-bar"
+        ],
+        "suggestedModes": [
+          "altered",
+          "mixolydian",
+          "dominant"
+        ]
+      },
+      "notes": [
+        {
+          "at": 0,
+          "duration": 480,
+          "pitch": 10,
+          "velocityOffset": 6
+        },
+        {
+          "at": 480,
+          "duration": 480,
+          "pitch": 13,
+          "velocityOffset": -1
+        },
+        {
+          "at": 960,
+          "duration": 480,
+          "pitch": 16,
+          "velocityOffset": 5
+        },
+        {
+          "at": 1440,
+          "duration": 480,
+          "pitch": 20,
+          "velocityOffset": -1
+        },
+        {
+          "at": 1920,
+          "duration": 480,
+          "pitch": 15,
+          "velocityOffset": 4
+        },
+        {
+          "at": 2400,
+          "duration": 480,
+          "pitch": 13,
+          "velocityOffset": 1
+        },
+        {
+          "at": 2880,
+          "duration": 240,
+          "pitch": 11,
+          "velocityOffset": -2,
+          "gate": 0.88
+        },
+        {
+          "at": 3120,
+          "duration": 720,
+          "pitch": 12,
+          "velocityOffset": 8,
+          "gate": 0.98
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "donna-lee-lick-tritone-resolved",
+      "name": "Donna Lee Lick \u2014 Tritone Resolved",
+      "description": "Tritone-shifted Donna Lee fragment resolving the substitute flat ninth down to the original tonic.",
+      "pitchMode": "chromatic",
+      "sourceMeter": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length": 3840,
+      "defaultGate": 0.9,
+      "velocityCurve": {
+        "inputMin": 1,
+        "inputMax": 127,
+        "outputMin": 48,
+        "outputMax": 120,
+        "exponent": 0.9
+      },
+      "metadata": {
+        "author": "Charlie Parker / Miles Davis vocabulary; variation by Jeff Schneider",
+        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
+        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
+        "tags": [
+          "bebop",
+          "donna-lee",
+          "tritone-substitution",
+          "flat-nine-resolution",
+          "one-bar"
+        ],
+        "suggestedModes": [
+          "altered",
+          "mixolydian",
+          "dominant"
+        ]
+      },
+      "notes": [
+        {
+          "at": 0,
+          "duration": 480,
+          "pitch": 10,
+          "velocityOffset": 6
+        },
+        {
+          "at": 480,
+          "duration": 480,
+          "pitch": 13,
+          "velocityOffset": -1
+        },
+        {
+          "at": 960,
+          "duration": 480,
+          "pitch": 16,
+          "velocityOffset": 5
+        },
+        {
+          "at": 1440,
+          "duration": 480,
+          "pitch": 20,
+          "velocityOffset": -1
+        },
+        {
+          "at": 1920,
+          "duration": 480,
+          "pitch": 15,
+          "velocityOffset": 4
+        },
+        {
+          "at": 2400,
+          "duration": 480,
+          "pitch": 13,
+          "velocityOffset": 1
+        },
+        {
+          "at": 2880,
+          "duration": 960,
+          "pitch": 12,
+          "velocityOffset": 7,
+          "gate": 0.98
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "donna-lee-lick-tritone",
+      "name": "Donna Lee Lick \u2014 Tritone",
+      "description": "The Donna Lee dominant-nine fragment moved up a tritone, outlining the tritone-substitute dominant chord.",
+      "pitchMode": "chromatic",
+      "sourceMeter": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length": 3840,
+      "defaultGate": 0.9,
+      "velocityCurve": {
+        "inputMin": 1,
+        "inputMax": 127,
+        "outputMin": 48,
+        "outputMax": 120,
+        "exponent": 0.9
+      },
+      "metadata": {
+        "author": "Charlie Parker / Miles Davis vocabulary; variation by Jeff Schneider",
+        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
+        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
+        "tags": [
+          "bebop",
+          "donna-lee",
+          "tritone-substitution",
+          "dominant-nine",
+          "altered",
+          "one-bar"
+        ],
+        "suggestedModes": [
+          "altered",
+          "mixolydian",
+          "dominant"
+        ]
+      },
+      "notes": [
+        {
+          "at": 0,
+          "duration": 480,
+          "pitch": 10,
+          "velocityOffset": 6
+        },
+        {
+          "at": 480,
+          "duration": 480,
+          "pitch": 13,
+          "velocityOffset": -1
+        },
+        {
+          "at": 960,
+          "duration": 480,
+          "pitch": 16,
+          "velocityOffset": 5
+        },
+        {
+          "at": 1440,
+          "duration": 480,
+          "pitch": 20,
+          "velocityOffset": -1
+        },
+        {
+          "at": 1920,
+          "duration": 480,
+          "pitch": 15,
+          "velocityOffset": 4
+        },
+        {
+          "at": 2400,
+          "duration": 960,
+          "pitch": 13,
+          "velocityOffset": 6,
+          "gate": 0.94
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "donna-lee-lick",
+      "name": "Donna Lee Lick",
+      "description": "Dominant line arpeggiating from the third through the ninth, then descending through the sixth to the fifth.",
+      "pitchMode": "chromatic",
+      "sourceMeter": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length": 3840,
+      "defaultGate": 0.9,
+      "velocityCurve": {
+        "inputMin": 1,
+        "inputMax": 127,
+        "outputMin": 48,
+        "outputMax": 120,
+        "exponent": 0.9
+      },
+      "metadata": {
+        "author": "Charlie Parker / Miles Davis vocabulary; presented by Jeff Schneider",
+        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
+        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
+        "tags": [
+          "bebop",
+          "donna-lee",
+          "dominant-nine",
+          "arpeggio",
+          "one-bar"
+        ],
+        "suggestedModes": [
+          "mixolydian",
+          "dominant-bebop",
+          "dorian"
+        ]
+      },
+      "notes": [
+        {
+          "at": 0,
+          "duration": 480,
+          "pitch": 4,
+          "velocityOffset": 6
+        },
+        {
+          "at": 480,
+          "duration": 480,
+          "pitch": 7,
+          "velocityOffset": -1
+        },
+        {
+          "at": 960,
+          "duration": 480,
+          "pitch": 10,
+          "velocityOffset": 5
+        },
+        {
+          "at": 1440,
+          "duration": 480,
+          "pitch": 14,
+          "velocityOffset": -1
+        },
+        {
+          "at": 1920,
+          "duration": 480,
+          "pitch": 9,
+          "velocityOffset": 4
+        },
+        {
+          "at": 2400,
+          "duration": 960,
+          "pitch": 7,
+          "velocityOffset": 6,
+          "gate": 0.96
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
       "id": "mitsuda-lick",
       "name": "Mitsuda Lick",
       "description": "Canonical two-bar contour: long tonic, step down, leap up a fourth, then a fast chromatic descent to tonic.",
@@ -403,6 +946,89 @@ var MotifEngine = (() => {
     },
     {
       "schemaVersion": 1,
+      "id": "mixolydian-b2-b6-lick",
+      "name": "Mixolydian \u266D2 \u266D6 Lick",
+      "description": "Descending fifth mode of harmonic minor line, placing the flat seventh and major third on strong beats.",
+      "pitchMode": "chromatic",
+      "sourceMeter": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length": 3840,
+      "defaultGate": 0.9,
+      "velocityCurve": {
+        "inputMin": 1,
+        "inputMax": 127,
+        "outputMin": 48,
+        "outputMax": 120,
+        "exponent": 0.9
+      },
+      "metadata": {
+        "author": "Jeff Schneider",
+        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
+        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
+        "tags": [
+          "bebop",
+          "harmonic-minor",
+          "mixolydian-flat-2-flat-6",
+          "dominant",
+          "altered",
+          "one-bar"
+        ],
+        "suggestedModes": [
+          "mixolydian-b2-b6",
+          "phrygian-dominant",
+          "harmonic-minor"
+        ]
+      },
+      "notes": [
+        {
+          "at": 0,
+          "duration": 480,
+          "pitch": 10,
+          "velocityOffset": 7
+        },
+        {
+          "at": 480,
+          "duration": 480,
+          "pitch": 8,
+          "velocityOffset": -2
+        },
+        {
+          "at": 960,
+          "duration": 480,
+          "pitch": 7,
+          "velocityOffset": 4
+        },
+        {
+          "at": 1440,
+          "duration": 480,
+          "pitch": 5,
+          "velocityOffset": -2
+        },
+        {
+          "at": 1920,
+          "duration": 480,
+          "pitch": 4,
+          "velocityOffset": 7
+        },
+        {
+          "at": 2400,
+          "duration": 480,
+          "pitch": 1,
+          "velocityOffset": -1
+        },
+        {
+          "at": 2880,
+          "duration": 960,
+          "pitch": 0,
+          "velocityOffset": 8,
+          "gate": 0.98
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
       "id": "quick-answer",
       "name": "Quick Answer",
       "description": "Short sixteenth-note response with a wider final interval.",
@@ -456,6 +1082,87 @@ var MotifEngine = (() => {
           "duration": 480,
           "pitch": 4,
           "gate": 0.9
+        }
+      ]
+    },
+    {
+      "schemaVersion": 1,
+      "id": "salt-peanuts",
+      "name": "Salt Peanuts",
+      "description": "Classic Dizzy Gillespie shout figure: paired sixteenths on the trigger, then a minor-third kick \u2014 \u201CSalt Peanuts\u201D on beats 1 and 3.",
+      "pitchMode": "chromatic",
+      "sourceMeter": {
+        "numerator": 4,
+        "denominator": 4
+      },
+      "length": 3840,
+      "defaultGate": 0.78,
+      "velocityCurve": {
+        "outputMin": 56,
+        "outputMax": 124,
+        "exponent": 0.9
+      },
+      "metadata": {
+        "author": "Traditional/canonical bebop vocabulary (Gillespie/Parker era)",
+        "source": "https://en.wikipedia.org/wiki/Salt_Peanuts",
+        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
+        "tags": [
+          "salt-peanuts",
+          "dizzy",
+          "bebop",
+          "jazz",
+          "chromatic",
+          "shout",
+          "one-bar"
+        ],
+        "suggestedModes": [
+          "mixolydian",
+          "blues",
+          "major"
+        ]
+      },
+      "notes": [
+        {
+          "at": 0,
+          "duration": 240,
+          "pitch": 0,
+          "velocityOffset": 4,
+          "gate": 0.72
+        },
+        {
+          "at": 240,
+          "duration": 240,
+          "pitch": 0,
+          "velocityOffset": 2,
+          "gate": 0.72
+        },
+        {
+          "at": 480,
+          "duration": 480,
+          "pitch": 3,
+          "velocityOffset": 12,
+          "gate": 0.88
+        },
+        {
+          "at": 1920,
+          "duration": 240,
+          "pitch": 0,
+          "velocityOffset": 4,
+          "gate": 0.72
+        },
+        {
+          "at": 2160,
+          "duration": 240,
+          "pitch": 0,
+          "velocityOffset": 2,
+          "gate": 0.72
+        },
+        {
+          "at": 2400,
+          "duration": 480,
+          "pitch": 3,
+          "velocityOffset": 12,
+          "gate": 0.88
         }
       ]
     },
@@ -753,6 +1460,8 @@ var MotifEngine = (() => {
   var userLibraryPath = "";
   var previewTriggerPitch = 60;
   var previewWasTriggered = false;
+  var tempoMultiplier = 1;
+  var TEMPO_MULTIPLIERS = [0.5, 1, 1.5, 2];
   var hostContext = {
     tempo: 120,
     rootNote: 0,
@@ -763,6 +1472,12 @@ var MotifEngine = (() => {
     isPlaying: false,
     currentSongTime: 0
   };
+  function effectiveHost() {
+    return {
+      ...hostContext,
+      tempo: hostContext.tempo * tempoMultiplier
+    };
+  }
   function emit(...values) {
     outlet(0, ...values);
   }
@@ -789,7 +1504,7 @@ var MotifEngine = (() => {
     if (!selected) return;
     const preview = buildMotifPreview(
       selected,
-      hostContext,
+      effectiveHost(),
       previewTriggerPitch,
       pitchModeOverride,
       meterMode
@@ -802,7 +1517,8 @@ var MotifEngine = (() => {
     const tagLine = suggested ? `${tags}  \u2022  suggested: ${suggested}` : tags;
     const bars = `${formatNumber(preview.bars)} ${preview.bars === 1 ? "bar" : "bars"}`;
     const stats = `${preview.notes.length} notes  \u2022  ${bars}  \u2022  ${sourceMeter} source  \u2022  ${preview.effectivePitchMode}`;
-    const root = `${midiNoteName(preview.triggerPitch)} anchor  \u2022  ${hostContext.scaleName}  \u2022  ${preview.effectivePitchMode}`;
+    const root = `${midiNoteName(preview.triggerPitch)} anchor  \xB7  ${preview.effectivePitchMode}`;
+    emit("ui", "preview-size", Math.max(1, normalizedPitches.length));
     emit("ui", "preview-pitches", ...normalizedPitches);
     emit("ui", "preview-range", previewRange);
     emit("ui", "preview-notes", preview.noteNames.join("  \xB7  "));
@@ -953,7 +1669,7 @@ var MotifEngine = (() => {
       instanceId
     };
     if (pitchModeOverride !== void 0) options.pitchMode = pitchModeOverride;
-    for (const event of compileMotif(selected, hostContext, options)) {
+    for (const event of compileMotif(selected, effectiveHost(), options)) {
       emitScheduledEvent(event.pitch, event.velocity, event.channel, event.offsetMs);
     }
     emitStatus("trigger", motifId, triggerPitch, instanceId);
@@ -1014,14 +1730,14 @@ var MotifEngine = (() => {
     emitStatus("Motif", selected.name);
   }
   function pitch_mode(mode) {
-    if (mode === "auto") pitchModeOverride = void 0;
+    if (mode === "motif" || mode === "auto") pitchModeOverride = void 0;
     else if (mode === "scale" || mode === "chromatic" || mode === "hybrid") pitchModeOverride = mode;
     else {
       emitError(`Unknown pitch mode: ${mode}`);
       return;
     }
     emitSelectedMotifUi();
-    emitStatus("Pitch", mode);
+    emitStatus("Pitch", mode === "auto" ? "motif" : mode);
   }
   function meter_mode(mode) {
     if (mode !== "preserve" && mode !== "fit-bar") {
@@ -1142,6 +1858,16 @@ var MotifEngine = (() => {
     listMotifs();
     emitStatus("library-refreshed", store.list().length);
   }
+  function tempo_multiplier(value) {
+    const parsed = typeof value === "number" ? value : Number(String(value).replace(/x$/i, ""));
+    if (!TEMPO_MULTIPLIERS.includes(parsed)) {
+      emitError(`Unknown tempo multiplier: ${String(value)}`);
+      return;
+    }
+    tempoMultiplier = parsed;
+    emitSelectedMotifUi();
+    emitStatus("tempo-multiplier", tempoMultiplier);
+  }
   function panic() {
     clearScheduledNotes();
     emitStatus("panic");
@@ -1174,6 +1900,7 @@ var MotifEngine = (() => {
     clear_trigger_map,
     library_path,
     refresh_library,
+    tempo_multiplier,
     panic,
     list_motifs: listMotifs,
     dump_context,

@@ -1,0 +1,70 @@
+{
+  "schemaVersion": 1,
+  "id": "david-baker-bebop",
+  "name": "David Baker Bebop",
+  "description": "Descending dominant-bebop fragment: root, chromatic major seventh, flat seventh, sixth, then fifth.",
+  "pitchMode": "chromatic",
+  "sourceMeter": {
+    "numerator": 4,
+    "denominator": 4
+  },
+  "length": 3840,
+  "defaultGate": 0.9,
+  "velocityCurve": {
+    "inputMin": 1,
+    "inputMax": 127,
+    "outputMin": 48,
+    "outputMax": 120,
+    "exponent": 0.9
+  },
+  "metadata": {
+    "author": "David Baker; presented by Jeff Schneider",
+    "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
+    "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
+    "tags": [
+      "bebop",
+      "dominant",
+      "chromatic-passing-tone",
+      "david-baker",
+      "one-bar"
+    ],
+    "suggestedModes": [
+      "mixolydian",
+      "dominant-bebop",
+      "dorian"
+    ]
+  },
+  "notes": [
+    {
+      "at": 0,
+      "duration": 480,
+      "pitch": 0,
+      "velocityOffset": 7
+    },
+    {
+      "at": 480,
+      "duration": 480,
+      "pitch": -1,
+      "velocityOffset": -2
+    },
+    {
+      "at": 960,
+      "duration": 480,
+      "pitch": -2,
+      "velocityOffset": 5
+    },
+    {
+      "at": 1440,
+      "duration": 480,
+      "pitch": -3,
+      "velocityOffset": -2
+    },
+    {
+      "at": 1920,
+      "duration": 960,
+      "pitch": -5,
+      "velocityOffset": 4,
+      "gate": 0.96
+    }
+  ]
+}

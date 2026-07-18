@@ -36,8 +36,10 @@ test('compiled Max runtime initializes, receives Song context, previews, and sch
   send('initialize');
 
   assert.ok(lastEmission(emissions, ['status', 'Ready']));
+  const initialSize = lastEmission(emissions, ['ui', 'preview-size']);
   const initialPreview = lastEmission(emissions, ['ui', 'preview-pitches']);
   assert.deepEqual(initialPreview?.slice(2), [2, 0, 5, 4, 3, 2]);
+  assert.equal(initialSize?.[2], initialPreview?.slice(2).length, 'preview-size must match pitch column count');
 
   send('song_context', 'tempo', 96);
   send('song_context', 'root_note', 5);
@@ -45,8 +47,10 @@ test('compiled Max runtime initializes, receives Song context, previews, and sch
   send('song_context', 'scale_intervals', 0, 2, 3, 5, 7, 8, 10);
 
   const updatedContext = lastEmission(emissions, ['ui', 'preview-root']);
-  assert.ok(String(updatedContext?.slice(2).join(' ')).includes('F3 anchor'));
-  assert.ok(String(updatedContext?.slice(2).join(' ')).includes('Minor'));
+  const previewRoot = String(updatedContext?.slice(2).join(' '));
+  assert.ok(previewRoot.includes('F3 anchor'));
+  assert.ok(previewRoot.includes('chromatic') || previewRoot.includes('scale'), 'preview context keeps effective pitch mode');
+  assert.ok(!previewRoot.includes('Minor'), 'Live scale name belongs in the Scale strip, not preview-root');
 
   const beforeTrigger = emissions.length;
   send('note', 60, 100, 1);

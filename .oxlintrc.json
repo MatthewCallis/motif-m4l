@@ -92,7 +92,7 @@
     {
       "files": [
         "tests/**/*.ts",
-        "scripts/**/*.{ts,mjs}"
+        "scripts/**/*.ts"
       ],
       "rules": {
         "typescript/no-floating-promises": "off",

@@ -35,6 +35,7 @@ interface MotifHandlers {
   clear_trigger_map: () => void;
   library_path: (path: string) => void;
   refresh_library: () => void;
+  tempo_multiplier: (value: string | number) => void;
   panic: () => void;
   list_motifs: () => void;
   dump_context: () => void;
@@ -61,6 +62,9 @@ let instanceCounter = 1;
 let userLibraryPath = '';
 let previewTriggerPitch = 60;
 let previewWasTriggered = false;
+let tempoMultiplier = 1;
+
+const TEMPO_MULTIPLIERS = [0.5, 1, 1.5, 2] as const;
 
 const hostContext: HostContext = {
   tempo: 120,
@@ -72,6 +76,14 @@ const hostContext: HostContext = {
   isPlaying: false,
   currentSongTime: 0,
 };
+
+/** Song tempo scaled by the device-local BPM multiplier for scheduling/preview. */
+function effectiveHost(): HostContext {
+  return {
+    ...hostContext,
+    tempo: hostContext.tempo * tempoMultiplier,
+  };
+}
 
 function emit(...values: unknown[]): void {
   outlet(0, ...values);
@@ -105,7 +117,7 @@ function emitSelectedMotifUi(): void {
 
   const preview = buildMotifPreview(
     selected,
-    hostContext,
+    effectiveHost(),
     previewTriggerPitch,
     pitchModeOverride,
     meterMode,
@@ -118,8 +130,10 @@ function emitSelectedMotifUi(): void {
   const tagLine = suggested ? `${tags}  •  suggested: ${suggested}` : tags;
   const bars = `${formatNumber(preview.bars)} ${preview.bars === 1 ? 'bar' : 'bars'}`;
   const stats = `${preview.notes.length} notes  •  ${bars}  •  ${sourceMeter} source  •  ${preview.effectivePitchMode}`;
-  const root = `${midiNoteName(preview.triggerPitch)} anchor  •  ${hostContext.scaleName}  •  ${preview.effectivePitchMode}`;
+  const root = `${midiNoteName(preview.triggerPitch)} anchor  ·  ${preview.effectivePitchMode}`;
 
+  // Multislider `setlist` does not reliably honor listresize — set column count first.
+  emit('ui', 'preview-size', Math.max(1, normalizedPitches.length));
   emit('ui', 'preview-pitches', ...normalizedPitches);
   emit('ui', 'preview-range', previewRange);
   emit('ui', 'preview-notes', preview.noteNames.join('  ·  '));
@@ -295,7 +309,7 @@ function triggerMotif(triggerPitch: number, triggerVelocity: number, channel: nu
   };
   if (pitchModeOverride !== undefined) options.pitchMode = pitchModeOverride;
 
-  for (const event of compileMotif(selected, hostContext, options)) {
+  for (const event of compileMotif(selected, effectiveHost(), options)) {
     emitScheduledEvent(event.pitch, event.velocity, event.channel, event.offsetMs);
   }
 
@@ -368,14 +382,15 @@ function motif(value: string): void {
 }
 
 function pitch_mode(mode: string): void {
-  if (mode === 'auto') pitchModeOverride = undefined;
+  // `motif` = use the phrase’s stored pitch mode; accept legacy `auto` from older patches.
+  if (mode === 'motif' || mode === 'auto') pitchModeOverride = undefined;
   else if (mode === 'scale' || mode === 'chromatic' || mode === 'hybrid') pitchModeOverride = mode;
   else {
     emitError(`Unknown pitch mode: ${mode}`);
     return;
   }
   emitSelectedMotifUi();
-  emitStatus('Pitch', mode);
+  emitStatus('Pitch', mode === 'auto' ? 'motif' : mode);
 }
 
 function meter_mode(mode: string): void {
@@ -513,6 +528,17 @@ function refresh_library(): void {
   emitStatus('library-refreshed', store.list().length);
 }
 
+function tempo_multiplier(value: string | number): void {
+  const parsed = typeof value === 'number' ? value : Number(String(value).replace(/x$/i, ''));
+  if (!TEMPO_MULTIPLIERS.includes(parsed as (typeof TEMPO_MULTIPLIERS)[number])) {
+    emitError(`Unknown tempo multiplier: ${String(value)}`);
+    return;
+  }
+  tempoMultiplier = parsed;
+  emitSelectedMotifUi();
+  emitStatus('tempo-multiplier', tempoMultiplier);
+}
+
 function panic(): void {
   clearScheduledNotes();
   emitStatus('panic');
@@ -547,6 +573,7 @@ const handlers: MotifHandlers = {
   clear_trigger_map,
   library_path,
   refresh_library,
+  tempo_multiplier,
   panic,
   list_motifs: listMotifs,
   dump_context,

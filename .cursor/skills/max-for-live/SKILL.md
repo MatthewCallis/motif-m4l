@@ -56,7 +56,7 @@ Current observed properties:
 - `is_playing`
 - `current_song_time`
 
-The observer values may be forwarded to TypeScript for motif calculations, but the visible host-state displays should remain connected to native Max objects.
+The observer values may be forwarded to TypeScript for motif calculations, but the visible host-state displays should remain connected to native Max objects. Live key/scale use theme-default `live.menu` (read-only, `ignoreclick`) with a `live.comment` “Scale” label on one bottom row with Pitch; `active` follows Song.scale_mode. Pitch Mode enum starts with `motif`. There is no BPM readout — only a `BPM ×` label + multiplier menu.
 
 ## MIDI safety
 
@@ -65,10 +65,19 @@ MIDI input must remain fail-open until the engine reports `Ready`. Non-note MIDI
 ## UI constraints
 
 - Presentation Mode must be enabled.
-- Device width is fixed by the patch generator.
+- Device width is fixed at 480px by the patch generator.
 - Every Presentation object must fit within Live's 169px device height.
+- Prefer theme-default / dynamic Live colors on `live.*` controls; use Ableton Sans.
+- Motif vs Settings pages use `live.tab` with `livemode` and `thispatcher` hide/show.
+- Library/description UI opens via floating `pcontrol` subpatcher (`window flags float`).
+- No Presentation `status-display` for engine debug (`trigger …`); Ready still gates MIDI via `route Ready`.
+- Unlocked patcher should keep `§ …` section comments for MIDI / engine / Song / tabs / library / controls.
 - Every interactive control requires `annotation_name`, `annotation`, and `hint`.
 - Runtime filenames must remain unversioned.
+
+## Adding built-in motifs
+
+Phrase JSON under `motifs/builtin/` — follow [add-motif](../add-motif/SKILL.md). Do not hand-edit `src/generated/builtins.ts`.
 
 ## Required verification
 

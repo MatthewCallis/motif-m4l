@@ -6,9 +6,9 @@ A scale-aware MIDI phrase trigger written in TypeScript. Ableton Live Song state
 
 - Native `live.path live_set` and `live.observer` synchronization for tempo, scale, meter, transport, and song position.
 - Fail-open native MIDI routing: raw MIDI passes while the engine starts, then `midiselect` extracts notes while preserving unrelated MIDI bytes.
-- Compact 820 × 169 Presentation Mode interface styled around Live's device view.
-- Native `multislider` phrase contour preview plus exact note names for the current root, scale, pitch mode, meter mode, and trigger anchor.
-- Human-readable motif details: description, note count, bars, source meter, pitch interpretation, tags, and suggested modes.
+- Compact 480 × 169 Presentation Mode UI with Motif/Settings tabs, Ableton Sans, and Live theme colors.
+- Native `multislider` phrase contour preview plus exact note names beside the current root/scale, with a device-local BPM multiplier.
+- Motif details (description, stats, tags) and library Choose/Refresh in a floating Library/Info window (base for the 0.5 authoring UI).
 - Clue-window annotations and locked-patcher hints on every interactive control.
 - Stable, unversioned runtime filenames so updates can replace files in place.
 
@@ -19,7 +19,7 @@ npm install
 npm run verify
 ```
 
-`verify` type-checks the TypeScript, rebuilds generated files, runs 25 tests, executes the compiled Max runtime in a VM, and validates the native MIDI graph, Song observers, dependency list, help metadata, and all 169px Presentation bounds.
+`verify` type-checks the TypeScript, rebuilds generated files, runs the test suite, executes the compiled Max runtime in a VM, and validates the native MIDI graph, Song observers, dependency list, help metadata, and all 480×169 Presentation bounds.
 
 ## Development files
 

@@ -56,3 +56,32 @@ test('new triggers use the latest observed Song tempo', () => {
   assert.ok(firstLateAt120 && firstLateAt60);
   assert.equal(firstLateAt60.offsetMs, firstLateAt120.offsetMs * 2);
 });
+
+test('BPM multiplier scales motif timing like a faster or slower Song tempo', () => {
+  const motif = BUILTIN_MOTIFS.find(({ id }) => id === 'mitsuda-lick');
+  assert.ok(motif);
+  const base = compileMotif(motif, host(120), {
+    channel: 1,
+    meterMode: 'preserve',
+    triggerPitch: 60,
+    triggerVelocity: 100,
+  });
+  const half = compileMotif(motif, host(120 * 0.5), {
+    channel: 1,
+    meterMode: 'preserve',
+    triggerPitch: 60,
+    triggerVelocity: 100,
+  });
+  const double = compileMotif(motif, host(120 * 2), {
+    channel: 1,
+    meterMode: 'preserve',
+    triggerPitch: 60,
+    triggerVelocity: 100,
+  });
+  const firstBase = base.find(({ velocity, offsetMs }) => velocity > 0 && offsetMs > 0);
+  const firstHalf = half.find(({ velocity, offsetMs }) => velocity > 0 && offsetMs > 0);
+  const firstDouble = double.find(({ velocity, offsetMs }) => velocity > 0 && offsetMs > 0);
+  assert.ok(firstBase && firstHalf && firstDouble);
+  assert.equal(firstHalf.offsetMs, firstBase.offsetMs * 2);
+  assert.equal(firstDouble.offsetMs, firstBase.offsetMs / 2);
+});
