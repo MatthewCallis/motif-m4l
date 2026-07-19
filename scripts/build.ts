@@ -22,6 +22,11 @@ const MAX_BRIDGE = `// Hand-written Max v8 bridge. Keep this at the top level an
 var inlets = 1;
 var outlets = 1;
 
+// patcher.filepath is the absolute directory path of this patcher (trailing slash included).
+// Captured here at the top level where the Max global is in scope (both js and v8 objects).
+// Exposed as _patcherDir so the MotifEngine IIFE can reference it to emit file:// URLs.
+var _patcherDir = (typeof patcher !== 'undefined' && patcher && patcher.filepath) ? patcher.filepath : '';
+
 function anything() {
   var message = messagename;
   var args = arrayfromargs(arguments);

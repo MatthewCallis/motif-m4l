@@ -300,22 +300,9 @@ export async function generateMaxPatch(): Promise<void> {
   }
 
   function uiPreview(name: string, rect: Rect, help: { name: string; description: string }, options: BoxOptions = {}): string {
-    return add(name, 'multislider', rect, {
-      settype: 0,
-      setstyle: 1,
-      setminmax: [0, 12],
-      // Initial column count only; runtime sends `size N` then `setlist` per motif.
-      size: 8,
-      thickness: 6,
-      spacing: 2,
-      drawpeaks: 0,
-      contdata: 2,
-      listresize: 1,
-      bgcolor: COLORS.previewBg,
-      slidercolor: COLORS.accent,
-      bordercolor: COLORS.previewBorder,
+    // No url attribute — loadfile resolves through Max search path (correct for M4L distribution).
+    return add(name, 'jweb', rect, {
       ignoreclick: 1,
-      parameter_enable: 0,
       presentation: 1,
       presentation_rect: rect,
       varname: name,
@@ -430,15 +417,6 @@ export async function generateMaxPatch(): Promise<void> {
     description: 'A time-and-pitch preview of the selected motif after applying the current Live scale, pitch mode, meter mode, BPM multiplier, and most recent trigger note.',
   }, motifHidden);
 
-  uiComment('preview-notes-display', 'C3  ·  A♯2  ·  D♯3  ·  D3  ·  C♯3  ·  C3', [8, 130, 464, 14], {
-    fontsize: 11,
-    fontface: 1,
-    textcolor: COLORS.text,
-    justification: 0,
-    help: { name: 'Preview Notes', description: 'The exact MIDI note names that the current preview will play.' },
-    ...motifHidden,
-  });
-
   // Single bottom row — inline labels; Scale menus dim via `active` when Song.scale_mode is off
   uiLiveComment('pitch-label', 'Pitch', [8, 146.5, 40, 18], motifHidden);
   uiLiveMenu(
@@ -531,7 +509,6 @@ export async function generateMaxPatch(): Promise<void> {
     'panic-button',
     'ui-preview-panel',
     'motif-preview',
-    'preview-notes-display',
     'pitch-label',
     'pitch-menu',
     'scale-label',
@@ -573,10 +550,6 @@ export async function generateMaxPatch(): Promise<void> {
       return nadd(name, 'newobj', [x, y, width, 22], { text, ...options });
     }
 
-    function nmessage(name: string, text: string, x: number, y: number, width = 90): string {
-      return nadd(name, 'message', [x, y, width, 22], { text });
-    }
-
     function nconnect(source: string, sourceOutlet: number, destination: string, destinationInlet: number): void {
       const sourceId = nestedIds[source];
       const destinationId = nestedIds[destination];
@@ -591,372 +564,53 @@ export async function generateMaxPatch(): Promise<void> {
       });
     }
 
-    function nui(name: string, maxclass: string, presentationRect: Rect, options: BoxOptions = {}): string {
-      return nadd(name, maxclass, presentationRect, {
-        presentation: 1,
-        presentation_rect: presentationRect,
-        ...options,
-      });
-    }
-
-    function nLiveText(name: string, text: string, rect: Rect, help: HelpInfo): string {
-      return nui(name, 'live.text', rect, {
-        appearance: 0,
-        fontname: FONT,
-        fontsize: 9,
-        mode: 0,
-        outputmode: 1,
-        parameter_enable: 0,
-        text,
-        texton: text,
-        varname: name,
-        ...helpAttrs(help.name, help.description),
-      });
-    }
-
-    /** Plain Max number — `set` does not output (unlike live.numbox parameter sync). */
-    function nNumber(
-      name: string,
-      rect: Rect,
-      mmin: number,
-      mmax: number,
-      help: HelpInfo,
-      float = false,
-    ): string {
-      return nui(name, 'number', rect, {
-        fontname: FONT,
-        fontsize: 9,
-        bgcolor: COLORS.previewBg,
-        textcolor: COLORS.text,
-        bordercolor: COLORS.previewBorder,
-        minimum: mmin,
-        maximum: mmax,
-        numdecimalplaces: float ? 2 : 0,
-        format: float ? 6 : 0,
-        varname: name,
-        ...helpAttrs(help.name, help.description),
-      });
-    }
-
-    /** Dynamic umenu — Jitter cellblock invalidates M4L/maxpat load. */
-    function nListMenu(name: string, rect: Rect, help: HelpInfo): string {
-      return nui(name, 'umenu', rect, {
-        items: '',
-        fontname: FONT,
-        fontsize: 10,
-        bgcolor: COLORS.previewBg,
-        textcolor: COLORS.text,
-        bordercolor: COLORS.previewBorder,
-        hltcolor: COLORS.accent,
-        varname: name,
-        ...helpAttrs(help.name, help.description),
-      });
-    }
-
-    // Inlet for pcontrol (not in presentation)
-    nadd('lib-inlet', 'inlet', [20, 20, 40, 20]);
-
-    nui('lib-bg', 'panel', [0, 0, POP_W, POP_H], {
-      background: 1,
-      border: 0,
-      bgcolor: COLORS.panel,
-      rounded: 0,
-      varname: 'lib-bg',
+    // jweb fills the whole 640×460 window (Presentation).
+    // No url attribute — loadfile resolves through Max search path (correct for M4L distribution).
+    nadd('jweb-library', 'jweb', [0, 0, POP_W, POP_H], {
+      presentation: 1,
+      presentation_rect: [0, 0, POP_W, POP_H],
+      varname: 'jweb-library',
     });
 
-    // Left: searchable browser (umenu — no Jitter in M4L devices)
-    nui('search-label', 'comment', [12, 10, 60, 14], {
-      text: 'Search',
-      fontname: FONT,
-      fontsize: 9,
-      textcolor: COLORS.muted,
-    });
-    nui('motif-search', 'textedit', [12, 28, 148, 22], {
-      fontname: FONT,
-      fontsize: 10,
-      bgcolor: COLORS.previewBg,
-      textcolor: COLORS.text,
-      bordercolor: COLORS.previewBorder,
-      keymode: 1,
-      outputmode: 1,
-      varname: 'motif-search',
-      ...helpAttrs('Search Motifs', 'Filter the motif list by name, id, tags, or description. Use All to reset.'),
-    });
-    nLiveText('clear-search-button', 'All', [164, 28, 44, 22], {
-      name: 'Show All Motifs',
-      description: 'Clear the search filter and show every motif in the browser.',
-    });
-    nListMenu('browser-list', [12, 56, 196, 22], {
-      name: 'Motif Browser',
-      description: 'Select a motif from the filtered library list.',
-    });
-    nLiveText('import-clip-button', 'Import Clip', [12, 90, 96, 22], {
-      name: 'Import Clip',
-      description: 'Import notes from the selected Live MIDI clip (Detail View) into a new motif.',
-    });
-    nLiveText('save-motif-button', 'Save', [116, 90, 92, 22], {
-      name: 'Save Motif',
-      description: 'Write the current motif JSON into the chosen library folder. Built-ins are cloned first.',
-    });
-    nLiveText('choose-library', 'Choose', [12, 120, 96, 22], {
-      name: 'Choose Motif Library',
-      description: 'Select a folder containing additional motif JSON files. Built-in motifs remain available.',
-    });
-    nLiveText('refresh-button', 'Refresh', [116, 120, 92, 22], {
-      name: 'Refresh Motif Library',
-      description: 'Reload built-in motifs and all JSON motifs from the selected library folder.',
-    });
+    // inlet object gives library-info one inlet in the parent patcher so pcontrol can connect to it.
+    // Messages arriving via pcontrol (window flags, open, etc.) reach lib-thispatcher here.
+    nadd('lib-inlet', 'inlet', [20, 20, 40, 22]);
 
-    // Right: editable name/description + note list + fields
-    nui('name-edit', 'textedit', [224, 10, 320, 22], {
-      fontname: FONT,
-      fontsize: 12,
-      fontface: 1,
-      bgcolor: COLORS.previewBg,
-      textcolor: COLORS.accent,
-      bordercolor: COLORS.previewBorder,
-      keymode: 1,
-      outputmode: 1,
-      varname: 'name-edit',
-      ...helpAttrs('Motif Name', 'Edit the motif display name. Press Enter to apply (clones built-ins).'),
-    });
-    nLiveText('edit-button', 'Edit', [552, 10, 72, 22], {
-      name: 'Edit Motif',
-      description: 'Clone a built-in into an editable copy so name, description, and notes can be saved.',
-    });
-    nui('lib-stats', 'comment', [224, 36, 400, 14], {
-      text: '0 notes  •  0 bars',
-      fontname: FONT,
-      fontsize: 9,
-      textcolor: COLORS.muted,
-      varname: 'motif-stats-display',
-    });
-    nui('description-edit', 'textedit', [224, 54, 400, 40], {
-      fontname: FONT,
-      fontsize: 11,
-      bgcolor: COLORS.previewBg,
-      textcolor: COLORS.text,
-      bordercolor: COLORS.previewBorder,
-      keymode: 1,
-      outputmode: 1,
-      linecount: 2,
-      varname: 'description-edit',
-      ...helpAttrs('Motif Description', 'Edit the motif description. Press Enter to apply (clones built-ins).'),
-    });
-    nui('lib-tags', 'comment', [224, 98, 400, 14], {
-      text: '',
-      fontname: FONT,
-      fontsize: 9,
-      textcolor: COLORS.muted,
-      varname: 'motif-tags-display',
-    });
-
-    // Note rows table — replaces single note-list dropdown + shared field set
-    const NR = 16;
-    const NR_H = 18;
-    const NR_TOP = 136;
-    const NR_HDR_Y = 118;
-    const NR_ADD_Y = NR_TOP + NR * NR_H + 8;
-    const NR_COL = { idx: 224, pitch: 246, acc: 302, start: 350, dur: 412, gate: 474, vel: 524, rm: 580 };
-    const NR_W = { idx: 20, pitch: 52, acc: 44, start: 58, dur: 58, gate: 46, vel: 52, rm: 22 };
-
-    // Column headers
-    const NR_HDRS: Array<[string, keyof typeof NR_COL]> = [
-      ['#', 'idx'], ['Pitch', 'pitch'], ['Acc', 'acc'], ['Start', 'start'],
-      ['Duration', 'dur'], ['Gate', 'gate'], ['Velocity', 'vel'],
-    ];
-    for (const [label, key] of NR_HDRS) {
-      nui(`hdr-${key}`, 'comment', [NR_COL[key], NR_HDR_Y, NR_W[key], 14], {
-        text: label, fontname: FONT, fontsize: 9, textcolor: COLORS.muted,
-      });
-    }
-
-    // Per-row field definitions: suffix = box varname suffix, deviceField = JS handler field name
-    const NR_FIELDS: Array<{ suffix: string; deviceField: string; col: keyof typeof NR_COL; mmin: number; mmax: number; float: boolean; help: string }> = [
-      { suffix: 'pitch', deviceField: 'pitch', col: 'pitch', mmin: -48, mmax: 48, float: false, help: 'Relative pitch (degree or semitone).' },
-      { suffix: 'acc', deviceField: 'accidental', col: 'acc', mmin: -12, mmax: 12, float: false, help: 'Hybrid accidental in semitones (0 clears).' },
-      { suffix: 'start', deviceField: 'at', col: 'start', mmin: 0, mmax: 30720, float: false, help: 'Note start in PPQ ticks (960 = quarter note).' },
-      { suffix: 'dur', deviceField: 'duration', col: 'dur', mmin: 1, mmax: 30720, float: false, help: 'Note duration in PPQ ticks.' },
-      { suffix: 'gate', deviceField: 'gate', col: 'gate', mmin: 0, mmax: 2, float: true, help: 'Gate multiplier (0 clears per-note gate).' },
-      { suffix: 'vel', deviceField: 'velocity', col: 'vel', mmin: 0, mmax: 127, float: false, help: 'Velocity 1–127 (0 = use trigger curve).' },
-    ];
-
-    for (let i = 0; i < NR; i += 1) {
-      const rowY = NR_TOP + i * NR_H;
-      // Row index label
-      nui(`nr${i}-label`, 'comment', [NR_COL.idx, rowY + 2, NR_W.idx, 14], {
-        text: String(i + 1),
-        fontname: FONT, fontsize: 9, textcolor: COLORS.muted,
-        varname: `nr${i}-label`,
-      });
-      // Field number boxes
-      for (const fd of NR_FIELDS) {
-        nNumber(
-          `nr${i}-${fd.suffix}`,
-          [NR_COL[fd.col], rowY, NR_W[fd.col], NR_H],
-          fd.mmin, fd.mmax,
-          { name: `Note ${i + 1} ${fd.suffix}`, description: fd.help },
-          fd.float,
-        );
-      }
-      // Remove button (Unicode minus sign)
-      nLiveText(`nr${i}-remove`, '\u2212', [NR_COL.rm, rowY, NR_W.rm, NR_H], {
-        name: `Remove Note ${i + 1}`,
-        description: `Remove note at row ${i + 1} from the current motif.`,
-      });
-    }
-
-    // Add Note button
-    nLiveText('add-note-button', '+ Add Note', [NR_COL.idx, NR_ADD_Y, 100, 22], {
-      name: 'Add Note',
-      description: 'Append a new default note at the end of the current motif.',
-    });
-
-    // Logic — patching only (kept compact so the float window cannot open huge)
     const LX = 20;
     const LY = 500;
     const LROW = 36;
     nobject('lib-thispatcher', 'thispatcher', LX, LY, 90);
+    // loadmess fires on load to configure the floating window before it is first opened.
     nobject('lib-force-pres', 'loadmess presentation 1', LX + 120, LY, 160);
     nobject('lib-force-size', 'loadmess window size 640 460', LX + 300, LY, 180);
+    // lib-url is sent by initialize() via the outer patch (s ---lib-url → r ---lib-url).
+    // prepend url produces: url file:///...library.html → jweb-library loads the page.
+    nobject('lib-url-recv', 'receive ---lib-url', LX + 500, LY, 160);
+    nobject('lib-url-prepend', 'prepend url', LX + 680, LY, 110);
     nconnect('lib-force-pres', 0, 'lib-thispatcher', 0);
     nconnect('lib-force-size', 0, 'lib-thispatcher', 0);
+    nconnect('lib-inlet', 0, 'lib-thispatcher', 0);
+    nconnect('lib-url-recv', 0, 'lib-url-prepend', 0);
+    nconnect('lib-url-prepend', 0, 'jweb-library', 0);
 
-    nobject('s-author', 'send ---motif_author', LX + 500, LY, 170);
+    nobject('lib-data-recv', 'receive ---lib-data', LX, LY + LROW, 170);
+    nobject('lib-call-prepend', 'prepend call receiveData', LX + 220, LY + LROW, 190);
+    nconnect('lib-data-recv', 0, 'lib-call-prepend', 0);
+    nconnect('lib-call-prepend', 0, 'jweb-library', 0);
 
-    nobject('r-title', 'receive ---motif-title', LX, LY + LROW * 2, 160);
-    nobject('r-stats', 'receive ---motif-stats', LX, LY + LROW * 3, 160);
-    nobject('r-description', 'receive ---motif-description', LX, LY + LROW * 4, 190);
-    nobject('r-tags', 'receive ---motif-tags', LX, LY + LROW * 5, 160);
-    nobject('title-set', 'prepend set', LX + 220, LY + LROW * 2, 100);
-    nobject('stats-set', 'prepend set', LX + 220, LY + LROW * 3, 100);
-    nobject('description-set', 'prepend set', LX + 220, LY + LROW * 4, 100);
-    nobject('tags-set', 'prepend set', LX + 220, LY + LROW * 5, 100);
-    nconnect('r-title', 0, 'title-set', 0);
-    nconnect('title-set', 0, 'name-edit', 0);
-    nconnect('r-stats', 0, 'stats-set', 0);
-    nconnect('stats-set', 0, 'lib-stats', 0);
-    nconnect('r-description', 0, 'description-set', 0);
-    nconnect('description-set', 0, 'description-edit', 0);
-    nconnect('r-tags', 0, 'tags-set', 0);
-    nconnect('tags-set', 0, 'lib-tags', 0);
-
-    // Browser umenu: clear / append name (drop index) / set index
-    nobject('r-browser-clear', 'receive ---browser-clear', LX, LY + LROW * 7, 180);
-    nobject('r-browser-append', 'receive ---browser-append', LX, LY + LROW * 8, 190);
-    nobject('r-browser-select', 'receive ---browser-select', LX, LY + LROW * 9, 190);
-    nmessage('browser-clear-msg', 'clear', LX + 220, LY + LROW * 7, 60);
-    nobject('browser-drop-index', 'zl slice 1', LX + 220, LY + LROW * 8, 100);
-    nobject('browser-append', 'prepend append', LX + 360, LY + LROW * 8, 120);
-    nobject('browser-select', 'prepend set', LX + 220, LY + LROW * 9, 120);
-    nconnect('r-browser-clear', 0, 'browser-clear-msg', 0);
-    nconnect('browser-clear-msg', 0, 'browser-list', 0);
-    nconnect('r-browser-append', 0, 'browser-drop-index', 0);
-    nconnect('browser-drop-index', 1, 'browser-append', 0);
-    nconnect('browser-append', 0, 'browser-list', 0);
-    nconnect('r-browser-select', 0, 'browser-select', 0);
-    nconnect('browser-select', 0, 'browser-list', 0);
-
-    // Note row visibility + data infrastructure
-    const routeNums = Array.from({ length: NR }, (_, i) => i).join(' ');
-    nobject('r-note-row-vis', 'receive ---note-row-vis', LX, LY + LROW * 11, 180);
-    nobject('note-vis-route', `route ${routeNums}`, LX + 220, LY + LROW * 11, 380);
-    nobject('r-note-row-data', 'receive ---note-row-data', LX, LY + LROW * 13, 180);
-    nobject('note-data-route', `route ${routeNums}`, LX + 220, LY + LROW * 13, 380);
-    nconnect('r-note-row-vis', 0, 'note-vis-route', 0);
-    nconnect('r-note-row-data', 0, 'note-data-route', 0);
-
-    for (let i = 0; i < NR; i += 1) {
-      const vy = LY + LROW * (16 + i * 3);
-      const dy = LY + LROW * (16 + NR * 3 + 2 + i * 8);
-      const ey = LY + LROW * (16 + NR * 3 + 2 + NR * 8 + 2 + i * 9);
-
-      // Visibility: route outlet i → sel 0 1 → hide/show messages → lib-thispatcher
-      const rowVarnames = ['label', 'pitch', 'acc', 'start', 'dur', 'gate', 'vel', 'remove'].map((f) => `nr${i}-${f}`);
-      const hideText = rowVarnames.map((v) => `script sendbox ${v} presentation 0`).join(' , ');
-      const showText = rowVarnames.map((v) => `script sendbox ${v} presentation 1`).join(' , ');
-      nobject(`vsel${i}`, 'sel 0 1', LX, vy, 80);
-      nmessage(`vhide${i}`, hideText, LX + 120, vy, 600);
-      nmessage(`vshow${i}`, showText, LX + 760, vy, 600);
-      nconnect('note-vis-route', i, `vsel${i}`, 0);
-      nconnect(`vsel${i}`, 0, `vhide${i}`, 0);
-      nconnect(`vsel${i}`, 1, `vshow${i}`, 0);
-      nconnect(`vhide${i}`, 0, 'lib-thispatcher', 0);
-      nconnect(`vshow${i}`, 0, 'lib-thispatcher', 0);
-
-      // Data: route outlet i → unpack pitch acc at dur gate vel → prepend set → row boxes
-      nobject(`dunpack${i}`, 'unpack 0 0 0 0 0. 0', LX + 220, dy, 200);
-      nconnect('note-data-route', i, `dunpack${i}`, 0);
-      for (let f = 0; f < NR_FIELDS.length; f += 1) {
-        const fd = NR_FIELDS[f];
-        if (!fd) continue;
-        nobject(`dset${i}${fd.suffix}`, 'prepend set', LX + 460, dy + LROW * f, 100);
-        nconnect(`dunpack${i}`, f, `dset${i}${fd.suffix}`, 0);
-        nconnect(`dset${i}${fd.suffix}`, 0, `nr${i}-${fd.suffix}`, 0);
-      }
-
-      // Edit: field box → prepend deviceField → shared prepend edit_note_at i → s-author
-      nobject(`edit${i}`, `prepend edit_note_at ${i}`, LX + 620, ey, 170);
-      nconnect(`edit${i}`, 0, 's-author', 0);
-      for (let f = 0; f < NR_FIELDS.length; f += 1) {
-        const fd = NR_FIELDS[f];
-        if (!fd) continue;
-        nobject(`ep${i}${fd.suffix}`, `prepend ${fd.deviceField}`, LX + 420, ey + LROW * (f + 1), 160);
-        nconnect(`nr${i}-${fd.suffix}`, 0, `ep${i}${fd.suffix}`, 0);
-        nconnect(`ep${i}${fd.suffix}`, 0, `edit${i}`, 0);
-      }
-
-      // Remove: nr{i}-remove → prepend remove_note i → s-author
-      nobject(`rm${i}`, `prepend remove_note ${i}`, LX + 220, ey, 160);
-      nconnect(`nr${i}-remove`, 0, `rm${i}`, 0);
-      nconnect(`rm${i}`, 0, 's-author', 0);
-    }
-
-    // Add note button logic
-    const addNoteY = LY + LROW * (16 + NR * 3 + 2 + NR * 8 + 2 + NR * 9 + 2);
-    nmessage('add-note-msg', 'add_note', LX + 220, addNoteY, 100);
-    nconnect('add-note-button', 0, 'add-note-msg', 0);
-    nconnect('add-note-msg', 0, 's-author', 0);
-
-    // User actions → engine
-    nobject('filter-prepend', 'prepend filter_motifs', LX, LY + LROW * 21, 160);
-    nmessage('filter-all-msg', 'filter_motifs', LX + 200, LY + LROW * 21, 100);
-    nmessage('search-clear-set', 'set', LX + 340, LY + LROW * 21, 50);
-    nobject('clear-search-fan', 't b b', LX + 420, LY + LROW * 21, 60);
-    nobject('select-browser-prepend', 'prepend select_browser', LX, LY + LROW * 22, 170);
-    nmessage('import-clip-msg', 'import_clip', LX, LY + LROW * 23, 100);
-    nmessage('save-motif-msg', 'save_motif', LX, LY + LROW * 24, 100);
-    nmessage('begin-edit-msg', 'begin_edit', LX, LY + LROW * 25, 100);
-    nobject('edit-name-prepend', 'prepend edit_meta name', LX + 220, LY + LROW * 25, 160);
-    nobject('edit-desc-prepend', 'prepend edit_meta description', LX + 220, LY + LROW * 26, 190);
-    nobject('open-library', 'opendialog fold', LX, LY + LROW * 27, 120);
-    nobject('s-library', 'send ---library_path', LX + 220, LY + LROW * 27, 160);
-    nobject('s-refresh', 'send ---refresh_library', LX + 220, LY + LROW * 28, 170);
-
-    nconnect('motif-search', 0, 'filter-prepend', 0);
-    nconnect('filter-prepend', 0, 's-author', 0);
-    nconnect('clear-search-button', 0, 'clear-search-fan', 0);
-    nconnect('clear-search-fan', 0, 'filter-all-msg', 0);
-    nconnect('clear-search-fan', 1, 'search-clear-set', 0);
-    nconnect('search-clear-set', 0, 'motif-search', 0);
-    nconnect('filter-all-msg', 0, 's-author', 0);
-    // umenu outlet 0 = item index
-    nconnect('browser-list', 0, 'select-browser-prepend', 0);
-    nconnect('select-browser-prepend', 0, 's-author', 0);
-    nconnect('import-clip-button', 0, 'import-clip-msg', 0);
-    nconnect('import-clip-msg', 0, 's-author', 0);
-    nconnect('save-motif-button', 0, 'save-motif-msg', 0);
-    nconnect('save-motif-msg', 0, 's-author', 0);
-    nconnect('edit-button', 0, 'begin-edit-msg', 0);
-    nconnect('begin-edit-msg', 0, 's-author', 0);
-    nconnect('name-edit', 0, 'edit-name-prepend', 0);
-    nconnect('edit-name-prepend', 0, 's-author', 0);
-    nconnect('description-edit', 0, 'edit-desc-prepend', 0);
-    nconnect('edit-desc-prepend', 0, 's-author', 0);
-    nconnect('choose-library', 0, 'open-library', 0);
-    nconnect('open-library', 0, 's-library', 0);
-    nconnect('refresh-button', 0, 's-refresh', 0);
-
+    // jweb outlet → route choose_library
+    //   outlet 0 (choose_library): opendialog fold → s ---library_path
+    //   outlet 1 (no match = encoded JSON): prepend lib_action → s ---motif_author
+    nobject('lib-out-route', 'route choose_library', LX, LY + LROW * 3, 170);
+    nobject('lib-opendialog', 'opendialog fold', LX, LY + LROW * 4, 120);
+    nobject('lib-s-path', 'send ---library_path', LX + 160, LY + LROW * 4, 160);
+    nobject('lib-action-prepend', 'prepend lib_action', LX + 260, LY + LROW * 3, 160);
+    nobject('lib-s-author', 'send ---motif_author', LX + 460, LY + LROW * 3, 170);
+    nconnect('jweb-library', 0, 'lib-out-route', 0);
+    nconnect('lib-out-route', 0, 'lib-opendialog', 0);
+    nconnect('lib-opendialog', 0, 'lib-s-path', 0);
+    nconnect('lib-out-route', 1, 'lib-action-prepend', 0);
+    nconnect('lib-action-prepend', 0, 'lib-s-author', 0);
 
     return {
       fileversion: 1,
@@ -1028,24 +682,21 @@ export async function generateMaxPatch(): Promise<void> {
 
   // ---------- Feedback / menu / UI emit column ----------
   const FB_Y = 280;
-  patchComment('section-feedback', '§ Feedback — motif menu + preview / library UI emits (status stays in Max window)', COL.feedback, FB_Y - 40, 560);
+  patchComment('section-feedback', '§ Feedback — motif menu + jweb UI emits (lib/preview as encoded JSON)', COL.feedback, FB_Y - 40, 560);
   message('menu-clear', 'clear', COL.feedback, FB_Y + ROW * 2, 60);
   object('menu-append', 'prepend append', COL.feedback, FB_Y + ROW * 3, 120);
   object('menu-select', 'prepend setsymbol', COL.feedback, FB_Y + ROW * 4, 140);
-  object('ui-route', 'route preview-size preview-pitches preview-range preview-notes preview-root motif-title motif-description motif-stats motif-tags browser-reset browser-item browser-selected note-row-vis note-row-data', COL.feedback, FB_Y + ROW * 6, 1200);
-  object('preview-size-set', 'prepend size', COL.feedback, FB_Y + ROW * 7, 100);
-  object('preview-pitches-set', 'prepend setlist', COL.feedback + 160, FB_Y + ROW * 7, 120);
-  object('preview-range-set', 'prepend setmax', COL.feedback + 340, FB_Y + ROW * 7, 120);
-  object('preview-notes-set', 'prepend set', COL.feedback + 520, FB_Y + ROW * 7, 100);
-  object('s-motif-title', 'send ---motif-title', COL.feedback, FB_Y + ROW * 8, 160);
-  object('s-motif-description', 'send ---motif-description', COL.feedback + 240, FB_Y + ROW * 8, 190);
-  object('s-motif-stats', 'send ---motif-stats', COL.feedback, FB_Y + ROW * 9, 160);
-  object('s-motif-tags', 'send ---motif-tags', COL.feedback + 240, FB_Y + ROW * 9, 160);
-  object('s-browser-clear', 'send ---browser-clear', COL.feedback, FB_Y + ROW * 10, 170);
-  object('s-browser-append', 'send ---browser-append', COL.feedback + 240, FB_Y + ROW * 10, 180);
-  object('s-browser-select', 'send ---browser-select', COL.feedback + 500, FB_Y + ROW * 10, 180);
-  object('s-note-row-vis', 'send ---note-row-vis', COL.feedback, FB_Y + ROW * 11, 170);
-  object('s-note-row-data', 'send ---note-row-data', COL.feedback + 240, FB_Y + ROW * 11, 180);
+  // preview-url / lib-url: file:// URLs emitted by initialize() via patcher.filepath.
+  object('ui-route', 'route lib preview preview-url lib-url', COL.feedback, FB_Y + ROW * 6, 380);
+  // lib route → prepend call receiveData → send to library subpatcher jweb
+  object('lib-data-prepend', 'prepend call receiveData', COL.feedback, FB_Y + ROW * 7, 180);
+  object('lib-data-send', 'send ---lib-data', COL.feedback, FB_Y + ROW * 8, 150);
+  // preview route → prepend call receiveData → jweb preview.html in main device
+  object('preview-data-prepend', 'prepend call receiveData', COL.feedback + 240, FB_Y + ROW * 7, 180);
+  // preview-url route → prepend url → motif-preview jweb (loads preview.html on init)
+  object('preview-url-prepend', 'prepend url', COL.feedback + 500, FB_Y + ROW * 7, 110);
+  // lib-url route → send ---lib-url → received inside library subpatcher to load library.html
+  object('lib-url-send', 'send ---lib-url', COL.feedback + 640, FB_Y + ROW * 7, 140);
 
   // ---------- Song observers ----------
   const OBS_Y = 1200;
@@ -1181,13 +832,10 @@ export async function generateMaxPatch(): Promise<void> {
 
   object('r-library-path', 'receive ---library_path', COL.library + 420, LIB_Y, 180);
   object('library-prepend', 'prepend library_path', COL.library + 680, LIB_Y, 160);
-  object('r-refresh', 'receive ---refresh_library', COL.library + 420, LIB_Y + ROW, 190);
-  message('refresh-message', 'refresh_library', COL.library + 700, LIB_Y + ROW, 120);
-  object('r-author', 'receive ---motif_author', COL.library + 420, LIB_Y + ROW * 2, 180);
+  // r-author receives lib_action <encodedJson> from subpatcher (already prepended); pass to v8 directly.
+  object('r-author', 'receive ---motif_author', COL.library + 420, LIB_Y + ROW, 180);
   connect('r-library-path', 0, 'library-prepend', 0);
   connect('library-prepend', 0, 'v8', 0);
-  connect('r-refresh', 0, 'refresh-message', 0);
-  connect('refresh-message', 0, 'v8', 0);
   connect('r-author', 0, 'v8', 0);
 
   // ---------- MIDI wiring ----------
@@ -1231,25 +879,13 @@ export async function generateMaxPatch(): Promise<void> {
   connect('engine-route', 8, 'menu-select', 0);
   connect('menu-select', 0, 'motif-menu', 0);
   connect('engine-route', 10, 'ui-route', 0);
-  connect('ui-route', 0, 'preview-size-set', 0);
-  connect('preview-size-set', 0, 'motif-preview', 0);
-  connect('ui-route', 1, 'preview-pitches-set', 0);
-  connect('preview-pitches-set', 0, 'motif-preview', 0);
-  connect('ui-route', 2, 'preview-range-set', 0);
-  connect('preview-range-set', 0, 'motif-preview', 0);
-  connect('ui-route', 3, 'preview-notes-set', 0);
-  connect('preview-notes-set', 0, 'preview-notes-display', 0);
-  // Intentionally unconnected: preview-root is still emitted for debugging/automation,
-  // but Presentation shows Live key/scale via live.menu bound to Song observers.
-  connect('ui-route', 5, 's-motif-title', 0);
-  connect('ui-route', 6, 's-motif-description', 0);
-  connect('ui-route', 7, 's-motif-stats', 0);
-  connect('ui-route', 8, 's-motif-tags', 0);
-  connect('ui-route', 9, 's-browser-clear', 0);
-  connect('ui-route', 10, 's-browser-append', 0);
-  connect('ui-route', 11, 's-browser-select', 0);
-  connect('ui-route', 12, 's-note-row-vis', 0);
-  connect('ui-route', 13, 's-note-row-data', 0);
+  connect('ui-route', 0, 'lib-data-prepend', 0);
+  connect('lib-data-prepend', 0, 'lib-data-send', 0);
+  connect('ui-route', 1, 'preview-data-prepend', 0);
+  connect('preview-data-prepend', 0, 'motif-preview', 0);
+  connect('ui-route', 2, 'preview-url-prepend', 0);
+  connect('preview-url-prepend', 0, 'motif-preview', 0);
+  connect('ui-route', 3, 'lib-url-send', 0);
 
   // ---------- UI control → engine ----------
   const CTL_Y = 4800;

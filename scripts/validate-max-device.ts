@@ -125,26 +125,10 @@ assert.ok(!JSON.stringify(patch).includes('jit.'), 'maxpat must not embed Jitter
 assert.equal(byText('p library-info')?.patcher?.openinpresentation, 1, 'Library window must open in Presentation Mode');
 const libraryBoxes = byText('p library-info')?.patcher?.boxes ?? [];
 const libraryVarnames = new Set(libraryBoxes.map((entry) => entry.box.varname).filter(Boolean));
-for (const varname of [
-  'motif-search',
-  'clear-search-button',
-  'browser-list',
-  'name-edit',
-  'description-edit',
-  'edit-button',
-  'import-clip-button',
-  'save-motif-button',
-  'add-note-button',
-  'nr0-pitch',
-  'nr0-acc',
-  'nr0-start',
-  'nr0-dur',
-  'nr0-gate',
-  'nr0-vel',
-  'nr0-remove',
-]) {
-  assert.ok(libraryVarnames.has(varname), `library subpatcher missing ${varname}`);
-}
+assert.ok(libraryVarnames.has('jweb-library'), 'library subpatcher must contain a jweb-library object');
+const jwebLibraryBox = libraryBoxes.find((entry) => entry.box.varname === 'jweb-library');
+assert.equal(jwebLibraryBox?.box.maxclass, 'jweb', 'jweb-library must be a jweb object');
+assert.ok(String(jwebLibraryBox?.box.url ?? '').includes('library.html'), 'jweb-library must load library.html');
 assert.equal(byText('p library-info')?.patcher?.rect?.[2], 640, 'library float patcher width must be 640');
 assert.equal(byText('p library-info')?.patcher?.rect?.[3], 460, 'library float patcher height must be 460');
 assert.ok((byVarname('motif-preview')?.presentation_rect?.[3] ?? 0) >= 60, 'preview contour must be tall enough to read');

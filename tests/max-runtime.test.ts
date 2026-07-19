@@ -36,21 +36,29 @@ test('compiled Max runtime initializes, receives Song context, previews, and sch
   send('initialize');
 
   assert.ok(lastEmission(emissions, ['status', 'Ready']));
-  const initialSize = lastEmission(emissions, ['ui', 'preview-size']);
-  const initialPreview = lastEmission(emissions, ['ui', 'preview-pitches']);
-  assert.deepEqual(initialPreview?.slice(2), [2, 0, 5, 4, 3, 2]);
-  assert.equal(initialSize?.[2], initialPreview?.slice(2).length, 'preview-size must match pitch column count');
+
+  // Preview is now a piano roll encoded as JSON in `ui preview encodedJson`.
+  const initialPreviewRaw = lastEmission(emissions, ['ui', 'preview']);
+  assert.ok(initialPreviewRaw, 'preview state must be emitted on initialize');
+  const initialPreview = JSON.parse(decodeURIComponent(String(initialPreviewRaw?.[2] ?? ''))) as {
+    notes: Array<{ pitch: number; atTicks: number; durationTicks: number }>;
+    totalTicks: number;
+    lowPitch: number;
+    highPitch: number;
+    noteNames: string;
+  };
+  assert.ok(Array.isArray(initialPreview.notes) && initialPreview.notes.length > 0, 'preview must include notes');
+  assert.ok(typeof initialPreview.totalTicks === 'number' && initialPreview.totalTicks > 0);
 
   send('song_context', 'tempo', 96);
   send('song_context', 'root_note', 5);
   send('song_context', 'scale_name', 'Minor');
   send('song_context', 'scale_intervals', 0, 2, 3, 5, 7, 8, 10);
 
-  const updatedContext = lastEmission(emissions, ['ui', 'preview-root']);
-  const previewRoot = String(updatedContext?.slice(2).join(' '));
-  assert.ok(previewRoot.includes('F3 anchor'));
-  assert.ok(previewRoot.includes('chromatic') || previewRoot.includes('scale'), 'preview context keeps effective pitch mode');
-  assert.ok(!previewRoot.includes('Minor'), 'Live scale name belongs in the Scale strip, not preview-root');
+  // After song context update, a new preview JSON must arrive with updated note names.
+  const updatedPreviewRaw = lastEmission(emissions, ['ui', 'preview']);
+  const updatedPreview = JSON.parse(decodeURIComponent(String(updatedPreviewRaw?.[2] ?? ''))) as typeof initialPreview;
+  assert.ok(typeof updatedPreview.noteNames === 'string' && updatedPreview.noteNames.length > 0);
 
   const beforeTrigger = emissions.length;
   send('note', 60, 100, 1);

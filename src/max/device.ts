@@ -50,6 +50,13 @@ import {
 import { MotifStore } from '../library/store.js';
 
 /**
+ * Absolute directory path of the patcher (trailing slash included).
+ * Captured at the top level of the Max bridge script where `patcher` is in scope.
+ * Undefined in test/Node environments where the Max bridge is absent.
+ */
+declare const _patcherDir: string | undefined;
+
+/**
  * Symbolic messages the Max patch may send to `v8` (via `prepend <name>`).
  * Keep in sync with `tests/max-handler-contract.test.ts` and the patch generator.
  */
@@ -105,12 +112,8 @@ interface MotifHandlers {
   select_note: (index: number) => void;
   /** Edit one field of the selected note: pitch|accidental|at|duration|gate|velocity. */
   edit_note: (field: string, value: number) => void;
-  /** Edit a specific note row directly: rowIndex, field, value. */
-  edit_note_at: (rowIndex: number, field: string, value: number) => void;
-  /** Add a new default note at the end of the current motif. */
-  add_note: () => void;
-  /** Remove the note at the given row index from the current motif. */
-  remove_note: (index: number) => void;
+  /** Dispatch a URL-encoded JSON action from library.html (select, edit, add, remove note, etc.). */
+  lib_action: (encodedJson: string) => void;
   /** Flush pipes and clear active trigger state. */
   panic: () => void;
   list_motifs: () => void;
@@ -198,77 +201,67 @@ function formatNumber(value: number): string {
   return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, '');
 }
 
-/**
- * umenu-safe label — Max treats `@` as attribute syntax in `append` messages,
- * so never emit `@`, commas, or bare colons here.
- */
-
-function emitBrowserList(): void {
+function emitLibraryState(): void {
   const items = store.filter(browserQuery);
-  emit('ui', 'browser-reset');
-  for (let index = 0; index < items.length; index += 1) {
-    const item = items[index];
-    if (item) emit('ui', 'browser-item', index, item.name);
-  }
   const selected = currentMotif();
   const selectedIndex = selected ? items.findIndex((item) => item.id === selected.id) : -1;
-  if (selectedIndex >= 0) emit('ui', 'browser-selected', selectedIndex);
-  else if (items.length > 0) emit('ui', 'browser-selected', 0);
+
+  let selectedData: object | null = null;
+  if (selected) {
+    const preview = buildMotifPreview(selected, effectiveHost(), previewTriggerPitch, pitchModeOverride, meterMode);
+    const sourceMeter = `${selected.sourceMeter.numerator}/${selected.sourceMeter.denominator}`;
+    const tags = selected.metadata?.tags?.join(' · ') ?? 'custom motif';
+    const suggested = selected.metadata?.suggestedModes?.join(', ');
+    const tagLine = suggested ? `${tags}  •  suggested: ${suggested}` : tags;
+    const bars = `${formatNumber(preview.bars)} ${preview.bars === 1 ? 'bar' : 'bars'}`;
+    const stats = `${preview.notes.length} notes  •  ${bars}  •  ${sourceMeter} source  •  ${preview.effectivePitchMode}`;
+    selectedData = {
+      name: selected.name,
+      description: selected.description ?? '',
+      stats,
+      tags: tagLine,
+      isBuiltin: store.isBuiltin(selected.id),
+      notes: selected.notes.map((n) => ({
+        pitch: n.pitch,
+        accidental: n.accidental ?? 0,
+        at: n.at,
+        duration: n.duration,
+        gate: n.gate ?? selected.defaultGate ?? 1,
+        velocity: n.velocity ?? 0,
+      })),
+    };
+  }
+
+  const state = {
+    query: browserQuery,
+    items: items.map((item) => ({ id: item.id, name: item.name })),
+    selectedIndex: selectedIndex >= 0 ? selectedIndex : 0,
+    selected: selectedData,
+  };
+  emit('ui', 'lib', encodeURIComponent(JSON.stringify(state)));
 }
 
-function emitNoteEditorUi(): void {
+function emitPreviewState(): void {
   const selected = currentMotif();
-  for (let i = 0; i < MAX_NOTE_ROWS; i += 1) {
-    const note = selected?.notes[i];
-    emit('ui', 'note-row-vis', i, note ? 1 : 0);
-    if (note) {
-      emit(
-        'ui',
-        'note-row-data',
-        i,
-        note.pitch,
-        note.accidental ?? 0,
-        note.at,
-        note.duration,
-        note.gate ?? selected?.defaultGate ?? 1,
-        note.velocity ?? 0,
-      );
-    }
-  }
+  if (!selected) return;
+  const preview = buildMotifPreview(selected, effectiveHost(), previewTriggerPitch, pitchModeOverride, meterMode);
+  const totalTicks = preview.notes.reduce(
+    (max, n) => Math.max(max, n.atTicks + n.durationTicks),
+    1,
+  );
+  const state = {
+    notes: preview.notes.map((n) => ({ pitch: n.pitch, atTicks: n.atTicks, durationTicks: n.durationTicks })),
+    totalTicks,
+    lowPitch: preview.lowPitch,
+    highPitch: preview.highPitch,
+    noteNames: preview.noteNames.join('  ·  '),
+  };
+  emit('ui', 'preview', encodeURIComponent(JSON.stringify(state)));
 }
 
 function emitSelectedMotifUi(): void {
-  const selected = currentMotif();
-  if (!selected) return;
-
-  const preview = buildMotifPreview(
-    selected,
-    effectiveHost(),
-    previewTriggerPitch,
-    pitchModeOverride,
-    meterMode,
-  );
-  const normalizedPitches = preview.notes.map((note) => note.pitch - preview.lowPitch);
-  const previewRange = Math.max(1, preview.highPitch - preview.lowPitch);
-  const sourceMeter = `${selected.sourceMeter.numerator}/${selected.sourceMeter.denominator}`;
-  const tags = selected.metadata?.tags?.join(' · ') ?? 'custom motif';
-  const suggested = selected.metadata?.suggestedModes?.join(', ');
-  const tagLine = suggested ? `${tags}  •  suggested: ${suggested}` : tags;
-  const bars = `${formatNumber(preview.bars)} ${preview.bars === 1 ? 'bar' : 'bars'}`;
-  const stats = `${preview.notes.length} notes  •  ${bars}  •  ${sourceMeter} source  •  ${preview.effectivePitchMode}`;
-  const root = `${midiNoteName(preview.triggerPitch)} anchor  ·  ${preview.effectivePitchMode}`;
-
-  // Multislider `setlist` does not reliably honor listresize — set column count first.
-  emit('ui', 'preview-size', Math.max(1, normalizedPitches.length));
-  emit('ui', 'preview-pitches', ...normalizedPitches);
-  emit('ui', 'preview-range', previewRange);
-  emit('ui', 'preview-notes', preview.noteNames.join('  ·  '));
-  emit('ui', 'preview-root', root);
-  emit('ui', 'motif-title', ...selected.name.split(' ').filter(Boolean));
-  emit('ui', 'motif-description', ...(selected.description ?? '').split(' ').filter(Boolean));
-  emit('ui', 'motif-stats', stats);
-  emit('ui', 'motif-tags', tagLine);
-  emitNoteEditorUi();
+  emitLibraryState();
+  emitPreviewState();
 }
 
 function flattenValues(values: readonly unknown[]): unknown[] {
@@ -374,7 +367,6 @@ function listMotifs(): void {
   emit('motifs-reset');
   for (const item of store.list()) emit('motif-item', item.name);
   emit('motif-selected', currentMotif()?.name ?? currentMotifId);
-  emitBrowserList();
   emitSelectedMotifUi();
 }
 
@@ -391,6 +383,14 @@ function initialize(): void {
     initialized = true;
     emitStatus('Ready');
     emitMidiPassState();
+    // Emit file:// URLs so each jweb can load its HTML.  patcher.filepath (captured in the
+    // bridge as _patcherDir) is the absolute directory of Motif.maxpat — same folder as the
+    // HTML files.  Falls through silently in test/Node environments where _patcherDir is absent.
+    const dir = typeof _patcherDir === 'string' ? _patcherDir : '';
+    if (dir) {
+      emit('ui', 'preview-url', `file://${dir}preview.html`);
+      emit('ui', 'lib-url', `file://${dir}library.html`);
+    }
   }
   listMotifs();
 }
@@ -516,7 +516,6 @@ function motif(value: string): void {
   currentMotifId = selected.id;
   selectedNoteIndex = 0;
   emit('motif-selected', selected.name);
-  emitBrowserList();
   emitSelectedMotifUi();
   emitStatus('Motif', selected.name);
 }
@@ -705,7 +704,7 @@ function filter_motifs(...queryParts: unknown[]): void {
     .join(' ')
     .trim();
   browserQuery = raw;
-  emitBrowserList();
+  emitLibraryState();
   emitStatus('filter', browserQuery || '(all)');
 }
 
@@ -1025,7 +1024,6 @@ function edit_meta(fieldValue: string, ...textParts: unknown[]): void {
   }
 
   emit('motif-selected', next.name);
-  emitBrowserList();
   emitSelectedMotifUi();
   emitStatus('meta-edited', field, next.name);
 }
@@ -1043,10 +1041,9 @@ function select_note(indexValue: number): void {
   const selected = currentMotif();
   if (!selected || selected.notes.length === 0) return;
   selectedNoteIndex = Math.round(clamp(indexValue, 0, selected.notes.length - 1));
-  // Refresh fields only — avoid rewriting the note list (prevents selection jump).
   const note = selected.notes[selectedNoteIndex];
   if (!note) return;
-  emitNoteEditorUi();
+  emitLibraryState();
   emitStatus('note-selected', selectedNoteIndex);
 }
 
@@ -1105,27 +1102,7 @@ function edit_note(fieldValue: string, valueValue: number): void {
     return;
   }
 
-  // Refresh preview + note list labels; field boxes are already showing the typed value.
-  const updated = store.get(editable.id);
-  if (updated) {
-    emit('ui', 'motif-title', ...updated.name.split(' ').filter(Boolean));
-    emit('ui', 'motif-description', ...(updated.description ?? '').split(' ').filter(Boolean));
-    const preview = buildMotifPreview(
-      updated,
-      effectiveHost(),
-      previewTriggerPitch,
-      pitchModeOverride,
-      meterMode,
-    );
-    const normalizedPitches = preview.notes.map((note) => note.pitch - preview.lowPitch);
-    emit('ui', 'preview-size', Math.max(1, normalizedPitches.length));
-    emit('ui', 'preview-pitches', ...normalizedPitches);
-    emit('ui', 'preview-range', Math.max(1, preview.highPitch - preview.lowPitch));
-    emit('ui', 'preview-notes', preview.noteNames.join('  ·  '));
-    emitNoteEditorUi();
-    const browserIndex = store.filter(browserQuery).findIndex((item) => item.id === updated.id);
-    if (browserIndex >= 0) emit('ui', 'browser-selected', browserIndex);
-  }
+  emitSelectedMotifUi();
   emitStatus('note-edited', index, field, numeric);
 }
 
@@ -1184,7 +1161,6 @@ function edit_note_at(rowIndexValue: number, fieldValue: string, valueValue: num
     return;
   }
 
-  emitNoteEditorUi();
   emitSelectedMotifUi();
 }
 
@@ -1203,7 +1179,6 @@ function add_note(): void {
     emitError(errors.join('; '));
     return;
   }
-  emitNoteEditorUi();
   emitSelectedMotifUi();
 }
 
@@ -1218,8 +1193,58 @@ function remove_note(indexValue: number): void {
     emitError(errors.join('; '));
     return;
   }
-  emitNoteEditorUi();
   emitSelectedMotifUi();
+}
+
+/**
+ * Dispatch a URL-encoded JSON action from `library.html`.
+ * `library.html` sends `window.max.outlet(encodeURIComponent(JSON.stringify({type, ...})))`.
+ * Max routes that through `prepend lib_action` → `s ---motif_author` → engine inlet.
+ */
+function lib_action(encodedJson: string): void {
+  let action: Record<string, unknown>;
+  try {
+    action = JSON.parse(decodeURIComponent(String(encodedJson))) as Record<string, unknown>;
+  } catch {
+    emitError('lib_action: invalid JSON');
+    return;
+  }
+
+  const type = String(action['type'] ?? '');
+  switch (type) {
+    case 'select_browser':
+      select_browser(Number(action['index']));
+      break;
+    case 'filter_motifs':
+      filter_motifs(action['query']);
+      break;
+    case 'import_clip':
+      import_clip(action['pitchMode'] !== undefined ? String(action['pitchMode']) : undefined);
+      break;
+    case 'save_motif':
+      save_motif();
+      break;
+    case 'refresh_library':
+      refresh_library();
+      break;
+    case 'begin_edit':
+      begin_edit();
+      break;
+    case 'edit_meta':
+      edit_meta(String(action['field']), action['value']);
+      break;
+    case 'add_note':
+      add_note();
+      break;
+    case 'remove_note':
+      remove_note(Number(action['index']));
+      break;
+    case 'edit_note_at':
+      edit_note_at(Number(action['index']), String(action['field']), Number(action['value']));
+      break;
+    default:
+      emitError(`lib_action: unknown type ${type}`);
+  }
 }
 
 function panic(): void {
@@ -1266,9 +1291,7 @@ const handlers: MotifHandlers = {
   select_browser,
   select_note,
   edit_note,
-  edit_note_at,
-  add_note,
-  remove_note,
+  lib_action,
   panic,
   list_motifs: listMotifs,
   dump_context,

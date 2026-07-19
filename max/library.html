@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motif Library</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #141415;
+      --surface:  #1c1c1e;
+      --border:   #2e2e32;
+      --accent:   #ff8c1f;
+      --text:     #e0e0e6;
+      --muted:    #7a7a82;
+      --input-bg: #0e0e10;
+      --btn:      #2a2a2e;
+      --btn-hover:#363638;
+      --danger:   #c0392b;
+      --note-alt: #1a1a1c;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Ableton Sans", system-ui, -apple-system, sans-serif;
+      font-size: 11px;
+      overflow: hidden;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Layout                                                               */
+    /* ------------------------------------------------------------------ */
+    #app {
+      display: flex;
+      height: 100%;
+    }
+
+    /* Left column — browser */
+    #left {
+      width: 180px;
+      flex-shrink: 0;
+      display: flex;
+      flex-direction: column;
+      border-right: 1px solid var(--border);
+    }
+
+    /* Right column — motif detail */
+    #right {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Search                                                               */
+    /* ------------------------------------------------------------------ */
+    #search-row {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 6px 6px 4px;
+    }
+
+    #search {
+      flex: 1;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font: inherit;
+      padding: 3px 6px;
+      outline: none;
+    }
+    #search:focus { border-color: var(--accent); }
+
+    #clear-search {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 13px;
+      line-height: 1;
+      padding: 0 2px;
+    }
+    #clear-search:hover { color: var(--text); }
+
+    /* ------------------------------------------------------------------ */
+    /* Browser list                                                         */
+    /* ------------------------------------------------------------------ */
+    #browser-list {
+      flex: 1;
+      overflow-y: auto;
+      border-top: 1px solid var(--border);
+    }
+
+    .browser-item {
+      padding: 4px 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      border-bottom: 1px solid transparent;
+    }
+    .browser-item:hover { background: var(--btn); }
+    .browser-item.selected {
+      background: var(--accent);
+      color: #000;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Browser action buttons                                               */
+    /* ------------------------------------------------------------------ */
+    #browser-actions {
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      padding: 5px;
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Shared button styles                                                 */
+    /* ------------------------------------------------------------------ */
+    .btn {
+      background: var(--btn);
+      border: 1px solid var(--border);
+      color: var(--text);
+      cursor: pointer;
+      font: inherit;
+      padding: 3px 7px;
+      flex: 1;
+      text-align: center;
+      white-space: nowrap;
+    }
+    .btn:hover { background: var(--btn-hover); }
+    .btn:active { background: var(--accent); color: #000; }
+    .btn.accent { background: var(--accent); color: #000; border-color: transparent; }
+    .btn.accent:hover { filter: brightness(1.1); }
+    .btn.danger { color: var(--danger); }
+
+    /* ------------------------------------------------------------------ */
+    /* Right panel header                                                   */
+    /* ------------------------------------------------------------------ */
+    #meta {
+      padding: 6px 8px 4px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    #meta-row-1 { display: flex; align-items: baseline; gap: 6px; }
+
+    #name-edit {
+      flex: 1;
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font: inherit;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 6px;
+      outline: none;
+    }
+    #name-edit:focus { border-color: var(--accent); }
+    #name-edit:read-only { background: transparent; border-color: transparent; cursor: default; }
+    #name-edit:read-only:focus { border-color: transparent; }
+
+    #edit-btn {
+      flex-shrink: 0;
+    }
+
+    #description-edit {
+      background: var(--input-bg);
+      border: 1px solid var(--border);
+      color: var(--muted);
+      font: inherit;
+      padding: 3px 6px;
+      outline: none;
+      resize: none;
+      height: 32px;
+      width: 100%;
+    }
+    #description-edit:focus { border-color: var(--accent); color: var(--text); }
+    #description-edit:read-only { background: transparent; border-color: transparent; cursor: default; }
+    #description-edit:read-only:focus { border-color: transparent; }
+
+    #stats-line { color: var(--muted); font-size: 10px; }
+    #tags-line  { color: var(--muted); font-size: 10px; }
+
+    /* ------------------------------------------------------------------ */
+    /* Action buttons below meta                                            */
+    /* ------------------------------------------------------------------ */
+    #detail-actions {
+      display: flex;
+      gap: 4px;
+      padding: 4px 8px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* Note table                                                           */
+    /* ------------------------------------------------------------------ */
+    #note-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    #note-header {
+      display: grid;
+      grid-template-columns: 30px 54px 36px 48px 48px 44px 44px 26px;
+      gap: 0;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--muted);
+      font-weight: 600;
+    }
+    #note-header span {
+      padding: 3px 4px;
+      text-align: right;
+      border-right: 1px solid var(--border);
+    }
+    #note-header span:first-child { text-align: center; }
+    #note-header span:last-child { border-right: none; }
+
+    #note-rows {
+      flex: 1;
+      overflow-y: auto;
+    }
+
+    .note-row {
+      display: grid;
+      grid-template-columns: 30px 54px 36px 48px 48px 44px 44px 26px;
+      border-bottom: 1px solid var(--border);
+      align-items: center;
+    }
+    .note-row:nth-child(even) { background: var(--note-alt); }
+    .note-row.hidden { display: none; }
+
+    .note-row span {
+      font-size: 10px;
+      color: var(--muted);
+      text-align: center;
+      padding: 2px 2px;
+    }
+
+    .note-row input[type="number"] {
+      background: transparent;
+      border: none;
+      border-left: 1px solid var(--border);
+      color: var(--text);
+      font: inherit;
+      font-size: 10px;
+      padding: 2px 4px;
+      text-align: right;
+      width: 100%;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+    .note-row input[type="number"]::-webkit-inner-spin-button,
+    .note-row input[type="number"]::-webkit-outer-spin-button { display: none; }
+    .note-row input[type="number"]:focus { background: var(--input-bg); border-color: var(--accent); }
+
+    .note-row button.remove-btn {
+      background: none;
+      border: none;
+      border-left: 1px solid var(--border);
+      color: var(--danger);
+      cursor: pointer;
+      font-size: 13px;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+    }
+    .note-row button.remove-btn:hover { background: var(--danger); color: #fff; }
+
+    /* ------------------------------------------------------------------ */
+    /* Add note row                                                         */
+    /* ------------------------------------------------------------------ */
+    #add-row {
+      border-top: 1px solid var(--border);
+      padding: 4px 8px;
+    }
+  </style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- Left: browser panel                                                 -->
+  <!-- ------------------------------------------------------------------ -->
+  <div id="left">
+    <div id="search-row">
+      <input id="search" type="text" placeholder="Search…" autocomplete="off" spellcheck="false">
+      <button id="clear-search" title="Clear search">✕</button>
+    </div>
+
+    <div id="browser-list"></div>
+
+    <div id="browser-actions">
+      <button class="btn" id="choose-btn" title="Choose library folder">Choose</button>
+      <button class="btn" id="refresh-btn" title="Reload library">Refresh</button>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------------ -->
+  <!-- Right: detail panel                                                 -->
+  <!-- ------------------------------------------------------------------ -->
+  <div id="right">
+    <div id="meta">
+      <div id="meta-row-1">
+        <input id="name-edit" type="text" placeholder="(no motif selected)" readonly>
+        <button class="btn" id="edit-btn" title="Clone built-in and enable editing">Edit</button>
+      </div>
+      <textarea id="description-edit" placeholder="Description" readonly></textarea>
+      <div id="stats-line">–</div>
+      <div id="tags-line">–</div>
+    </div>
+
+    <div id="detail-actions">
+      <button class="btn accent" id="import-clip-btn">Import Clip</button>
+      <button class="btn" id="save-motif-btn">Save</button>
+    </div>
+
+    <div id="note-section">
+      <div id="note-header">
+        <span>#</span>
+        <span>Pitch</span>
+        <span>Acc</span>
+        <span>Start</span>
+        <span>Duration</span>
+        <span>Gate</span>
+        <span>Velocity</span>
+        <span></span>
+      </div>
+      <div id="note-rows"></div>
+      <div id="add-row">
+        <button class="btn" id="add-note-btn">+ Add Note</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  /* ------------------------------------------------------------------ */
+  /* Max shim — lets the file open in a browser for local dev            */
+  /* ------------------------------------------------------------------ */
+  if (typeof window.max === 'undefined') {
+    window.max = { outlet: (...a) => console.log('→ Max:', ...a) };
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Action helpers                                                       */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Send a JSON action back to Max as a URL-encoded symbol.
+   * Max patch routes this through `route choose_library`; anything else
+   * (all encoded JSON) falls to `prepend lib_action` → `s ---motif_author`.
+   * @param {object} action
+   */
+  function send(action) {
+    window.max.outlet(encodeURIComponent(JSON.stringify(action)));
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* State                                                                */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * @typedef {{ id: string, name: string }} BrowserItem
+   * @typedef {{ pitch: number, accidental: number, at: number, duration: number, gate: number, velocity: number }} NoteRow
+   * @typedef {{ name: string, description: string, stats: string, tags: string, notes: NoteRow[], isBuiltin: boolean }} SelectedMotif
+   * @typedef {{ query: string, items: BrowserItem[], selectedIndex: number, selected: SelectedMotif|null }} LibState
+   */
+
+  /** @type {LibState|null} */
+  let state = null;
+  let editing = false;
+
+  /* ------------------------------------------------------------------ */
+  /* Browser list rendering                                               */
+  /* ------------------------------------------------------------------ */
+
+  function renderBrowser() {
+    if (!state) return;
+    const list = document.getElementById('browser-list');
+    list.innerHTML = '';
+    for (let i = 0; i < state.items.length; i++) {
+      const item = state.items[i];
+      const el = document.createElement('div');
+      el.className = 'browser-item' + (i === state.selectedIndex ? ' selected' : '');
+      el.textContent = item.name;
+      el.title = item.name;
+      el.addEventListener('click', () => send({ type: 'select_browser', index: i }));
+      list.append(el);
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Detail panel rendering                                               */
+  /* ------------------------------------------------------------------ */
+
+  const NOTE_FIELDS = ['pitch', 'accidental', 'at', 'duration', 'gate', 'velocity'];
+  const MAX_NOTE_ROWS = 16;
+
+  function buildNoteRows() {
+    const container = document.getElementById('note-rows');
+    container.innerHTML = '';
+    for (let i = 0; i < MAX_NOTE_ROWS; i++) {
+      const row = document.createElement('div');
+      row.className = 'note-row hidden';
+      row.dataset.index = String(i);
+
+      /* index label */
+      const label = document.createElement('span');
+      label.textContent = String(i + 1);
+      row.append(label);
+
+      /* field inputs */
+      for (const field of NOTE_FIELDS) {
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.dataset.field = field;
+        if (field === 'gate') { input.min = '0'; input.max = '1'; input.step = '0.01'; }
+        else if (field === 'velocity') { input.min = '0'; input.max = '127'; input.step = '1'; }
+        else if (field === 'accidental') { input.min = '-1'; input.max = '1'; input.step = '1'; }
+        else { input.min = '0'; input.step = '1'; }
+
+        input.addEventListener('change', (e) => {
+          const idx = Number(row.dataset.index);
+          const f = input.dataset.field;
+          const v = Number(e.target.value);
+          send({ type: 'edit_note_at', index: idx, field: f, value: v });
+        });
+
+        row.append(input);
+      }
+
+      /* remove button */
+      const btn = document.createElement('button');
+      btn.className = 'remove-btn';
+      btn.textContent = '✕';
+      btn.title = 'Remove note';
+      btn.addEventListener('click', () => {
+        send({ type: 'remove_note', index: Number(row.dataset.index) });
+      });
+      row.append(btn);
+
+      container.append(row);
+    }
+  }
+
+  function updateNoteRows() {
+    const notes = state?.selected?.notes ?? [];
+    const rows = document.querySelectorAll('.note-row');
+    rows.forEach((row, i) => {
+      const note = notes[i];
+      if (!note) {
+        row.classList.add('hidden');
+        return;
+      }
+      row.classList.remove('hidden');
+      for (const field of NOTE_FIELDS) {
+        const input = row.querySelector(`[data-field="${field}"]`);
+        if (input) input.value = String(note[field] ?? 0);
+      }
+    });
+  }
+
+  function renderDetail() {
+    const sel = state?.selected ?? null;
+    const nameEl = document.getElementById('name-edit');
+    const descEl = document.getElementById('description-edit');
+    const statsEl = document.getElementById('stats-line');
+    const tagsEl = document.getElementById('tags-line');
+    const editBtn = document.getElementById('edit-btn');
+
+    if (!sel) {
+      nameEl.value = '';
+      nameEl.placeholder = '(no motif selected)';
+      descEl.value = '';
+      statsEl.textContent = '–';
+      tagsEl.textContent = '–';
+      nameEl.readOnly = true;
+      descEl.readOnly = true;
+      editBtn.disabled = true;
+      return;
+    }
+
+    const isEditable = !sel.isBuiltin;
+    nameEl.value = sel.name;
+    nameEl.readOnly = !isEditable;
+    descEl.value = sel.description ?? '';
+    descEl.readOnly = !isEditable;
+    statsEl.textContent = sel.stats ?? '';
+    tagsEl.textContent = sel.tags ?? '';
+    editBtn.disabled = isEditable; /* "Edit" only shown when locked */
+    editing = isEditable;
+
+    updateNoteRows();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Main render                                                          */
+  /* ------------------------------------------------------------------ */
+
+  function render() {
+    renderBrowser();
+    renderDetail();
+    /* Sync search field (non-destructively) */
+    const searchEl = document.getElementById('search');
+    if (state && document.activeElement !== searchEl) {
+      searchEl.value = state.query ?? '';
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Public API — called by Max via `call receiveData encodedJson`        */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * @param {string} encoded - URL-encoded compact JSON
+   */
+  function receiveData(encoded) {
+    try {
+      state = JSON.parse(decodeURIComponent(String(encoded)));
+    } catch (e) {
+      console.error('library: bad payload', e);
+      state = null;
+    }
+    render();
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Wire up controls                                                     */
+  /* ------------------------------------------------------------------ */
+
+  document.getElementById('search').addEventListener('input', (e) => {
+    send({ type: 'filter_motifs', query: e.target.value });
+  });
+
+  document.getElementById('clear-search').addEventListener('click', () => {
+    document.getElementById('search').value = '';
+    send({ type: 'filter_motifs', query: '' });
+  });
+
+  /* Choose library folder — raw string so Max `route choose_library` catches it */
+  document.getElementById('choose-btn').addEventListener('click', () => {
+    window.max.outlet('choose_library');
+  });
+
+  document.getElementById('refresh-btn').addEventListener('click', () => {
+    send({ type: 'refresh_library' });
+  });
+
+  document.getElementById('edit-btn').addEventListener('click', () => {
+    send({ type: 'begin_edit' });
+  });
+
+  document.getElementById('import-clip-btn').addEventListener('click', () => {
+    send({ type: 'import_clip' });
+  });
+
+  document.getElementById('save-motif-btn').addEventListener('click', () => {
+    send({ type: 'save_motif' });
+  });
+
+  document.getElementById('add-note-btn').addEventListener('click', () => {
+    send({ type: 'add_note' });
+  });
+
+  /* Commit name/description edits on blur */
+  document.getElementById('name-edit').addEventListener('blur', (e) => {
+    if (!e.target.readOnly) send({ type: 'edit_meta', field: 'name', value: e.target.value });
+  });
+  document.getElementById('description-edit').addEventListener('blur', (e) => {
+    if (!e.target.readOnly) send({ type: 'edit_meta', field: 'description', value: e.target.value });
+  });
+
+  /* ------------------------------------------------------------------ */
+  /* Bootstrap                                                            */
+  /* ------------------------------------------------------------------ */
+
+  buildNoteRows();
+
+  window.receiveData = receiveData;
+
+  /* Dev-mode: seed with mock data for local browser testing */
+  if (window.max.outlet.toString().includes('console.log')) {
+    receiveData(encodeURIComponent(JSON.stringify({
+      query: '',
+      items: [
+        { id: 'mitsuda-lick', name: 'Mitsuda Lick' },
+        { id: 'salt-peanuts', name: 'Salt Peanuts' },
+        { id: 'my-phrase',   name: 'My Custom Phrase' },
+      ],
+      selectedIndex: 0,
+      selected: {
+        name: 'Mitsuda Lick',
+        description: 'Ascending-descending phrase inspired by Yasunori Mitsuda.',
+        stats: '7 notes  •  1 bar  •  4/4 source  •  scale',
+        tags: 'builtin  •  suggested: scale, hybrid',
+        isBuiltin: true,
+        notes: [
+          { pitch: 0,  accidental: 0, at: 0,   duration: 240, gate: 1, velocity: 0 },
+          { pitch: 3,  accidental: 0, at: 240,  duration: 240, gate: 1, velocity: 0 },
+          { pitch: 5,  accidental: 0, at: 480,  duration: 120, gate: 1, velocity: 0 },
+          { pitch: 7,  accidental: 0, at: 600,  duration: 120, gate: 1, velocity: 0 },
+          { pitch: 5,  accidental: 0, at: 720,  duration: 240, gate: 1, velocity: 0 },
+          { pitch: 3,  accidental: 0, at: 960,  duration: 480, gate: 1, velocity: 0 },
+          { pitch: 0,  accidental: 0, at: 1440, duration: 480, gate: 1, velocity: 0 },
+        ],
+      },
+    })));
+  }
+</script>
+</body>
+</html>
