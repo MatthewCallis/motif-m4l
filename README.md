@@ -8,7 +8,7 @@ A scale-aware MIDI phrase trigger written in TypeScript. Ableton Live Song state
 - Fail-open native MIDI routing: raw MIDI passes while the engine starts, then `midiselect` extracts notes while preserving unrelated MIDI bytes.
 - Compact 480 × 169 Presentation Mode UI with Motif/Settings tabs, Ableton Sans, and Live theme colors.
 - Native `multislider` phrase contour preview plus exact note names beside the current root/scale, with a device-local BPM multiplier.
-- Motif details (description, stats, tags) and library Choose/Refresh in a floating Library/Info window (base for the 0.5 authoring UI).
+- Floating Library window: searchable browser, Live clip import, per-note editor, Save, plus description/stats/tags and library Choose/Refresh.
 - Clue-window annotations and locked-patcher hints on every interactive control.
 - Stable, unversioned runtime filenames so updates can replace files in place.
 

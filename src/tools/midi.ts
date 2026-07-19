@@ -1,7 +1,15 @@
+/**
+ * MIDI file ↔ Motif JSON conversion for authoring scripts and library import.
+ *
+ * Import normalizes source PPQ to motif {@link PPQ} (960), then runs relative
+ * analysis via `absoluteNotesToMotif`. Export compiles against a default major
+ * host context so chromatic/scale offsets render as absolute MIDI.
+ */
+
 import { parseMidi, writeMidi, type MidiData, type MidiEvent } from 'midi-file';
+import { absoluteNotesToMotif, type AbsoluteNotesImportOptions } from '../core/import-notes.js';
 import { compileMotif } from '../core/compile-motif.js';
-import { floorDiv, mod } from '../core/math.js';
-import { PPQ, type HostContext, type Motif, type PitchMode } from '../core/types.js';
+import { PPQ, type HostContext, type Motif } from '../core/types.js';
 import { validateMotif } from '../library/validate.js';
 
 interface ActiveNote {
@@ -9,44 +17,17 @@ interface ActiveNote {
   velocity: number;
 }
 
-export interface MidiImportOptions {
-  id: string;
-  name: string;
-  pitchMode: PitchMode;
-  rootNote?: number;
-  scaleIntervals?: readonly number[];
-  sourceMeter?: { numerator: number; denominator: number };
-}
+/** Import options — same shape as absolute-note import (id, name, pitchMode, …). */
+export type MidiImportOptions = AbsoluteNotesImportOptions;
 
 function noteKey(channel: number, note: number): string {
   return `${channel}:${note}`;
 }
 
-function analyzeScaleOffset(
-  semitoneOffset: number,
-  intervals: readonly number[],
-): { degree: number; accidental: number } {
-  const octave = floorDiv(semitoneOffset, 12);
-  const pitchClass = mod(semitoneOffset, 12);
-  let bestDegree = 0;
-  let bestDistance = Number.POSITIVE_INFINITY;
-
-  for (let index = 0; index < intervals.length; index += 1) {
-    const interval = intervals[index] ?? 0;
-    const distance = Math.abs(pitchClass - interval);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestDegree = index;
-    }
-  }
-
-  const scalePitch = intervals[bestDegree] ?? 0;
-  return {
-    degree: octave * intervals.length + bestDegree,
-    accidental: pitchClass - scalePitch,
-  };
-}
-
+/**
+ * Parse Standard MIDI File bytes into a relative Motif.
+ * Note-off (or note-on velocity 0) closes the matching channel/pitch stack.
+ */
 export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions): Motif {
   const parsed = parseMidi(bytes);
   const sourcePpq = parsed.header.ticksPerBeat ?? PPQ;
@@ -90,45 +71,23 @@ export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions):
     }
   }
 
-  completed.sort((left, right) => left.at - right.at || left.pitch - right.pitch);
   if (completed.length === 0) {
     throw new Error('MIDI file contains no completed notes');
   }
 
-  const anchor = options.rootNote ?? completed[0]?.pitch ?? 60;
-  const scaleIntervals = options.scaleIntervals ?? [0, 2, 4, 5, 7, 9, 11];
-  const notes = completed.map((note) => {
-    const semitoneOffset = note.pitch - anchor;
-    if (options.pitchMode === 'chromatic') {
-      return { at: note.at, duration: note.duration, pitch: semitoneOffset, velocity: note.velocity };
-    }
-
-    const analyzed = analyzeScaleOffset(semitoneOffset, scaleIntervals);
-    return {
-      at: note.at,
-      duration: note.duration,
-      pitch: analyzed.degree,
-      ...(options.pitchMode === 'hybrid' && analyzed.accidental !== 0
-        ? { accidental: analyzed.accidental }
-        : {}),
-      velocity: note.velocity,
-    };
+  return absoluteNotesToMotif(completed, {
+    ...options,
+    description: options.description ?? `Imported from MIDI using ${options.pitchMode} relative analysis.`,
+    tags: options.tags ?? ['imported', 'midi'],
   });
-
-  const length = Math.max(...notes.map((note) => note.at + note.duration));
-  return {
-    schemaVersion: 1,
-    id: options.id,
-    name: options.name,
-    description: `Imported from MIDI using ${options.pitchMode} relative analysis.`,
-    pitchMode: options.pitchMode,
-    sourceMeter: options.sourceMeter ?? { numerator: 4, denominator: 4 },
-    length,
-    notes,
-    metadata: { tags: ['imported', 'midi'] },
-  };
 }
 
+/**
+ * Compile a Motif (or unknown JSON) to SMF bytes at motif PPQ.
+ * Validates first; throws joined validation errors on failure.
+ *
+ * @param triggerPitch - Anchor pitch for relative → absolute mapping (default 60 / C3).
+ */
 export function motifToMidiBytes(value: unknown, triggerPitch = 60): Uint8Array {
   const validation = validateMotif(value);
   if (!validation.valid || !validation.motif) {

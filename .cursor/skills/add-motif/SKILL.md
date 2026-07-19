@@ -38,6 +38,8 @@ npm run midi:import -- input.mid motifs/builtin/<id>.json chromatic
 
 Then hand-edit name/description/metadata/timing; re-check `length` covers every note.
 
+In Live, open a MIDI clip in Detail View and use **Import Clip** in the floating Library window (hybrid analysis against Song scale by default). Save writes JSON into the chosen library folder.
+
 ## Timing (PPQ = 960)
 
 `at` / `duration` / `length` are **source ticks**. Rests = gaps between notes.

@@ -115,7 +115,12 @@ test('generates a compact Max 9 device with Motif/Settings tabs and native previ
   assert.ok(texts.includes('route Ready'));
   assert.ok(texts.includes('t b b b b b b b b b'));
   assert.ok(texts.includes('route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui'));
-  assert.ok(texts.includes('route preview-size preview-pitches preview-range preview-notes preview-root motif-title motif-description motif-stats motif-tags'));
+  assert.ok(texts.includes('route preview-size preview-pitches preview-range preview-notes preview-root motif-title motif-description motif-stats motif-tags browser-reset browser-item browser-selected note-row-vis note-row-data'));
+  assert.ok(texts.includes('window size 640 460'));
+  assert.ok(texts.filter((text) => text === 'window size 640 460').length >= 2, 'size must be applied before and after open');
+  assert.ok(texts.includes('receive ---motif_author'));
+  const nestedTexts = allBoxes(boxes).map((box) => box.text).filter((text): text is string => Boolean(text));
+  assert.ok(nestedTexts.includes('filter_motifs'), 'All/clear search must send filter_motifs');
   assert.ok(texts.includes('prepend size'), 'preview column count must be set before setlist');
   assert.ok(texts.includes('pipe 0 0 0 0.'));
 
@@ -213,12 +218,43 @@ test('generates a compact Max 9 device with Motif/Settings tabs and native previ
   }
 
   const nested = allBoxes(boxes);
-  for (const varname of ['choose-library', 'refresh-button', 'motif-title-display', 'motif-description-display']) {
+  for (const varname of [
+    'choose-library',
+    'refresh-button',
+    'import-clip-button',
+    'save-motif-button',
+    'clear-search-button',
+    'edit-button',
+    'motif-search',
+    'name-edit',
+    'description-edit',
+    'browser-list',
+    'add-note-button',
+    'nr0-pitch',
+    'nr0-acc',
+    'nr0-start',
+    'nr0-dur',
+    'nr0-gate',
+    'nr0-vel',
+    'nr0-remove',
+  ]) {
     const control = nested.find((box) => box.varname === varname);
     assert.ok(control, `missing nested ${varname}`);
-    if (varname === 'choose-library' || varname === 'refresh-button') {
+    if (
+      varname === 'choose-library'
+      || varname === 'refresh-button'
+      || varname === 'import-clip-button'
+      || varname === 'save-motif-button'
+      || varname === 'edit-button'
+    ) {
       assert.ok(control.annotation_name, `${varname} is missing annotation_name`);
       assert.equal(control.outputmode, 1, `${varname} should use Mouse Up output`);
+    }
+    if (varname === 'browser-list') {
+      assert.equal(control.maxclass, 'umenu', `${varname} should be a umenu (no Jitter in M4L)`);
+    }
+    if (varname === 'nr0-pitch') {
+      assert.equal(control.maxclass, 'number', 'row pitch field must use Max number (set without output)');
     }
   }
 

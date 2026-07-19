@@ -57,6 +57,66 @@ var MotifEngine = (() => {
     return Math.floor(value / divisor);
   }
 
+  // src/core/import-notes.ts
+  function analyzeScaleOffset(semitoneOffset, intervals) {
+    const octave = floorDiv(semitoneOffset, 12);
+    const pitchClass = mod(semitoneOffset, 12);
+    let bestDegree = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+    for (let index = 0; index < intervals.length; index += 1) {
+      const interval = intervals[index] ?? 0;
+      const distance = Math.abs(pitchClass - interval);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestDegree = index;
+      }
+    }
+    const scalePitch = intervals[bestDegree] ?? 0;
+    return {
+      degree: octave * intervals.length + bestDegree,
+      accidental: pitchClass - scalePitch
+    };
+  }
+  function absoluteNotesToMotif(absoluteNotes, options) {
+    const completed = [...absoluteNotes].map((note2) => ({
+      at: note2.at,
+      duration: Math.max(1, note2.duration),
+      pitch: note2.pitch,
+      velocity: note2.velocity
+    })).sort((left, right) => left.at - right.at || left.pitch - right.pitch);
+    if (completed.length === 0) {
+      throw new Error("No completed notes to import");
+    }
+    const anchor = options.rootNote ?? completed[0]?.pitch ?? 60;
+    const scaleIntervals = options.scaleIntervals ?? [0, 2, 4, 5, 7, 9, 11];
+    const notes = completed.map((note2) => {
+      const semitoneOffset = note2.pitch - anchor;
+      if (options.pitchMode === "chromatic") {
+        return { at: note2.at, duration: note2.duration, pitch: semitoneOffset, velocity: note2.velocity };
+      }
+      const analyzed = analyzeScaleOffset(semitoneOffset, scaleIntervals);
+      return {
+        at: note2.at,
+        duration: note2.duration,
+        pitch: analyzed.degree,
+        ...options.pitchMode === "hybrid" && analyzed.accidental !== 0 ? { accidental: analyzed.accidental } : {},
+        velocity: note2.velocity
+      };
+    });
+    const length = Math.max(...notes.map((note2) => note2.at + note2.duration));
+    return {
+      schemaVersion: 1,
+      id: options.id,
+      name: options.name,
+      description: options.description ?? `Imported using ${options.pitchMode} relative analysis.`,
+      pitchMode: options.pitchMode,
+      sourceMeter: options.sourceMeter ?? { numerator: 4, denominator: 4 },
+      length,
+      notes,
+      metadata: { tags: options.tags ? [...options.tags] : ["imported"] }
+    };
+  }
+
   // src/core/pitch.ts
   function normalizeScaleIntervals(intervals) {
     const normalized = [...new Set(intervals.map((value) => mod(Math.round(value), 12)))].sort(
@@ -1411,18 +1471,40 @@ var MotifEngine = (() => {
   }
 
   // src/library/store.ts
-  var _motifs;
+  function matchesQuery(motif2, query) {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return true;
+    const haystack = [
+      motif2.id,
+      motif2.name,
+      motif2.description,
+      ...motif2.metadata?.tags ?? [],
+      ...motif2.metadata?.suggestedModes ?? []
+    ].join(" ").toLowerCase();
+    return haystack.includes(normalized);
+  }
+  var _motifs, _builtinIds;
   var MotifStore = class {
     constructor() {
       __privateAdd(this, _motifs, /* @__PURE__ */ new Map());
+      __privateAdd(this, _builtinIds, new Set(BUILTIN_MOTIFS.map((motif2) => motif2.id)));
       this.resetToBuiltins();
     }
+    /** Replace contents with the compiled built-in library only. */
     resetToBuiltins() {
       __privateGet(this, _motifs).clear();
       for (const motif2 of BUILTIN_MOTIFS) {
         __privateGet(this, _motifs).set(motif2.id, motif2);
       }
     }
+    /** True when `id` is from `motifs/builtin/` (generated into BUILTIN_MOTIFS). */
+    isBuiltin(id) {
+      return __privateGet(this, _builtinIds).has(id);
+    }
+    /**
+     * Validate and insert/replace a motif by id.
+     * @returns Empty array on success, or validation error strings.
+     */
     add(value) {
       const result = validateMotif(value);
       if (!result.valid || !result.motif) {
@@ -1431,14 +1513,64 @@ var MotifEngine = (() => {
       __privateGet(this, _motifs).set(result.motif.id, result.motif);
       return [];
     }
+    /** Alias for {@link MotifStore.add} (replace-by-id). */
+    update(value) {
+      return this.add(value);
+    }
     get(id) {
       return __privateGet(this, _motifs).get(id);
     }
+    /** All motifs sorted by display name. */
     list() {
       return [...__privateGet(this, _motifs).values()].sort((left, right) => left.name.localeCompare(right.name));
     }
+    /** Case-insensitive substring match across id, name, description, tags, suggestedModes. */
+    filter(query) {
+      return this.list().filter((motif2) => matchesQuery(motif2, query));
+    }
+    /**
+     * Clone a built-in (or any motif) to a new user id so edits can be saved without overwriting builtins.
+     */
+    cloneAsUser(id, newId) {
+      const source = __privateGet(this, _motifs).get(id);
+      if (!source) return void 0;
+      let candidate = newId ?? `${source.id}-edit`;
+      let suffix = 2;
+      while (__privateGet(this, _motifs).has(candidate) || __privateGet(this, _builtinIds).has(candidate)) {
+        candidate = `${newId ?? `${source.id}-edit`}-${suffix}`;
+        suffix += 1;
+      }
+      const tags = /* @__PURE__ */ new Set([...source.metadata?.tags ?? [], "edited"]);
+      const clone = {
+        ...source,
+        id: candidate,
+        name: source.name.endsWith(" (edit)") ? source.name : `${source.name} (edit)`,
+        notes: source.notes.map((note2) => ({ ...note2 })),
+        metadata: {
+          ...source.metadata,
+          tags: [...tags]
+        }
+      };
+      __privateGet(this, _motifs).set(clone.id, clone);
+      return clone;
+    }
+    /**
+     * Replace notes on an existing motif and recompute `length` to cover the new span.
+     * @returns Validation errors, or a single error if the id is unknown.
+     */
+    setNotes(id, notes) {
+      const existing = __privateGet(this, _motifs).get(id);
+      if (!existing) return [`Unknown motif: ${id}`];
+      const length = notes.length > 0 ? Math.max(existing.length, ...notes.map((note2) => note2.at + note2.duration)) : existing.length;
+      return this.update({
+        ...existing,
+        notes,
+        length
+      });
+    }
   };
   _motifs = new WeakMap();
+  _builtinIds = new WeakMap();
 
   // src/max/device.ts
   var store = new MotifStore();
@@ -1461,7 +1593,11 @@ var MotifEngine = (() => {
   var previewTriggerPitch = 60;
   var previewWasTriggered = false;
   var tempoMultiplier = 1;
+  var browserQuery = "";
+  var selectedNoteIndex = 0;
   var TEMPO_MULTIPLIERS = [0.5, 1, 1.5, 2];
+  var NOTE_EDIT_FIELDS = ["pitch", "accidental", "at", "duration", "gate", "velocity"];
+  var MAX_NOTE_ROWS = 16;
   var hostContext = {
     tempo: 120,
     rootNote: 0,
@@ -1499,6 +1635,38 @@ var MotifEngine = (() => {
   function formatNumber(value) {
     return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
   }
+  function emitBrowserList() {
+    const items = store.filter(browserQuery);
+    emit("ui", "browser-reset");
+    for (let index = 0; index < items.length; index += 1) {
+      const item = items[index];
+      if (item) emit("ui", "browser-item", index, item.name);
+    }
+    const selected = currentMotif();
+    const selectedIndex = selected ? items.findIndex((item) => item.id === selected.id) : -1;
+    if (selectedIndex >= 0) emit("ui", "browser-selected", selectedIndex);
+    else if (items.length > 0) emit("ui", "browser-selected", 0);
+  }
+  function emitNoteEditorUi() {
+    const selected = currentMotif();
+    for (let i = 0; i < MAX_NOTE_ROWS; i += 1) {
+      const note2 = selected?.notes[i];
+      emit("ui", "note-row-vis", i, note2 ? 1 : 0);
+      if (note2) {
+        emit(
+          "ui",
+          "note-row-data",
+          i,
+          note2.pitch,
+          note2.accidental ?? 0,
+          note2.at,
+          note2.duration,
+          note2.gate ?? selected?.defaultGate ?? 1,
+          note2.velocity ?? 0
+        );
+      }
+    }
+  }
   function emitSelectedMotifUi() {
     const selected = currentMotif();
     if (!selected) return;
@@ -1523,10 +1691,11 @@ var MotifEngine = (() => {
     emit("ui", "preview-range", previewRange);
     emit("ui", "preview-notes", preview.noteNames.join("  \xB7  "));
     emit("ui", "preview-root", root);
-    emit("ui", "motif-title", selected.name);
-    emit("ui", "motif-description", selected.description);
+    emit("ui", "motif-title", ...selected.name.split(" ").filter(Boolean));
+    emit("ui", "motif-description", ...(selected.description ?? "").split(" ").filter(Boolean));
     emit("ui", "motif-stats", stats);
     emit("ui", "motif-tags", tagLine);
+    emitNoteEditorUi();
   }
   function flattenValues(values) {
     const out = [];
@@ -1621,6 +1790,7 @@ var MotifEngine = (() => {
     emit("motifs-reset");
     for (const item of store.list()) emit("motif-item", item.name);
     emit("motif-selected", currentMotif()?.name ?? currentMotifId);
+    emitBrowserList();
     emitSelectedMotifUi();
   }
   function emitMidiPassState() {
@@ -1725,7 +1895,9 @@ var MotifEngine = (() => {
       return;
     }
     currentMotifId = selected.id;
+    selectedNoteIndex = 0;
     emit("motif-selected", selected.name);
+    emitBrowserList();
     emitSelectedMotifUi();
     emitStatus("Motif", selected.name);
   }
@@ -1821,6 +1993,20 @@ var MotifEngine = (() => {
       file.close();
     }
   }
+  function writeJsonFile(filename, value) {
+    const file = new File(filename, "write");
+    if (!file.isopen) throw new Error("could not open file for write");
+    try {
+      file.writestring(`${JSON.stringify(value, null, 2)}
+`);
+    } finally {
+      file.close();
+    }
+  }
+  function libraryFilePath(id) {
+    const separator = userLibraryPath.endsWith("/") || userLibraryPath.endsWith(":") ? "" : "/";
+    return `${userLibraryPath}${separator}${id}.json`;
+  }
   function loadUserLibrary() {
     store.resetToBuiltins();
     if (!userLibraryPath) return;
@@ -1868,6 +2054,437 @@ var MotifEngine = (() => {
     emitSelectedMotifUi();
     emitStatus("tempo-multiplier", tempoMultiplier);
   }
+  var FILTER_NOISE = /* @__PURE__ */ new Set(["", "set", "text", "clear", "bang", "symbol", "undefined", "null"]);
+  function filter_motifs(...queryParts) {
+    const raw = flattenValues(queryParts).map(String).map((part) => part.trim()).filter((part) => !FILTER_NOISE.has(part.toLowerCase())).join(" ").trim();
+    browserQuery = raw;
+    emitBrowserList();
+    emitStatus("filter", browserQuery || "(all)");
+  }
+  function liveApiId(api) {
+    return String(api.id ?? "");
+  }
+  function isLiveApiValid(api) {
+    if (!api) return false;
+    const id = liveApiId(api);
+    return id !== "" && id !== "0" && id !== "id 0";
+  }
+  function liveTruthy(value) {
+    if (Array.isArray(value)) return liveTruthy(value[0]);
+    if (typeof value === "boolean") return value;
+    if (typeof value === "number") return value !== 0;
+    if (typeof value === "string") {
+      const normalized = value.trim().toLowerCase();
+      return normalized !== "" && normalized !== "0" && normalized !== "false" && normalized !== "id 0";
+    }
+    return Boolean(value);
+  }
+  function isMidiClip(api) {
+    try {
+      if (liveTruthy(api.get("is_midi_clip"))) return true;
+      if (liveTruthy(api.get("is_audio_clip"))) return false;
+    } catch {
+    }
+    return true;
+  }
+  function resolveDetailClip() {
+    if (typeof LiveAPI === "undefined") return void 0;
+    try {
+      const detail = new LiveAPI("live_set view detail_clip");
+      if (isLiveApiValid(detail) && isMidiClip(detail)) return detail;
+    } catch {
+    }
+    try {
+      const slot = new LiveAPI("live_set view highlighted_clip_slot");
+      if (!isLiveApiValid(slot) || !liveTruthy(slot.get("has_clip"))) return void 0;
+      const clip = new LiveAPI("live_set view highlighted_clip_slot clip");
+      if (isLiveApiValid(clip) && isMidiClip(clip)) return clip;
+    } catch {
+    }
+    return void 0;
+  }
+  function asRecord(value) {
+    if (typeof value === "object" && value !== null && !Array.isArray(value)) {
+      return value;
+    }
+    return void 0;
+  }
+  function coerceNotesPayload(raw) {
+    if (typeof raw === "string") {
+      const trimmed = raw.trim();
+      if (!trimmed) return void 0;
+      try {
+        return JSON.parse(trimmed);
+      } catch {
+        return void 0;
+      }
+    }
+    const dictLike = raw;
+    if (dictLike && typeof dictLike.stringify === "function") {
+      try {
+        return JSON.parse(dictLike.stringify());
+      } catch {
+        return void 0;
+      }
+    }
+    return raw;
+  }
+  function parseClipNotesExtended(raw) {
+    const record = asRecord(coerceNotesPayload(raw));
+    const notesValue = record?.notes;
+    if (!Array.isArray(notesValue)) return [];
+    const notes = [];
+    for (const entry of notesValue) {
+      const note2 = asRecord(entry);
+      if (!note2) continue;
+      const pitch = Number(note2.pitch);
+      const startTime = Number(note2.start_time ?? note2.startTime);
+      const duration = Number(note2.duration);
+      const velocity = Number(note2.velocity ?? 100);
+      if (!Number.isFinite(pitch) || !Number.isFinite(startTime) || !Number.isFinite(duration)) continue;
+      if (note2.mute === 1 || note2.muted === 1 || note2.mute === true) continue;
+      notes.push({
+        at: Math.round(startTime * PPQ),
+        duration: Math.max(1, Math.round(duration * PPQ)),
+        pitch: Math.round(pitch),
+        velocity: Math.round(clamp(velocity, 1, 127))
+      });
+    }
+    return notes;
+  }
+  function parseClipNotesLegacy(raw) {
+    const values = flattenValues(Array.isArray(raw) ? raw : [raw]).map((value) => {
+      const asNumber = Number(value);
+      return Number.isFinite(asNumber) ? asNumber : value;
+    });
+    let index = 0;
+    if (String(values[0]) === "notes") index = 1;
+    const count = Number(values[index]);
+    if (!Number.isFinite(count) || count <= 0) return [];
+    index += 1;
+    const notes = [];
+    for (let noteIndex = 0; noteIndex < count; noteIndex += 1) {
+      const pitch = Number(values[index]);
+      const time = Number(values[index + 1]);
+      const duration = Number(values[index + 2]);
+      const velocity = Number(values[index + 3]);
+      const muted = Number(values[index + 4]);
+      index += 5;
+      if (!Number.isFinite(pitch) || !Number.isFinite(time) || !Number.isFinite(duration)) continue;
+      if (muted === 1) continue;
+      notes.push({
+        at: Math.round(time * PPQ),
+        duration: Math.max(1, Math.round(duration * PPQ)),
+        pitch: Math.round(pitch),
+        velocity: Math.round(clamp(Number.isFinite(velocity) ? velocity : 100, 1, 127))
+      });
+    }
+    return notes;
+  }
+  function readClipNotes(clip) {
+    try {
+      const extended = clip.call("get_notes_extended", 0, 127, 0, 4096);
+      const fromExtended = parseClipNotesExtended(extended);
+      if (fromExtended.length > 0) return fromExtended;
+    } catch {
+    }
+    try {
+      const legacy = clip.call("get_notes", 0, 4096, 0, 127);
+      return parseClipNotesLegacy(legacy);
+    } catch (reason) {
+      throw new Error(
+        `Could not read clip notes: ${reason instanceof Error ? reason.message : String(reason)}`
+      );
+    }
+  }
+  function import_clip(pitchModeValue = "hybrid") {
+    const mode = String(pitchModeValue || "hybrid");
+    if (mode !== "scale" && mode !== "chromatic" && mode !== "hybrid") {
+      emitError(`Unknown import pitch mode: ${mode}`);
+      return;
+    }
+    const clip = resolveDetailClip();
+    if (!clip) {
+      emitError("No clip selected \u2014 open a MIDI clip in Detail View, then Import Clip");
+      return;
+    }
+    let absoluteNotes = [];
+    try {
+      absoluteNotes = readClipNotes(clip);
+    } catch (reason) {
+      emitError(`Clip import failed: ${reason instanceof Error ? reason.message : String(reason)}`);
+      return;
+    }
+    if (absoluteNotes.length === 0) {
+      emitError("Selected clip has no notes");
+      return;
+    }
+    const clipNameRaw = clip.get("name");
+    const clipName = String(Array.isArray(clipNameRaw) ? clipNameRaw[0] : clipNameRaw || "Imported Clip").trim() || "Imported Clip";
+    const id = `clip-${Date.now()}`;
+    try {
+      const motifData = absoluteNotesToMotif(absoluteNotes, {
+        id,
+        name: clipName,
+        pitchMode: mode,
+        scaleIntervals: hostContext.scaleIntervals,
+        sourceMeter: { ...hostContext.timeSignature },
+        description: `Imported from Live clip \u201C${clipName}\u201D using ${mode} relative analysis.`,
+        tags: ["imported", "live-clip"]
+      });
+      const errors = store.add(motifData);
+      if (errors.length > 0) {
+        emitError(errors.join("; "));
+        return;
+      }
+      currentMotifId = id;
+      selectedNoteIndex = 0;
+      listMotifs();
+      emitStatus("imported-clip", id, absoluteNotes.length);
+    } catch (reason) {
+      emitError(`Clip import failed: ${reason instanceof Error ? reason.message : String(reason)}`);
+    }
+  }
+  function save_motif() {
+    if (!userLibraryPath) {
+      emitError("Choose a library folder before saving");
+      return;
+    }
+    let selected = currentMotif();
+    if (!selected) {
+      emitError("No motif selected");
+      return;
+    }
+    if (store.isBuiltin(selected.id)) {
+      const clone = store.cloneAsUser(selected.id);
+      if (!clone) {
+        emitError("Could not clone built-in motif for save");
+        return;
+      }
+      currentMotifId = clone.id;
+      selected = clone;
+      listMotifs();
+    }
+    try {
+      writeJsonFile(libraryFilePath(selected.id), selected);
+      emitStatus("saved", selected.id, libraryFilePath(selected.id));
+    } catch (reason) {
+      emitError(`Save failed: ${reason instanceof Error ? reason.message : String(reason)}`);
+    }
+  }
+  function ensureEditableMotif() {
+    const selected = currentMotif();
+    if (!selected) {
+      emitError("No motif selected");
+      return void 0;
+    }
+    if (!store.isBuiltin(selected.id)) return selected;
+    const clone = store.cloneAsUser(selected.id);
+    if (!clone) {
+      emitError("Could not clone built-in motif for editing");
+      return void 0;
+    }
+    currentMotifId = clone.id;
+    listMotifs();
+    return clone;
+  }
+  function begin_edit() {
+    const editable = ensureEditableMotif();
+    if (!editable) return;
+    emitStatus("editing", editable.id, editable.name);
+  }
+  function edit_meta(fieldValue, ...textParts) {
+    const field = String(fieldValue);
+    if (field !== "name" && field !== "description") {
+      emitError(`Unknown meta field: ${field}`);
+      return;
+    }
+    const editable = ensureEditableMotif();
+    if (!editable) return;
+    const text = flattenValues(textParts).map(String).join(" ").trim().replace(/^"|"$/g, "");
+    const next = field === "name" ? { ...editable, name: text || editable.name } : { ...editable, description: text };
+    const errors = store.update(next);
+    if (errors.length > 0) {
+      emitError(errors.join("; "));
+      return;
+    }
+    emit("motif-selected", next.name);
+    emitBrowserList();
+    emitSelectedMotifUi();
+    emitStatus("meta-edited", field, next.name);
+  }
+  function select_browser(indexValue) {
+    const items = store.filter(browserQuery);
+    if (items.length === 0) return;
+    const index = Math.round(clamp(indexValue, 0, items.length - 1));
+    const item = items[index];
+    if (!item) return;
+    motif(item.name);
+  }
+  function select_note(indexValue) {
+    const selected = currentMotif();
+    if (!selected || selected.notes.length === 0) return;
+    selectedNoteIndex = Math.round(clamp(indexValue, 0, selected.notes.length - 1));
+    const note2 = selected.notes[selectedNoteIndex];
+    if (!note2) return;
+    emitNoteEditorUi();
+    emitStatus("note-selected", selectedNoteIndex);
+  }
+  function edit_note(fieldValue, valueValue) {
+    const field = String(fieldValue);
+    if (!NOTE_EDIT_FIELDS.includes(field)) {
+      emitError(`Unknown note field: ${fieldValue}`);
+      return;
+    }
+    const editable = ensureEditableMotif();
+    if (!editable || editable.notes.length === 0) return;
+    const index = Math.round(clamp(selectedNoteIndex, 0, editable.notes.length - 1));
+    selectedNoteIndex = index;
+    const current = editable.notes[index];
+    if (!current) return;
+    const next = { ...current };
+    const numeric = Number(valueValue);
+    if (!Number.isFinite(numeric)) {
+      emitError(`Invalid ${field} value`);
+      return;
+    }
+    switch (field) {
+      case "pitch":
+        next.pitch = Math.round(numeric);
+        break;
+      case "accidental":
+        if (numeric === 0) delete next.accidental;
+        else next.accidental = Math.round(numeric);
+        break;
+      case "at":
+        next.at = Math.max(0, Math.round(numeric));
+        break;
+      case "duration":
+        next.duration = Math.max(1, Math.round(numeric));
+        break;
+      case "gate":
+        if (numeric <= 0) delete next.gate;
+        else next.gate = numeric;
+        break;
+      case "velocity":
+        if (numeric < 1) delete next.velocity;
+        else next.velocity = Math.round(clamp(numeric, 1, 127));
+        break;
+      default:
+        break;
+    }
+    const notes = editable.notes.map((note2, noteIndex) => noteIndex === index ? next : note2);
+    const errors = store.setNotes(editable.id, notes);
+    if (errors.length > 0) {
+      emitError(errors.join("; "));
+      return;
+    }
+    const updated = store.get(editable.id);
+    if (updated) {
+      emit("ui", "motif-title", ...updated.name.split(" ").filter(Boolean));
+      emit("ui", "motif-description", ...(updated.description ?? "").split(" ").filter(Boolean));
+      const preview = buildMotifPreview(
+        updated,
+        effectiveHost(),
+        previewTriggerPitch,
+        pitchModeOverride,
+        meterMode
+      );
+      const normalizedPitches = preview.notes.map((note2) => note2.pitch - preview.lowPitch);
+      emit("ui", "preview-size", Math.max(1, normalizedPitches.length));
+      emit("ui", "preview-pitches", ...normalizedPitches);
+      emit("ui", "preview-range", Math.max(1, preview.highPitch - preview.lowPitch));
+      emit("ui", "preview-notes", preview.noteNames.join("  \xB7  "));
+      emitNoteEditorUi();
+      const browserIndex = store.filter(browserQuery).findIndex((item) => item.id === updated.id);
+      if (browserIndex >= 0) emit("ui", "browser-selected", browserIndex);
+    }
+    emitStatus("note-edited", index, field, numeric);
+  }
+  function edit_note_at(rowIndexValue, fieldValue, valueValue) {
+    const field = String(fieldValue);
+    if (!NOTE_EDIT_FIELDS.includes(field)) {
+      emitError(`Unknown note field: ${fieldValue}`);
+      return;
+    }
+    const editable = ensureEditableMotif();
+    if (!editable) return;
+    const index = Math.round(clamp(rowIndexValue, 0, editable.notes.length - 1));
+    if (index < 0 || index >= editable.notes.length) return;
+    const current = editable.notes[index];
+    if (!current) return;
+    const next = { ...current };
+    const numeric = Number(valueValue);
+    if (!Number.isFinite(numeric)) {
+      emitError(`Invalid ${field} value`);
+      return;
+    }
+    switch (field) {
+      case "pitch":
+        next.pitch = Math.round(numeric);
+        break;
+      case "accidental":
+        if (numeric === 0) delete next.accidental;
+        else next.accidental = Math.round(numeric);
+        break;
+      case "at":
+        next.at = Math.max(0, Math.round(numeric));
+        break;
+      case "duration":
+        next.duration = Math.max(1, Math.round(numeric));
+        break;
+      case "gate":
+        if (numeric <= 0) delete next.gate;
+        else next.gate = numeric;
+        break;
+      case "velocity":
+        if (numeric < 1) delete next.velocity;
+        else next.velocity = Math.round(clamp(numeric, 1, 127));
+        break;
+      default:
+        break;
+    }
+    const notes = editable.notes.map((note2, noteIndex) => noteIndex === index ? next : note2);
+    const errors = store.setNotes(editable.id, notes);
+    if (errors.length > 0) {
+      emitError(errors.join("; "));
+      return;
+    }
+    emitNoteEditorUi();
+    emitSelectedMotifUi();
+  }
+  function add_note() {
+    const editable = ensureEditableMotif();
+    if (!editable) return;
+    if (editable.notes.length >= MAX_NOTE_ROWS) {
+      emitError(`Maximum ${MAX_NOTE_ROWS} notes per motif`);
+      return;
+    }
+    const lastAt = editable.notes.at(-1)?.at ?? 0;
+    const lastDur = editable.notes.at(-1)?.duration ?? 240;
+    const newNote = { pitch: 0, at: lastAt + lastDur, duration: 240 };
+    const errors = store.setNotes(editable.id, [...editable.notes, newNote]);
+    if (errors.length > 0) {
+      emitError(errors.join("; "));
+      return;
+    }
+    emitNoteEditorUi();
+    emitSelectedMotifUi();
+  }
+  function remove_note(indexValue) {
+    const editable = ensureEditableMotif();
+    if (!editable) return;
+    const index = Math.round(indexValue);
+    if (index < 0 || index >= editable.notes.length) return;
+    const notes = editable.notes.filter((_, i) => i !== index);
+    const errors = store.setNotes(editable.id, notes);
+    if (errors.length > 0) {
+      emitError(errors.join("; "));
+      return;
+    }
+    emitNoteEditorUi();
+    emitSelectedMotifUi();
+  }
   function panic() {
     clearScheduledNotes();
     emitStatus("panic");
@@ -1901,6 +2518,17 @@ var MotifEngine = (() => {
     library_path,
     refresh_library,
     tempo_multiplier,
+    filter_motifs,
+    import_clip,
+    save_motif,
+    begin_edit,
+    edit_meta,
+    select_browser,
+    select_note,
+    edit_note,
+    edit_note_at,
+    add_note,
+    remove_note,
     panic,
     list_motifs: listMotifs,
     dump_context,

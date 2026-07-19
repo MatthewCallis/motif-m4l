@@ -58,6 +58,8 @@ Current observed properties:
 
 The observer values may be forwarded to TypeScript for motif calculations, but the visible host-state displays should remain connected to native Max objects. Live key/scale use theme-default `live.menu` (read-only, `ignoreclick`) with a `live.comment` “Scale” label on one bottom row with Pitch; `active` follows Song.scale_mode. Pitch Mode enum starts with `motif`. There is no BPM readout — only a `BPM ×` label + multiplier menu.
 
+**Exception — clip import only:** `import_clip` may use JavaScript `LiveAPI` to read the selected Detail View clip (`detail_clip` / `highlighted_clip_slot clip`) via `get_notes_extended` or `get_notes`. Do not use LiveAPI for Song tempo/key/scale/meter/transport sync.
+
 ## MIDI safety
 
 MIDI input must remain fail-open until the engine reports `Ready`. Non-note MIDI should bypass JavaScript. Do not remove the validator assertions around `midiin`, the startup gate, `midiselect`, `midiflush`, and `midiout`.
@@ -69,7 +71,8 @@ MIDI input must remain fail-open until the engine reports `Ready`. Non-note MIDI
 - Every Presentation object must fit within Live's 169px device height.
 - Prefer theme-default / dynamic Live colors on `live.*` controls; use Ableton Sans.
 - Motif vs Settings pages use `live.tab` with `livemode` and `thispatcher` hide/show.
-- Library/description UI opens via floating `pcontrol` subpatcher (`window flags float`).
+- Library/authoring UI opens via floating `pcontrol` subpatcher (`window flags float`, ~640×460): searchable browser, Import Clip, note editor, Save.
+- Do not embed Jitter (`jit.*`) in the device maxpat — it can make the patch unloadable in Max/M4L. Use `umenu` for dynamic lists.
 - No Presentation `status-display` for engine debug (`trigger …`); Ready still gates MIDI via `route Ready`.
 - Unlocked patcher should keep `§ …` section comments for MIDI / engine / Song / tabs / library / controls.
 - Every interactive control requires `annotation_name`, `annotation`, and `hint`.

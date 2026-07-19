@@ -1,3 +1,8 @@
+/**
+ * Structural validation for Motif JSON before it enters the store or Max Console.
+ * Error strings are human-readable paths suitable for `error()` / status UI.
+ */
+
 import {
   MOTIF_SCHEMA_VERSION,
   type Motif,
@@ -6,6 +11,7 @@ import {
   type TimeSignature,
 } from '../core/types.js';
 
+/** Result of {@link validateMotif}; `motif` is present only when `valid` is true. */
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
@@ -166,6 +172,10 @@ function validateMetadata(value: unknown, errors: string[]): void {
   validateOptionalNumber(value, 'pickupTicks', 'metadata', errors);
 }
 
+/**
+ * Validate unknown JSON against schema version {@link MOTIF_SCHEMA_VERSION}.
+ * On success returns a typed Motif; on failure returns path-prefixed error messages.
+ */
 export function validateMotif(value: unknown): ValidationResult {
   const errors: string[] = [];
   if (!isRecord(value)) {

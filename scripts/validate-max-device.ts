@@ -1,3 +1,16 @@
+/**
+ * Static assertions over the generated Max device (`max/Motif.maxpat` + `motif-device.js`).
+ *
+ * Guards the contributor contracts that are easy to break in the patch generator
+ * or bridge: Presentation bounds (169px), unversioned runtime filenames, fail-open
+ * MIDI graph, native Song observers (no JS LiveAPI for Song sync), and a single
+ * top-level `anything()` — not per-message globals or esbuild footer handlers.
+ *
+ * Run via `npm run validate:max` (also part of `npm run verify`).
+ *
+ * @see https://github.com/Ableton/maxdevtools/tree/main/m4l-production-guidelines
+ */
+
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 
@@ -13,6 +26,7 @@ type MaxBox = {
   livemode?: number;
   patcher?: {
     openinpresentation?: number;
+    rect?: [number, number, number, number];
     boxes?: Array<{ box: MaxBox }>;
   };
 };
@@ -100,12 +114,39 @@ assert.equal(byVarname('motif-preview')?.maxclass, 'multislider', 'preview must 
 assert.equal(byVarname('page-tab')?.maxclass, 'live.tab', 'Motif/Settings page tabs are required');
 assert.equal(byVarname('page-tab')?.livemode, 1, 'page tabs must enable Live mode');
 assert.equal(byVarname('tempo-mult-menu')?.maxclass, 'live.menu', 'BPM multiplier menu is required');
-assert.ok(byText('p library-info')?.patcher, 'Library/Info floating subpatcher is required');
+assert.ok(byText('p library-info')?.patcher, 'Library/Authoring floating subpatcher is required');
 assert.ok(byText('pcontrol'), 'floating window must use pcontrol');
+assert.ok(byText('window size 640 460'), 'authoring float window size must be 640×460');
+assert.ok(byText('receive ---motif_author'), 'authoring controls must feed v8 via ---motif_author');
 assert.ok(byText('prepend tempo_multiplier'), 'BPM multiplier must be wired to the engine');
 assert.ok(!boxes.some((box) => box.maxclass === 'v8ui'), 'core preview must not depend on v8ui');
 assert.ok(!JSON.stringify(patch).includes('live_lcd_'), 'maxpat must not embed invalid live_lcd_* color tokens');
-assert.equal(byText('p library-info')?.patcher?.openinpresentation, 1, 'Library/Info window must open in Presentation Mode');
+assert.ok(!JSON.stringify(patch).includes('jit.'), 'maxpat must not embed Jitter objects (breaks M4L load)');
+assert.equal(byText('p library-info')?.patcher?.openinpresentation, 1, 'Library window must open in Presentation Mode');
+const libraryBoxes = byText('p library-info')?.patcher?.boxes ?? [];
+const libraryVarnames = new Set(libraryBoxes.map((entry) => entry.box.varname).filter(Boolean));
+for (const varname of [
+  'motif-search',
+  'clear-search-button',
+  'browser-list',
+  'name-edit',
+  'description-edit',
+  'edit-button',
+  'import-clip-button',
+  'save-motif-button',
+  'add-note-button',
+  'nr0-pitch',
+  'nr0-acc',
+  'nr0-start',
+  'nr0-dur',
+  'nr0-gate',
+  'nr0-vel',
+  'nr0-remove',
+]) {
+  assert.ok(libraryVarnames.has(varname), `library subpatcher missing ${varname}`);
+}
+assert.equal(byText('p library-info')?.patcher?.rect?.[2], 640, 'library float patcher width must be 640');
+assert.equal(byText('p library-info')?.patcher?.rect?.[3], 460, 'library float patcher height must be 460');
 assert.ok((byVarname('motif-preview')?.presentation_rect?.[3] ?? 0) >= 60, 'preview contour must be tall enough to read');
 
 const contextSources = boxes.filter((box) => box.text === 'prepend song_context');

@@ -45,10 +45,15 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 
 ## 0.5 — Authoring UI
 
-- [ ] Expand the Library/Info floating window into a searchable browser with tags and favorites.
+- [x] Expand the Library/Info floating window into a searchable browser (favorites deferred).
+- [x] Import selected Live MIDI clip notes into a motif (`import_clip` via LiveAPI).
+- [x] Per-note editing of degree, accidental, timing, gate, and velocity.
 - [ ] Record a played phrase and convert it into a motif.
-- [ ] Per-note editing of degree, accidental, timing, gate, and velocity.
-- [ ] UI for assigning specific motifs to individual trigger notes.
+- [ ] Favorites in the library browser.
+
+## 0.6 — Trigger Modes
+
+- [ ] UI for assigning specific motifs to individual trigger notes
 
 ## 1.0 — Productized device
 

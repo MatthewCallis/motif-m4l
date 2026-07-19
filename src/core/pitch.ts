@@ -1,3 +1,11 @@
+/**
+ * Pitch mapping helpers for motif `pitchMode` values.
+ *
+ * Scale-degree mapping walks Live's scale intervals relative to the trigger
+ * note's degree in that scale. Chromatic mapping adds semitones. Hybrid adds
+ * an accidental after scale-degree resolution.
+ */
+
 import { clamp, floorDiv, mod } from './math.js';
 
 function normalizeScaleIntervals(intervals: readonly number[]): number[] {
@@ -12,6 +20,10 @@ function normalizeScaleIntervals(intervals: readonly number[]): number[] {
   return normalized;
 }
 
+/**
+ * Map a scale-degree offset from `triggerPitch` through `scaleIntervals`.
+ * If the trigger is off-scale, falls back to interval[0] + octave steps.
+ */
 export function transposeByScaleDegree(
   triggerPitch: number,
   degreeOffset: number,
@@ -38,10 +50,14 @@ export function transposeByScaleDegree(
   return clamp(rootBelowTrigger + octave * 12 + (intervals[degree] ?? 0), 0, 127);
 }
 
+/** Add chromatic semitones to the trigger pitch (clamped 0–127). */
 export function transposeChromatically(triggerPitch: number, semitones: number): number {
   return clamp(triggerPitch + semitones, 0, 127);
 }
 
+/**
+ * Scale-degree mapping plus a chromatic accidental (hybrid pitch mode).
+ */
 export function transposeHybrid(
   triggerPitch: number,
   degreeOffset: number,

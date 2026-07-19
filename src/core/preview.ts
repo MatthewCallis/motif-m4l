@@ -1,13 +1,21 @@
+/**
+ * Pitch-contour preview helpers for the Presentation `multislider` and note-name strip.
+ *
+ * @see https://docs.cycling74.com/reference/multislider
+ */
+
 import { barLengthTicks } from './timing.js';
 import { resolveMotifPitch } from './compile-motif.js';
 import type { HostContext, MeterMode, Motif, PitchMode } from './types.js';
 
+/** One preview step after pitch mapping and meter scaling. */
 export interface PreviewNote {
   pitch: number;
   atTicks: number;
   durationTicks: number;
 }
 
+/** Aggregated preview data for UI (`preview-pitches`, note names, range). */
 export interface MotifPreview {
   notes: PreviewNote[];
   noteNames: string[];
@@ -18,13 +26,21 @@ export interface MotifPreview {
   triggerPitch: number;
 }
 
+/**
+ * Format a MIDI note number using Ableton Live's octave labeling (MIDI 60 = C3).
+ */
 export function midiNoteName(pitchValue: number): string {
   const pitch = Math.max(0, Math.min(127, Math.round(pitchValue)));
   const names = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
-  const octave = Math.floor(pitch / 12) - 2; // Ableton Live labels MIDI 60 as C3.
+  // Ableton Live labels MIDI 60 as C3.
+  const octave = Math.floor(pitch / 12) - 2;
   return `${names[pitch % 12] ?? 'C'}${octave}`;
 }
 
+/**
+ * Build a compact pitch contour for the selected motif under current host settings.
+ * Caps note count for the multislider; ranges expand by ±1 when all pitches match.
+ */
 export function buildMotifPreview(
   motif: Motif,
   host: HostContext,

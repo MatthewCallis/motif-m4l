@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Authoring UI in the floating Library window: searchable motif browser, Live clip import (`import_clip`), per-note editor, and Save to the user library folder.
+- Authoring polish: umenu-safe note labels, All button to reset search (empty textedit does not re-fire), `get_notes_extended` JSON parsing, constrained float window.
+- Authoring editor: Max `number` fields (pitch/`set` no longer wrong), Edit + name/description textedits; browser/notes stay `umenu` (Jitter `jit.cellblock` breaks maxpat/M4L load).
+- Shared `absoluteNotesToMotif` analysis core (CLI MIDI import + in-device clip import); Song sync stays on native observers — LiveAPI is clip-import only.
 - MIDI preview sends `preview-size` before `setlist` so multislider columns match motifs with more than 6 notes.
 - Added built-in `salt-peanuts` motif (Gillespie shout figure: paired sixteenths + minor-third kick on beats 1 and 3).
 - Top row: tabs + motif + `BPM ×` + multiplier + Info/Panic; one bottom row: `Pitch` menu + `Scale` root/name.

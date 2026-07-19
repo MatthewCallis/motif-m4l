@@ -1,3 +1,10 @@
+/**
+ * CLI: Motif JSON → Standard MIDI File.
+ *
+ * Usage: `npm run midi:export -- input.json output.mid [triggerPitch]`
+ * `triggerPitch` defaults to 60 (Live C3) for relative → absolute mapping.
+ */
+
 import { readFile, writeFile } from 'node:fs/promises';
 import { motifToMidiBytes } from '../src/tools/midi.js';
 

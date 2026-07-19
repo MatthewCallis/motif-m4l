@@ -1,3 +1,8 @@
+/**
+ * Compile a relative motif phrase into timed MIDI note-on/off events using
+ * the current Live host context (tempo, scale, meter) and trigger options.
+ */
+
 import { clamp } from './math.js';
 import { transposeByScaleDegree, transposeChromatically, transposeHybrid } from './pitch.js';
 import { barLengthTicks, ticksToMilliseconds } from './timing.js';
@@ -31,6 +36,10 @@ function resolveVelocity(note: MotifNote, motif: Motif, triggerVelocity: number)
   return Math.round(clamp(scaled + (note.velocityOffset ?? 0), 1, 127));
 }
 
+/**
+ * Resolve one motif note to an absolute MIDI pitch for the active pitch mode.
+ * Uses `options.pitchMode` when set, otherwise `motif.pitchMode`.
+ */
 export function resolveMotifPitch(
   note: MotifNote,
   motif: Motif,
@@ -81,6 +90,15 @@ function effectiveDuration(note: MotifNote, next: MotifNote | undefined, motif: 
   return duration;
 }
 
+/**
+ * Expand a motif into sorted note-on/off {@link ScheduledMidiEvent}s.
+ *
+ * Applies meter fit (`preserve` vs `fit-bar`), gate/legato/tie duration rules,
+ * velocity curves, and launch offset. Offsets are provided in both ticks and ms
+ * so Max `pipe` can schedule from milliseconds.
+ *
+ * @see https://docs.cycling74.com/reference/pipe
+ */
 export function compileMotif(
   motif: Motif,
   host: HostContext,

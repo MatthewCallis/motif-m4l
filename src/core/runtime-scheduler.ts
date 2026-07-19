@@ -1,5 +1,19 @@
+/**
+ * In-process MIDI event scheduler for overlap-safe note-on/off bookkeeping.
+ *
+ * Used by unit tests and pure-engine reasoning. The Live device does **not**
+ * import this class — it schedules note events through Max `pipe` via
+ * `emit('event', pitch, velocity, channel, delayMs)` from `device.ts`.
+ *
+ * The model tracks per-instance active notes so a cancelled or replaced
+ * trigger only releases pitches that no other instance still holds.
+ *
+ * @see https://docs.cycling74.com/reference/pipe
+ */
+
 import type { ScheduleUnit, ScheduledMidiEvent } from './types.js';
 
+/** Relative MIDI event returned after queue rebuild (delay from `now`). */
 export interface RuntimeMidiEvent {
   pitch: number;
   velocity: number;
@@ -29,9 +43,9 @@ function parseNoteKey(key: string): NoteKeyParts {
 }
 
 /**
- * Maintains absolute pending events and rebuilds the native Max queues whenever
- * triggers overlap or are cancelled. This prevents one instance's note-off from
- * cutting another instance that is holding the same pitch and channel.
+ * Absolute-time event queue with reference-counted note holds.
+ * Callers rebuild a relative delay list after every `add` / cancel so consumers
+ * can flush and reschedule (mirrors how Max `pipe` lists are replaced).
  */
 export class RuntimeScheduler {
   #queue: QueuedEvent[] = [];
@@ -40,10 +54,12 @@ export class RuntimeScheduler {
   #unit: ScheduleUnit | undefined;
   #lastNow = 0;
 
+  /** Current schedule unit (`ticks` or `ms`), or undefined before the first event. */
   get unit(): ScheduleUnit | undefined {
     return this.#unit;
   }
 
+  /** Clear the queue and return immediate note-offs for every still-held pitch. */
   reset(): RuntimeMidiEvent[] {
     const releases = [...this.#activeTotals.entries()]
       .filter(([, count]) => count > 0)
@@ -60,6 +76,9 @@ export class RuntimeScheduler {
     return releases;
   }
 
+  /**
+   * Apply due events at `now`. Resets if the unit changes or time jumps backward.
+   */
   advance(now: number, unit: ScheduleUnit): void {
     if (this.#unit !== undefined && this.#unit !== unit) {
       this.reset();
@@ -86,6 +105,10 @@ export class RuntimeScheduler {
     this.#queue = remaining;
   }
 
+  /**
+   * Enqueue compiled events and return a full relative schedule from `now`,
+   * with duplicate note-offs collapsed via active-note reference counts.
+   */
   add(
     events: readonly ScheduledMidiEvent[],
     now: number,
@@ -100,10 +123,15 @@ export class RuntimeScheduler {
     return this.#rebuild(now, unit);
   }
 
+  /** Cancel one trigger instance; returns releases plus the rebuilt schedule. */
   cancelInstance(instanceId: number, now: number, unit: ScheduleUnit): RuntimeMidiEvent[] {
     return this.cancelInstances([instanceId], now, unit);
   }
 
+  /**
+   * Drop pending events for the given instances and release pitches no longer
+   * held by any remaining instance.
+   */
   cancelInstances(
     instanceIds: readonly number[],
     now: number,

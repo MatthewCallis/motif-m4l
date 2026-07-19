@@ -1,8 +1,16 @@
+/**
+ * Compile `motifs/builtin/*.json` into `src/generated/builtins.ts`.
+ * Do not hand-edit the generated file — add/edit JSON under motifs/builtin instead.
+ *
+ * @see .cursor/skills/add-motif/SKILL.md
+ */
+
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Motif } from '../src/core/types.js';
 
+/** Read sorted builtin JSON files and emit the TypeScript module. */
 export async function generateBuiltins(): Promise<void> {
   const directory = path.resolve('motifs/builtin');
   const files = (await readdir(directory)).filter((file) => file.endsWith('.json')).sort();

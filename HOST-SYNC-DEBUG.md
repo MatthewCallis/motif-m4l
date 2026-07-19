@@ -1,6 +1,6 @@
 # Host-sync checklist
 
-The host path contains no LiveAPI JavaScript calls:
+Song host sync contains no LiveAPI JavaScript calls:
 
 ```text
 live.thisdevice
@@ -31,9 +31,29 @@ song_context <property> <value...>
 
 and sent through `deferlow` to the TypeScript engine. The engine uses this copy only for motif compilation and preview calculation.
 
+## Clip import (LiveAPI exception)
+
+On-demand **Import Clip** is the only intentional JavaScript LiveAPI path:
+
+```text
+Import Clip → import_clip
+  → LiveAPI("live_set view detail_clip")
+    or LiveAPI("live_set view highlighted_clip_slot clip")
+  → get_notes_extended / get_notes
+  → absoluteNotesToMotif (hybrid by default + Song scale_intervals)
+```
+
+Do not move Song tempo/key/scale/meter/transport onto this path.
+
 If BPM or key does not update:
 
 1. Confirm `live.path live_set` outputs a valid `id` message.
 2. Confirm each observer receives its `property ...` message before the ID.
 3. Inspect the direct observer-to-comment path before inspecting JavaScript.
 4. Run `npm run validate:max` to verify all nine native properties and display types.
+
+If Import Clip fails:
+
+1. Open a MIDI clip in Detail View (or highlight a clip slot with a MIDI clip).
+2. Confirm Max Console for `Motif: No clip selected…` / empty-clip errors.
+3. Confirm the device JS was recompiled after updating `motif-device.js`.

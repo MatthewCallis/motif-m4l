@@ -1,8 +1,23 @@
+/**
+ * Build Motif runtime artifacts: builtins, Max patch, and `motif-device.js`.
+ *
+ * The hand-written Max bridge (`MAX_BRIDGE`) is concatenated **before** the
+ * esbuild IIFE so Max can discover a top-level `anything()` at global scope.
+ * Handlers created inside the IIFE or via esbuild `footer` are not visible to
+ * Max message dispatch.
+ *
+ * @see https://docs.cycling74.com/apiref/js/jsthis/
+ */
+
 import { build } from 'esbuild';
 import { copyFile, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { generateBuiltins } from './generate-builtins.js';
 import { generateMaxPatch } from './generate-max-patch.js';
 
+/**
+ * Top-level Max `v8` entry: route every unknown selector through MotifEngine.dispatch.
+ * Uses Max globals `messagename` and `arrayfromargs` — not `this.messagename`.
+ */
 const MAX_BRIDGE = `// Hand-written Max v8 bridge. Keep this at the top level and before the bundle.
 var inlets = 1;
 var outlets = 1;

@@ -1,3 +1,9 @@
+/**
+ * CLI: Standard MIDI File → Motif JSON.
+ *
+ * Usage: `npm run midi:import -- input.mid output.json [chromatic|scale|hybrid]`
+ */
+
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { midiBytesToMotif } from '../src/tools/midi.js';

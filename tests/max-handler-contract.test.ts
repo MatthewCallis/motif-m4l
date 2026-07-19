@@ -1,8 +1,15 @@
+/**
+ * Contract: every selector the Max patch may send must resolve through
+ * `MotifEngine.dispatch` (via the top-level `anything()` bridge).
+ * When adding a handler in `src/max/device.ts`, add a valid invocation here.
+ */
+
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
 
+/** Representative messages the generated patch (or UI) can send to `v8`. */
 const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ['initialize'],
   ['song_context', 'tempo', 120],
@@ -28,6 +35,20 @@ const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ['tempo_multiplier', 1],
   ['tempo_multiplier', 0.5],
   ['tempo_multiplier', 2],
+  ['filter_motifs', 'mitsuda'],
+  ['filter_motifs'],
+  ['import_clip'],
+  ['import_clip', 'hybrid'],
+  ['begin_edit'],
+  ['edit_meta', 'name', 'Test Name'],
+  ['edit_meta', 'description', 'Test', 'description'],
+  ['select_browser', 0],
+  ['select_note', 0],
+  ['edit_note', 'pitch', 1],
+  ['edit_note_at', 0, 'pitch', 2],
+  ['add_note'],
+  ['remove_note', 0],
+  ['save_motif'],
   ['panic'],
   ['list_motifs'],
   ['dump_context'],
@@ -42,8 +63,37 @@ test('every patch message is accepted through the single Max anything() bridge',
     post: () => undefined,
     arrayfromargs: (values: IArguments | ArrayLike<unknown>) => Array.from(values),
     messagename: '',
-    File: class {},
-    Folder: class {},
+    File: class {
+      isopen = false;
+      eof = 0;
+      constructor() {
+        this.isopen = false;
+      }
+      readstring(): string {
+        return '{}';
+      }
+      writestring(): void {}
+      close(): void {}
+    },
+    Folder: class {
+      end = true;
+      count = 0;
+      pathname = '';
+      filename = '';
+      next(): void {
+        this.end = true;
+      }
+      close(): void {}
+    },
+    LiveAPI: class {
+      id = 0;
+      get(): unknown {
+        return '';
+      }
+      call(): unknown {
+        return [];
+      }
+    },
     console,
   });
 
