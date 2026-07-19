@@ -71,7 +71,10 @@ MIDI input must remain fail-open until the engine reports `Ready`. Non-note MIDI
 - Every Presentation object must fit within Live's 169px device height.
 - Prefer theme-default / dynamic Live colors on `live.*` controls; use Ableton Sans.
 - Motif vs Settings pages use `live.tab` with `livemode` and `thispatcher` hide/show.
-- Library/authoring UI opens via floating `pcontrol` subpatcher (`window flags float`, ~640×460): searchable browser, Import Clip, note editor, Save.
+- Library/authoring UI opens via a floating `pcontrol` subpatcher (~640×460): searchable browser, Import Clip, note editor, Save. Send only `open`/`close`-style patcher-control messages to `pcontrol`; send `window flags`, `window size`, `window exec`, and title messages through the subpatch inlet to its internal `thispatcher`.
+- A jweb inlet selector must be prepended exactly once. The parent emits `receiveData <encoded-json>`; a `send`/`receive` hop must forward that message directly rather than prepending `receiveData` again.
+- Browser-to-Max actions require an explicit selector such as `lib_action <encoded-json>`. Never treat the unmatched outlet of `route ... url title` as executable JSON because jweb may emit additional lifecycle messages.
+- Embedded Live previews use `jweb @rendermode 0`, load after `live.thisdevice`, and keep `ignoreclick 0` so the diagnostic control remains usable. Prefer DOM/CSS rendering over canvas for the compact Live device preview.
 - Do not embed Jitter (`jit.*`) in the device maxpat — it can make the patch unloadable in Max/M4L. Use `umenu` for dynamic lists.
 - No Presentation `status-display` for engine debug (`trigger …`); Ready still gates MIDI via `route Ready`.
 - Unlocked patcher should keep `§ …` section comments for MIDI / engine / Song / tabs / library / controls.

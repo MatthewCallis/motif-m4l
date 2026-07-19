@@ -2,11 +2,6 @@
 var inlets = 1;
 var outlets = 1;
 
-// patcher.filepath is the absolute directory path of this patcher (trailing slash included).
-// Captured here at the top level where the Max global is in scope (both js and v8 objects).
-// Exposed as _patcherDir so the MotifEngine IIFE can reference it to emit file:// URLs.
-var _patcherDir = (typeof patcher !== 'undefined' && patcher && patcher.filepath) ? patcher.filepath : '';
-
 function anything() {
   var message = messagename;
   var args = arrayfromargs(arguments);
@@ -1566,7 +1561,8 @@ var MotifEngine = (() => {
     setNotes(id, notes) {
       const existing = __privateGet(this, _motifs).get(id);
       if (!existing) return [`Unknown motif: ${id}`];
-      const length = notes.length > 0 ? Math.max(existing.length, ...notes.map((note2) => note2.at + note2.duration)) : existing.length;
+      if (notes.length === 0) return ["notes must be a non-empty array"];
+      const length = Math.max(...notes.map((note2) => note2.at + note2.duration));
       return this.update({
         ...existing,
         notes,
@@ -1706,6 +1702,11 @@ var MotifEngine = (() => {
     }
     return out;
   }
+  function stringAtom(value, fallback = "") {
+    if (typeof value === "string") return value;
+    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    return fallback;
+  }
   function numbers(values) {
     return flattenValues(values).map(Number).filter(Number.isFinite);
   }
@@ -1801,13 +1802,25 @@ var MotifEngine = (() => {
       initialized = true;
       emitStatus("Ready");
       emitMidiPassState();
-      const dir = typeof _patcherDir === "string" ? _patcherDir : "";
-      if (dir) {
-        emit("ui", "preview-url", `file://${dir}preview.html`);
-        emit("ui", "lib-url", `file://${dir}library.html`);
-      }
     }
     listMotifs();
+  }
+  function preview_ready() {
+    emitPreviewState();
+  }
+  function library_ready() {
+    emitLibraryState();
+  }
+  function web_debug(page, level, encodedMessage) {
+    let message = String(encodedMessage);
+    try {
+      message = decodeURIComponent(message);
+    } catch {
+    }
+    const line = `Motif jweb ${String(page)} [${String(level)}] ${message}
+`;
+    if (String(level).toLowerCase() === "error") error(line);
+    else post(line);
   }
   function launchOffsetTicks() {
     if (!hostContext.isPlaying || launchQuantization === "immediate") return 0;
@@ -2466,15 +2479,21 @@ var MotifEngine = (() => {
     }
     emitSelectedMotifUi();
   }
-  function lib_action(encodedJson) {
-    let action;
-    try {
-      action = JSON.parse(decodeURIComponent(String(encodedJson)));
-    } catch {
-      emitError("lib_action: invalid JSON");
+  function lib_action(...encodedParts) {
+    const payloads = flattenValues(encodedParts).map((value) => stringAtom(value)).filter(Boolean);
+    const encodedJson = payloads[payloads.length - 1];
+    if (!encodedJson) {
+      emitError("lib_action: missing JSON payload");
       return;
     }
-    const type = String(action["type"] ?? "");
+    let action;
+    try {
+      action = JSON.parse(decodeURIComponent(encodedJson));
+    } catch {
+      emitError(`lib_action: invalid JSON (${encodedJson.slice(0, 48)})`);
+      return;
+    }
+    const type = stringAtom(action["type"]);
     switch (type) {
       case "select_browser":
         select_browser(Number(action["index"]));
@@ -2483,7 +2502,7 @@ var MotifEngine = (() => {
         filter_motifs(action["query"]);
         break;
       case "import_clip":
-        import_clip(action["pitchMode"] !== void 0 ? String(action["pitchMode"]) : void 0);
+        import_clip(action["pitchMode"] !== void 0 ? stringAtom(action["pitchMode"]) : void 0);
         break;
       case "save_motif":
         save_motif();
@@ -2495,7 +2514,7 @@ var MotifEngine = (() => {
         begin_edit();
         break;
       case "edit_meta":
-        edit_meta(String(action["field"]), action["value"]);
+        edit_meta(stringAtom(action["field"]), action["value"]);
         break;
       case "add_note":
         add_note();
@@ -2504,7 +2523,7 @@ var MotifEngine = (() => {
         remove_note(Number(action["index"]));
         break;
       case "edit_note_at":
-        edit_note_at(Number(action["index"]), String(action["field"]), Number(action["value"]));
+        edit_note_at(Number(action["index"]), stringAtom(action["field"]), Number(action["value"]));
         break;
       default:
         emitError(`lib_action: unknown type ${type}`);
@@ -2525,6 +2544,9 @@ var MotifEngine = (() => {
   }
   var handlers = {
     initialize,
+    preview_ready,
+    library_ready,
+    web_debug,
     note,
     cc,
     sustain,

@@ -6,6 +6,8 @@
  * - Song state via native `live.path` + `live.observer` (tempo, scale, meter, transport);
  *   JS receives updates as `song_context` through `deferlow`
  * - MIDI: fail-open until `status Ready`; non-note MIDI bypasses `v8`; scheduling via `pipe`
+ * - Native jsui/mgraphics note preview; no HTML dependency in Live's device chain
+ * - The Library jweb page announces readiness before the engine resends its latest state
  * - Library/authoring UI in a floating `pcontrol` subpatcher
  * - Motif vs Settings pages via `live.tab` + `thispatcher` hide/show
  *
@@ -18,7 +20,8 @@
  * @see https://docs.cycling74.com/reference/midiselect
  * @see https://docs.cycling74.com/reference/deferlow
  * @see https://docs.cycling74.com/reference/pcontrol
- * @see https://docs.cycling74.com/reference/multislider
+ * @see https://docs.cycling74.com/reference/jsui
+ * @see https://docs.cycling74.com/reference/jweb
  * @see https://github.com/Ableton/maxdevtools/tree/main/m4l-production-guidelines
  * @see https://github.com/Ableton/maxdevtools/tree/main/patch-code-standard
  */
@@ -300,9 +303,17 @@ export async function generateMaxPatch(): Promise<void> {
   }
 
   function uiPreview(name: string, rect: Rect, help: { name: string; description: string }, options: BoxOptions = {}): string {
-    // No url attribute — loadfile resolves through Max search path (correct for M4L distribution).
-    return add(name, 'jweb', rect, {
-      ignoreclick: 1,
+    // The device-chain preview intentionally uses native jsui/mgraphics.
+    // jweb cannot reliably unpack arbitrary HTML dependencies in a frozen
+    // Max for Live device before the page is requested.
+    return add(name, 'jsui', rect, {
+      filename: 'motif-preview.js',
+      border: 0,
+      ignoreclick: 0,
+      numinlets: 1,
+      numoutlets: 1,
+      outlettype: [''],
+      parameter_enable: 0,
       presentation: 1,
       presentation_rect: rect,
       varname: name,
@@ -565,10 +576,11 @@ export async function generateMaxPatch(): Promise<void> {
     }
 
     // jweb fills the whole 640×460 window (Presentation).
-    // No url attribute — loadfile resolves through Max search path (correct for M4L distribution).
+    // Loaded by `readfile library.html` from the device dependency cache.
     nadd('jweb-library', 'jweb', [0, 0, POP_W, POP_H], {
       presentation: 1,
       presentation_rect: [0, 0, POP_W, POP_H],
+      rendermode: 0,
       varname: 'jweb-library',
     });
 
@@ -583,33 +595,50 @@ export async function generateMaxPatch(): Promise<void> {
     // loadmess fires on load to configure the floating window before it is first opened.
     nobject('lib-force-pres', 'loadmess presentation 1', LX + 120, LY, 160);
     nobject('lib-force-size', 'loadmess window size 640 460', LX + 300, LY, 180);
-    // lib-url is sent by initialize() via the outer patch (s ---lib-url → r ---lib-url).
-    // prepend url produces: url file:///...library.html → jweb-library loads the page.
-    nobject('lib-url-recv', 'receive ---lib-url', LX + 500, LY, 160);
-    nobject('lib-url-prepend', 'prepend url', LX + 680, LY, 110);
+    nobject('lib-force-title', 'loadmess title "Motif Library"', LX + 500, LY, 210);
+    nobject('lib-page-load', 'loadmess readfile library.html', LX + 740, LY, 210);
     nconnect('lib-force-pres', 0, 'lib-thispatcher', 0);
     nconnect('lib-force-size', 0, 'lib-thispatcher', 0);
+    nconnect('lib-force-title', 0, 'lib-thispatcher', 0);
     nconnect('lib-inlet', 0, 'lib-thispatcher', 0);
-    nconnect('lib-url-recv', 0, 'lib-url-prepend', 0);
-    nconnect('lib-url-prepend', 0, 'jweb-library', 0);
+    nconnect('lib-page-load', 0, 'jweb-library', 0);
 
     nobject('lib-data-recv', 'receive ---lib-data', LX, LY + LROW, 170);
-    nobject('lib-call-prepend', 'prepend call receiveData', LX + 220, LY + LROW, 190);
-    nconnect('lib-data-recv', 0, 'lib-call-prepend', 0);
-    nconnect('lib-call-prepend', 0, 'jweb-library', 0);
+    // The parent patch already prepends `receiveData`. Adding it again makes
+    // bindInlet receive the literal selector instead of the encoded payload.
+    nconnect('lib-data-recv', 0, 'jweb-library', 0);
 
-    // jweb outlet → route choose_library
+    // jweb outlet → route actions, readiness, diagnostics, and load metadata.
     //   outlet 0 (choose_library): opendialog fold → s ---library_path
-    //   outlet 1 (no match = encoded JSON): prepend lib_action → s ---motif_author
-    nobject('lib-out-route', 'route choose_library', LX, LY + LROW * 3, 170);
+    //   outlet 1 (library_ready): send selector directly to v8 so state is resent after load
+    //   outlet 2 (web_debug): forward browser diagnostics to v8
+    //   outlet 3 (lib_action): explicitly tagged encoded JSON action
+    //   outlets 4–5 (url/title): print page-load metadata to the Max Console
+    //   outlet 6 (no match): print unexpected messages; never execute them
+    nobject('lib-out-route', 'route choose_library library_ready web_debug lib_action url title', LX, LY + LROW * 3, 470);
     nobject('lib-opendialog', 'opendialog fold', LX, LY + LROW * 4, 120);
     nobject('lib-s-path', 'send ---library_path', LX + 160, LY + LROW * 4, 160);
-    nobject('lib-action-prepend', 'prepend lib_action', LX + 260, LY + LROW * 3, 160);
-    nobject('lib-s-author', 'send ---motif_author', LX + 460, LY + LROW * 3, 170);
+    nadd('lib-ready-message', 'message', [LX + 300, LY + LROW * 4, 110, 22], { text: 'library_ready' });
+    nobject('lib-action-prepend', 'prepend lib_action', LX + 430, LY + LROW * 3, 160);
+    nobject('lib-s-author', 'send ---motif_author', LX + 620, LY + LROW * 3, 170);
+    nobject('lib-debug-send', 'send ---motif_web_debug', LX + 430, LY + LROW * 4, 190);
+    nobject('lib-url-prepend', 'prepend library-url', LX, LY + LROW * 5, 150);
+    nobject('lib-title-prepend', 'prepend library-title', LX + 180, LY + LROW * 5, 160);
+    nobject('lib-jweb-print', 'print Motif-jweb', LX + 380, LY + LROW * 5, 140);
+    nobject('lib-unhandled-prepend', 'prepend library-unhandled', LX + 540, LY + LROW * 5, 190);
     nconnect('jweb-library', 0, 'lib-out-route', 0);
     nconnect('lib-out-route', 0, 'lib-opendialog', 0);
     nconnect('lib-opendialog', 0, 'lib-s-path', 0);
-    nconnect('lib-out-route', 1, 'lib-action-prepend', 0);
+    nconnect('lib-out-route', 1, 'lib-ready-message', 0);
+    nconnect('lib-ready-message', 0, 'lib-s-author', 0);
+    nconnect('lib-out-route', 2, 'lib-debug-send', 0);
+    nconnect('lib-out-route', 3, 'lib-action-prepend', 0);
+    nconnect('lib-out-route', 4, 'lib-url-prepend', 0);
+    nconnect('lib-out-route', 5, 'lib-title-prepend', 0);
+    nconnect('lib-url-prepend', 0, 'lib-jweb-print', 0);
+    nconnect('lib-title-prepend', 0, 'lib-jweb-print', 0);
+    nconnect('lib-out-route', 6, 'lib-unhandled-prepend', 0);
+    nconnect('lib-unhandled-prepend', 0, 'lib-jweb-print', 0);
     nconnect('lib-action-prepend', 0, 'lib-s-author', 0);
 
     return {
@@ -686,23 +715,22 @@ export async function generateMaxPatch(): Promise<void> {
   message('menu-clear', 'clear', COL.feedback, FB_Y + ROW * 2, 60);
   object('menu-append', 'prepend append', COL.feedback, FB_Y + ROW * 3, 120);
   object('menu-select', 'prepend setsymbol', COL.feedback, FB_Y + ROW * 4, 140);
-  // preview-url / lib-url: file:// URLs emitted by initialize() via patcher.filepath.
-  object('ui-route', 'route lib preview preview-url lib-url', COL.feedback, FB_Y + ROW * 6, 380);
-  // lib route → prepend call receiveData → send to library subpatcher jweb
-  object('lib-data-prepend', 'prepend call receiveData', COL.feedback, FB_Y + ROW * 7, 180);
+  object('ui-route', 'route lib preview', COL.feedback, FB_Y + ROW * 6, 220);
+  // Library route → prepend receiveData → send to the subpatcher jweb.
+  object('lib-data-prepend', 'prepend receiveData', COL.feedback, FB_Y + ROW * 7, 180);
   object('lib-data-send', 'send ---lib-data', COL.feedback, FB_Y + ROW * 8, 150);
-  // preview route → prepend call receiveData → jweb preview.html in main device
-  object('preview-data-prepend', 'prepend call receiveData', COL.feedback + 240, FB_Y + ROW * 7, 180);
-  // preview-url route → prepend url → motif-preview jweb (loads preview.html on init)
-  object('preview-url-prepend', 'prepend url', COL.feedback + 500, FB_Y + ROW * 7, 110);
-  // lib-url route → send ---lib-url → received inside library subpatcher to load library.html
-  object('lib-url-send', 'send ---lib-url', COL.feedback + 640, FB_Y + ROW * 7, 140);
+  // Preview route → prepend receiveData → native jsui renderer in the main device.
+  object('preview-data-prepend', 'prepend receiveData', COL.feedback + 240, FB_Y + ROW * 7, 180);
+  object('preview-out-route', 'route preview_ready preview_debug', COL.feedback + 500, FB_Y + ROW * 8, 240);
+  message('preview-ready-message', 'preview_ready', COL.feedback + 760, FB_Y + ROW * 8, 110);
+  object('preview-debug-page', 'prepend preview', COL.feedback + 500, FB_Y + ROW * 9, 130);
+  object('preview-debug-prepend', 'prepend web_debug', COL.feedback + 660, FB_Y + ROW * 9, 150);
 
   // ---------- Song observers ----------
   const OBS_Y = 1200;
   patchComment('section-song', '§ Song observers — live.path live_set → live.observer → song_context → v8', COL.song, OBS_Y - 40, 560);
   object('thisdevice', 'live.thisdevice', COL.song, OBS_Y, 120);
-  object('init-order', 't b b b', COL.song, OBS_Y + ROW, 80);
+  object('init-order', 't b b b', COL.song, OBS_Y + ROW, 90);
   object('property-fanout', 't b b b b b b b b b', COL.song + 200, OBS_Y + ROW, 200);
   object('live-path', 'live.path live_set', COL.song, OBS_Y + ROW * 2, 140);
   object('initialize-defer', 'deferlow', COL.song, OBS_Y + ROW * 3, 80);
@@ -823,10 +851,13 @@ export async function generateMaxPatch(): Promise<void> {
   connect('info-trigger', 1, 'library-exec', 0);
   connect('info-trigger', 0, 'library-size-defer', 0);
   connect('library-size-defer', 0, 'library-size-again', 0);
-  connect('library-flags', 0, 'library-pcontrol', 0);
-  connect('library-size', 0, 'library-pcontrol', 0);
-  connect('library-size-again', 0, 'library-pcontrol', 0);
-  connect('library-exec', 0, 'library-pcontrol', 0);
+  // pcontrol only accepts patcher-control messages such as `open` and `close`.
+  // Window configuration is forwarded through the subpatch inlet to its
+  // nested `thispatcher` object.
+  connect('library-flags', 0, 'library-info', 0);
+  connect('library-size', 0, 'library-info', 0);
+  connect('library-size-again', 0, 'library-info', 0);
+  connect('library-exec', 0, 'library-info', 0);
   connect('library-open', 0, 'library-pcontrol', 0);
   connect('library-pcontrol', 0, 'library-info', 0);
 
@@ -834,9 +865,13 @@ export async function generateMaxPatch(): Promise<void> {
   object('library-prepend', 'prepend library_path', COL.library + 680, LIB_Y, 160);
   // r-author receives lib_action <encodedJson> from subpatcher (already prepended); pass to v8 directly.
   object('r-author', 'receive ---motif_author', COL.library + 420, LIB_Y + ROW, 180);
+  object('r-web-debug', 'receive ---motif_web_debug', COL.library + 420, LIB_Y + ROW * 2, 210);
+  object('web-debug-prepend', 'prepend web_debug', COL.library + 680, LIB_Y + ROW * 2, 160);
   connect('r-library-path', 0, 'library-prepend', 0);
   connect('library-prepend', 0, 'v8', 0);
   connect('r-author', 0, 'v8', 0);
+  connect('r-web-debug', 0, 'web-debug-prepend', 0);
+  connect('web-debug-prepend', 0, 'v8', 0);
 
   // ---------- MIDI wiring ----------
   connect('midiin', 0, 'input-gate', 1);
@@ -883,9 +918,12 @@ export async function generateMaxPatch(): Promise<void> {
   connect('lib-data-prepend', 0, 'lib-data-send', 0);
   connect('ui-route', 1, 'preview-data-prepend', 0);
   connect('preview-data-prepend', 0, 'motif-preview', 0);
-  connect('ui-route', 2, 'preview-url-prepend', 0);
-  connect('preview-url-prepend', 0, 'motif-preview', 0);
-  connect('ui-route', 3, 'lib-url-send', 0);
+  connect('motif-preview', 0, 'preview-out-route', 0);
+  connect('preview-out-route', 0, 'preview-ready-message', 0);
+  connect('preview-ready-message', 0, 'v8', 0);
+  connect('preview-out-route', 1, 'preview-debug-page', 0);
+  connect('preview-debug-page', 0, 'preview-debug-prepend', 0);
+  connect('preview-debug-prepend', 0, 'v8', 0);
 
   // ---------- UI control → engine ----------
   const CTL_Y = 4800;
@@ -983,6 +1021,8 @@ export async function generateMaxPatch(): Promise<void> {
       lines,
       dependency_cache: [
         { name: 'motif-device.js', bootpath: '.', patcherrelativepath: '.', type: 'TEXT', implicit: 1 },
+        { name: 'motif-preview.js', bootpath: '.', patcherrelativepath: '.', type: 'TEXT', implicit: 1 },
+        { name: 'library.html', bootpath: '.', patcherrelativepath: '.', type: 'TEXT', implicit: 1 },
       ],
       autosave: 0,
     },

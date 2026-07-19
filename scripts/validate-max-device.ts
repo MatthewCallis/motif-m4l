@@ -13,6 +13,7 @@
 
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
 
 type Rect = [number, number, number, number];
 
@@ -20,14 +21,18 @@ type MaxBox = {
   id: string;
   maxclass: string;
   text?: string;
+  filename?: string;
   varname?: string;
   presentation?: number;
   presentation_rect?: Rect;
   livemode?: number;
+  ignoreclick?: number;
+  rendermode?: number;
   patcher?: {
     openinpresentation?: number;
     rect?: [number, number, number, number];
     boxes?: Array<{ box: MaxBox }>;
+    lines?: Array<{ patchline: PatchLine }>;
   };
 };
 
@@ -110,7 +115,11 @@ assert.equal(byVarname('scale-label')?.text, 'Scale', 'Scale strip label is requ
 assert.equal(byVarname('pitch-label')?.text, 'Pitch', 'Pitch label is required beside Scale');
 assert.equal(byVarname('tempo-mult-label')?.text, 'BPM ×', 'BPM multiplier label must be BPM ×');
 assert.ok(boxes.some((box) => box.text === 'active 0'), 'Scale menus need active 0 when scale mode is off');
-assert.equal(byVarname('motif-preview')?.maxclass, 'multislider', 'preview must use a native multislider');
+assert.equal(byVarname('motif-preview')?.maxclass, 'jsui', 'preview must use native jsui in Live');
+assert.equal(byVarname('motif-preview')?.filename, 'motif-preview.js', 'preview must load motif-preview.js');
+assert.equal(byVarname('motif-preview')?.ignoreclick, 0, 'preview diagnostics must be clickable');
+assert.ok(!byText('readfile preview.html'), 'preview must not depend on an external HTML page');
+assert.ok(byText('route preview_ready preview_debug'), 'native preview readiness and diagnostics must be routed');
 assert.equal(byVarname('page-tab')?.maxclass, 'live.tab', 'Motif/Settings page tabs are required');
 assert.equal(byVarname('page-tab')?.livemode, 1, 'page tabs must enable Live mode');
 assert.equal(byVarname('tempo-mult-menu')?.maxclass, 'live.menu', 'BPM multiplier menu is required');
@@ -124,14 +133,55 @@ assert.ok(!JSON.stringify(patch).includes('live_lcd_'), 'maxpat must not embed i
 assert.ok(!JSON.stringify(patch).includes('jit.'), 'maxpat must not embed Jitter objects (breaks M4L load)');
 assert.equal(byText('p library-info')?.patcher?.openinpresentation, 1, 'Library window must open in Presentation Mode');
 const libraryBoxes = byText('p library-info')?.patcher?.boxes ?? [];
+const libraryLines = byText('p library-info')?.patcher?.lines?.map(({ patchline }) => patchline) ?? [];
+const libraryByText = (text: string): MaxBox | undefined => libraryBoxes.find((entry) => entry.box.text === text)?.box;
+const libraryHasLine = (
+  source: MaxBox | undefined,
+  sourceOutlet: number,
+  destination: MaxBox | undefined,
+  destinationInlet: number,
+): boolean =>
+  Boolean(source && destination && libraryLines.some((line) =>
+    line.source[0] === source.id &&
+    line.source[1] === sourceOutlet &&
+    line.destination[0] === destination.id &&
+    line.destination[1] === destinationInlet));
 const libraryVarnames = new Set(libraryBoxes.map((entry) => entry.box.varname).filter(Boolean));
 assert.ok(libraryVarnames.has('jweb-library'), 'library subpatcher must contain a jweb-library object');
 const jwebLibraryBox = libraryBoxes.find((entry) => entry.box.varname === 'jweb-library');
 assert.equal(jwebLibraryBox?.box.maxclass, 'jweb', 'jweb-library must be a jweb object');
-assert.ok(String(jwebLibraryBox?.box.url ?? '').includes('library.html'), 'jweb-library must load library.html');
+assert.equal(jwebLibraryBox?.box.rendermode, 0, 'library must use offscreen rendering in Live');
+assert.ok(
+  libraryBoxes.some((entry) => entry.box.text === 'loadmess readfile library.html'),
+  'jweb-library must load library.html relative to the patcher',
+);
+assert.ok(
+  libraryBoxes.some((entry) => entry.box.text === 'route choose_library library_ready web_debug lib_action url title'),
+  'library jweb readiness must be routed back to the engine',
+);
+assert.ok(
+  libraryHasLine(libraryByText('receive ---lib-data'), 0, jwebLibraryBox?.box, 0),
+  'library state must reach jweb without duplicating the receiveData selector',
+);
+assert.ok(!libraryByText('prepend receiveData'), 'library subpatch must not prepend receiveData twice');
+assert.ok(
+  libraryBoxes.some((entry) => entry.box.text === 'loadmess title "Motif Library"'),
+  'library floating window must have a readable title',
+);
 assert.equal(byText('p library-info')?.patcher?.rect?.[2], 640, 'library float patcher width must be 640');
 assert.equal(byText('p library-info')?.patcher?.rect?.[3], 460, 'library float patcher height must be 460');
 assert.ok((byVarname('motif-preview')?.presentation_rect?.[3] ?? 0) >= 60, 'preview contour must be tall enough to read');
+
+const pcontrol = byText('pcontrol');
+const libraryInfo = byText('p library-info');
+const openMessage = boxes.find((box) => box.maxclass === 'message' && box.text === 'open');
+assert.ok(hasLine(openMessage, 0, pcontrol, 0), 'open must be sent to pcontrol');
+for (const text of ['window flags float', 'window size 640 460', 'window exec']) {
+  for (const box of boxes.filter((item) => item.text === text)) {
+    assert.ok(hasLine(box, 0, libraryInfo, 0), `${text} must be sent to the library subpatch`);
+    assert.ok(!hasLine(box, 0, pcontrol, 0), `${text} must not be sent to pcontrol`);
+  }
+}
 
 const contextSources = boxes.filter((box) => box.text === 'prepend song_context');
 assert.equal(contextSources.length, 9, 'expected nine Song context properties');
@@ -145,8 +195,25 @@ const contextDefer = boxes.find((box) => contextDestinationIds.has(box.id));
 assert.equal(contextDefer?.text, 'deferlow', 'Song context path must be deferred');
 assert.ok(contextDefer && lines.some((line) => line.source[0] === contextDefer.id && line.destination[0] === v8.id), 'deferred Song context does not feed v8');
 
-assert.deepEqual(patch.dependency_cache.map(({ name }) => name), ['motif-device.js']);
+assert.deepEqual(
+  patch.dependency_cache.map(({ name }) => name),
+  ['motif-device.js', 'motif-preview.js', 'library.html'],
+);
 assert.ok(!JSON.stringify(patch).match(/motif-(?:device|preview)-v\d/i), 'versioned runtime dependency found');
+assert.ok(!JSON.stringify(patch).includes('file://'), 'generated patch must not contain platform-specific file URLs');
+assert.ok(!JSON.stringify(patch).includes('Patcher:/'), 'generated patch must not contain the invalid Patcher:/ pseudo-path');
+assert.ok(
+  !JSON.stringify(patch).includes('prepend call receiveData'),
+  'jweb state must use bound inlet selectors rather than JavaScript call injection',
+);
+
+
+const previewSource = await readFile('max/motif-preview.js', 'utf8');
+assert.doesNotThrow(() => new vm.Script(previewSource, { filename: 'motif-preview.js' }), 'native preview JavaScript must parse');
+assert.match(previewSource, /mgraphics\.init\(\)/, 'native preview must initialize mgraphics');
+assert.match(previewSource, /function receiveData\(\)/, 'native preview must accept preview state');
+assert.match(previewSource, /outlet\(0, "preview_ready"\)/, 'native preview must request fresh state on load');
+assert.doesNotMatch(previewSource, /window\.max|readfile|preview\.html/, 'native preview must not depend on jweb');
 
 const source = await readFile('dist/motif-device.js', 'utf8');
 assert.match(
@@ -165,4 +232,4 @@ assert.doesNotMatch(
 assert.doesNotMatch(source, /__motifHandlers/, 'legacy global handler table found');
 assert.doesNotMatch(source, /function host(?:_|\()/, 'legacy host handler found');
 
-console.log(`Validated Motif.maxpat: ${patch.devicewidth}×${DEVICE_HEIGHT}, fail-open MIDI, native host displays, native preview.`);
+console.log(`Validated Motif.maxpat: ${patch.devicewidth}×${DEVICE_HEIGHT}, fail-open MIDI, native host displays, jsui preview.`);

@@ -11,6 +11,14 @@ function lastEmission(emissions: Emission[], prefix: readonly unknown[]): Emissi
   );
 }
 
+function encodedPayload(emission: Emission | undefined): string {
+  const payload = emission?.[2];
+  if (typeof payload !== 'string') {
+    assert.fail('UI payload must be a URL-encoded JSON string');
+  }
+  return payload;
+}
+
 test('compiled Max runtime initializes, receives Song context, previews, and schedules MIDI', async () => {
   const source = await readFile('dist/motif-device.js', 'utf8');
   const emissions: Emission[] = [];
@@ -40,7 +48,7 @@ test('compiled Max runtime initializes, receives Song context, previews, and sch
   // Preview is now a piano roll encoded as JSON in `ui preview encodedJson`.
   const initialPreviewRaw = lastEmission(emissions, ['ui', 'preview']);
   assert.ok(initialPreviewRaw, 'preview state must be emitted on initialize');
-  const initialPreview = JSON.parse(decodeURIComponent(String(initialPreviewRaw?.[2] ?? ''))) as {
+  const initialPreview = JSON.parse(decodeURIComponent(encodedPayload(initialPreviewRaw))) as {
     notes: Array<{ pitch: number; atTicks: number; durationTicks: number }>;
     totalTicks: number;
     lowPitch: number;
@@ -50,6 +58,20 @@ test('compiled Max runtime initializes, receives Song context, previews, and sch
   assert.ok(Array.isArray(initialPreview.notes) && initialPreview.notes.length > 0, 'preview must include notes');
   assert.ok(typeof initialPreview.totalTicks === 'number' && initialPreview.totalTicks > 0);
 
+  emissions.length = 0;
+  send('preview_ready');
+  send('library_ready');
+  assert.ok(lastEmission(emissions, ['ui', 'preview']), 'preview readiness must resend current preview state');
+  const libraryStateRaw = lastEmission(emissions, ['ui', 'lib']);
+  assert.ok(libraryStateRaw, 'library readiness must resend current library state');
+  const libraryState = JSON.parse(decodeURIComponent(encodedPayload(libraryStateRaw))) as {
+    items: Array<{ id: string; name: string }>;
+    selected: { name: string } | null;
+  };
+  assert.ok(libraryState.items.length > 0, 'library state must contain built-in motifs');
+  assert.ok(libraryState.items.some((item) => item.id === 'mitsuda-lick'), 'library state must include Mitsuda Lick');
+  assert.ok(libraryState.selected, 'library state must include selected motif details');
+
   send('song_context', 'tempo', 96);
   send('song_context', 'root_note', 5);
   send('song_context', 'scale_name', 'Minor');
@@ -57,7 +79,7 @@ test('compiled Max runtime initializes, receives Song context, previews, and sch
 
   // After song context update, a new preview JSON must arrive with updated note names.
   const updatedPreviewRaw = lastEmission(emissions, ['ui', 'preview']);
-  const updatedPreview = JSON.parse(decodeURIComponent(String(updatedPreviewRaw?.[2] ?? ''))) as typeof initialPreview;
+  const updatedPreview = JSON.parse(decodeURIComponent(encodedPayload(updatedPreviewRaw))) as typeof initialPreview;
   assert.ok(typeof updatedPreview.noteNames === 'string' && updatedPreview.noteNames.length > 0);
 
   const beforeTrigger = emissions.length;

@@ -12,6 +12,9 @@ import vm from 'node:vm';
 /** Representative messages the generated patch (or UI) can send to `v8`. */
 const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ['initialize'],
+  ['preview_ready'],
+  ['library_ready'],
+  ['web_debug', 'preview', 'ok', encodeURIComponent('bridge ready')],
   ['song_context', 'tempo', 120],
   ['song_context', 'root_note', 0],
   ['song_context', 'scale_mode', 1],

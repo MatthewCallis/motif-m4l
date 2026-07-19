@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import vm from 'node:vm';
 
 type Box = {
   id: string;
@@ -20,6 +21,7 @@ type Box = {
   outputmode?: number;
   parameter_enable?: number;
   ignoreclick?: number;
+  rendermode?: number;
   fontname?: string;
   saved_attribute_attributes?: { valueof?: { parameter_enum?: string[] } };
   patcher?: {
@@ -115,7 +117,7 @@ test('generates a compact Max 9 device with Motif/Settings tabs and native previ
   assert.ok(texts.includes('route Ready'));
   assert.ok(texts.includes('t b b b b b b b b b'));
   assert.ok(texts.includes('route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui'));
-  assert.ok(texts.includes('route lib preview preview-url lib-url'), 'ui-route must handle lib, preview, and html url routes');
+  assert.ok(texts.includes('route lib preview'), 'ui-route must handle library and preview state');
   assert.ok(texts.includes('window size 640 460'));
   assert.ok(texts.filter((text) => text === 'window size 640 460').length >= 2, 'size must be applied before and after open');
   assert.ok(texts.includes('receive ---motif_author'));
@@ -161,15 +163,26 @@ test('generates a compact Max 9 device with Motif/Settings tabs and native previ
   assert.ok(texts.some((text) => text.startsWith('§ ')), 'unlocked patcher should label major sections');
 
   const preview = boxByVarname(boxes, 'motif-preview');
-  assert.equal(preview?.maxclass, 'jweb', 'preview must be a jweb object rendering preview.html');
-  // URL is sent as a url message from initialize() via ui-route → preview-url-prepend → jweb.
-  assert.ok(texts.some((text) => text === 'route lib preview preview-url lib-url'), 'ui-route must include preview-url and lib-url routes');
-  assert.ok(texts.some((text) => text === 'prepend url'), 'preview-url-prepend must produce url message for jweb');
-  assert.equal(preview?.annotation_name, 'Motif Note Preview');
-  assert.ok(preview?.annotation);
-  assert.ok(preview?.hint);
-  assert.ok((preview?.presentation_rect?.[3] ?? 0) >= 80, 'preview contour should use the height freed by collapsing the control row');
-  assert.ok(!boxes.some(({ box }) => box.maxclass === 'v8ui'), 'preview must not depend on a second JavaScript runtime');
+  const previewReadyRoute = boxByText(boxes, 'route preview_ready preview_debug');
+  const previewReadyMessage = boxes.find(({ box }) => box.maxclass === 'message' && box.text === 'preview_ready')?.box;
+  const previewDebugPage = boxByText(boxes, 'prepend preview');
+  const previewDebugPrepend = boxByText(boxes, 'prepend web_debug');
+  assert.ok(preview && previewReadyRoute && previewReadyMessage && previewDebugPage && previewDebugPrepend);
+  assert.equal(preview.maxclass, 'jsui', 'preview must use native jsui rather than jweb in Live');
+  assert.equal(preview.filename, 'motif-preview.js');
+  assert.equal(preview.ignoreclick, 0, 'preview diagnostics must remain clickable in locked Presentation Mode');
+  assert.ok(!boxByText(boxes, 'readfile preview.html'), 'native preview must not load an external HTML page');
+  assert.ok(hasLine(lines, preview, 0, previewReadyRoute, 0), 'preview output must route readiness and diagnostics');
+  assert.ok(hasLine(lines, previewReadyRoute, 0, previewReadyMessage, 0));
+  assert.ok(hasLine(lines, previewReadyMessage, 0, v8, 0), 'preview readiness must request fresh engine state');
+  assert.ok(hasLine(lines, previewReadyRoute, 1, previewDebugPage, 0));
+  assert.ok(hasLine(lines, previewDebugPage, 0, previewDebugPrepend, 0));
+  assert.ok(hasLine(lines, previewDebugPrepend, 0, v8, 0), 'native preview diagnostics must reach the engine');
+  assert.equal(preview.annotation_name, 'Motif Note Preview');
+  assert.ok(preview.annotation);
+  assert.ok(preview.hint);
+  assert.ok((preview.presentation_rect?.[3] ?? 0) >= 80, 'preview contour should use the height freed by collapsing the control row');
+  assert.ok(!boxes.some(({ box }) => box.maxclass === 'v8ui'), 'preview must not depend on v8ui');
   assert.ok(!JSON.stringify(patcher).includes('live_lcd_'), 'maxpat must not embed invalid live_lcd_* color tokens');
 
   const pageTab = boxByVarname(boxes, 'page-tab');
@@ -189,10 +202,20 @@ test('generates a compact Max 9 device with Motif/Settings tabs and native previ
   assert.ok(pitchEnum?.includes('motif'), 'Pitch Mode first item is motif');
   assert.ok(!pitchEnum?.includes('auto'), 'Pitch Mode auto was renamed to motif');
 
-  assert.ok(boxByText(boxes, 'p library-info')?.patcher, 'Library/Info floating window subpatcher is required');
+  const libraryPatcher = boxByText(boxes, 'p library-info')?.patcher;
+  assert.ok(libraryPatcher, 'Library/Info floating window subpatcher is required');
 
-  assert.deepEqual(patcher.dependency_cache.map(({ name }) => name), ['motif-device.js']);
+  assert.deepEqual(
+    patcher.dependency_cache.map(({ name }) => name),
+    ['motif-device.js', 'motif-preview.js', 'library.html'],
+  );
   assert.ok(!JSON.stringify(patcher).match(/motif-(?:device|preview)-v\d/i));
+  assert.ok(!JSON.stringify(patcher).includes('file://'), 'patch must not embed platform-specific file URLs');
+  assert.ok(!JSON.stringify(patcher).includes('Patcher:/'), 'invalid Patcher:/ pseudo-path must not be generated');
+  assert.ok(
+    !JSON.stringify(patcher).includes('prepend call receiveData'),
+    'jweb state must use a bound inlet selector rather than JavaScript call injection',
+  );
 
   const controls = [
     'page-tab',
@@ -222,12 +245,144 @@ test('generates a compact Max 9 device with Motif/Settings tabs and native previ
   const jwebLibrary = nested.find((box) => box.varname === 'jweb-library');
   assert.ok(jwebLibrary, 'library subpatcher must contain a jweb-library object');
   assert.equal(jwebLibrary?.maxclass, 'jweb', 'jweb-library must be a jweb object');
-  // URL is sent via receive ---lib-url inside the subpatcher (lib-url routed from initialize()).
-  assert.ok(nested.some((box) => String(box.text ?? '').includes('receive ---lib-url')), 'subpatcher must receive ---lib-url to load library.html');
+  const libraryLoad = boxByText(libraryPatcher.boxes, 'loadmess readfile library.html');
+  const libraryRoute = boxByText(libraryPatcher.boxes, 'route choose_library library_ready web_debug lib_action url title');
+  const libraryReadyMessage = libraryPatcher.boxes.find(({ box }) =>
+    box.maxclass === 'message' && box.text === 'library_ready')?.box;
+  const libraryAction = boxByText(libraryPatcher.boxes, 'prepend lib_action');
+  const libraryAuthorSend = boxByText(libraryPatcher.boxes, 'send ---motif_author');
+  const libraryDebugSend = boxByText(libraryPatcher.boxes, 'send ---motif_web_debug');
+  const libraryTitle = boxByText(libraryPatcher.boxes, 'loadmess title "Motif Library"');
+  const libraryReceiveData = boxByText(libraryPatcher.boxes, 'receive ---lib-data');
+  assert.ok(
+    libraryLoad &&
+      libraryRoute &&
+      libraryReadyMessage &&
+      libraryAction &&
+      libraryAuthorSend &&
+      libraryDebugSend &&
+      libraryTitle &&
+      libraryReceiveData,
+  );
+  assert.ok(hasLine(libraryPatcher.lines, libraryLoad, 0, jwebLibrary, 0));
+  assert.equal(jwebLibrary.rendermode, 0, 'library must use offscreen jweb rendering in Live');
+  assert.ok(hasLine(libraryPatcher.lines, libraryReceiveData, 0, jwebLibrary, 0));
+  assert.ok(hasLine(libraryPatcher.lines, jwebLibrary, 0, libraryRoute, 0));
+  assert.ok(hasLine(libraryPatcher.lines, libraryRoute, 1, libraryReadyMessage, 0));
+  assert.ok(hasLine(libraryPatcher.lines, libraryReadyMessage, 0, libraryAuthorSend, 0));
+  assert.ok(hasLine(libraryPatcher.lines, libraryRoute, 2, libraryDebugSend, 0));
+  assert.ok(hasLine(libraryPatcher.lines, libraryRoute, 3, libraryAction, 0));
+
+  const libraryInfo = boxByText(boxes, 'p library-info');
+  const libraryPcontrol = boxByText(boxes, 'pcontrol');
+  const libraryOpen = boxes.find(({ box }) => box.maxclass === 'message' && box.text === 'open')?.box;
+  assert.ok(libraryInfo && libraryPcontrol && libraryOpen);
+  assert.ok(hasLine(lines, libraryOpen, 0, libraryPcontrol, 0), 'only open should be sent to pcontrol');
+  for (const text of ['window flags float', 'window size 640 460', 'window exec']) {
+    for (const { box } of boxes.filter(({ box }) => box.text === text)) {
+      assert.ok(hasLine(lines, box, 0, libraryInfo, 0), `${text} must be forwarded to the subpatch thispatcher`);
+      assert.ok(!hasLine(lines, box, 0, libraryPcontrol, 0), `${text} must never be sent to pcontrol`);
+    }
+  }
 
   for (const varname of ['trigger-menu', 'quant-menu', 'pass-menu', 'meter-tab', 'retrigger-tab', 'low-number', 'high-number']) {
     assert.equal(boxByVarname(boxes, varname)?.hidden, 1, `${varname} should start hidden on the Settings tab`);
   }
+});
+
+test('library jweb binds receiveData before readiness and contains valid diagnostic JavaScript', async () => {
+  const libraryHtml = await readFile('max/library.html', 'utf8');
+  const bindIndex = libraryHtml.indexOf("window.max.bindInlet('receiveData', receiveData)");
+  const readyIndex = libraryHtml.indexOf("window.max.outlet('library_ready')");
+  const script = libraryHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+
+  assert.ok(script, 'library must contain an inline script');
+  assert.doesNotThrow(() => new vm.Script(script, { filename: 'library.html' }), 'library JavaScript must parse');
+  assert.ok(bindIndex >= 0, 'library must bind the receiveData inlet');
+  assert.ok(readyIndex > bindIndex, 'library must announce readiness after binding receiveData');
+  assert.ok(libraryHtml.includes("window.max.outlet('web_debug'"), 'library must report diagnostics to Max');
+  assert.ok(libraryHtml.includes("window.addEventListener('error'"), 'library must capture JavaScript errors');
+  assert.ok(libraryHtml.includes("window.addEventListener('unhandledrejection'"), 'library must capture promise rejections');
+  assert.ok(!libraryHtml.includes('window.receiveData = receiveData'), 'library must not rely on an unbound global function');
+  assert.ok(!libraryHtml.includes("outlet.toString().includes('console.log')"), 'library must not infer Max from source text');
+  assert.ok(libraryHtml.includes('No library state received within 2 seconds'), 'library must report missing state');
+  assert.ok(
+    libraryHtml.includes("window.max.outlet('lib_action', encodeURIComponent(JSON.stringify(action)))"),
+    'library actions must use an explicit selector',
+  );
+});
+
+test('native preview script parses and exposes state, readiness, and diagnostics handlers', async () => {
+  const previewScript = await readFile('max/motif-preview.js', 'utf8');
+
+  assert.doesNotThrow(() => new vm.Script(previewScript, { filename: 'motif-preview.js' }));
+  assert.match(previewScript, /mgraphics\.init\(\)/);
+  assert.match(previewScript, /function receiveData\(\)/);
+  assert.match(previewScript, /function loadbang\(\)/);
+  assert.match(previewScript, /outlet\(0, "preview_ready"\)/);
+  assert.match(previewScript, /outlet\(0, "preview_debug", level/);
+  assert.match(previewScript, /function paint\(\)/);
+  assert.doesNotMatch(previewScript, /window\.max|readfile|preview\.html/);
+});
+
+test('native preview executes and renders a valid payload without jweb', async () => {
+  const previewScript = await readFile('max/motif-preview.js', 'utf8');
+  const outletMessages: unknown[][] = [];
+  const errors: string[] = [];
+  const drawingMethods = [
+    'init',
+    'rectangle',
+    'fill',
+    'set_source_rgba',
+    'set_line_width',
+    'move_to',
+    'line_to',
+    'stroke',
+    'select_font_face',
+    'set_font_size',
+    'show_text',
+    'redraw',
+  ];
+  const mgraphics = Object.fromEntries(drawingMethods.map((name) => [name, () => undefined])) as Record<string, unknown>;
+  mgraphics.text_measure = (value: string) => [String(value).length * 5, 10];
+
+  const context = vm.createContext({
+    mgraphics,
+    box: { rect: [0, 0, 456, 92] },
+    outlet: (...values: unknown[]) => outletMessages.push(values),
+    post: () => undefined,
+    error: (message: string) => errors.push(message),
+    arrayfromargs: (values: IArguments) => Array.from(values),
+    encodeURIComponent,
+    decodeURIComponent,
+    JSON,
+    Math,
+    Number,
+    String,
+    TypeError,
+    Array,
+    isFinite,
+  });
+
+  new vm.Script(previewScript, { filename: 'motif-preview.js' }).runInContext(context);
+  (context.loadbang as () => void)();
+  assert.ok(outletMessages.some((message) => message[1] === 'preview_ready'));
+
+  const payload = encodeURIComponent(JSON.stringify({
+    notes: [
+      { pitch: 60, atTicks: 0, durationTicks: 480 },
+      { pitch: 63, atTicks: 480, durationTicks: 480 },
+    ],
+    totalTicks: 960,
+    lowPitch: 59,
+    highPitch: 64,
+    noteNames: 'C3  ·  D♯3',
+  }));
+  (context.receiveData as (value: string) => void)(payload);
+  (context.paint as () => void)();
+
+  assert.equal(errors.length, 0);
+  assert.ok(outletMessages.some((message) => message[1] === 'preview_debug' && message[2] === 'ok'));
 });
 
 test('MIDI routing is fail-open and follows the documented midiselect pattern', async () => {

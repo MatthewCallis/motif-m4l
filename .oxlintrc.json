@@ -16,7 +16,9 @@
   },
   "ignorePatterns": [
     "**/node_modules",
-    "dist/**/*",
+    "**/__MACOSX/**",
+    "**/._*",
+    "**/dist/**/*",
     "max/**/*"
   ],
   "rules": {

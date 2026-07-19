@@ -44,5 +44,13 @@ test('setNotes recomputes length and validates', () => {
   const updated = store.get(clone.id);
   assert.ok(updated);
   assert.equal(updated.notes.length, 2);
-  assert.ok(updated.length >= 1440);
+  assert.equal(updated.length, 1440);
+
+  assert.deepEqual(store.setNotes(clone.id, [
+    { at: 0, duration: 240, pitch: 0 },
+  ]), []);
+  assert.equal(store.get(clone.id)?.length, 240, 'shortening notes must shrink motif length');
+
+  assert.deepEqual(store.setNotes(clone.id, []), ['notes must be a non-empty array']);
+  assert.equal(store.get(clone.id)?.length, 240, 'invalid empty updates must preserve the motif');
 });

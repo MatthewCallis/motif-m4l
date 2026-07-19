@@ -35,7 +35,7 @@
     /* ------------------------------------------------------------------ */
     #app {
       display: flex;
-      height: 100%;
+      height: calc(100% - 20px);
     }
 
     /* Left column — browser */
@@ -290,6 +290,59 @@
       border-top: 1px solid var(--border);
       padding: 4px 8px;
     }
+
+    #debug-bar {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 20px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      padding: 0 6px;
+      border-top: 1px solid var(--border);
+      background: #101012;
+      color: var(--muted);
+      font-size: 9px;
+    }
+    #debug-indicator { color: #b0a050; }
+    #debug-indicator.ok { color: #70c070; }
+    #debug-indicator.error { color: #ff7066; }
+    #debug-summary {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    #debug-toggle {
+      border: 0;
+      background: transparent;
+      color: var(--muted);
+      font: inherit;
+      cursor: pointer;
+    }
+    #debug-toggle:hover { color: var(--text); }
+    #debug-panel {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 20px;
+      z-index: 29;
+      display: none;
+      max-height: 160px;
+      overflow: auto;
+      padding: 6px;
+      border-top: 1px solid var(--border);
+      background: rgba(8, 8, 9, 0.97);
+      color: #c8c8ce;
+      font: 9px ui-monospace, SFMono-Regular, Menlo, monospace;
+      white-space: pre-wrap;
+      user-select: text;
+    }
+    #debug-panel.open { display: block; }
+    #debug-panel.has-error { color: #ff8b82; }
   </style>
 </head>
 <body>
@@ -350,26 +403,83 @@
   </div>
 </div>
 
+<div id="debug-panel" aria-live="polite"></div>
+<div id="debug-bar">
+  <span id="debug-indicator">●</span>
+  <span id="debug-summary">Loading jweb bridge…</span>
+  <button id="debug-toggle" type="button">Debug</button>
+</div>
+
 <script>
   /* ------------------------------------------------------------------ */
   /* Max shim — lets the file open in a browser for local dev            */
   /* ------------------------------------------------------------------ */
-  if (typeof window.max === 'undefined') {
-    window.max = { outlet: (...a) => console.log('→ Max:', ...a) };
+  const PAGE = 'library';
+  const isMax = typeof window.max !== 'undefined' && typeof window.max.outlet === 'function';
+  if (!isMax) {
+    const browserInlets = new Map();
+    window.max = {
+      outlet: (...args) => console.log('→ Max:', ...args),
+      bindInlet: (name, handler) => browserInlets.set(name, handler),
+    };
+    window.__motifBrowserInlets = browserInlets;
   }
+
+  const debugIndicator = document.getElementById('debug-indicator');
+  const debugSummary = document.getElementById('debug-summary');
+  const debugToggle = document.getElementById('debug-toggle');
+  const debugPanel = document.getElementById('debug-panel');
+  const debugLines = [];
+  let stateDeadline = null;
+
+  function errorText(value) {
+    if (value instanceof Error) return value.stack || value.message;
+    return String(value);
+  }
+
+  function debug(level, message) {
+    const text = String(message);
+    const line = `[${new Date().toLocaleTimeString()}] ${level.toUpperCase()} ${text}`;
+    debugLines.push(line);
+    if (debugLines.length > 80) debugLines.shift();
+    debugPanel.textContent = debugLines.join('\n');
+    debugPanel.classList.toggle('has-error', debugLines.some((item) => item.includes(' ERROR ')));
+    debugSummary.textContent = text;
+    if (level === 'error' || level === 'ok') {
+      debugIndicator.className = level;
+    }
+    if (isMax) {
+      try {
+        window.max.outlet('web_debug', PAGE, level, encodeURIComponent(text));
+      } catch (_) {
+        /* The in-page panel remains available even if the bridge itself failed. */
+      }
+    }
+  }
+
+  debugToggle.addEventListener('click', () => {
+    debugPanel.classList.toggle('open');
+  });
+
+  window.addEventListener('error', (event) => {
+    debug('error', `${event.message} @ ${event.filename || 'inline'}:${event.lineno || 0}:${event.colno || 0}`);
+  });
+  window.addEventListener('unhandledrejection', (event) => {
+    debug('error', `Unhandled promise rejection: ${errorText(event.reason)}`);
+  });
 
   /* ------------------------------------------------------------------ */
   /* Action helpers                                                       */
   /* ------------------------------------------------------------------ */
 
   /**
-   * Send a JSON action back to Max as a URL-encoded symbol.
-   * Max patch routes this through `route choose_library`; anything else
-   * (all encoded JSON) falls to `prepend lib_action` → `s ---motif_author`.
+   * Send a JSON action back to Max with an explicit selector. Untagged jweb
+   * messages such as url/title/load noise must never be interpreted as actions.
    * @param {object} action
    */
   function send(action) {
-    window.max.outlet(encodeURIComponent(JSON.stringify(action)));
+    debug('tx', `Action: ${action.type ?? 'unknown'}`);
+    window.max.outlet('lib_action', encodeURIComponent(JSON.stringify(action)));
   }
 
   /* ------------------------------------------------------------------ */
@@ -385,7 +495,6 @@
 
   /** @type {LibState|null} */
   let state = null;
-  let editing = false;
 
   /* ------------------------------------------------------------------ */
   /* Browser list rendering                                               */
@@ -494,6 +603,7 @@
       nameEl.readOnly = true;
       descEl.readOnly = true;
       editBtn.disabled = true;
+      updateNoteRows();
       return;
     }
 
@@ -505,7 +615,6 @@
     statsEl.textContent = sel.stats ?? '';
     tagsEl.textContent = sel.tags ?? '';
     editBtn.disabled = isEditable; /* "Edit" only shown when locked */
-    editing = isEditable;
 
     updateNoteRows();
   }
@@ -525,18 +634,28 @@
   }
 
   /* ------------------------------------------------------------------ */
-  /* Public API — called by Max via `call receiveData encodedJson`        */
+  /* Public API — registered with Max via `bindInlet('receiveData')`      */
   /* ------------------------------------------------------------------ */
 
   /**
-   * @param {string} encoded - URL-encoded compact JSON
+   * Max may deliver extra atoms when a patcher accidentally duplicates the
+   * inlet selector. Accept a variable argument list and use the final atom so
+   * diagnostics remain useful instead of failing on the word "receiveData".
+   * @param {...unknown} values - URL-encoded compact JSON as the final atom
    */
-  function receiveData(encoded) {
+  function receiveData(...values) {
+    const encoded = values[values.length - 1];
     try {
       state = JSON.parse(decodeURIComponent(String(encoded)));
-    } catch (e) {
-      console.error('library: bad payload', e);
+      if (!Array.isArray(state.items)) throw new TypeError('items must be an array');
+      if (stateDeadline !== null) {
+        clearTimeout(stateDeadline);
+        stateDeadline = null;
+      }
+      debug('ok', `State received: ${state.items.length} motifs`);
+    } catch (reason) {
       state = null;
+      debug('error', `Bad library payload: ${errorText(reason)}`);
     }
     render();
   }
@@ -593,10 +712,19 @@
 
   buildNoteRows();
 
-  window.receiveData = receiveData;
-
-  /* Dev-mode: seed with mock data for local browser testing */
-  if (window.max.outlet.toString().includes('console.log')) {
+  if (isMax) {
+    if (typeof window.max.bindInlet !== 'function') {
+      debug('error', 'Max jweb bridge is missing bindInlet');
+    } else {
+      window.max.bindInlet('receiveData', receiveData);
+      debug('info', `Bridge ready; waiting for library state (${location.href})`);
+      window.max.outlet('library_ready');
+      stateDeadline = setTimeout(() => {
+        if (!state) debug('error', 'No library state received within 2 seconds');
+      }, 2000);
+    }
+  } else {
+    /* Dev-mode: seed with mock data for local browser testing */
     receiveData(encodeURIComponent(JSON.stringify({
       query: '',
       items: [

@@ -32,7 +32,7 @@
 import { absoluteNotesToMotif, type AbsoluteNote } from '../core/import-notes.js';
 import { compileMotif } from '../core/compile-motif.js';
 import { clamp } from '../core/math.js';
-import { buildMotifPreview, midiNoteName } from '../core/preview.js';
+import { buildMotifPreview } from '../core/preview.js';
 import { quantizationTicks, ticksUntilNextBoundary } from '../core/timing.js';
 import {
   PPQ,
@@ -50,19 +50,18 @@ import {
 import { MotifStore } from '../library/store.js';
 
 /**
- * Absolute directory path of the patcher (trailing slash included).
- * Captured at the top level of the Max bridge script where `patcher` is in scope.
- * Undefined in test/Node environments where the Max bridge is absent.
- */
-declare const _patcherDir: string | undefined;
-
-/**
  * Symbolic messages the Max patch may send to `v8` (via `prepend <name>`).
  * Keep in sync with `tests/max-handler-contract.test.ts` and the patch generator.
  */
 interface MotifHandlers {
   /** First load: emit `status Ready`, list motifs, sync UI. */
   initialize: () => void;
+  /** Preview jweb loaded and registered its receiveData callback. */
+  preview_ready: () => void;
+  /** Library jweb loaded and registered its receiveData callback. */
+  library_ready: () => void;
+  /** Diagnostics emitted by an embedded jweb page. */
+  web_debug: (page: string, level: string, encodedMessage: string) => void;
   /** Note-on/off from midiparse; triggers and/or dry pass-through. */
   note: (pitch: number, velocity: number, channel?: number) => void;
   /** Sustain pedal (CC64) and other CCs; only 64 is handled. */
@@ -113,7 +112,7 @@ interface MotifHandlers {
   /** Edit one field of the selected note: pitch|accidental|at|duration|gate|velocity. */
   edit_note: (field: string, value: number) => void;
   /** Dispatch a URL-encoded JSON action from library.html (select, edit, add, remove note, etc.). */
-  lib_action: (encodedJson: string) => void;
+  lib_action: (...encodedParts: unknown[]) => void;
   /** Flush pipes and clear active trigger state. */
   panic: () => void;
   list_motifs: () => void;
@@ -273,6 +272,13 @@ function flattenValues(values: readonly unknown[]): unknown[] {
   return out;
 }
 
+/** Convert a JSON/Max atom to text without accepting object default stringification. */
+function stringAtom(value: unknown, fallback = ''): string {
+  if (typeof value === 'string') return value;
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+  return fallback;
+}
+
 function numbers(values: readonly unknown[]): number[] {
   return flattenValues(values)
     .map(Number)
@@ -383,16 +389,32 @@ function initialize(): void {
     initialized = true;
     emitStatus('Ready');
     emitMidiPassState();
-    // Emit file:// URLs so each jweb can load its HTML.  patcher.filepath (captured in the
-    // bridge as _patcherDir) is the absolute directory of Motif.maxpat — same folder as the
-    // HTML files.  Falls through silently in test/Node environments where _patcherDir is absent.
-    const dir = typeof _patcherDir === 'string' ? _patcherDir : '';
-    if (dir) {
-      emit('ui', 'preview-url', `file://${dir}preview.html`);
-      emit('ui', 'lib-url', `file://${dir}library.html`);
-    }
   }
   listMotifs();
+}
+
+/** Re-send the latest preview after the native jsui renderer initializes or reloads. */
+function preview_ready(): void {
+  emitPreviewState();
+}
+
+/** Re-send the latest library state after the asynchronous jweb page finishes loading. */
+function library_ready(): void {
+  emitLibraryState();
+}
+
+/** Decode and mirror embedded-page diagnostics into the Max Console. */
+function web_debug(page: string, level: string, encodedMessage: string): void {
+  let message = String(encodedMessage);
+  try {
+    message = decodeURIComponent(message);
+  } catch {
+    // Keep the original atom when a malformed diagnostic cannot be decoded.
+  }
+
+  const line = `Motif jweb ${String(page)} [${String(level)}] ${message}\n`;
+  if (String(level).toLowerCase() === 'error') error(line);
+  else post(line);
 }
 
 function launchOffsetTicks(): number {
@@ -1198,19 +1220,29 @@ function remove_note(indexValue: number): void {
 
 /**
  * Dispatch a URL-encoded JSON action from `library.html`.
- * `library.html` sends `window.max.outlet(encodeURIComponent(JSON.stringify({type, ...})))`.
- * Max routes that through `prepend lib_action` → `s ---motif_author` → engine inlet.
+ * The page emits an explicit `lib_action` selector so unrelated jweb messages
+ * such as `url` and `title` can never be parsed as actions.
  */
-function lib_action(encodedJson: string): void {
-  let action: Record<string, unknown>;
-  try {
-    action = JSON.parse(decodeURIComponent(String(encodedJson))) as Record<string, unknown>;
-  } catch {
-    emitError('lib_action: invalid JSON');
+function lib_action(...encodedParts: unknown[]): void {
+  const payloads = flattenValues(encodedParts)
+    .map((value) => stringAtom(value))
+    .filter(Boolean);
+  const encodedJson = payloads[payloads.length - 1];
+
+  if (!encodedJson) {
+    emitError('lib_action: missing JSON payload');
     return;
   }
 
-  const type = String(action['type'] ?? '');
+  let action: Record<string, unknown>;
+  try {
+    action = JSON.parse(decodeURIComponent(encodedJson)) as Record<string, unknown>;
+  } catch {
+    emitError(`lib_action: invalid JSON (${encodedJson.slice(0, 48)})`);
+    return;
+  }
+
+  const type = stringAtom(action['type']);
   switch (type) {
     case 'select_browser':
       select_browser(Number(action['index']));
@@ -1219,7 +1251,7 @@ function lib_action(encodedJson: string): void {
       filter_motifs(action['query']);
       break;
     case 'import_clip':
-      import_clip(action['pitchMode'] !== undefined ? String(action['pitchMode']) : undefined);
+      import_clip(action['pitchMode'] !== undefined ? stringAtom(action['pitchMode']) : undefined);
       break;
     case 'save_motif':
       save_motif();
@@ -1231,7 +1263,7 @@ function lib_action(encodedJson: string): void {
       begin_edit();
       break;
     case 'edit_meta':
-      edit_meta(String(action['field']), action['value']);
+      edit_meta(stringAtom(action['field']), action['value']);
       break;
     case 'add_note':
       add_note();
@@ -1240,7 +1272,7 @@ function lib_action(encodedJson: string): void {
       remove_note(Number(action['index']));
       break;
     case 'edit_note_at':
-      edit_note_at(Number(action['index']), String(action['field']), Number(action['value']));
+      edit_note_at(Number(action['index']), stringAtom(action['field']), Number(action['value']));
       break;
     default:
       emitError(`lib_action: unknown type ${type}`);
@@ -1265,6 +1297,9 @@ function dump_context(): void {
 /** Lookup table for {@link dispatch}; keys are Max message selectors. */
 const handlers: MotifHandlers = {
   initialize,
+  preview_ready,
+  library_ready,
+  web_debug,
   note,
   cc,
   sustain,

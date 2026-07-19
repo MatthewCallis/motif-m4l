@@ -122,9 +122,9 @@ export class MotifStore {
     const existing = this.#motifs.get(id);
     if (!existing) return [`Unknown motif: ${id}`];
 
-    const length = notes.length > 0
-      ? Math.max(existing.length, ...notes.map((note) => note.at + note.duration))
-      : existing.length;
+    if (notes.length === 0) return ['notes must be a non-empty array'];
+
+    const length = Math.max(...notes.map((note) => note.at + note.duration));
 
     return this.update({
       ...existing,
