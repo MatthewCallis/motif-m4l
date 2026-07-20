@@ -35,7 +35,7 @@ Open an existing Max MIDI Effect using **Edit in Max**, replace every old patch 
 ## Host behavior
 
 - Tempo, Current Scale root/name/mode, Set meter, and transport state update directly from native Song observers.
-- Root and tempo are read-only text—not editable menus or parameters.
+- Root and tempo are read-only text-not editable menus or parameters.
 - Changing root, scale, pitch mode, meter mode, or motif recalculates the preview.
 - Playing a trigger note moves the preview anchor to that note, so the displayed note names match the next phrase transposition.
 - Host displays continue to work independently of the TypeScript engine.

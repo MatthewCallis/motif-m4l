@@ -1,6 +1,6 @@
 /**
  * Minimal ambient typings for the `midi-file` package used by `midi.ts`.
- * Not a full upstream type definition — only fields Motif import/export touch.
+ * Not a full upstream type definition - only fields Motif import/export touch.
  */
 declare module 'midi-file' {
   export interface MidiEvent {

@@ -2,7 +2,7 @@
  * In-memory motif library: built-ins from generated JSON plus user phrases.
  *
  * Disk I/O (scanning a user library folder, reading/writing `.json`) happens in
- * `device.ts` via Max `Folder` / `File` — this store only holds validated Motif objects.
+ * `device.ts` via Max `Folder` / `File` - this store only holds validated Motif objects.
  *
  * @see https://docs.cycling74.com/apiref/js/folder/
  * @see https://docs.cycling74.com/apiref/js/file/

@@ -56,9 +56,9 @@ Current observed properties:
 - `is_playing`
 - `current_song_time`
 
-The observer values may be forwarded to TypeScript for motif calculations, but the visible host-state displays should remain connected to native Max objects. Live key/scale use theme-default `live.menu` (read-only, `ignoreclick`) with a `live.comment` “Scale” label on one bottom row with Pitch; `active` follows Song.scale_mode. Pitch Mode enum starts with `motif`. There is no BPM readout — only a `BPM ×` label + multiplier menu.
+The observer values may be forwarded to TypeScript for motif calculations, but the visible host-state displays should remain connected to native Max objects. Live key/scale use theme-default `live.menu` (read-only, `ignoreclick`) with a `live.comment` “Scale” label on one bottom row with Pitch; `active` follows Song.scale_mode. Pitch Mode enum starts with `motif`. There is no BPM readout - only a `BPM ×` label + multiplier menu.
 
-**Exception — clip import only:** `import_clip` may use JavaScript `LiveAPI` to read the selected Detail View clip (`detail_clip` / `highlighted_clip_slot clip`) via `get_notes_extended` or `get_notes`. Do not use LiveAPI for Song tempo/key/scale/meter/transport sync.
+**Exception - clip import only:** `import_clip` may use JavaScript `LiveAPI` to read the selected Detail View clip (`detail_clip` / `highlighted_clip_slot clip`) via `get_notes_extended` or `get_notes`. Do not use LiveAPI for Song tempo/key/scale/meter/transport sync.
 
 ## MIDI safety
 
@@ -75,7 +75,7 @@ MIDI input must remain fail-open until the engine reports `Ready`. Non-note MIDI
 - A jweb inlet selector must be prepended exactly once. The parent emits `receiveData <encoded-json>`; a `send`/`receive` hop must forward that message directly rather than prepending `receiveData` again.
 - Browser-to-Max actions require an explicit selector such as `lib_action <encoded-json>`. Never treat the unmatched outlet of `route ... url title` as executable JSON because jweb may emit additional lifecycle messages.
 - Embedded Live previews use `jweb @rendermode 0`, load after `live.thisdevice`, and keep `ignoreclick 0` so the diagnostic control remains usable. Prefer DOM/CSS rendering over canvas for the compact Live device preview.
-- Do not embed Jitter (`jit.*`) in the device maxpat — it can make the patch unloadable in Max/M4L. Use `umenu` for dynamic lists.
+- Do not embed Jitter (`jit.*`) in the device maxpat - it can make the patch unloadable in Max/M4L. Use `umenu` for dynamic lists.
 - No Presentation `status-display` for engine debug (`trigger …`); Ready still gates MIDI via `route Ready`.
 - Unlocked patcher should keep `§ …` section comments for MIDI / engine / Song / tabs / library / controls.
 - Every interactive control requires `annotation_name`, `annotation`, and `hint`.
@@ -83,7 +83,7 @@ MIDI input must remain fail-open until the engine reports `Ready`. Non-note MIDI
 
 ## Adding built-in motifs
 
-Phrase JSON under `motifs/builtin/` — follow [add-motif](../add-motif/SKILL.md). Do not hand-edit `src/generated/builtins.ts`.
+Phrase JSON under `motifs/builtin/` - follow [add-motif](../add-motif/SKILL.md). Do not hand-edit `src/generated/builtins.ts`.
 
 ## Required verification
 

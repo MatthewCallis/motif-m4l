@@ -128,4 +128,4 @@ Match Mitsuda / Salt Peanuts: tags, `suggestedModes`, source URL, and the shared
 
 ## Related
 
-Device/runtime wiring is a separate concern — see [.cursor/skills/max-for-live/SKILL.md](../max-for-live/SKILL.md).
+Device/runtime wiring is a separate concern - see [.cursor/skills/max-for-live/SKILL.md](../max-for-live/SKILL.md).

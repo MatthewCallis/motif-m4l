@@ -15,9 +15,9 @@ export const MOTIF_SCHEMA_VERSION = 1;
 
 /**
  * How `MotifNote.pitch` is interpreted relative to the trigger note and Live scale.
- * - `scale` — scale-degree offsets through Song scale intervals
- * - `chromatic` — semitone offsets from the trigger
- * - `hybrid` — scale degrees plus optional `accidental` semitones
+ * - `scale` - scale-degree offsets through Song scale intervals
+ * - `chromatic` - semitone offsets from the trigger
+ * - `hybrid` - scale degrees plus optional `accidental` semitones
  */
 export type PitchMode = 'scale' | 'chromatic' | 'hybrid';
 

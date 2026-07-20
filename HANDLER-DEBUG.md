@@ -1,6 +1,6 @@
 # Max v8 handler debugging
 
-Motif uses one top-level Max handler, `anything()`. All selectors—including `song_context`, `note`, and `initialize`—are dispatched from there into the TypeScript engine.
+Motif uses one top-level Max handler, `anything()`. All selectors-including `song_context`, `note`, and `initialize`-are dispatched from there into the TypeScript engine.
 
 ## Expected beginning of `motif-device.js`
 

@@ -3,7 +3,7 @@
  *
  * These match the Max JavaScript host API available inside `[v8]` / `[js]`.
  * Song tempo, key, scale, meter, and transport stay on native `live.path` /
- * `live.observer` objects in the patch — do not sync those through LiveAPI.
+ * `live.observer` objects in the patch - do not sync those through LiveAPI.
  *
  * @see https://docs.cycling74.com/apiref/js/
  * @see https://docs.cycling74.com/apiref/js/jsthis/

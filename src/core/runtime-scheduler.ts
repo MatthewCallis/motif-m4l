@@ -2,7 +2,7 @@
  * In-process MIDI event scheduler for overlap-safe note-on/off bookkeeping.
  *
  * Used by unit tests and pure-engine reasoning. The Live device does **not**
- * import this class — it schedules note events through Max `pipe` via
+ * import this class - it schedules note events through Max `pipe` via
  * `emit('event', pitch, velocity, channel, delayMs)` from `device.ts`.
  *
  * The model tracks per-instance active notes so a cancelled or replaced

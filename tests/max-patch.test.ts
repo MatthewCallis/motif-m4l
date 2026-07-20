@@ -249,7 +249,7 @@ test('generates a compact Max 9 device with Motif/Settings tabs and native previ
   }
 
   const nested = allBoxes(boxes);
-  // Library window is now a single jweb object — check it exists.
+  // Library window is now a single jweb object - check it exists.
   const jwebLibrary = nested.find((box) => box.varname === 'jweb-library');
   assert.ok(jwebLibrary, 'library subpatcher must contain a jweb-library object');
   assert.equal(jwebLibrary?.maxclass, 'jweb', 'jweb-library must be a jweb object');

@@ -97,6 +97,10 @@ function effectiveDuration(note: MotifNote, next: MotifNote | undefined, motif: 
  * velocity curves, and launch offset. Offsets are provided in both ticks and ms
  * so Max `pipe` can schedule from milliseconds.
  *
+ * @param {Motif} motif The motif to compile.
+ * @param {HostContext} host The host context.
+ * @param {CompileOptions} options The compile options.
+ * @returns {ScheduledMidiEvent[]} The sorted note-on/off {@link ScheduledMidiEvent}s.
  * @see https://docs.cycling74.com/reference/pipe
  */
 export function compileMotif(

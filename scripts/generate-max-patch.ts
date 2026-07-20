@@ -1,5 +1,5 @@
 /**
- * Generate `max/Motif.maxpat` — the Motif MIDI Effect patcher.
+ * Generate `max/Motif.maxpat` - the Motif MIDI Effect patcher.
  *
  * ## Architecture (do not regress)
  * - Presentation Mode, fixed 480×169 Live device height, Ableton Sans
@@ -63,7 +63,7 @@ function asHelp(value: unknown): HelpInfo | undefined {
 
 /**
  * Write a complete Motif.maxpat from the layout tables below.
- * Invoked by `npm run build` / `scripts/build.ts` — do not hand-edit the output file.
+ * Invoked by `npm run build` / `scripts/build.ts` - do not hand-edit the output file.
  */
 export async function generateMaxPatch(): Promise<void> {
   let nextId = 1;
@@ -74,7 +74,7 @@ export async function generateMaxPatch(): Promise<void> {
   const WIDTH = 480;
   const FONT = 'Ableton Sans';
 
-  /** Fixed RGBA only — Max rejects named dynamic-color tokens in maxpat JSON. live.* keep defaults for theme follow. */
+  /** Fixed RGBA only - Max rejects named dynamic-color tokens in maxpat JSON. live.* keep defaults for theme follow. */
   const COLORS = {
     panel: [0.12, 0.12, 0.13, 1],
     text: [0.88, 0.88, 0.9, 1],
@@ -84,7 +84,7 @@ export async function generateMaxPatch(): Promise<void> {
     previewBorder: [0.2, 0.2, 0.22, 1],
   };
 
-  /** Common Live Song.scale_name values — keeps live.menu setsymbol in-range. */
+  /** Common Live Song.scale_name values - keeps live.menu setsymbol in-range. */
   const LIVE_SCALE_NAMES = [
     'Major', 'Minor', 'Dorian', 'Mixolydian', 'Lydian', 'Phrygian', 'Locrian',
     'Whole Tone', 'Half-whole Dim.', 'Whole-half Dim.', 'Minor Blues', 'Minor Pentatonic',
@@ -198,7 +198,7 @@ export async function generateMaxPatch(): Promise<void> {
   function uiLiveMenu(name: string, values: readonly string[], rect: Rect, longName: string, shortName: string, initial: number, help: { name: string; description: string }, options: BoxOptions = {}): string {
     return add(name, 'live.menu', rect, {
       appearance: 0,
-      // No font/color overrides — Live theme owns live.menu chrome (matches stock Scale device).
+      // No font/color overrides - Live theme owns live.menu chrome (matches stock Scale device).
       parameter_enable: options.parameter_enable ?? 1,
       presentation: 1,
       presentation_rect: rect,
@@ -274,7 +274,7 @@ export async function generateMaxPatch(): Promise<void> {
 
   function uiButton(name: string, text: string, rect: Rect, help: { name: string; description: string }, options: BoxOptions = {}): string {
     return add(name, 'live.text', rect, {
-      // Theme-default live.text (Mouse Up) — matches stock Live pill buttons; no custom colors.
+      // Theme-default live.text (Mouse Up) - matches stock Live pill buttons; no custom colors.
       appearance: 0,
       fontname: FONT,
       fontsize: options.fontsize ?? 10,
@@ -428,7 +428,7 @@ export async function generateMaxPatch(): Promise<void> {
     description: 'A time-and-pitch preview of the selected motif after applying the current Live scale, pitch mode, meter mode, BPM multiplier, and most recent trigger note.',
   }, motifHidden);
 
-  // Single bottom row — inline labels; Scale menus dim via `active` when Song.scale_mode is off
+  // Single bottom row - inline labels; Scale menus dim via `active` when Song.scale_mode is off
   uiLiveComment('pitch-label', 'Pitch', [8, 146.5, 40, 18], motifHidden);
   uiLiveMenu(
     'pitch-menu',
@@ -444,7 +444,7 @@ export async function generateMaxPatch(): Promise<void> {
     motifHidden,
   );
   uiLiveComment('scale-label', 'Scale', [148, 146.5, 44, 18], motifHidden);
-  // parameter_enable must stay 1 — live.menu loads parameter_enum from the Live parameter.
+  // parameter_enable must stay 1 - live.menu loads parameter_enum from the Live parameter.
   // ignoreclick keeps them Song-driven; active 0/1 follows Song.scale_mode for Live’s disabled look.
   uiLiveMenu(
     'root-display',
@@ -473,7 +473,7 @@ export async function generateMaxPatch(): Promise<void> {
     { ignoreclick: 1, ...motifHidden },
   );
 
-  // Settings tab (initially hidden) — same 8px vertical rhythm
+  // Settings tab (initially hidden) - same 8px vertical rhythm
   const settingsHidden = { hidden: 1 };
 
   uiComment('trigger-label', 'Trigger', [8, 30, 80, 16], { fontsize: 10, ...settingsHidden });
@@ -683,7 +683,7 @@ export async function generateMaxPatch(): Promise<void> {
 
   // ---------- MIDI I/O column ----------
   const MIDI_Y = 280;
-  patchComment('section-midi', '§ MIDI I/O — fail-open gate → midiselect → engine / midiout', COL.midi, MIDI_Y - 40, 420);
+  patchComment('section-midi', '§ MIDI I/O - fail-open gate → midiselect → engine / midiout', COL.midi, MIDI_Y - 40, 420);
   object('midiin', 'midiin', COL.midi, MIDI_Y, 70);
   object('input-gate', 'gate 2 1', COL.midi, MIDI_Y + ROW, 80);
   object('input-bypass-default', 'loadmess 1', COL.midi + 160, MIDI_Y + ROW, 90);
@@ -701,7 +701,7 @@ export async function generateMaxPatch(): Promise<void> {
 
   // ---------- Engine column ----------
   const ENG_Y = 280;
-  patchComment('section-engine', '§ Engine — v8 motif-device.js + event pipe / panic / clear', COL.engine, ENG_Y - 40, 480);
+  patchComment('section-engine', '§ Engine - v8 motif-device.js + event pipe / panic / clear', COL.engine, ENG_Y - 40, 480);
   object('v8', 'v8 motif-device.js', COL.engine, ENG_Y + ROW * 2, 200, { numinlets: 1, numoutlets: 1, outlettype: [''] });
   object('engine-route', 'route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui', COL.engine, ENG_Y + ROW * 3, 820);
   object('event-unpack', 'unpack 0 0 0 0.', COL.engine, ENG_Y + ROW * 4, 140);
@@ -713,7 +713,7 @@ export async function generateMaxPatch(): Promise<void> {
 
   // ---------- Feedback / menu / UI emit column ----------
   const FB_Y = 280;
-  patchComment('section-feedback', '§ Feedback — motif menu + jweb UI emits (lib/preview as encoded JSON)', COL.feedback, FB_Y - 40, 560);
+  patchComment('section-feedback', '§ Feedback - motif menu + jweb UI emits (lib/preview as encoded JSON)', COL.feedback, FB_Y - 40, 560);
   message('menu-clear', 'clear', COL.feedback, FB_Y + ROW * 2, 60);
   object('menu-append', 'prepend append', COL.feedback, FB_Y + ROW * 3, 120);
   object('menu-select', 'prepend setsymbol', COL.feedback, FB_Y + ROW * 4, 140);
@@ -730,7 +730,7 @@ export async function generateMaxPatch(): Promise<void> {
 
   // ---------- Song observers ----------
   const OBS_Y = 1200;
-  patchComment('section-song', '§ Song observers — live.path live_set → live.observer → song_context → v8', COL.song, OBS_Y - 40, 560);
+  patchComment('section-song', '§ Song observers - live.path live_set → live.observer → song_context → v8', COL.song, OBS_Y - 40, 560);
   object('thisdevice', 'live.thisdevice', COL.song, OBS_Y, 120);
   object('init-order', 't b b b', COL.song, OBS_Y + ROW, 90);
   object('property-fanout', 't b b b b b b b b b', COL.song + 200, OBS_Y + ROW, 200);
@@ -773,7 +773,7 @@ export async function generateMaxPatch(): Promise<void> {
   });
 
   const FMT_Y = OBS_Y + ROW * 16;
-  patchComment('section-format', '§ Host displays — Scale live.menus; active follows Song.scale_mode', COL.format, FMT_Y - 40, 520);
+  patchComment('section-format', '§ Host displays - Scale live.menus; active follows Song.scale_mode', COL.format, FMT_Y - 40, 520);
   object('root-set', 'prepend set', COL.format, FMT_Y, 100);
   object('scale-name-set', 'prepend setsymbol', COL.format + 160, FMT_Y, 140);
   object('scale-mode-select', 'sel 0 1', COL.format + 360, FMT_Y, 70);
@@ -820,7 +820,7 @@ export async function generateMaxPatch(): Promise<void> {
 
   // ---------- Tab visibility ----------
   const TAB_Y = 3200;
-  patchComment('section-tabs', '§ Tabs — live.tab → thispatcher hide/show Motif vs Settings boxes', COL.tabs, TAB_Y - 40, 520);
+  patchComment('section-tabs', '§ Tabs - live.tab → thispatcher hide/show Motif vs Settings boxes', COL.tabs, TAB_Y - 40, 520);
   object('page-sel', 'sel 0 1', COL.tabs, TAB_Y, 70);
   message('show-motif-bang', 'bang', COL.tabs + 140, TAB_Y, 60);
   message('show-settings-bang', 'bang', COL.tabs + 140, TAB_Y + ROW, 60);
@@ -832,7 +832,7 @@ export async function generateMaxPatch(): Promise<void> {
 
   // ---------- Floating Library window ----------
   const LIB_Y = 3200;
-  patchComment('section-library', '§ Library/Authoring — pcontrol float (search, clip import, note edit)', COL.library, LIB_Y - 40, 480);
+  patchComment('section-library', '§ Library/Authoring - pcontrol float (search, clip import, note edit)', COL.library, LIB_Y - 40, 480);
   add('library-info', 'newobj', [COL.library, LIB_Y + ROW * 5, 140, 22], {
     text: 'p library-info',
     patcher: buildLibrarySubpatcher(),
@@ -940,7 +940,7 @@ export async function generateMaxPatch(): Promise<void> {
 
   // ---------- UI control → engine ----------
   const CTL_Y = 4800;
-  patchComment('section-controls', '§ Controls → v8 — menus/tabs/numbers + loadmess defaults', COL.controls, CTL_Y - 40, 480);
+  patchComment('section-controls', '§ Controls → v8 - menus/tabs/numbers + loadmess defaults', COL.controls, CTL_Y - 40, 480);
   object('motif-prepend', 'prepend motif', COL.controls, CTL_Y, 110);
   object('pitch-prepend', 'prepend pitch_mode', COL.controls + 200, CTL_Y, 150);
   object('tempo-mult-prepend', 'prepend tempo_multiplier', COL.controls + 440, CTL_Y, 180);

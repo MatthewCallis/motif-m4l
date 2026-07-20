@@ -5,7 +5,7 @@
 - Authoring UI in the floating Library window: searchable motif browser, Live clip import (`import_clip`), per-note editor, and Save to the user library folder.
 - Authoring polish: umenu-safe note labels, All button to reset search (empty textedit does not re-fire), `get_notes_extended` JSON parsing, constrained float window.
 - Authoring editor: Max `number` fields (pitch/`set` no longer wrong), Edit + name/description textedits; browser/notes stay `umenu` (Jitter `jit.cellblock` breaks maxpat/M4L load).
-- Shared `absoluteNotesToMotif` analysis core (CLI MIDI import + in-device clip import); Song sync stays on native observers — LiveAPI is clip-import only.
+- Shared `absoluteNotesToMotif` analysis core (CLI MIDI import + in-device clip import); Song sync stays on native observers - LiveAPI is clip-import only.
 - MIDI preview sends `preview-size` before `setlist` so multislider columns match motifs with more than 6 notes.
 - Added built-in `salt-peanuts` motif (Gillespie shout figure: paired sixteenths + minor-third kick on beats 1 and 3).
 - Top row: tabs + motif + `BPM ×` + multiplier + Info/Panic; one bottom row: `Pitch` menu + `Scale` root/name.
@@ -15,7 +15,7 @@
 - Removed BPM readout and the anchor/debug metadata line from Presentation.
 - Theme-default `live.text` pills; unlocked patcher section comments (`§ MIDI`, `§ Engine`, …).
 
-## 0.3.8 — Theme-compliant Motif/Settings UI
+## 0.3.8 - Theme-compliant Motif/Settings UI
 
 - Rebuilt Presentation Mode to 480 × 169 with Motif and Settings tabs (`live.tab` Live mode).
 - Enlarged the native `multislider` contour (bar style); moved key/scale next to the preview note names.
@@ -36,7 +36,7 @@
 - Added bridge validation and a Max for Live development skill to prevent handler regressions.
 - Removed stale JavaScript source-map files from the Max runtime folder.
 
-## 0.3.6 — MIDI and host-display stabilization
+## 0.3.6 - MIDI and host-display stabilization
 
 - Replaced the startup-blocking MIDI path with a fail-open `gate 2 1`: all raw MIDI passes directly to `midiout` until the TypeScript engine reports `Ready`.
 - Switched the active MIDI path to the documented `midiselect @ch all @note all` pattern. Notes are processed by Motif while the eighth outlet passes unrelated raw MIDI unchanged.
@@ -47,7 +47,7 @@
 - Expanded patch validation to verify fail-open MIDI routing, the `midiselect` outlet graph, native host displays, native preview, and unversioned dependencies.
 - Updated the repository Max for Live skill to prevent regressions in MIDI routing, host telemetry, and preview dependencies.
 
-## 0.3.5 — Startup safety and 169px layout
+## 0.3.5 - Startup safety and 169px layout
 
 - Reduced the Presentation UI to 820 × 169 pixels, matching Live’s fixed Max for Live device height.
 - Added hard layout validation for every Presentation rectangle so generated controls cannot be cropped vertically or horizontally.
@@ -59,7 +59,7 @@
 - Added a Max for Live repository skill at `.cursor/skills/max-for-live/SKILL.md` documenting the required lifecycle and UI invariants.
 - Adapted the Max 9 `v8ui` renderer for the shorter preview area.
 
-## 0.3.4 — Preview and interface pass
+## 0.3.4 - Preview and interface pass
 
 - Rebuilt the Presentation Mode interface as a compact 860 × 238 device using a dark panel and orange-accent visual language.
 - Added a Max 9 `v8ui` renderer for phrase timing, duration, bar boundaries, pitch contour, and current-scale root highlighting.
@@ -72,7 +72,7 @@
 - Preserved the native Song observer graph and direct host-display wiring.
 - Added preview, UI metadata, help-text, and unversioned-filename regression tests.
 
-## 0.3.3 — Host-sync stabilization
+## 0.3.3 - Host-sync stabilization
 
 - Rebuilt Live Set synchronization around native `live.path live_set` and `live.observer` objects.
 - Added explicit Song property messages before assigning the Live Set ID.

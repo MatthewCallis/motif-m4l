@@ -1,5 +1,5 @@
 /**
- * Motif Max for Live engine — TypeScript side of `v8 motif-device.js`.
+ * Motif Max for Live engine - TypeScript side of `v8 motif-device.js`.
  *
  * ## Message path
  * The hand-written bridge in `scripts/build.ts` exposes a single Max top-level
@@ -8,14 +8,14 @@
  *
  * ## Outlet protocol (outlet 0)
  * All patch feedback is a Max list starting with a selector:
- * - `event <pitch> <velocity> <channel> <delayMs>` — schedule via Max `pipe`
- * - `clear` / `panic` — flush scheduled notes
- * - `status Ready` — opens the fail-open MIDI gate in the patch (`route Ready`)
- * - `status …` / `error <message>` — console / debug
- * - `midi-pass <0|1>` — pass-through gate
- * - `ui <subselector> …` — Presentation / Library window (preview, browser, notes)
- * - `motifs-reset` / `motif-item` / `motif-selected` — motif menu
- * - `context …` — dump_context reply
+ * - `event <pitch> <velocity> <channel> <delayMs>` - schedule via Max `pipe`
+ * - `clear` / `panic` - flush scheduled notes
+ * - `status Ready` - opens the fail-open MIDI gate in the patch (`route Ready`)
+ * - `status …` / `error <message>` - console / debug
+ * - `midi-pass <0|1>` - pass-through gate
+ * - `ui <subselector> …` - Presentation / Library window (preview, browser, notes)
+ * - `motifs-reset` / `motif-item` / `motif-selected` - motif menu
+ * - `context …` - dump_context reply
  *
  * Song tempo/key/scale/meter/transport arrive as `song_context` from native
  * `live.path` + `live.observer` (not LiveAPI). Clip import is the LiveAPI exception.
@@ -944,7 +944,7 @@ function isMidiClip(api: LiveAPI): boolean {
     // Some Live builds expose only the inverse audio flag on clips.
     if (liveTruthy(api.get('is_audio_clip'))) return false;
   } catch {
-    // Property missing — assume MIDI and let note read fail soft.
+    // Property missing - assume MIDI and let note read fail soft.
   }
   return true;
 }
@@ -1073,7 +1073,7 @@ function parseClipNotesLegacy(raw: unknown): AbsoluteNote[] {
  */
 function readClipNotes(clip: LiveAPI): AbsoluteNote[] {
   try {
-    // get_notes_extended(from_pitch, pitch_span, from_time, time_span) — returns JSON string in Max JS.
+    // get_notes_extended(from_pitch, pitch_span, from_time, time_span) - returns JSON string in Max JS.
     const extended = clip.call('get_notes_extended', 0, 127, 0, 4096);
     const fromExtended = parseClipNotesExtended(extended);
     if (fromExtended.length > 0) return fromExtended;
@@ -1111,7 +1111,7 @@ function import_clip(pitchModeValue = 'chromatic'): void {
 
   const clip = resolveDetailClip();
   if (!clip) {
-    emitError('No clip selected — open a MIDI clip in Detail View, then Import Clip');
+    emitError('No clip selected - open a MIDI clip in Detail View, then Import Clip');
     return;
   }
 
@@ -1884,7 +1884,7 @@ const handlers: MotifHandlers = {
  *
  * Max discovers only that top-level function; esbuild wraps this module in an
  * IIFE as `MotifEngine`, so individual handlers must stay behind this export.
- * Unknown selectors emit an error — they are not silently ignored.
+ * Unknown selectors emit an error - they are not silently ignored.
  *
  * @see https://docs.cycling74.com/apiref/js/jsthis/
  * @param message - Max `messagename` (selector after `prepend`)

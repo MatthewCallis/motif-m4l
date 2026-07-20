@@ -5,7 +5,7 @@
   "description": "A scale-aware, triggerable motif engine for Max for Live.",
   "type": "module",
   "scripts": {
-    "generate": "tsx scripts/generate-builtins.ts && tsx scripts/generate-max-patch.ts",
+    "generate": "tsx scripts/generate-max-patch.ts",
     "build": "tsx scripts/build.ts",
     "check": "npm run generate && tsc --noEmit",
     "lint": "oxlint",

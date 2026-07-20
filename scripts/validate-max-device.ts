@@ -4,7 +4,7 @@
  * Guards the contributor contracts that are easy to break in the patch generator
  * or bridge: Presentation bounds (169px), unversioned runtime filenames, fail-open
  * MIDI graph, native Song observers (no JS LiveAPI for Song sync), and a single
- * top-level `anything()` — not per-message globals or esbuild footer handlers.
+ * top-level `anything()` - not per-message globals or esbuild footer handlers.
  *
  * Run via `npm run validate:max` (also part of `npm run verify`).
  *

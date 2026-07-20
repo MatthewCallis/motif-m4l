@@ -1106,7 +1106,7 @@
             420,
             20
           ],
-          "text": "§ MIDI I/O — fail-open gate → midiselect → engine / midiout",
+          "text": "§ MIDI I/O - fail-open gate → midiselect → engine / midiout",
           "fontname": "Ableton Sans",
           "fontsize": 12,
           "fontface": 1,
@@ -1305,7 +1305,7 @@
             480,
             20
           ],
-          "text": "§ Engine — v8 motif-device.js + event pipe / panic / clear",
+          "text": "§ Engine - v8 motif-device.js + event pipe / panic / clear",
           "fontname": "Ableton Sans",
           "fontsize": 12,
           "fontface": 1,
@@ -1431,7 +1431,7 @@
             560,
             20
           ],
-          "text": "§ Feedback — motif menu + jweb UI emits (lib/preview as encoded JSON)",
+          "text": "§ Feedback - motif menu + jweb UI emits (lib/preview as encoded JSON)",
           "fontname": "Ableton Sans",
           "fontsize": 12,
           "fontface": 1,
@@ -1591,7 +1591,7 @@
             560,
             20
           ],
-          "text": "§ Song observers — live.path live_set → live.observer → song_context → v8",
+          "text": "§ Song observers - live.path live_set → live.observer → song_context → v8",
           "fontname": "Ableton Sans",
           "fontsize": 12,
           "fontface": 1,
@@ -2245,7 +2245,7 @@
             520,
             20
           ],
-          "text": "§ Host displays — Scale live.menus; active follows Song.scale_mode",
+          "text": "§ Host displays - Scale live.menus; active follows Song.scale_mode",
           "fontname": "Ableton Sans",
           "fontsize": 12,
           "fontface": 1,
@@ -2379,7 +2379,7 @@
             520,
             20
           ],
-          "text": "§ Tabs — live.tab → thispatcher hide/show Motif vs Settings boxes",
+          "text": "§ Tabs - live.tab → thispatcher hide/show Motif vs Settings boxes",
           "fontname": "Ableton Sans",
           "fontsize": 12,
           "fontface": 1,
@@ -3111,7 +3111,7 @@
             480,
             20
           ],
-          "text": "§ Library/Authoring — pcontrol float (search, clip import, note edit)",
+          "text": "§ Library/Authoring - pcontrol float (search, clip import, note edit)",
           "fontname": "Ableton Sans",
           "fontsize": 12,
           "fontface": 1,
@@ -3881,7 +3881,7 @@
             480,
             20
           ],
-          "text": "§ Controls → v8 — menus/tabs/numbers + loadmess defaults",
+          "text": "§ Controls → v8 - menus/tabs/numbers + loadmess defaults",
           "fontname": "Ableton Sans",
           "fontsize": 12,
           "fontface": 1,

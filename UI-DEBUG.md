@@ -8,7 +8,7 @@
 - `preview-pitches` supplies the slider list and `preview-range` supplies its maximum.
 - Exact note names appear beside the Live root/scale displays under the contour.
 - Motif description/stats/tags and library Choose/Refresh live in the floating `p library-info` window (`pcontrol`, float).
-- Interactive controls use Ableton Sans; `live.*` keep theme defaults (do not embed `live_lcd_*` tokens in maxpat — Max reports `bad number`).
+- Interactive controls use Ableton Sans; `live.*` keep theme defaults (do not embed `live_lcd_*` tokens in maxpat - Max reports `bad number`).
 - Non-live chrome (`panel` / `comment` / `umenu` / `multislider`) uses fixed Live-like gray/orange RGBA.
 - Every interactive control must include `annotation_name`, `annotation`, and `hint`.
 - `live.text` buttons use Mouse Up (`outputmode` 1).

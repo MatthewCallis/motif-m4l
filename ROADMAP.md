@@ -2,7 +2,7 @@
 
 Status reflects the TypeScript engine and generated Max patch in this repository. A release is not considered distribution-ready until the generated patch is saved and frozen as a real `.amxd` inside Max for Live and smoke-tested in Live.
 
-## 0.1 — Working trigger prototype ✅
+## 0.1 - Working trigger prototype ✅
 
 - [x] TypeScript motif compiler.
 - [x] Live scale, root, tempo, and meter observation.
@@ -11,7 +11,7 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 - [x] Replace/overlap retrigger behavior and panic.
 - [x] Generic test motifs and unit tests.
 
-## 0.2 — Editable motif format ✅
+## 0.2 - Editable motif format ✅
 
 - [x] Versioned JSON schema.
 - [x] Validation with useful Max Console errors.
@@ -22,7 +22,7 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 - [x] Relative-analysis modes: chromatic intervals, scale degrees, and hybrid accidentals.
 - [x] Generated built-in library compiled from JSON rather than handwritten TypeScript.
 
-## 0.3 — Performance device ✅
+## 0.3 - Performance device ✅
 
 - [x] Native Song observers for tempo, Current Scale, meter, transport, and song position.
 - [x] Compact Presentation Mode interface with Motif/Settings tabs (480 × 169), theme-aware `live.*` controls, and Ableton Sans.
@@ -43,7 +43,7 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 - [ ] Freeze the device and verify `motif-device.js` is embedded.
 - [ ] Smoke-test all controls, automation recall, pass-through modes, BPM multiplier, and tempo automation.
 
-## 0.5 — Authoring UI
+## 0.5 - Authoring UI
 
 - [x] Expand the Library/Info floating window into a searchable browser (favorites deferred).
 - [x] Import selected Live MIDI clip notes into a motif (`import_clip` via LiveAPI).
@@ -51,11 +51,11 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 - [ ] Record a played phrase and convert it into a motif.
 - [ ] Favorites in the library browser.
 
-## 0.6 — Trigger Modes
+## 0.6 - Trigger Modes
 
 - [ ] UI for assigning specific motifs to individual trigger notes
 
-## 1.0 — Productized device
+## 1.0 - Productized device
 
 - [ ] Polished, resizable Presentation Mode UI.
 - [ ] macOS and Windows validation in supported Live versions.
@@ -63,7 +63,7 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 - [ ] Accessibility, undo behavior, automation mappings, and documentation.
 - [ ] Curated original/public-domain vocabulary library with clear provenance.
 
-## 2.0 — Harmonic adaptation
+## 2.0 - Harmonic adaptation
 
 - [ ] Chord input from held notes or a side-chain/control track.
 - [ ] Chord-tone targeting and avoid-note rules.

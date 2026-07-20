@@ -230,7 +230,7 @@ function paint() {
   fillRect(0, 0, width, height, COLORS.background);
 
   if (!currentData || currentData.notes.length === 0) {
-    drawText(debugLevel === "error" ? "Preview error — click UI ! for details" : "Waiting for motif preview…", 8, rollHeight * 0.5, 10, debugLevel === "error" ? COLORS.error : COLORS.muted);
+    drawText(debugLevel === "error" ? "Preview error - click UI ! for details" : "Waiting for motif preview…", 8, rollHeight * 0.5, 10, debugLevel === "error" ? COLORS.error : COLORS.muted);
   } else {
     drawRows(currentData, width, rollHeight);
   }
