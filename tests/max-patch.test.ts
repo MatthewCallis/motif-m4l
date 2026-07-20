@@ -22,6 +22,7 @@ type Box = {
   parameter_enable?: number;
   ignoreclick?: number;
   rendermode?: number;
+  autosize?: number;
   fontname?: string;
   saved_attribute_attributes?: { valueof?: { parameter_enum?: string[] } };
   patcher?: {
@@ -119,6 +120,8 @@ test('generates a compact Max 9 device with Motif/Settings tabs and native previ
   assert.ok(texts.includes('route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui'));
   assert.ok(texts.includes('route lib preview'), 'ui-route must handle library and preview state');
   assert.ok(texts.includes('window size 640 460'));
+  assert.ok(texts.includes('window flags float grow close zoom'));
+  assert.ok(!texts.includes('window flags nogrow'));
   assert.ok(texts.filter((text) => text === 'window size 640 460').length >= 2, 'size must be applied before and after open');
   assert.ok(texts.includes('receive ---motif_author'));
   assert.ok(texts.includes('pipe 0 0 0 0.'));
@@ -127,6 +130,11 @@ test('generates a compact Max 9 device with Motif/Settings tabs and native previ
   assert.equal(v8?.numoutlets, 1);
   assert.ok(v8);
   assert.ok(lines.every(({ patchline }) => patchline.source[0] !== v8.id || patchline.source[1] === 0));
+
+  const engineRoute = boxByText(boxes, 'route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui');
+  assert.ok(engineRoute);
+  assert.ok(!boxByText(boxes, 'prepend delete_file'));
+  assert.ok(!boxByText(boxes, 'node.script motif-file-service.cjs @autostart 1 @restart 1'));
 
   const songContextIds = boxes
     .filter(({ box }) => box.text === 'prepend song_context')
@@ -266,6 +274,7 @@ test('generates a compact Max 9 device with Motif/Settings tabs and native previ
   );
   assert.ok(hasLine(libraryPatcher.lines, libraryLoad, 0, jwebLibrary, 0));
   assert.equal(jwebLibrary.rendermode, 0, 'library must use offscreen jweb rendering in Live');
+  assert.equal(jwebLibrary.autosize, 1, 'library jweb must follow floating-window resizes');
   assert.ok(hasLine(libraryPatcher.lines, libraryReceiveData, 0, jwebLibrary, 0));
   assert.ok(hasLine(libraryPatcher.lines, jwebLibrary, 0, libraryRoute, 0));
   assert.ok(hasLine(libraryPatcher.lines, libraryRoute, 1, libraryReadyMessage, 0));
@@ -278,12 +287,30 @@ test('generates a compact Max 9 device with Motif/Settings tabs and native previ
   const libraryOpen = boxes.find(({ box }) => box.maxclass === 'message' && box.text === 'open')?.box;
   assert.ok(libraryInfo && libraryPcontrol && libraryOpen);
   assert.ok(hasLine(lines, libraryOpen, 0, libraryPcontrol, 0), 'only open should be sent to pcontrol');
-  for (const text of ['window flags float', 'window size 640 460', 'window exec']) {
+  for (const text of ['window flags float grow close zoom', 'window size 640 460', 'window exec']) {
     for (const { box } of boxes.filter(({ box }) => box.text === text)) {
       assert.ok(hasLine(lines, box, 0, libraryInfo, 0), `${text} must be forwarded to the subpatch thispatcher`);
       assert.ok(!hasLine(lines, box, 0, libraryPcontrol, 0), `${text} must never be sent to pcontrol`);
     }
   }
+
+  const libraryPathReceive = boxByText(boxes, 'receive ---library_path');
+  const libraryPathPattr = boxByText(boxes, 'pattr motif_library_path @autorestore 1 @thru 2 @parameter_enable 1 @parameter_mappable 0');
+  const libraryPathPrepend = boxByText(boxes, 'prepend library_path');
+  assert.ok(libraryPathReceive && libraryPathPattr && libraryPathPrepend);
+  assert.ok(hasLine(lines, libraryPathReceive, 0, libraryPathPattr, 0));
+  assert.ok(hasLine(lines, libraryPathReceive, 0, libraryPathPrepend, 0));
+  assert.ok(hasLine(lines, libraryPathPattr, 0, libraryPathPrepend, 0));
+
+  const restoreBang = boxes.find(({ box }) =>
+    box.maxclass === 'message' && box.text === 'bang' && hasLine(lines, box, 0, libraryPathPattr, 0))?.box;
+  const restoreDefer = restoreBang
+    ? boxes.find(({ box }) => hasLine(lines, box, 0, restoreBang, 0))?.box
+    : undefined;
+  const thisDevice = boxByText(boxes, 'live.thisdevice');
+  assert.ok(restoreBang && restoreDefer && thisDevice);
+  assert.equal(restoreDefer.text, 'deferlow');
+  assert.ok(hasLine(lines, thisDevice, 0, restoreDefer, 0), 'saved library path must be replayed after device load');
 
   for (const varname of ['trigger-menu', 'quant-menu', 'pass-menu', 'meter-tab', 'retrigger-tab', 'low-number', 'high-number']) {
     assert.equal(boxByVarname(boxes, varname)?.hidden, 1, `${varname} should start hidden on the Settings tab`);
@@ -310,6 +337,22 @@ test('library jweb binds receiveData before readiness and contains valid diagnos
     libraryHtml.includes("window.max.outlet('lib_action', encodeURIComponent(JSON.stringify(action)))"),
     'library actions must use an explicit selector',
   );
+  assert.ok(libraryHtml.includes('function createStore(initialState)'), 'library must use one explicit local state store');
+  assert.ok(libraryHtml.includes("type:'cancel_edit'"), 'library must provide an explicit way to exit editing');
+  assert.ok(!libraryHtml.includes('delete_motif'), 'library deletion must remain removed');
+  assert.ok(!libraryHtml.includes('skipDeleteConfirmation'), 'removed delete preference must not remain');
+  assert.ok(libraryHtml.includes("type:'select_browser', id:item.id"), 'browser selection must use stable ids');
+  assert.ok(libraryHtml.includes('Save changes and exit editing'), 'Save must document that it exits edit mode');
+  assert.ok(libraryHtml.includes("type:'edit_motif', properties:readProperties()"), 'library must submit complete motif properties');
+  assert.ok(libraryHtml.includes('id="import-mode"'), 'library must expose the import pitch mode');
+  assert.ok(libraryHtml.includes('<option value="chromatic">Exact / Chromatic</option>'), 'exact chromatic import must be the default');
+  assert.ok(libraryHtml.includes("type:'import_clip', pitchMode:"), 'library must send the selected import mode');
+  for (const field of ['pitch-mode-edit', 'meter-numerator-edit', 'default-gate-edit', 'curve-exponent', 'author-edit', 'tags-edit']) {
+    assert.ok(libraryHtml.includes(`id="${field}"`), `library must expose ${field}`);
+  }
+  for (const field of ['velocityOffset', 'velocityScale', 'legato', 'tie']) {
+    assert.ok(libraryHtml.includes(field), `library must expose note field ${field}`);
+  }
 });
 
 test('native preview script parses and exposes state, readiness, and diagnostics handlers', async () => {

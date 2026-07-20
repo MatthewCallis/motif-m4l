@@ -8,7 +8,7 @@
 
 import { clamp, floorDiv, mod } from './math.js';
 
-function normalizeScaleIntervals(intervals: readonly number[]): number[] {
+export function normalizeScaleIntervals(intervals: readonly number[]): number[] {
   const normalized = [...new Set(intervals.map((value) => mod(Math.round(value), 12)))].sort(
     (left, right) => left - right,
   );
@@ -21,10 +21,11 @@ function normalizeScaleIntervals(intervals: readonly number[]): number[] {
 }
 
 /**
- * Map a scale-degree offset from `triggerPitch` through `scaleIntervals`.
- * If the trigger is off-scale, falls back to interval[0] + octave steps.
+ * Resolve a scale-degree offset into an unclamped semitone offset from the trigger.
+ * Keeping this separate from MIDI-range clamping makes import and mode conversion
+ * exact even when the source phrase contains large positive or negative intervals.
  */
-export function transposeByScaleDegree(
+export function scaleDegreeSemitoneOffset(
   triggerPitch: number,
   degreeOffset: number,
   rootNote: number,
@@ -39,15 +40,31 @@ export function transposeByScaleDegree(
   if (triggerDegree === -1) {
     const octave = floorDiv(degreeOffset, intervals.length);
     const degree = mod(degreeOffset, intervals.length);
-    return clamp(triggerPitch + octave * 12 + (intervals[degree] ?? 0), 0, 127);
+    return octave * 12 + (intervals[degree] ?? 0);
   }
 
-  const rootBelowTrigger = triggerPitch - triggerInterval;
   const targetDegree = triggerDegree + degreeOffset;
   const octave = floorDiv(targetDegree, intervals.length);
   const degree = mod(targetDegree, intervals.length);
+  const targetInterval = octave * 12 + (intervals[degree] ?? 0);
+  return targetInterval - triggerInterval;
+}
 
-  return clamp(rootBelowTrigger + octave * 12 + (intervals[degree] ?? 0), 0, 127);
+/**
+ * Map a scale-degree offset from `triggerPitch` through `scaleIntervals`.
+ * If the trigger is off-scale, falls back to interval[0] + octave steps.
+ */
+export function transposeByScaleDegree(
+  triggerPitch: number,
+  degreeOffset: number,
+  rootNote: number,
+  scaleIntervals: readonly number[],
+): number {
+  return clamp(
+    triggerPitch + scaleDegreeSemitoneOffset(triggerPitch, degreeOffset, rootNote, scaleIntervals),
+    0,
+    127,
+  );
 }
 
 /** Add chromatic semitones to the trigger pitch (clamped 0–127). */
@@ -66,7 +83,9 @@ export function transposeHybrid(
   scaleIntervals: readonly number[],
 ): number {
   return clamp(
-    transposeByScaleDegree(triggerPitch, degreeOffset, rootNote, scaleIntervals) + accidental,
+    triggerPitch
+      + scaleDegreeSemitoneOffset(triggerPitch, degreeOffset, rootNote, scaleIntervals)
+      + accidental,
     0,
     127,
   );

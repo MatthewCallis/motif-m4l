@@ -20,14 +20,41 @@ test('cloneAsUser copies a builtin under a new editable id', () => {
 
   const clone = store.cloneAsUser('mitsuda-lick');
   assert.ok(clone);
-  assert.equal(clone.id, 'mitsuda-lick-edit');
+  assert.equal(clone.id, 'mitsuda-lick-2');
   assert.equal(store.isBuiltin(clone.id), false);
   assert.ok(clone.metadata?.tags?.includes('edited'));
-  assert.ok(clone.name.includes('(edit)'));
+  assert.equal(clone.name, 'Mitsuda Lick', 'duplicate display names are allowed; ids are the identity');
 
   const again = store.cloneAsUser('mitsuda-lick');
   assert.ok(again);
   assert.notEqual(again.id, clone.id);
+});
+
+test('unique ids are deterministic and duplicate names sort stably', () => {
+  const store = new MotifStore();
+  const first = store.cloneAsUser('mitsuda-lick');
+  const second = store.cloneAsUser('mitsuda-lick');
+  assert.ok(first && second);
+  assert.equal(first.id, 'mitsuda-lick-2');
+  assert.equal(second.id, 'mitsuda-lick-3');
+
+  const sameName = store.list().filter((motif) => motif.name === 'Mitsuda Lick');
+  assert.deepEqual(sameName.map((motif) => motif.id), [
+    'mitsuda-lick',
+    'mitsuda-lick-2',
+    'mitsuda-lick-3',
+  ]);
+});
+
+test('built-in ids cannot be overwritten or removed', () => {
+  const store = new MotifStore();
+  const builtin = store.get('mitsuda-lick');
+  assert.ok(builtin);
+  assert.deepEqual(store.add({ ...builtin, name: 'Corrupted' }), [
+    'Cannot overwrite built-in motif: mitsuda-lick',
+  ]);
+  assert.equal(store.remove('mitsuda-lick'), false);
+  assert.equal(store.get('mitsuda-lick')?.name, 'Mitsuda Lick');
 });
 
 test('setNotes recomputes length and validates', () => {

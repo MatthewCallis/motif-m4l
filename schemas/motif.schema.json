@@ -42,7 +42,7 @@
         "license": { "type": "string" },
         "tags": { "type": "array", "items": { "type": "string" } },
         "suggestedModes": { "type": "array", "items": { "type": "string" } },
-        "pickupTicks": { "type": "number" }
+        "pickupTicks": { "type": "number", "minimum": 0 }
       }
     },
     "notes": {
@@ -59,7 +59,7 @@
           "accidental": { "type": "number" },
           "velocity": { "type": "number", "minimum": 1, "maximum": 127 },
           "velocityOffset": { "type": "number" },
-          "velocityScale": { "type": "number" },
+          "velocityScale": { "type": "number", "minimum": 0 },
           "gate": { "type": "number", "exclusiveMinimum": 0 },
           "legato": { "type": "boolean" },
           "tie": { "type": "boolean" }

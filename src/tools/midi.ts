@@ -9,7 +9,7 @@
 import { parseMidi, writeMidi, type MidiData, type MidiEvent } from 'midi-file';
 import { absoluteNotesToMotif, type AbsoluteNotesImportOptions } from '../core/import-notes.js';
 import { compileMotif } from '../core/compile-motif.js';
-import { PPQ, type HostContext, type Motif } from '../core/types.js';
+import { PPQ, type HostContext, type Motif, type PitchMode } from '../core/types.js';
 import { validateMotif } from '../library/validate.js';
 
 interface ActiveNote {
@@ -17,8 +17,10 @@ interface ActiveNote {
   velocity: number;
 }
 
-/** Import options — same shape as absolute-note import (id, name, pitchMode, …). */
-export type MidiImportOptions = AbsoluteNotesImportOptions;
+/** Import options. Chromatic is the default so MIDI is preserved exactly. */
+export type MidiImportOptions = Omit<AbsoluteNotesImportOptions, 'pitchMode'> & {
+  pitchMode?: PitchMode;
+};
 
 function noteKey(channel: number, note: number): string {
   return `${channel}:${note}`;
@@ -29,6 +31,7 @@ function noteKey(channel: number, note: number): string {
  * Note-off (or note-on velocity 0) closes the matching channel/pitch stack.
  */
 export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions): Motif {
+  const pitchMode = options.pitchMode ?? 'chromatic';
   const parsed = parseMidi(bytes);
   const sourcePpq = parsed.header.ticksPerBeat ?? PPQ;
   const ratio = PPQ / sourcePpq;
@@ -77,7 +80,8 @@ export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions):
 
   return absoluteNotesToMotif(completed, {
     ...options,
-    description: options.description ?? `Imported from MIDI using ${options.pitchMode} relative analysis.`,
+    pitchMode,
+    description: options.description ?? `Imported from MIDI using ${pitchMode} relative analysis.`,
     tags: options.tags ?? ['imported', 'midi'],
   });
 }

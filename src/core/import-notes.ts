@@ -2,7 +2,7 @@
  * Convert absolute MIDI notes (clip import, MIDI files) into relative Motif JSON.
  */
 
-import { floorDiv, mod } from './math.js';
+import { scaleDegreeSemitoneOffset } from './pitch.js';
 import type { Motif, MotifNote, PitchMode, TimeSignature } from './types.js';
 
 /** Absolute MIDI note in motif PPQ ticks. */
@@ -18,8 +18,10 @@ export interface AbsoluteNotesImportOptions {
   id: string;
   name: string;
   pitchMode: PitchMode;
-  /** MIDI pitch used as the relative anchor. Defaults to the first note. */
+  /** MIDI pitch used as the relative phrase anchor. Defaults to the first note. */
   rootNote?: number;
+  /** Live scale root pitch class used by `scale` / `hybrid` analysis. Defaults to C. */
+  scaleRootNote?: number;
   /** Scale intervals for `scale` / `hybrid` analysis. Defaults to major. */
   scaleIntervals?: readonly number[];
   /** Stored source meter; defaults to 4/4. */
@@ -28,33 +30,121 @@ export interface AbsoluteNotesImportOptions {
   tags?: readonly string[];
 }
 
+export interface PitchModeConversionContext {
+  /** Reference MIDI trigger used to resolve relative scale degrees. */
+  triggerPitch: number;
+  /** Scale root pitch class. */
+  rootNote: number;
+  scaleIntervals: readonly number[];
+}
+
 /**
- * Nearest scale-degree + accidental for a chromatic offset from the phrase root.
- * Used by hybrid (and scale) import analysis.
+ * Nearest scale-degree + accidental for a chromatic offset from a trigger.
+ *
+ * The old implementation analyzed only the offset pitch class. That was wrong
+ * whenever the phrase anchor was not the scale tonic, and it produced surprising
+ * negative-degree choices around octave boundaries. Searching actual relative
+ * scale degrees guarantees that encoding mirrors playback resolution.
  */
 export function analyzeScaleOffset(
   semitoneOffset: number,
   intervals: readonly number[],
+  triggerPitch = 60,
+  scaleRootNote = 0,
 ): { degree: number; accidental: number } {
-  const octave = floorDiv(semitoneOffset, 12);
-  const pitchClass = mod(semitoneOffset, 12);
-  let bestDegree = 0;
-  let bestDistance = Number.POSITIVE_INFINITY;
+  const scaleLength = Math.max(1, new Set(intervals.map((value) => ((Math.round(value) % 12) + 12) % 12)).size);
+  const estimate = Math.round((semitoneOffset / 12) * scaleLength);
+  const radius = scaleLength * 2 + 2;
+  let bestDegree = estimate;
+  let bestAccidental = semitoneOffset
+    - scaleDegreeSemitoneOffset(triggerPitch, estimate, scaleRootNote, intervals);
 
-  for (let index = 0; index < intervals.length; index += 1) {
-    const interval = intervals[index] ?? 0;
-    const distance = Math.abs(pitchClass - interval);
-    if (distance < bestDistance) {
-      bestDistance = distance;
-      bestDegree = index;
+  for (let degree = estimate - radius; degree <= estimate + radius; degree += 1) {
+    const accidental = semitoneOffset
+      - scaleDegreeSemitoneOffset(triggerPitch, degree, scaleRootNote, intervals);
+    const absolute = Math.abs(accidental);
+    const bestAbsolute = Math.abs(bestAccidental);
+
+    if (
+      absolute < bestAbsolute
+      || (absolute === bestAbsolute && Math.abs(degree) < Math.abs(bestDegree))
+      || (
+        absolute === bestAbsolute
+        && Math.abs(degree) === Math.abs(bestDegree)
+        && degree < bestDegree
+      )
+    ) {
+      bestDegree = degree;
+      bestAccidental = accidental;
     }
   }
 
-  const scalePitch = intervals[bestDegree] ?? 0;
-  return {
-    degree: octave * intervals.length + bestDegree,
-    accidental: pitchClass - scalePitch,
-  };
+  return { degree: bestDegree, accidental: bestAccidental };
+}
+
+function encodeSemitoneOffset(
+  semitoneOffset: number,
+  pitchMode: PitchMode,
+  context: PitchModeConversionContext,
+): Pick<MotifNote, 'pitch' | 'accidental'> {
+  if (pitchMode === 'chromatic') {
+    return { pitch: semitoneOffset };
+  }
+
+  const analyzed = analyzeScaleOffset(
+    semitoneOffset,
+    context.scaleIntervals,
+    context.triggerPitch,
+    context.rootNote,
+  );
+  if (pitchMode === 'hybrid' && analyzed.accidental !== 0) {
+    return { pitch: analyzed.degree, accidental: analyzed.accidental };
+  }
+  return { pitch: analyzed.degree };
+}
+
+function decodeSemitoneOffset(
+  note: MotifNote,
+  pitchMode: PitchMode,
+  context: PitchModeConversionContext,
+): number {
+  if (pitchMode === 'chromatic') {
+    return note.pitch + (note.accidental ?? 0);
+  }
+
+  const scaleOffset = scaleDegreeSemitoneOffset(
+    context.triggerPitch,
+    note.pitch,
+    context.rootNote,
+    context.scaleIntervals,
+  );
+  return scaleOffset + (pitchMode === 'hybrid' ? (note.accidental ?? 0) : 0);
+}
+
+/**
+ * Re-encode a motif when its stored pitch mode changes.
+ *
+ * Merely changing `pitchMode` reinterprets every existing `pitch` value and can
+ * silently corrupt the phrase (for example hybrid degree -1 becoming chromatic
+ * -1 instead of the original -2 semitones). This conversion preserves sounding
+ * offsets whenever the target mode can represent them exactly. `scale` mode may
+ * intentionally snap chromatic notes to the nearest scale degree.
+ */
+export function convertMotifPitchMode(
+  motif: Motif,
+  targetMode: PitchMode,
+  context: PitchModeConversionContext,
+): Motif {
+  if (motif.pitchMode === targetMode) return motif;
+
+  const notes = motif.notes.map((note) => {
+    const semitoneOffset = decodeSemitoneOffset(note, motif.pitchMode, context);
+    const encoded = encodeSemitoneOffset(semitoneOffset, targetMode, context);
+    const { pitch: _pitch, accidental: _accidental, ...rest } = note;
+    return { ...rest, ...encoded };
+  });
+
+  return { ...motif, pitchMode: targetMode, notes };
 }
 
 /**
@@ -79,21 +169,17 @@ export function absoluteNotesToMotif(
   }
 
   const anchor = options.rootNote ?? completed[0]?.pitch ?? 60;
-  const scaleIntervals = options.scaleIntervals ?? [0, 2, 4, 5, 7, 9, 11];
+  const context: PitchModeConversionContext = {
+    triggerPitch: anchor,
+    rootNote: options.scaleRootNote ?? 0,
+    scaleIntervals: options.scaleIntervals ?? [0, 2, 4, 5, 7, 9, 11],
+  };
   const notes: MotifNote[] = completed.map((note) => {
     const semitoneOffset = note.pitch - anchor;
-    if (options.pitchMode === 'chromatic') {
-      return { at: note.at, duration: note.duration, pitch: semitoneOffset, velocity: note.velocity };
-    }
-
-    const analyzed = analyzeScaleOffset(semitoneOffset, scaleIntervals);
     return {
       at: note.at,
       duration: note.duration,
-      pitch: analyzed.degree,
-      ...(options.pitchMode === 'hybrid' && analyzed.accidental !== 0
-        ? { accidental: analyzed.accidental }
-        : {}),
+      ...encodeSemitoneOffset(semitoneOffset, options.pitchMode, context),
       velocity: note.velocity,
     };
   });

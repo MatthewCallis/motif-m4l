@@ -28,6 +28,7 @@ type MaxBox = {
   livemode?: number;
   ignoreclick?: number;
   rendermode?: number;
+  autosize?: number;
   patcher?: {
     openinpresentation?: number;
     rect?: [number, number, number, number];
@@ -103,6 +104,11 @@ assert.ok(hasLine(inputGate, 1, midiselect, 0), 'engine MIDI route is missing');
 assert.ok(hasLine(midiselect, 7, midiflush, 0), 'unselected raw MIDI is not passed through');
 assert.ok(hasLine(midiflush, 0, midiout, 0), 'MIDI output chain is incomplete');
 
+const engineRoute = byText('route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui');
+assert.ok(engineRoute, 'missing engine output route');
+assert.ok(!byText('prepend delete_file'), 'removed motif deletion path must not be generated');
+assert.ok(!byText('node.script motif-file-service.cjs @autostart 1 @restart 1'), 'removed deletion service must not be packaged');
+
 assert.equal(patch.devicewidth, 480, 'device width should be the compact 480px Presentation width');
 assert.equal(patch.default_fontname, 'Ableton Sans', 'device should use Ableton Sans');
 assert.equal(byVarname('root-display')?.maxclass, 'live.menu', 'root must be theme-default live.menu');
@@ -125,7 +131,9 @@ assert.equal(byVarname('page-tab')?.livemode, 1, 'page tabs must enable Live mod
 assert.equal(byVarname('tempo-mult-menu')?.maxclass, 'live.menu', 'BPM multiplier menu is required');
 assert.ok(byText('p library-info')?.patcher, 'Library/Authoring floating subpatcher is required');
 assert.ok(byText('pcontrol'), 'floating window must use pcontrol');
-assert.ok(byText('window size 640 460'), 'authoring float window size must be 640×460');
+assert.ok(byText('window size 640 460'), 'authoring float window must start at 640×460');
+assert.ok(byText('window flags float grow close zoom'), 'authoring float window must be resizable');
+assert.ok(!byText('window flags nogrow'), 'authoring float window must not disable resizing');
 assert.ok(byText('receive ---motif_author'), 'authoring controls must feed v8 via ---motif_author');
 assert.ok(byText('prepend tempo_multiplier'), 'BPM multiplier must be wired to the engine');
 assert.ok(!boxes.some((box) => box.maxclass === 'v8ui'), 'core preview must not depend on v8ui');
@@ -151,6 +159,7 @@ assert.ok(libraryVarnames.has('jweb-library'), 'library subpatcher must contain 
 const jwebLibraryBox = libraryBoxes.find((entry) => entry.box.varname === 'jweb-library');
 assert.equal(jwebLibraryBox?.box.maxclass, 'jweb', 'jweb-library must be a jweb object');
 assert.equal(jwebLibraryBox?.box.rendermode, 0, 'library must use offscreen rendering in Live');
+assert.equal(jwebLibraryBox?.box.autosize, 1, 'library jweb must resize with its containing window');
 assert.ok(
   libraryBoxes.some((entry) => entry.box.text === 'loadmess readfile library.html'),
   'jweb-library must load library.html relative to the patcher',
@@ -176,12 +185,28 @@ const pcontrol = byText('pcontrol');
 const libraryInfo = byText('p library-info');
 const openMessage = boxes.find((box) => box.maxclass === 'message' && box.text === 'open');
 assert.ok(hasLine(openMessage, 0, pcontrol, 0), 'open must be sent to pcontrol');
-for (const text of ['window flags float', 'window size 640 460', 'window exec']) {
+for (const text of ['window flags float grow close zoom', 'window size 640 460', 'window exec']) {
   for (const box of boxes.filter((item) => item.text === text)) {
     assert.ok(hasLine(box, 0, libraryInfo, 0), `${text} must be sent to the library subpatch`);
     assert.ok(!hasLine(box, 0, pcontrol, 0), `${text} must not be sent to pcontrol`);
   }
 }
+
+const libraryPathReceive = byText('receive ---library_path');
+const libraryPathPattr = byText('pattr motif_library_path @autorestore 1 @thru 2 @parameter_enable 1 @parameter_mappable 0');
+const libraryPathPrepend = byText('prepend library_path');
+assert.ok(
+  libraryPathReceive && libraryPathPattr && libraryPathPrepend,
+  'library path persistence graph is incomplete',
+);
+assert.ok(hasLine(libraryPathReceive, 0, libraryPathPattr, 0), 'chosen path does not reach pattr');
+assert.ok(hasLine(libraryPathReceive, 0, libraryPathPrepend, 0), 'chosen path does not load immediately');
+assert.ok(hasLine(libraryPathPattr, 0, libraryPathPrepend, 0), 'restored path does not reload the library');
+const restoreBang = boxes.find((box) =>
+  box.maxclass === 'message' && box.text === 'bang' && hasLine(box, 0, libraryPathPattr, 0));
+const restoreDefer = restoreBang ? boxes.find((box) => hasLine(box, 0, restoreBang, 0)) : undefined;
+assert.equal(restoreDefer?.text, 'deferlow', 'saved path must be replayed after device initialization');
+assert.ok(hasLine(byText('live.thisdevice'), 0, restoreDefer, 0), 'live.thisdevice does not trigger path restore');
 
 const contextSources = boxes.filter((box) => box.text === 'prepend song_context');
 assert.equal(contextSources.length, 9, 'expected nine Song context properties');
@@ -214,6 +239,20 @@ assert.match(previewSource, /mgraphics\.init\(\)/, 'native preview must initiali
 assert.match(previewSource, /function receiveData\(\)/, 'native preview must accept preview state');
 assert.match(previewSource, /outlet\(0, "preview_ready"\)/, 'native preview must request fresh state on load');
 assert.doesNotMatch(previewSource, /window\.max|readfile|preview\.html/, 'native preview must not depend on jweb');
+
+const librarySource = await readFile('max/library.html', 'utf8');
+const libraryScript = librarySource.match(/<script>([\s\S]*?)<\/script>/)?.[1];
+assert.ok(libraryScript, 'library.html must include its state manager');
+assert.doesNotThrow(() => new vm.Script(libraryScript, { filename: 'library.html' }), 'library state manager must parse');
+assert.match(librarySource, /function createStore\(initialState\)/, 'library must have one explicit local state store');
+assert.match(librarySource, /type:'cancel_edit'/, 'library must expose cancel editing');
+assert.doesNotMatch(librarySource, /delete_motif|Delete motif|skipDeleteConfirmation/, 'library deletion UI must remain removed');
+for (const id of ['pitch-mode-edit', 'meter-numerator-edit', 'default-gate-edit', 'curve-exponent', 'author-edit', 'tags-edit']) {
+  assert.match(librarySource, new RegExp(`id="${id}"`), `library must expose ${id}`);
+}
+assert.match(librarySource, /type:'edit_motif'/, 'library must submit complete motif properties');
+assert.match(librarySource, /velocityOffset/, 'library must expose advanced note velocity fields');
+assert.match(librarySource, /legato/, 'library must expose note articulation fields');
 
 const source = await readFile('dist/motif-device.js', 'utf8');
 assert.match(

@@ -169,7 +169,14 @@ function validateMetadata(value: unknown, errors: string[]): void {
   if (value.suggestedModes !== undefined) {
     validateStringArray(value.suggestedModes, 'metadata.suggestedModes', errors);
   }
-  validateOptionalNumber(value, 'pickupTicks', 'metadata', errors);
+  validateOptionalNumber(
+    value,
+    'pickupTicks',
+    'metadata',
+    errors,
+    (number) => number >= 0,
+    'zero or greater',
+  );
 }
 
 /**

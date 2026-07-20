@@ -8,7 +8,7 @@
  * - MIDI: fail-open until `status Ready`; non-note MIDI bypasses `v8`; scheduling via `pipe`
  * - Native jsui/mgraphics note preview; no HTML dependency in Live's device chain
  * - The Library jweb page announces readiness before the engine resends its latest state
- * - Library/authoring UI in a floating `pcontrol` subpatcher
+ * - Resizable Library/authoring UI in a floating `pcontrol` subpatcher
  * - Motif vs Settings pages via `live.tab` + `thispatcher` hide/show
  *
  * Prefer theme-default `live.*` colors. Every interactive control needs
@@ -575,12 +575,14 @@ export async function generateMaxPatch(): Promise<void> {
       });
     }
 
-    // jweb fills the whole 640×460 window (Presentation).
+    // jweb fills the initial 640×460 Presentation view. `autosize` caches
+    // its zero-pixel right/bottom margins so it follows later window resizes.
     // Loaded by `readfile library.html` from the device dependency cache.
     nadd('jweb-library', 'jweb', [0, 0, POP_W, POP_H], {
       presentation: 1,
       presentation_rect: [0, 0, POP_W, POP_H],
       rendermode: 0,
+      autosize: 1,
       varname: 'jweb-library',
     });
 
@@ -836,9 +838,9 @@ export async function generateMaxPatch(): Promise<void> {
     patcher: buildLibrarySubpatcher(),
   });
   object('library-pcontrol', 'pcontrol', COL.library, LIB_Y + ROW * 3, 80);
-  // t fires right→left: flags → size → open → exec → size-again (constrain after open)
+  // t fires right→left: resizable flags → initial size → open → exec → initial size again.
   object('info-trigger', 't b b b b b', COL.library, LIB_Y, 110);
-  message('library-flags', 'window flags float', COL.library + 200, LIB_Y, 140);
+  message('library-flags', 'window flags float grow close zoom', COL.library + 200, LIB_Y, 230);
   message('library-size', 'window size 640 460', COL.library + 200, LIB_Y + ROW, 150);
   message('library-size-again', 'window size 640 460', COL.library + 200, LIB_Y + ROW * 2, 150);
   message('library-exec', 'window exec', COL.library + 200, LIB_Y + ROW * 3, 110);
@@ -862,13 +864,24 @@ export async function generateMaxPatch(): Promise<void> {
   connect('library-pcontrol', 0, 'library-info', 0);
 
   object('r-library-path', 'receive ---library_path', COL.library + 420, LIB_Y, 180);
-  object('library-prepend', 'prepend library_path', COL.library + 680, LIB_Y, 160);
+  object('library-path-pattr', 'pattr motif_library_path @autorestore 1 @thru 2 @parameter_enable 1 @parameter_mappable 0', COL.library + 640, LIB_Y, 480);
+  object('library-prepend', 'prepend library_path', COL.library + 1160, LIB_Y, 160);
+  object('library-path-restore-defer', 'deferlow', COL.library + 640, LIB_Y + ROW, 80);
+  message('library-path-restore-bang', 'bang', COL.library + 760, LIB_Y + ROW, 60);
   // r-author receives lib_action <encodedJson> from subpatcher (already prepended); pass to v8 directly.
   object('r-author', 'receive ---motif_author', COL.library + 420, LIB_Y + ROW, 180);
   object('r-web-debug', 'receive ---motif_web_debug', COL.library + 420, LIB_Y + ROW * 2, 210);
   object('web-debug-prepend', 'prepend web_debug', COL.library + 680, LIB_Y + ROW * 2, 160);
+  // New choices update the hidden pattr without echoing (`@thru 2`) and load immediately.
+  // On device load, live.thisdevice bangs pattr after autorestore so the chosen
+  // folder is always scanned even when the jweb window has not opened yet.
+  connect('r-library-path', 0, 'library-path-pattr', 0);
   connect('r-library-path', 0, 'library-prepend', 0);
+  connect('library-path-pattr', 0, 'library-prepend', 0);
   connect('library-prepend', 0, 'v8', 0);
+  connect('thisdevice', 0, 'library-path-restore-defer', 0);
+  connect('library-path-restore-defer', 0, 'library-path-restore-bang', 0);
+  connect('library-path-restore-bang', 0, 'library-path-pattr', 0);
   connect('r-author', 0, 'v8', 0);
   connect('r-web-debug', 0, 'web-debug-prepend', 0);
   connect('web-debug-prepend', 0, 'v8', 0);

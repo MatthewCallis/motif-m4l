@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { absoluteNotesToMotif, analyzeScaleOffset } from '../src/core/import-notes.js';
+import {
+  absoluteNotesToMotif,
+  analyzeScaleOffset,
+  convertMotifPitchMode,
+} from '../src/core/import-notes.js';
 
 test('analyzeScaleOffset maps blue notes with accidentals', () => {
   const major = [0, 2, 4, 5, 7, 9, 11];
@@ -64,5 +68,55 @@ test('absoluteNotesToMotif scale snaps without storing accidentals', () => {
   );
 
   assert.equal(motif.notes[1]?.pitch, 1);
+  assert.equal(motif.notes[1]?.accidental, undefined);
+});
+
+
+test('hybrid to chromatic conversion preserves descending semitone offsets', () => {
+  const hybrid = absoluteNotesToMotif(
+    [
+      { at: 0, duration: 1920, pitch: 60, velocity: 127 },
+      { at: 1920, duration: 960, pitch: 58, velocity: 127 },
+      { at: 2880, duration: 720, pitch: 63, velocity: 127 },
+    ],
+    {
+      id: 'hybrid-source',
+      name: 'Hybrid Source',
+      pitchMode: 'hybrid',
+      rootNote: 60,
+      scaleRootNote: 0,
+      scaleIntervals: [0, 2, 3, 5, 7, 8, 10],
+    },
+  );
+
+  assert.deepEqual(hybrid.notes.map(({ pitch }) => pitch), [0, -1, 2]);
+  const chromatic = convertMotifPitchMode(hybrid, 'chromatic', {
+    triggerPitch: 60,
+    rootNote: 0,
+    scaleIntervals: [0, 2, 3, 5, 7, 8, 10],
+  });
+
+  assert.equal(chromatic.pitchMode, 'chromatic');
+  assert.deepEqual(chromatic.notes.map(({ pitch }) => pitch), [0, -2, 3]);
+  assert.ok(chromatic.notes.every(({ accidental }) => accidental === undefined));
+});
+
+test('scale analysis is relative to the phrase anchor degree, not only the scale tonic', () => {
+  const motif = absoluteNotesToMotif(
+    [
+      { at: 0, duration: 480, pitch: 64, velocity: 100 }, // E in C major
+      { at: 480, duration: 480, pitch: 62, velocity: 100 }, // D is one degree down
+    ],
+    {
+      id: 'off-tonic-anchor',
+      name: 'Off-tonic anchor',
+      pitchMode: 'hybrid',
+      rootNote: 64,
+      scaleRootNote: 0,
+      scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+    },
+  );
+
+  assert.equal(motif.notes[1]?.pitch, -1);
   assert.equal(motif.notes[1]?.accidental, undefined);
 });

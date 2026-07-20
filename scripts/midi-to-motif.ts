@@ -8,7 +8,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { midiBytesToMotif } from '../src/tools/midi.js';
 
-const [input, output, mode = 'hybrid'] = process.argv.slice(2);
+const [input, output, mode = 'chromatic'] = process.argv.slice(2);
 if (!input || !output || !['chromatic', 'scale', 'hybrid'].includes(mode)) {
   throw new Error('Usage: npm run midi:import -- input.mid output.json [chromatic|scale|hybrid]');
 }

@@ -39,6 +39,7 @@ var MotifEngine = (() => {
   var __accessCheck = (obj, member, msg) => member.has(obj) || __typeError("Cannot " + msg);
   var __privateGet = (obj, member, getter) => (__accessCheck(obj, member, "read from private field"), getter ? getter.call(obj) : member.get(obj));
   var __privateAdd = (obj, member, value) => member.has(obj) ? __typeError("Cannot add the same private member more than once") : member instanceof WeakSet ? member.add(obj) : member.set(obj, value);
+  var __privateSet = (obj, member, value, setter) => (__accessCheck(obj, member, "write to private field"), setter ? setter.call(obj, value) : member.set(obj, value), value);
 
   // src/max/device.ts
   var device_exports = {};
@@ -57,25 +58,105 @@ var MotifEngine = (() => {
     return Math.floor(value / divisor);
   }
 
+  // src/core/pitch.ts
+  function normalizeScaleIntervals(intervals) {
+    const normalized = [...new Set(intervals.map((value) => mod(Math.round(value), 12)))].sort(
+      (left, right) => left - right
+    );
+    if (!normalized.includes(0)) {
+      normalized.unshift(0);
+    }
+    return normalized;
+  }
+  function scaleDegreeSemitoneOffset(triggerPitch, degreeOffset, rootNote, scaleIntervals) {
+    const intervals = normalizeScaleIntervals(scaleIntervals);
+    const rootPitchClass = mod(rootNote, 12);
+    const triggerPitchClass = mod(triggerPitch, 12);
+    const triggerInterval = mod(triggerPitchClass - rootPitchClass, 12);
+    const triggerDegree = intervals.indexOf(triggerInterval);
+    if (triggerDegree === -1) {
+      const octave2 = floorDiv(degreeOffset, intervals.length);
+      const degree2 = mod(degreeOffset, intervals.length);
+      return octave2 * 12 + (intervals[degree2] ?? 0);
+    }
+    const targetDegree = triggerDegree + degreeOffset;
+    const octave = floorDiv(targetDegree, intervals.length);
+    const degree = mod(targetDegree, intervals.length);
+    const targetInterval = octave * 12 + (intervals[degree] ?? 0);
+    return targetInterval - triggerInterval;
+  }
+  function transposeByScaleDegree(triggerPitch, degreeOffset, rootNote, scaleIntervals) {
+    return clamp(
+      triggerPitch + scaleDegreeSemitoneOffset(triggerPitch, degreeOffset, rootNote, scaleIntervals),
+      0,
+      127
+    );
+  }
+  function transposeChromatically(triggerPitch, semitones) {
+    return clamp(triggerPitch + semitones, 0, 127);
+  }
+  function transposeHybrid(triggerPitch, degreeOffset, accidental, rootNote, scaleIntervals) {
+    return clamp(
+      triggerPitch + scaleDegreeSemitoneOffset(triggerPitch, degreeOffset, rootNote, scaleIntervals) + accidental,
+      0,
+      127
+    );
+  }
+
   // src/core/import-notes.ts
-  function analyzeScaleOffset(semitoneOffset, intervals) {
-    const octave = floorDiv(semitoneOffset, 12);
-    const pitchClass = mod(semitoneOffset, 12);
-    let bestDegree = 0;
-    let bestDistance = Number.POSITIVE_INFINITY;
-    for (let index = 0; index < intervals.length; index += 1) {
-      const interval = intervals[index] ?? 0;
-      const distance = Math.abs(pitchClass - interval);
-      if (distance < bestDistance) {
-        bestDistance = distance;
-        bestDegree = index;
+  function analyzeScaleOffset(semitoneOffset, intervals, triggerPitch = 60, scaleRootNote = 0) {
+    const scaleLength = Math.max(1, new Set(intervals.map((value) => (Math.round(value) % 12 + 12) % 12)).size);
+    const estimate = Math.round(semitoneOffset / 12 * scaleLength);
+    const radius = scaleLength * 2 + 2;
+    let bestDegree = estimate;
+    let bestAccidental = semitoneOffset - scaleDegreeSemitoneOffset(triggerPitch, estimate, scaleRootNote, intervals);
+    for (let degree = estimate - radius; degree <= estimate + radius; degree += 1) {
+      const accidental = semitoneOffset - scaleDegreeSemitoneOffset(triggerPitch, degree, scaleRootNote, intervals);
+      const absolute = Math.abs(accidental);
+      const bestAbsolute = Math.abs(bestAccidental);
+      if (absolute < bestAbsolute || absolute === bestAbsolute && Math.abs(degree) < Math.abs(bestDegree) || absolute === bestAbsolute && Math.abs(degree) === Math.abs(bestDegree) && degree < bestDegree) {
+        bestDegree = degree;
+        bestAccidental = accidental;
       }
     }
-    const scalePitch = intervals[bestDegree] ?? 0;
-    return {
-      degree: octave * intervals.length + bestDegree,
-      accidental: pitchClass - scalePitch
-    };
+    return { degree: bestDegree, accidental: bestAccidental };
+  }
+  function encodeSemitoneOffset(semitoneOffset, pitchMode, context) {
+    if (pitchMode === "chromatic") {
+      return { pitch: semitoneOffset };
+    }
+    const analyzed = analyzeScaleOffset(
+      semitoneOffset,
+      context.scaleIntervals,
+      context.triggerPitch,
+      context.rootNote
+    );
+    if (pitchMode === "hybrid" && analyzed.accidental !== 0) {
+      return { pitch: analyzed.degree, accidental: analyzed.accidental };
+    }
+    return { pitch: analyzed.degree };
+  }
+  function decodeSemitoneOffset(note2, pitchMode, context) {
+    if (pitchMode === "chromatic") {
+      return note2.pitch + (note2.accidental ?? 0);
+    }
+    const scaleOffset = scaleDegreeSemitoneOffset(
+      context.triggerPitch,
+      note2.pitch,
+      context.rootNote,
+      context.scaleIntervals
+    );
+    return scaleOffset + (pitchMode === "hybrid" ? note2.accidental ?? 0 : 0);
+  }
+  function convertMotifPitchMode(motif2, targetMode, context) {
+    if (motif2.pitchMode === targetMode) return motif2;
+    const notes = motif2.notes.map((note2) => {
+      const semitoneOffset = decodeSemitoneOffset(note2, motif2.pitchMode, context);
+      const encoded = encodeSemitoneOffset(semitoneOffset, targetMode, context);
+      const { pitch: _pitch, accidental: _accidental, ...rest } = note2;
+      return { ...rest, ...encoded };
+    });
+    return { ...motif2, pitchMode: targetMode, notes };
   }
   function absoluteNotesToMotif(absoluteNotes, options) {
     const completed = [...absoluteNotes].map((note2) => ({
@@ -88,18 +169,17 @@ var MotifEngine = (() => {
       throw new Error("No completed notes to import");
     }
     const anchor = options.rootNote ?? completed[0]?.pitch ?? 60;
-    const scaleIntervals = options.scaleIntervals ?? [0, 2, 4, 5, 7, 9, 11];
+    const context = {
+      triggerPitch: anchor,
+      rootNote: options.scaleRootNote ?? 0,
+      scaleIntervals: options.scaleIntervals ?? [0, 2, 4, 5, 7, 9, 11]
+    };
     const notes = completed.map((note2) => {
       const semitoneOffset = note2.pitch - anchor;
-      if (options.pitchMode === "chromatic") {
-        return { at: note2.at, duration: note2.duration, pitch: semitoneOffset, velocity: note2.velocity };
-      }
-      const analyzed = analyzeScaleOffset(semitoneOffset, scaleIntervals);
       return {
         at: note2.at,
         duration: note2.duration,
-        pitch: analyzed.degree,
-        ...options.pitchMode === "hybrid" && analyzed.accidental !== 0 ? { accidental: analyzed.accidental } : {},
+        ...encodeSemitoneOffset(semitoneOffset, options.pitchMode, context),
         velocity: note2.velocity
       };
     });
@@ -115,44 +195,6 @@ var MotifEngine = (() => {
       notes,
       metadata: { tags: options.tags ? [...options.tags] : ["imported"] }
     };
-  }
-
-  // src/core/pitch.ts
-  function normalizeScaleIntervals(intervals) {
-    const normalized = [...new Set(intervals.map((value) => mod(Math.round(value), 12)))].sort(
-      (left, right) => left - right
-    );
-    if (!normalized.includes(0)) {
-      normalized.unshift(0);
-    }
-    return normalized;
-  }
-  function transposeByScaleDegree(triggerPitch, degreeOffset, rootNote, scaleIntervals) {
-    const intervals = normalizeScaleIntervals(scaleIntervals);
-    const rootPitchClass = mod(rootNote, 12);
-    const triggerPitchClass = mod(triggerPitch, 12);
-    const triggerInterval = mod(triggerPitchClass - rootPitchClass, 12);
-    const triggerDegree = intervals.indexOf(triggerInterval);
-    if (triggerDegree === -1) {
-      const octave2 = floorDiv(degreeOffset, intervals.length);
-      const degree2 = mod(degreeOffset, intervals.length);
-      return clamp(triggerPitch + octave2 * 12 + (intervals[degree2] ?? 0), 0, 127);
-    }
-    const rootBelowTrigger = triggerPitch - triggerInterval;
-    const targetDegree = triggerDegree + degreeOffset;
-    const octave = floorDiv(targetDegree, intervals.length);
-    const degree = mod(targetDegree, intervals.length);
-    return clamp(rootBelowTrigger + octave * 12 + (intervals[degree] ?? 0), 0, 127);
-  }
-  function transposeChromatically(triggerPitch, semitones) {
-    return clamp(triggerPitch + semitones, 0, 127);
-  }
-  function transposeHybrid(triggerPitch, degreeOffset, accidental, rootNote, scaleIntervals) {
-    return clamp(
-      transposeByScaleDegree(triggerPitch, degreeOffset, rootNote, scaleIntervals) + accidental,
-      0,
-      127
-    );
   }
 
   // src/core/types.ts
@@ -388,846 +430,6 @@ var MotifEngine = (() => {
     },
     {
       "schemaVersion": 1,
-      "id": "david-baker-bebop-tritone-resolved",
-      "name": "David Baker Bebop \u2014 Tritone Resolved",
-      "description": "Tritone-shifted David Baker fragment resolving its flat ninth down by semitone to the tonic.",
-      "pitchMode": "chromatic",
-      "sourceMeter": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length": 3840,
-      "defaultGate": 0.9,
-      "velocityCurve": {
-        "inputMin": 1,
-        "inputMax": 127,
-        "outputMin": 48,
-        "outputMax": 120,
-        "exponent": 0.9
-      },
-      "metadata": {
-        "author": "David Baker variation by Jeff Schneider",
-        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
-        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
-        "tags": [
-          "bebop",
-          "dominant",
-          "tritone-substitution",
-          "flat-nine-resolution",
-          "david-baker",
-          "one-bar"
-        ],
-        "suggestedModes": [
-          "altered",
-          "mixolydian",
-          "dominant"
-        ]
-      },
-      "notes": [
-        {
-          "at": 0,
-          "duration": 480,
-          "pitch": 6,
-          "velocityOffset": 7
-        },
-        {
-          "at": 480,
-          "duration": 480,
-          "pitch": 5,
-          "velocityOffset": -2
-        },
-        {
-          "at": 960,
-          "duration": 480,
-          "pitch": 4,
-          "velocityOffset": 5
-        },
-        {
-          "at": 1440,
-          "duration": 480,
-          "pitch": 3,
-          "velocityOffset": -2
-        },
-        {
-          "at": 1920,
-          "duration": 480,
-          "pitch": 1,
-          "velocityOffset": 2
-        },
-        {
-          "at": 2400,
-          "duration": 1440,
-          "pitch": 0,
-          "velocityOffset": 7,
-          "gate": 0.98
-        }
-      ]
-    },
-    {
-      "schemaVersion": 1,
-      "id": "david-baker-bebop-tritone",
-      "name": "David Baker Bebop \u2014 Tritone",
-      "description": "The David Baker dominant-bebop fragment shifted up a tritone for altered tension over the original dominant chord.",
-      "pitchMode": "chromatic",
-      "sourceMeter": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length": 3840,
-      "defaultGate": 0.9,
-      "velocityCurve": {
-        "inputMin": 1,
-        "inputMax": 127,
-        "outputMin": 48,
-        "outputMax": 120,
-        "exponent": 0.9
-      },
-      "metadata": {
-        "author": "David Baker variation by Jeff Schneider",
-        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
-        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
-        "tags": [
-          "bebop",
-          "dominant",
-          "tritone-substitution",
-          "altered",
-          "david-baker",
-          "one-bar"
-        ],
-        "suggestedModes": [
-          "altered",
-          "mixolydian",
-          "dominant"
-        ]
-      },
-      "notes": [
-        {
-          "at": 0,
-          "duration": 480,
-          "pitch": 6,
-          "velocityOffset": 7
-        },
-        {
-          "at": 480,
-          "duration": 480,
-          "pitch": 5,
-          "velocityOffset": -2
-        },
-        {
-          "at": 960,
-          "duration": 480,
-          "pitch": 4,
-          "velocityOffset": 5
-        },
-        {
-          "at": 1440,
-          "duration": 480,
-          "pitch": 3,
-          "velocityOffset": -2
-        },
-        {
-          "at": 1920,
-          "duration": 960,
-          "pitch": 1,
-          "velocityOffset": 4,
-          "gate": 0.94
-        }
-      ]
-    },
-    {
-      "schemaVersion": 1,
-      "id": "david-baker-bebop",
-      "name": "David Baker Bebop",
-      "description": "Descending dominant-bebop fragment: root, chromatic major seventh, flat seventh, sixth, then fifth.",
-      "pitchMode": "chromatic",
-      "sourceMeter": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length": 3840,
-      "defaultGate": 0.9,
-      "velocityCurve": {
-        "inputMin": 1,
-        "inputMax": 127,
-        "outputMin": 48,
-        "outputMax": 120,
-        "exponent": 0.9
-      },
-      "metadata": {
-        "author": "David Baker; presented by Jeff Schneider",
-        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
-        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
-        "tags": [
-          "bebop",
-          "dominant",
-          "chromatic-passing-tone",
-          "david-baker",
-          "one-bar"
-        ],
-        "suggestedModes": [
-          "mixolydian",
-          "dominant-bebop",
-          "dorian"
-        ]
-      },
-      "notes": [
-        {
-          "at": 0,
-          "duration": 480,
-          "pitch": 0,
-          "velocityOffset": 7
-        },
-        {
-          "at": 480,
-          "duration": 480,
-          "pitch": -1,
-          "velocityOffset": -2
-        },
-        {
-          "at": 960,
-          "duration": 480,
-          "pitch": -2,
-          "velocityOffset": 5
-        },
-        {
-          "at": 1440,
-          "duration": 480,
-          "pitch": -3,
-          "velocityOffset": -2
-        },
-        {
-          "at": 1920,
-          "duration": 960,
-          "pitch": -5,
-          "velocityOffset": 4,
-          "gate": 0.96
-        }
-      ]
-    },
-    {
-      "schemaVersion": 1,
-      "id": "donna-lee-lick-tritone-fancy-resolution",
-      "name": "Donna Lee Lick \u2014 Tritone Fancy Resolution",
-      "description": "Tritone-shifted Donna Lee fragment resolving with a chromatic enclosure around the original tonic.",
-      "pitchMode": "chromatic",
-      "sourceMeter": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length": 3840,
-      "defaultGate": 0.9,
-      "velocityCurve": {
-        "inputMin": 1,
-        "inputMax": 127,
-        "outputMin": 48,
-        "outputMax": 120,
-        "exponent": 0.9
-      },
-      "metadata": {
-        "author": "Charlie Parker / Miles Davis vocabulary; variation by Jeff Schneider",
-        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
-        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
-        "tags": [
-          "bebop",
-          "donna-lee",
-          "tritone-substitution",
-          "chromatic-enclosure",
-          "resolution",
-          "one-bar"
-        ],
-        "suggestedModes": [
-          "altered",
-          "mixolydian",
-          "dominant"
-        ]
-      },
-      "notes": [
-        {
-          "at": 0,
-          "duration": 480,
-          "pitch": 10,
-          "velocityOffset": 6
-        },
-        {
-          "at": 480,
-          "duration": 480,
-          "pitch": 13,
-          "velocityOffset": -1
-        },
-        {
-          "at": 960,
-          "duration": 480,
-          "pitch": 16,
-          "velocityOffset": 5
-        },
-        {
-          "at": 1440,
-          "duration": 480,
-          "pitch": 20,
-          "velocityOffset": -1
-        },
-        {
-          "at": 1920,
-          "duration": 480,
-          "pitch": 15,
-          "velocityOffset": 4
-        },
-        {
-          "at": 2400,
-          "duration": 480,
-          "pitch": 13,
-          "velocityOffset": 1
-        },
-        {
-          "at": 2880,
-          "duration": 240,
-          "pitch": 11,
-          "velocityOffset": -2,
-          "gate": 0.88
-        },
-        {
-          "at": 3120,
-          "duration": 720,
-          "pitch": 12,
-          "velocityOffset": 8,
-          "gate": 0.98
-        }
-      ]
-    },
-    {
-      "schemaVersion": 1,
-      "id": "donna-lee-lick-tritone-resolved",
-      "name": "Donna Lee Lick \u2014 Tritone Resolved",
-      "description": "Tritone-shifted Donna Lee fragment resolving the substitute flat ninth down to the original tonic.",
-      "pitchMode": "chromatic",
-      "sourceMeter": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length": 3840,
-      "defaultGate": 0.9,
-      "velocityCurve": {
-        "inputMin": 1,
-        "inputMax": 127,
-        "outputMin": 48,
-        "outputMax": 120,
-        "exponent": 0.9
-      },
-      "metadata": {
-        "author": "Charlie Parker / Miles Davis vocabulary; variation by Jeff Schneider",
-        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
-        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
-        "tags": [
-          "bebop",
-          "donna-lee",
-          "tritone-substitution",
-          "flat-nine-resolution",
-          "one-bar"
-        ],
-        "suggestedModes": [
-          "altered",
-          "mixolydian",
-          "dominant"
-        ]
-      },
-      "notes": [
-        {
-          "at": 0,
-          "duration": 480,
-          "pitch": 10,
-          "velocityOffset": 6
-        },
-        {
-          "at": 480,
-          "duration": 480,
-          "pitch": 13,
-          "velocityOffset": -1
-        },
-        {
-          "at": 960,
-          "duration": 480,
-          "pitch": 16,
-          "velocityOffset": 5
-        },
-        {
-          "at": 1440,
-          "duration": 480,
-          "pitch": 20,
-          "velocityOffset": -1
-        },
-        {
-          "at": 1920,
-          "duration": 480,
-          "pitch": 15,
-          "velocityOffset": 4
-        },
-        {
-          "at": 2400,
-          "duration": 480,
-          "pitch": 13,
-          "velocityOffset": 1
-        },
-        {
-          "at": 2880,
-          "duration": 960,
-          "pitch": 12,
-          "velocityOffset": 7,
-          "gate": 0.98
-        }
-      ]
-    },
-    {
-      "schemaVersion": 1,
-      "id": "donna-lee-lick-tritone",
-      "name": "Donna Lee Lick \u2014 Tritone",
-      "description": "The Donna Lee dominant-nine fragment moved up a tritone, outlining the tritone-substitute dominant chord.",
-      "pitchMode": "chromatic",
-      "sourceMeter": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length": 3840,
-      "defaultGate": 0.9,
-      "velocityCurve": {
-        "inputMin": 1,
-        "inputMax": 127,
-        "outputMin": 48,
-        "outputMax": 120,
-        "exponent": 0.9
-      },
-      "metadata": {
-        "author": "Charlie Parker / Miles Davis vocabulary; variation by Jeff Schneider",
-        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
-        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
-        "tags": [
-          "bebop",
-          "donna-lee",
-          "tritone-substitution",
-          "dominant-nine",
-          "altered",
-          "one-bar"
-        ],
-        "suggestedModes": [
-          "altered",
-          "mixolydian",
-          "dominant"
-        ]
-      },
-      "notes": [
-        {
-          "at": 0,
-          "duration": 480,
-          "pitch": 10,
-          "velocityOffset": 6
-        },
-        {
-          "at": 480,
-          "duration": 480,
-          "pitch": 13,
-          "velocityOffset": -1
-        },
-        {
-          "at": 960,
-          "duration": 480,
-          "pitch": 16,
-          "velocityOffset": 5
-        },
-        {
-          "at": 1440,
-          "duration": 480,
-          "pitch": 20,
-          "velocityOffset": -1
-        },
-        {
-          "at": 1920,
-          "duration": 480,
-          "pitch": 15,
-          "velocityOffset": 4
-        },
-        {
-          "at": 2400,
-          "duration": 960,
-          "pitch": 13,
-          "velocityOffset": 6,
-          "gate": 0.94
-        }
-      ]
-    },
-    {
-      "schemaVersion": 1,
-      "id": "donna-lee-lick",
-      "name": "Donna Lee Lick",
-      "description": "Dominant line arpeggiating from the third through the ninth, then descending through the sixth to the fifth.",
-      "pitchMode": "chromatic",
-      "sourceMeter": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length": 3840,
-      "defaultGate": 0.9,
-      "velocityCurve": {
-        "inputMin": 1,
-        "inputMax": 127,
-        "outputMin": 48,
-        "outputMax": 120,
-        "exponent": 0.9
-      },
-      "metadata": {
-        "author": "Charlie Parker / Miles Davis vocabulary; presented by Jeff Schneider",
-        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
-        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
-        "tags": [
-          "bebop",
-          "donna-lee",
-          "dominant-nine",
-          "arpeggio",
-          "one-bar"
-        ],
-        "suggestedModes": [
-          "mixolydian",
-          "dominant-bebop",
-          "dorian"
-        ]
-      },
-      "notes": [
-        {
-          "at": 0,
-          "duration": 480,
-          "pitch": 4,
-          "velocityOffset": 6
-        },
-        {
-          "at": 480,
-          "duration": 480,
-          "pitch": 7,
-          "velocityOffset": -1
-        },
-        {
-          "at": 960,
-          "duration": 480,
-          "pitch": 10,
-          "velocityOffset": 5
-        },
-        {
-          "at": 1440,
-          "duration": 480,
-          "pitch": 14,
-          "velocityOffset": -1
-        },
-        {
-          "at": 1920,
-          "duration": 480,
-          "pitch": 9,
-          "velocityOffset": 4
-        },
-        {
-          "at": 2400,
-          "duration": 960,
-          "pitch": 7,
-          "velocityOffset": 6,
-          "gate": 0.96
-        }
-      ]
-    },
-    {
-      "schemaVersion": 1,
-      "id": "mitsuda-lick",
-      "name": "Mitsuda Lick",
-      "description": "Canonical two-bar contour: long tonic, step down, leap up a fourth, then a fast chromatic descent to tonic.",
-      "pitchMode": "chromatic",
-      "sourceMeter": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length": 7680,
-      "defaultGate": 0.92,
-      "velocityCurve": {
-        "outputMin": 48,
-        "outputMax": 118,
-        "exponent": 0.85
-      },
-      "metadata": {
-        "author": "Traditional/canonical VGM vocabulary",
-        "source": "https://www.reddit.com/r/explainlikeimfive/comments/1cpt2p8/eli5_what_is_the_mitsuda_lick_and_why_is_it/",
-        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
-        "tags": [
-          "mitsuda",
-          "chrono-trigger",
-          "chromatic",
-          "cadence",
-          "two-bar"
-        ],
-        "suggestedModes": [
-          "minor",
-          "dorian",
-          "aeolian"
-        ]
-      },
-      "notes": [
-        {
-          "at": 0,
-          "duration": 2880,
-          "pitch": 0,
-          "velocityOffset": 5,
-          "gate": 0.96
-        },
-        {
-          "at": 2880,
-          "duration": 960,
-          "pitch": -2,
-          "velocityOffset": -4
-        },
-        {
-          "at": 3840,
-          "duration": 960,
-          "pitch": 3,
-          "velocityOffset": 7
-        },
-        {
-          "at": 4800,
-          "duration": 480,
-          "pitch": 2,
-          "velocityOffset": 1
-        },
-        {
-          "at": 5280,
-          "duration": 480,
-          "pitch": 1,
-          "velocityOffset": -2
-        },
-        {
-          "at": 5760,
-          "duration": 1920,
-          "pitch": 0,
-          "velocityOffset": 6,
-          "gate": 0.98
-        }
-      ]
-    },
-    {
-      "schemaVersion": 1,
-      "id": "mixolydian-b2-b6-lick",
-      "name": "Mixolydian \u266D2 \u266D6 Lick",
-      "description": "Descending fifth mode of harmonic minor line, placing the flat seventh and major third on strong beats.",
-      "pitchMode": "chromatic",
-      "sourceMeter": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length": 3840,
-      "defaultGate": 0.9,
-      "velocityCurve": {
-        "inputMin": 1,
-        "inputMax": 127,
-        "outputMin": 48,
-        "outputMax": 120,
-        "exponent": 0.9
-      },
-      "metadata": {
-        "author": "Jeff Schneider",
-        "source": "https://jeffschneidermusic.com/blog/3-bebop-licks-every-jazz-musician-needs-to-know",
-        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
-        "tags": [
-          "bebop",
-          "harmonic-minor",
-          "mixolydian-flat-2-flat-6",
-          "dominant",
-          "altered",
-          "one-bar"
-        ],
-        "suggestedModes": [
-          "mixolydian-b2-b6",
-          "phrygian-dominant",
-          "harmonic-minor"
-        ]
-      },
-      "notes": [
-        {
-          "at": 0,
-          "duration": 480,
-          "pitch": 10,
-          "velocityOffset": 7
-        },
-        {
-          "at": 480,
-          "duration": 480,
-          "pitch": 8,
-          "velocityOffset": -2
-        },
-        {
-          "at": 960,
-          "duration": 480,
-          "pitch": 7,
-          "velocityOffset": 4
-        },
-        {
-          "at": 1440,
-          "duration": 480,
-          "pitch": 5,
-          "velocityOffset": -2
-        },
-        {
-          "at": 1920,
-          "duration": 480,
-          "pitch": 4,
-          "velocityOffset": 7
-        },
-        {
-          "at": 2400,
-          "duration": 480,
-          "pitch": 1,
-          "velocityOffset": -1
-        },
-        {
-          "at": 2880,
-          "duration": 960,
-          "pitch": 0,
-          "velocityOffset": 8,
-          "gate": 0.98
-        }
-      ]
-    },
-    {
-      "schemaVersion": 1,
-      "id": "quick-answer",
-      "name": "Quick Answer",
-      "description": "Short sixteenth-note response with a wider final interval.",
-      "pitchMode": "scale",
-      "sourceMeter": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length": 1920,
-      "defaultGate": 0.72,
-      "metadata": {
-        "tags": [
-          "demo",
-          "response"
-        ]
-      },
-      "notes": [
-        {
-          "at": 0,
-          "duration": 240,
-          "pitch": 0
-        },
-        {
-          "at": 240,
-          "duration": 240,
-          "pitch": 2
-        },
-        {
-          "at": 480,
-          "duration": 240,
-          "pitch": 1
-        },
-        {
-          "at": 720,
-          "duration": 240,
-          "pitch": 3
-        },
-        {
-          "at": 960,
-          "duration": 240,
-          "pitch": 2
-        },
-        {
-          "at": 1200,
-          "duration": 240,
-          "pitch": 5,
-          "velocityOffset": 5
-        },
-        {
-          "at": 1440,
-          "duration": 480,
-          "pitch": 4,
-          "gate": 0.9
-        }
-      ]
-    },
-    {
-      "schemaVersion": 1,
-      "id": "salt-peanuts",
-      "name": "Salt Peanuts",
-      "description": "Classic Dizzy Gillespie shout figure: paired sixteenths on the trigger, then a minor-third kick \u2014 \u201CSalt Peanuts\u201D on beats 1 and 3.",
-      "pitchMode": "chromatic",
-      "sourceMeter": {
-        "numerator": 4,
-        "denominator": 4
-      },
-      "length": 3840,
-      "defaultGate": 0.78,
-      "velocityCurve": {
-        "outputMin": 56,
-        "outputMax": 124,
-        "exponent": 0.9
-      },
-      "metadata": {
-        "author": "Traditional/canonical bebop vocabulary (Gillespie/Parker era)",
-        "source": "https://en.wikipedia.org/wiki/Salt_Peanuts",
-        "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
-        "tags": [
-          "salt-peanuts",
-          "dizzy",
-          "bebop",
-          "jazz",
-          "chromatic",
-          "shout",
-          "one-bar"
-        ],
-        "suggestedModes": [
-          "mixolydian",
-          "blues",
-          "major"
-        ]
-      },
-      "notes": [
-        {
-          "at": 0,
-          "duration": 240,
-          "pitch": 0,
-          "velocityOffset": 4,
-          "gate": 0.72
-        },
-        {
-          "at": 240,
-          "duration": 240,
-          "pitch": 0,
-          "velocityOffset": 2,
-          "gate": 0.72
-        },
-        {
-          "at": 480,
-          "duration": 480,
-          "pitch": 3,
-          "velocityOffset": 12,
-          "gate": 0.88
-        },
-        {
-          "at": 1920,
-          "duration": 240,
-          "pitch": 0,
-          "velocityOffset": 4,
-          "gate": 0.72
-        },
-        {
-          "at": 2160,
-          "duration": 240,
-          "pitch": 0,
-          "velocityOffset": 2,
-          "gate": 0.72
-        },
-        {
-          "at": 2400,
-          "duration": 480,
-          "pitch": 3,
-          "velocityOffset": 12,
-          "gate": 0.88
-        }
-      ]
-    },
-    {
-      "schemaVersion": 1,
       "id": "scale-turn",
       "name": "Scale Turn",
       "description": "Compact scale-aware turn used to validate one-key phrase triggering.",
@@ -1419,7 +621,14 @@ var MotifEngine = (() => {
     if (value.suggestedModes !== void 0) {
       validateStringArray(value.suggestedModes, "metadata.suggestedModes", errors);
     }
-    validateOptionalNumber(value, "pickupTicks", "metadata", errors);
+    validateOptionalNumber(
+      value,
+      "pickupTicks",
+      "metadata",
+      errors,
+      (number) => number >= 0,
+      "zero or greater"
+    );
   }
   function validateMotif(value) {
     const errors = [];
@@ -1483,6 +692,10 @@ var MotifEngine = (() => {
     ].join(" ").toLowerCase();
     return haystack.includes(normalized);
   }
+  function uniqueMotifId(name, fallback = "motif") {
+    const normalized = name.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 72);
+    return normalized || fallback;
+  }
   var _motifs, _builtinIds;
   var MotifStore = class {
     constructor() {
@@ -1501,6 +714,20 @@ var MotifEngine = (() => {
     isBuiltin(id) {
       return __privateGet(this, _builtinIds).has(id);
     }
+    has(id) {
+      return __privateGet(this, _motifs).has(id);
+    }
+    /** Return an unused id, appending `-2`, `-3`, … when needed. */
+    uniqueId(baseValue, excludedId) {
+      const base = uniqueMotifId(baseValue);
+      let candidate = base;
+      let suffix = 2;
+      while (__privateGet(this, _motifs).has(candidate) && candidate !== excludedId || __privateGet(this, _builtinIds).has(candidate) && candidate !== excludedId) {
+        candidate = `${base}-${suffix}`;
+        suffix += 1;
+      }
+      return candidate;
+    }
     /**
      * Validate and insert/replace a motif by id.
      * @returns Empty array on success, or validation error strings.
@@ -1509,6 +736,9 @@ var MotifEngine = (() => {
       const result = validateMotif(value);
       if (!result.valid || !result.motif) {
         return result.errors;
+      }
+      if (this.isBuiltin(result.motif.id)) {
+        return [`Cannot overwrite built-in motif: ${result.motif.id}`];
       }
       __privateGet(this, _motifs).set(result.motif.id, result.motif);
       return [];
@@ -1520,9 +750,15 @@ var MotifEngine = (() => {
     get(id) {
       return __privateGet(this, _motifs).get(id);
     }
-    /** All motifs sorted by display name. */
+    remove(id) {
+      if (this.isBuiltin(id)) return false;
+      return __privateGet(this, _motifs).delete(id);
+    }
+    /** All motifs sorted by display name and then id so duplicate names remain stable/selectable. */
     list() {
-      return [...__privateGet(this, _motifs).values()].sort((left, right) => left.name.localeCompare(right.name));
+      return [...__privateGet(this, _motifs).values()].sort(
+        (left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id)
+      );
     }
     /** Case-insensitive substring match across id, name, description, tags, suggestedModes. */
     filter(query) {
@@ -1530,21 +766,16 @@ var MotifEngine = (() => {
     }
     /**
      * Clone a built-in (or any motif) to a new user id so edits can be saved without overwriting builtins.
+     * Display names are intentionally preserved; ids, not names, are the selection identity.
      */
     cloneAsUser(id, newId) {
       const source = __privateGet(this, _motifs).get(id);
       if (!source) return void 0;
-      let candidate = newId ?? `${source.id}-edit`;
-      let suffix = 2;
-      while (__privateGet(this, _motifs).has(candidate) || __privateGet(this, _builtinIds).has(candidate)) {
-        candidate = `${newId ?? `${source.id}-edit`}-${suffix}`;
-        suffix += 1;
-      }
+      const candidate = this.uniqueId(newId ?? uniqueMotifId(source.name, `${source.id}-copy`));
       const tags = /* @__PURE__ */ new Set([...source.metadata?.tags ?? [], "edited"]);
       const clone = {
         ...source,
         id: candidate,
-        name: source.name.endsWith(" (edit)") ? source.name : `${source.name} (edit)`,
         notes: source.notes.map((note2) => ({ ...note2 })),
         metadata: {
           ...source.metadata,
@@ -1573,8 +804,117 @@ var MotifEngine = (() => {
   _motifs = new WeakMap();
   _builtinIds = new WeakMap();
 
+  // src/library/editor-state.ts
+  function cloneMotif(motif2) {
+    return {
+      ...motif2,
+      sourceMeter: { ...motif2.sourceMeter },
+      notes: motif2.notes.map((note2) => ({ ...note2 })),
+      ...motif2.velocityCurve ? { velocityCurve: { ...motif2.velocityCurve } } : {},
+      ...motif2.metadata ? {
+        metadata: {
+          ...motif2.metadata,
+          ...motif2.metadata.tags ? { tags: [...motif2.metadata.tags] } : {},
+          ...motif2.metadata.suggestedModes ? { suggestedModes: [...motif2.metadata.suggestedModes] } : {}
+        }
+      } : {}
+    };
+  }
+  var _edit;
+  var MotifEditorState = class {
+    constructor() {
+      __privateAdd(this, _edit);
+    }
+    snapshot() {
+      const edit = __privateGet(this, _edit);
+      return edit ? {
+        active: true,
+        dirty: edit.dirty,
+        created: edit.created,
+        sourceId: edit.sourceId,
+        targetId: edit.targetId
+      } : {
+        active: false,
+        dirty: false,
+        created: false,
+        sourceId: null,
+        targetId: null
+      };
+    }
+    isEditing(id) {
+      return __privateGet(this, _edit) !== void 0 && (id === void 0 || __privateGet(this, _edit).targetId === id);
+    }
+    isDirty() {
+      return __privateGet(this, _edit)?.dirty ?? false;
+    }
+    begin(store2, id, options = {}) {
+      if (__privateGet(this, _edit)) {
+        return __privateGet(this, _edit).targetId === id ? store2.get(__privateGet(this, _edit).targetId) : void 0;
+      }
+      const source = store2.get(id);
+      if (!source) return void 0;
+      if (store2.isBuiltin(id)) {
+        const targetId = store2.uniqueId(
+          options.targetId ?? uniqueMotifId(source.name, `${source.id}-copy`)
+        );
+        const draft = {
+          ...cloneMotif(source),
+          id: targetId,
+          metadata: {
+            ...source.metadata,
+            tags: [.../* @__PURE__ */ new Set([...source.metadata?.tags ?? [], "edited"])]
+          }
+        };
+        const errors = store2.add(draft);
+        if (errors.length > 0) return void 0;
+        __privateSet(this, _edit, {
+          sourceId: id,
+          targetId,
+          original: cloneMotif(source),
+          created: true,
+          dirty: options.dirty ?? false
+        });
+        return draft;
+      }
+      __privateSet(this, _edit, {
+        sourceId: options.sourceId ?? id,
+        targetId: id,
+        original: cloneMotif(source),
+        created: options.created ?? false,
+        dirty: options.dirty ?? false
+      });
+      return source;
+    }
+    markDirty() {
+      if (__privateGet(this, _edit)) __privateGet(this, _edit).dirty = true;
+    }
+    /** Cancel edits and return the motif id that should become selected. */
+    cancel(store2) {
+      const edit = __privateGet(this, _edit);
+      if (!edit) return void 0;
+      if (edit.created) store2.remove(edit.targetId);
+      else store2.update(cloneMotif(edit.original));
+      __privateSet(this, _edit, void 0);
+      return edit.sourceId;
+    }
+    /** Finish a successful save and return the now-persisted motif id. */
+    finishSave() {
+      const id = __privateGet(this, _edit)?.targetId;
+      __privateSet(this, _edit, void 0);
+      return id;
+    }
+    /** Drop session bookkeeping without restoring data (used after deletion/reload). */
+    abandon() {
+      __privateSet(this, _edit, void 0);
+    }
+  };
+  _edit = new WeakMap();
+
   // src/max/device.ts
   var store = new MotifStore();
+  var editor = new MotifEditorState();
+  var userLibraryFiles = /* @__PURE__ */ new Map();
+  var occupiedLibraryPaths = /* @__PURE__ */ new Set();
   var triggerMap = /* @__PURE__ */ new Map();
   var activeTriggers = /* @__PURE__ */ new Set();
   var sustainedReleases = /* @__PURE__ */ new Set();
@@ -1591,13 +931,25 @@ var MotifEngine = (() => {
   var initialized = false;
   var instanceCounter = 1;
   var userLibraryPath = "";
+  var userLibraryLoaded = false;
   var previewTriggerPitch = 60;
   var previewWasTriggered = false;
   var tempoMultiplier = 1;
   var browserQuery = "";
   var selectedNoteIndex = 0;
   var TEMPO_MULTIPLIERS = [0.5, 1, 1.5, 2];
-  var NOTE_EDIT_FIELDS = ["pitch", "accidental", "at", "duration", "gate", "velocity"];
+  var NOTE_EDIT_FIELDS = [
+    "pitch",
+    "accidental",
+    "at",
+    "duration",
+    "gate",
+    "velocity",
+    "velocityOffset",
+    "velocityScale",
+    "legato",
+    "tie"
+  ];
   var MAX_NOTE_ROWS = 16;
   var hostContext = {
     tempo: 120,
@@ -1626,9 +978,24 @@ var MotifEngine = (() => {
     error(`Motif: ${message}
 `);
   }
+  function motifLabels() {
+    const motifs = store.list();
+    const counts = /* @__PURE__ */ new Map();
+    for (const item of motifs) counts.set(item.name, (counts.get(item.name) ?? 0) + 1);
+    return new Map(
+      motifs.map((item) => [
+        item.id,
+        (counts.get(item.name) ?? 0) > 1 ? `${item.name} \xB7 ${item.id}` : item.name
+      ])
+    );
+  }
   function resolveMotif(value) {
     const normalized = String(value).trim();
-    return store.get(normalized) ?? store.list().find((item) => item.name === normalized);
+    const direct = store.get(normalized);
+    if (direct) return direct;
+    const labelMatch = [...motifLabels()].find(([, label]) => label === normalized);
+    if (labelMatch) return store.get(labelMatch[0]);
+    return store.list().find((item) => item.name === normalized);
   }
   function currentMotif() {
     return store.get(currentMotifId);
@@ -1640,6 +1007,8 @@ var MotifEngine = (() => {
     const items = store.filter(browserQuery);
     const selected = currentMotif();
     const selectedIndex = selected ? items.findIndex((item) => item.id === selected.id) : -1;
+    const nameCounts = /* @__PURE__ */ new Map();
+    for (const item of items) nameCounts.set(item.name, (nameCounts.get(item.name) ?? 0) + 1);
     let selectedData = null;
     if (selected) {
       const preview = buildMotifPreview(selected, effectiveHost(), previewTriggerPitch, pitchModeOverride, meterMode);
@@ -1650,26 +1019,59 @@ var MotifEngine = (() => {
       const bars = `${formatNumber(preview.bars)} ${preview.bars === 1 ? "bar" : "bars"}`;
       const stats = `${preview.notes.length} notes  \u2022  ${bars}  \u2022  ${sourceMeter} source  \u2022  ${preview.effectivePitchMode}`;
       selectedData = {
+        schemaVersion: selected.schemaVersion,
+        id: selected.id,
         name: selected.name,
         description: selected.description ?? "",
+        pitchMode: selected.pitchMode,
+        sourceMeter: { ...selected.sourceMeter },
+        length: selected.length,
+        defaultGate: selected.defaultGate ?? null,
+        velocityCurve: {
+          inputMin: selected.velocityCurve?.inputMin ?? null,
+          inputMax: selected.velocityCurve?.inputMax ?? null,
+          outputMin: selected.velocityCurve?.outputMin ?? null,
+          outputMax: selected.velocityCurve?.outputMax ?? null,
+          exponent: selected.velocityCurve?.exponent ?? null
+        },
+        metadata: {
+          author: selected.metadata?.author ?? "",
+          source: selected.metadata?.source ?? "",
+          license: selected.metadata?.license ?? "",
+          tags: [...selected.metadata?.tags ?? []],
+          suggestedModes: [...selected.metadata?.suggestedModes ?? []],
+          pickupTicks: selected.metadata?.pickupTicks ?? null
+        },
         stats,
         tags: tagLine,
         isBuiltin: store.isBuiltin(selected.id),
+        isPersisted: userLibraryFiles.has(selected.id),
         notes: selected.notes.map((n) => ({
           pitch: n.pitch,
-          accidental: n.accidental ?? 0,
+          accidental: n.accidental ?? null,
           at: n.at,
           duration: n.duration,
-          gate: n.gate ?? selected.defaultGate ?? 1,
-          velocity: n.velocity ?? 0
+          gate: n.gate ?? null,
+          velocity: n.velocity ?? null,
+          velocityOffset: n.velocityOffset ?? null,
+          velocityScale: n.velocityScale ?? null,
+          legato: n.legato ?? false,
+          tie: n.tie ?? false
         }))
       };
     }
     const state = {
       query: browserQuery,
-      items: items.map((item) => ({ id: item.id, name: item.name })),
-      selectedIndex: selectedIndex >= 0 ? selectedIndex : 0,
-      selected: selectedData
+      items: items.map((item) => ({
+        id: item.id,
+        name: item.name,
+        showId: (nameCounts.get(item.name) ?? 0) > 1
+      })),
+      selectedIndex,
+      selected: selectedData,
+      editing: editor.snapshot(),
+      libraryPath: userLibraryPath,
+      libraryLoaded: userLibraryLoaded
     };
     emit("ui", "lib", encodeURIComponent(JSON.stringify(state)));
   }
@@ -1789,9 +1191,10 @@ var MotifEngine = (() => {
     updateHost(String(property), values);
   }
   function listMotifs() {
+    const labels = motifLabels();
     emit("motifs-reset");
-    for (const item of store.list()) emit("motif-item", item.name);
-    emit("motif-selected", currentMotif()?.name ?? currentMotifId);
+    for (const item of store.list()) emit("motif-item", labels.get(item.id) ?? item.name);
+    emit("motif-selected", labels.get(currentMotifId) ?? currentMotif()?.name ?? currentMotifId);
     emitSelectedMotifUi();
   }
   function emitMidiPassState() {
@@ -1907,14 +1310,30 @@ var MotifEngine = (() => {
     cc(64, value, channel);
   }
   function motif(value) {
-    const selected = resolveMotif(value);
+    let selected = resolveMotif(value);
     if (!selected) {
       emitError(`Unknown motif: ${value}`);
       return;
     }
+    if (selected.id === currentMotifId) return;
+    if (editor.isEditing()) {
+      if (editor.isDirty()) {
+        emitError("Save or cancel the current edits before selecting another motif");
+        emit("motif-selected", motifLabels().get(currentMotifId) ?? currentMotif()?.name ?? currentMotifId);
+        emitLibraryState();
+        return;
+      }
+      editor.cancel(store);
+      selected = resolveMotif(value);
+      if (!selected) {
+        emitError(`Unknown motif after cancelling edit: ${value}`);
+        listMotifs();
+        return;
+      }
+    }
     currentMotifId = selected.id;
     selectedNoteIndex = 0;
-    emit("motif-selected", selected.name);
+    emit("motif-selected", motifLabels().get(selected.id) ?? selected.name);
     emitSelectedMotifUi();
     emitStatus("Motif", selected.name);
   }
@@ -2024,23 +1443,62 @@ var MotifEngine = (() => {
     const separator = userLibraryPath.endsWith("/") || userLibraryPath.endsWith(":") ? "" : "/";
     return `${userLibraryPath}${separator}${id}.json`;
   }
+  function canonicalLibraryPath(filename) {
+    return filename.replace(/\\/g, "/").replace(/\/{2,}/g, "/").toLowerCase();
+  }
+  function reserveLibraryPath(filename) {
+    occupiedLibraryPaths.add(canonicalLibraryPath(filename));
+  }
+  function isLibraryPathOccupied(filename) {
+    return occupiedLibraryPaths.has(canonicalLibraryPath(filename));
+  }
+  function fileExists(filename) {
+    const file = new File(filename, "read");
+    const exists = file.isopen;
+    if (exists) file.close();
+    return exists;
+  }
+  function uniqueAvailableId(baseValue) {
+    const base = uniqueMotifId(baseValue);
+    let candidate = base;
+    let suffix = 2;
+    while (store.has(candidate) || userLibraryPath && isLibraryPathOccupied(libraryFilePath(candidate))) {
+      candidate = `${base}-${suffix}`;
+      suffix += 1;
+    }
+    return candidate;
+  }
   function loadUserLibrary() {
     store.resetToBuiltins();
-    if (!userLibraryPath) return;
+    userLibraryFiles.clear();
+    occupiedLibraryPaths.clear();
+    userLibraryLoaded = false;
+    if (!userLibraryPath) return false;
     const folder = new Folder(userLibraryPath);
-    if (folder.end && folder.count === 0) {
+    if (!folder.pathname) {
       folder.close();
       emitError(`Library folder not found: ${userLibraryPath}`);
-      return;
+      return false;
     }
     while (!folder.end) {
       const filename = folder.filename;
       if (filename.toLowerCase().endsWith(".json")) {
         const separator = folder.pathname.endsWith("/") || folder.pathname.endsWith(":") ? "" : "/";
         const fullPath = `${folder.pathname}${separator}${filename}`;
+        reserveLibraryPath(fullPath);
         try {
-          const errors = store.add(readJsonFile(fullPath));
-          if (errors.length > 0) emitError(`${filename}: ${errors.join("; ")}`);
+          const result = validateMotif(readJsonFile(fullPath));
+          if (!result.valid || !result.motif) {
+            emitError(`${filename}: ${result.errors.join("; ")}`);
+          } else if (store.isBuiltin(result.motif.id)) {
+            emitError(`${filename}: id \u201C${result.motif.id}\u201D conflicts with a built-in and was skipped`);
+          } else if (userLibraryFiles.has(result.motif.id)) {
+            emitError(`${filename}: duplicate motif id \u201C${result.motif.id}\u201D was skipped`);
+          } else {
+            const errors = store.add(result.motif);
+            if (errors.length > 0) emitError(`${filename}: ${errors.join("; ")}`);
+            else userLibraryFiles.set(result.motif.id, fullPath);
+          }
         } catch (reason) {
           emitError(`${filename}: ${reason instanceof Error ? reason.message : String(reason)}`);
         }
@@ -2048,18 +1506,47 @@ var MotifEngine = (() => {
       folder.next();
     }
     folder.close();
+    userLibraryLoaded = true;
+    return true;
   }
-  function library_path(path) {
-    userLibraryPath = String(path);
-    loadUserLibrary();
+  function pathFromAtoms(values) {
+    return flattenValues(values).map((value) => stringAtom(value)).filter(Boolean).join(" ").trim().replace(/^"|"$/g, "");
+  }
+  function discardAllowed(value) {
+    return value === true || value === 1;
+  }
+  function library_path(...pathParts) {
+    const nextPath = pathFromAtoms(pathParts);
+    if (!nextPath) return;
+    if (editor.isDirty()) {
+      emitError("Finish or cancel editing before changing the library folder");
+      emitLibraryState();
+      return;
+    }
+    if (nextPath === userLibraryPath && userLibraryLoaded) {
+      emitLibraryState();
+      return;
+    }
+    editor.abandon();
+    userLibraryPath = nextPath;
+    const loaded = loadUserLibrary();
     if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? "mitsuda-lick";
+    selectedNoteIndex = 0;
     listMotifs();
-    emitStatus("library", userLibraryPath || "built-ins");
+    emitStatus(loaded ? "library" : "library-unavailable", userLibraryPath);
   }
-  function refresh_library() {
-    loadUserLibrary();
+  function refresh_library(discardChanges) {
+    if (editor.isDirty() && !discardAllowed(discardChanges)) {
+      emitError("Unsaved edits must be saved or discarded before refreshing");
+      emitLibraryState();
+      return;
+    }
+    editor.abandon();
+    const loaded = loadUserLibrary();
+    if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? "mitsuda-lick";
+    selectedNoteIndex = 0;
     listMotifs();
-    emitStatus("library-refreshed", store.list().length);
+    emitStatus(loaded ? "library-refreshed" : "library-unavailable", store.list().length);
   }
   function tempo_multiplier(value) {
     const parsed = typeof value === "number" ? value : Number(String(value).replace(/x$/i, ""));
@@ -2214,8 +1701,13 @@ var MotifEngine = (() => {
       );
     }
   }
-  function import_clip(pitchModeValue = "hybrid") {
-    const mode = String(pitchModeValue || "hybrid");
+  function import_clip(pitchModeValue = "chromatic") {
+    if (editor.isDirty()) {
+      emitError("Save or cancel the current edits before importing a clip");
+      emitLibraryState();
+      return;
+    }
+    const mode = String(pitchModeValue || "chromatic");
     if (mode !== "scale" && mode !== "chromatic" && mode !== "hybrid") {
       emitError(`Unknown import pitch mode: ${mode}`);
       return;
@@ -2238,20 +1730,43 @@ var MotifEngine = (() => {
     }
     const clipNameRaw = clip.get("name");
     const clipName = String(Array.isArray(clipNameRaw) ? clipNameRaw[0] : clipNameRaw || "Imported Clip").trim() || "Imported Clip";
-    const id = `clip-${Date.now()}`;
+    let imported;
     try {
-      const motifData = absoluteNotesToMotif(absoluteNotes, {
-        id,
+      imported = absoluteNotesToMotif(absoluteNotes, {
+        id: "pending-import",
         name: clipName,
         pitchMode: mode,
+        scaleRootNote: hostContext.rootNote,
         scaleIntervals: hostContext.scaleIntervals,
         sourceMeter: { ...hostContext.timeSignature },
         description: `Imported from Live clip \u201C${clipName}\u201D using ${mode} relative analysis.`,
         tags: ["imported", "live-clip"]
       });
+    } catch (reason) {
+      emitError(`Clip import failed: ${reason instanceof Error ? reason.message : String(reason)}`);
+      return;
+    }
+    let restoreId = currentMotifId;
+    if (editor.isEditing()) {
+      restoreId = editor.cancel(store) ?? restoreId;
+      if (store.has(restoreId)) currentMotifId = restoreId;
+    }
+    const id = uniqueAvailableId(uniqueMotifId(clipName, `clip-${Date.now()}`));
+    try {
+      const motifData = { ...imported, id };
       const errors = store.add(motifData);
       if (errors.length > 0) {
+        currentMotifId = store.has(restoreId) ? restoreId : store.list()[0]?.id ?? "mitsuda-lick";
+        listMotifs();
         emitError(errors.join("; "));
+        return;
+      }
+      const edit = editor.begin(store, id, { dirty: true, created: true, sourceId: restoreId });
+      if (!edit) {
+        store.remove(id);
+        currentMotifId = store.has(restoreId) ? restoreId : store.list()[0]?.id ?? "mitsuda-lick";
+        emitError("Could not start editing the imported motif");
+        listMotifs();
         return;
       }
       currentMotifId = id;
@@ -2259,56 +1774,328 @@ var MotifEngine = (() => {
       listMotifs();
       emitStatus("imported-clip", id, absoluteNotes.length);
     } catch (reason) {
+      store.remove(id);
+      currentMotifId = store.has(restoreId) ? restoreId : store.list()[0]?.id ?? "mitsuda-lick";
+      editor.abandon();
+      listMotifs();
       emitError(`Clip import failed: ${reason instanceof Error ? reason.message : String(reason)}`);
     }
   }
-  function save_motif() {
-    if (!userLibraryPath) {
-      emitError("Choose a library folder before saving");
+  function isRecord2(value) {
+    return typeof value === "object" && value !== null && !Array.isArray(value);
+  }
+  function hasOwn(record, key) {
+    return Object.prototype.hasOwnProperty.call(record, key);
+  }
+  function requiredText(value, field) {
+    if (!["string", "number", "boolean"].includes(typeof value)) {
+      emitError(`${field} must be text`);
+      return void 0;
+    }
+    const text = stringAtom(value).trim();
+    if (!text) {
+      emitError(`${field} cannot be empty`);
+      return void 0;
+    }
+    return text;
+  }
+  function optionalText(value, field) {
+    if (value === null || value === void 0 || value === "") return void 0;
+    if (!["string", "number", "boolean"].includes(typeof value)) {
+      emitError(`${field} must be text`);
+      return false;
+    }
+    const text = stringAtom(value).trim();
+    return text || void 0;
+  }
+  function optionalFiniteNumber(value, field, predicate = () => true, requirement = "a finite number") {
+    if (value === null || value === void 0 || value === "") return void 0;
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric) || !predicate(numeric)) {
+      emitError(`${field} must be ${requirement}`);
+      return false;
+    }
+    return numeric;
+  }
+  function stringList(value, field) {
+    const values = Array.isArray(value) ? value : typeof value === "string" ? value.split(/[\n,]/) : void 0;
+    if (!values || values.some((item) => typeof item !== "string")) {
+      emitError(`${field} must be a list of text values`);
+      return void 0;
+    }
+    return [...new Set(values.map((item) => String(item).trim()).filter(Boolean))];
+  }
+  function applyMotifProperties(value) {
+    const editable = editableMotif();
+    if (!editable) return false;
+    if (!isRecord2(value)) {
+      emitError("Motif properties must be an object");
+      emitLibraryState();
+      return false;
+    }
+    if (hasOwn(value, "id") && stringAtom(value["id"]) !== editable.id) {
+      emitError("Motif ID is generated and cannot be changed");
+      emitLibraryState();
+      return false;
+    }
+    if (hasOwn(value, "schemaVersion") && Number(value["schemaVersion"]) !== editable.schemaVersion) {
+      emitError("schemaVersion is read-only");
+      emitLibraryState();
+      return false;
+    }
+    if (hasOwn(value, "length") && Number(value["length"]) !== editable.length) {
+      emitError("Motif length is derived from note timing and cannot be changed directly");
+      emitLibraryState();
+      return false;
+    }
+    let name = editable.name;
+    if (hasOwn(value, "name")) {
+      const parsed = requiredText(value["name"], "Motif name");
+      if (parsed === void 0) {
+        emitLibraryState();
+        return false;
+      }
+      name = parsed;
+    }
+    let description = editable.description;
+    if (hasOwn(value, "description")) {
+      const parsed = requiredText(value["description"], "Motif description");
+      if (parsed === void 0) {
+        emitLibraryState();
+        return false;
+      }
+      description = parsed;
+    }
+    let pitchMode = editable.pitchMode;
+    if (hasOwn(value, "pitchMode")) {
+      const parsed = stringAtom(value["pitchMode"]);
+      if (parsed !== "scale" && parsed !== "chromatic" && parsed !== "hybrid") {
+        emitError("pitchMode must be scale, chromatic, or hybrid");
+        emitLibraryState();
+        return false;
+      }
+      pitchMode = parsed;
+    }
+    let sourceMeter = editable.sourceMeter;
+    if (hasOwn(value, "sourceMeter")) {
+      const meter = value["sourceMeter"];
+      if (!isRecord2(meter)) {
+        emitError("sourceMeter must be an object");
+        emitLibraryState();
+        return false;
+      }
+      const numerator = Number(meter["numerator"]);
+      const denominator = Number(meter["denominator"]);
+      if (!Number.isInteger(numerator) || numerator < 1) {
+        emitError("sourceMeter.numerator must be a positive integer");
+        emitLibraryState();
+        return false;
+      }
+      if (![1, 2, 4, 8, 16, 32].includes(denominator)) {
+        emitError("sourceMeter.denominator must be 1, 2, 4, 8, 16, or 32");
+        emitLibraryState();
+        return false;
+      }
+      sourceMeter = { numerator, denominator };
+    }
+    let defaultGate = editable.defaultGate;
+    if (hasOwn(value, "defaultGate")) {
+      const parsed = optionalFiniteNumber(value["defaultGate"], "defaultGate", (number) => number > 0, "greater than zero");
+      if (parsed === false) {
+        emitLibraryState();
+        return false;
+      }
+      defaultGate = parsed;
+    }
+    let velocityCurve = editable.velocityCurve;
+    if (hasOwn(value, "velocityCurve")) {
+      const curve = value["velocityCurve"];
+      if (curve === null || curve === void 0) {
+        velocityCurve = void 0;
+      } else if (!isRecord2(curve)) {
+        emitError("velocityCurve must be an object");
+        emitLibraryState();
+        return false;
+      } else {
+        const parsed = {};
+        for (const field of ["inputMin", "inputMax", "outputMin", "outputMax"]) {
+          const number = optionalFiniteNumber(curve[field], `velocityCurve.${field}`);
+          if (number === false) {
+            emitLibraryState();
+            return false;
+          }
+          if (number !== void 0) parsed[field] = number;
+        }
+        const exponent = optionalFiniteNumber(
+          curve["exponent"],
+          "velocityCurve.exponent",
+          (number) => number > 0,
+          "greater than zero"
+        );
+        if (exponent === false) {
+          emitLibraryState();
+          return false;
+        }
+        if (exponent !== void 0) parsed["exponent"] = exponent;
+        velocityCurve = Object.keys(parsed).length > 0 ? parsed : void 0;
+      }
+    }
+    let metadata = editable.metadata;
+    if (hasOwn(value, "metadata")) {
+      const input = value["metadata"];
+      if (input === null || input === void 0) {
+        metadata = void 0;
+      } else if (!isRecord2(input)) {
+        emitError("metadata must be an object");
+        emitLibraryState();
+        return false;
+      } else {
+        const author = optionalText(input["author"], "metadata.author");
+        const source = optionalText(input["source"], "metadata.source");
+        const license = optionalText(input["license"], "metadata.license");
+        if (author === false || source === false || license === false) {
+          emitLibraryState();
+          return false;
+        }
+        const tags = stringList(input["tags"] ?? [], "metadata.tags");
+        const suggestedModes = stringList(input["suggestedModes"] ?? [], "metadata.suggestedModes");
+        if (!tags || !suggestedModes) {
+          emitLibraryState();
+          return false;
+        }
+        const pickupTicks = optionalFiniteNumber(
+          input["pickupTicks"],
+          "metadata.pickupTicks",
+          (number) => number >= 0,
+          "zero or greater"
+        );
+        if (pickupTicks === false) {
+          emitLibraryState();
+          return false;
+        }
+        const nextMetadata = {
+          ...author !== void 0 ? { author } : {},
+          ...source !== void 0 ? { source } : {},
+          ...license !== void 0 ? { license } : {},
+          ...tags.length > 0 ? { tags } : {},
+          ...suggestedModes.length > 0 ? { suggestedModes } : {},
+          ...pickupTicks !== void 0 ? { pickupTicks } : {}
+        };
+        metadata = Object.keys(nextMetadata).length > 0 ? nextMetadata : void 0;
+      }
+    }
+    const pitchConverted = pitchMode === editable.pitchMode ? editable : convertMotifPitchMode(editable, pitchMode, {
+      triggerPitch: previewTriggerPitch,
+      rootNote: hostContext.rootNote,
+      scaleIntervals: hostContext.scaleIntervals
+    });
+    const {
+      defaultGate: _defaultGate,
+      velocityCurve: _velocityCurve,
+      metadata: _metadata,
+      ...required
+    } = pitchConverted;
+    const candidate = {
+      ...required,
+      name,
+      description,
+      pitchMode,
+      sourceMeter,
+      ...defaultGate !== void 0 ? { defaultGate } : {},
+      ...velocityCurve !== void 0 ? { velocityCurve } : {},
+      ...metadata !== void 0 ? { metadata } : {}
+    };
+    if (JSON.stringify(candidate) === JSON.stringify(editable)) return true;
+    const errors = store.update(candidate);
+    if (errors.length > 0) {
+      emitError(errors.join("; "));
+      emitLibraryState();
+      return false;
+    }
+    editor.markDirty();
+    return true;
+  }
+  function save_motif(properties) {
+    if (properties !== void 0 && !applyMotifProperties(properties)) return;
+    if (!userLibraryPath || !userLibraryLoaded) {
+      emitError("Choose a valid library folder before saving");
       return;
     }
-    let selected = currentMotif();
+    const selected = currentMotif();
     if (!selected) {
       emitError("No motif selected");
       return;
     }
-    if (store.isBuiltin(selected.id)) {
-      const clone = store.cloneAsUser(selected.id);
-      if (!clone) {
-        emitError("Could not clone built-in motif for save");
-        return;
-      }
-      currentMotifId = clone.id;
-      selected = clone;
-      listMotifs();
+    if (!editor.isEditing(selected.id)) {
+      emitError("Start editing before saving");
+      emitLibraryState();
+      return;
+    }
+    const existingFilename = userLibraryFiles.get(selected.id);
+    const filename = existingFilename ?? libraryFilePath(selected.id);
+    if (!existingFilename && (isLibraryPathOccupied(filename) || fileExists(filename))) {
+      reserveLibraryPath(filename);
+      emitError(`Save refused because ${selected.id}.json already exists; refresh the library and try again`);
+      emitLibraryState();
+      return;
     }
     try {
-      writeJsonFile(libraryFilePath(selected.id), selected);
-      emitStatus("saved", selected.id, libraryFilePath(selected.id));
+      writeJsonFile(filename, selected);
+      userLibraryFiles.set(selected.id, filename);
+      reserveLibraryPath(filename);
+      editor.finishSave();
+      listMotifs();
+      emitStatus("saved", selected.id, filename);
     } catch (reason) {
       emitError(`Save failed: ${reason instanceof Error ? reason.message : String(reason)}`);
+      emitLibraryState();
     }
   }
-  function ensureEditableMotif() {
+  function editableMotif() {
     const selected = currentMotif();
     if (!selected) {
       emitError("No motif selected");
       return void 0;
     }
-    if (!store.isBuiltin(selected.id)) return selected;
-    const clone = store.cloneAsUser(selected.id);
-    if (!clone) {
-      emitError("Could not clone built-in motif for editing");
+    if (!editor.isEditing(selected.id)) {
+      emitError("Start editing before changing this motif");
+      emitLibraryState();
       return void 0;
     }
-    currentMotifId = clone.id;
-    listMotifs();
-    return clone;
+    return selected;
   }
   function begin_edit() {
-    const editable = ensureEditableMotif();
-    if (!editable) return;
+    if (editor.isEditing(currentMotifId)) {
+      emitLibraryState();
+      return;
+    }
+    const selected = currentMotif();
+    const targetId = selected && store.isBuiltin(selected.id) ? uniqueAvailableId(uniqueMotifId(selected.name, `${selected.id}-copy`)) : void 0;
+    const editable = editor.begin(store, currentMotifId, targetId ? { targetId } : {});
+    if (!editable) {
+      emitError("Could not start editing the selected motif");
+      return;
+    }
+    currentMotifId = editable.id;
+    selectedNoteIndex = 0;
+    listMotifs();
     emitStatus("editing", editable.id, editable.name);
+  }
+  function cancel_edit() {
+    const restoredId = editor.cancel(store);
+    if (!restoredId) {
+      emitLibraryState();
+      return;
+    }
+    currentMotifId = store.has(restoredId) ? restoredId : store.list()[0]?.id ?? "mitsuda-lick";
+    selectedNoteIndex = 0;
+    listMotifs();
+    emitStatus("editing-cancelled", currentMotifId);
+  }
+  function edit_motif(properties) {
+    if (!applyMotifProperties(properties)) return;
+    emitSelectedMotifUi();
+    emitStatus("motif-edited", currentMotifId);
   }
   function edit_meta(fieldValue, ...textParts) {
     const field = String(fieldValue);
@@ -2316,26 +2103,31 @@ var MotifEngine = (() => {
       emitError(`Unknown meta field: ${field}`);
       return;
     }
-    const editable = ensureEditableMotif();
-    if (!editable) return;
-    const text = flattenValues(textParts).map(String).join(" ").trim().replace(/^"|"$/g, "");
-    const next = field === "name" ? { ...editable, name: text || editable.name } : { ...editable, description: text };
-    const errors = store.update(next);
-    if (errors.length > 0) {
-      emitError(errors.join("; "));
-      return;
-    }
-    emit("motif-selected", next.name);
+    const value = flattenValues(textParts).map(String).join(" ").trim().replace(/^"|"$/g, "");
+    if (!applyMotifProperties({ [field]: value })) return;
     emitSelectedMotifUi();
-    emitStatus("meta-edited", field, next.name);
+    emitStatus("meta-edited", field, currentMotif()?.name ?? "");
   }
-  function select_browser(indexValue) {
+  function select_browser(idOrIndex, discardChanges) {
     const items = store.filter(browserQuery);
-    if (items.length === 0) return;
-    const index = Math.round(clamp(indexValue, 0, items.length - 1));
-    const item = items[index];
+    const item = typeof idOrIndex === "number" ? items[Math.round(clamp(idOrIndex, 0, Math.max(0, items.length - 1)))] : store.get(String(idOrIndex));
     if (!item) return;
-    motif(item.name);
+    if (item.id === currentMotifId) return;
+    if (editor.isEditing()) {
+      if (editor.isDirty() && !discardAllowed(discardChanges)) {
+        emitError("Unsaved edits must be saved or discarded before selecting another motif");
+        emitLibraryState();
+        return;
+      }
+      editor.cancel(store);
+    }
+    const selected = store.get(item.id);
+    if (!selected) return;
+    currentMotifId = selected.id;
+    selectedNoteIndex = 0;
+    emit("motif-selected", motifLabels().get(selected.id) ?? selected.name);
+    emitSelectedMotifUi();
+    emitStatus("Motif", selected.name);
   }
   function select_note(indexValue) {
     const selected = currentMotif();
@@ -2346,111 +2138,120 @@ var MotifEngine = (() => {
     emitLibraryState();
     emitStatus("note-selected", selectedNoteIndex);
   }
-  function edit_note(fieldValue, valueValue) {
-    const field = String(fieldValue);
+  function updateNoteAt(index, field, valueValue) {
     if (!NOTE_EDIT_FIELDS.includes(field)) {
-      emitError(`Unknown note field: ${fieldValue}`);
-      return;
+      emitError(`Unknown note field: ${field}`);
+      return false;
     }
-    const editable = ensureEditableMotif();
-    if (!editable || editable.notes.length === 0) return;
-    const index = Math.round(clamp(selectedNoteIndex, 0, editable.notes.length - 1));
-    selectedNoteIndex = index;
+    const editable = editableMotif();
+    if (!editable || editable.notes.length === 0) return false;
+    if (!Number.isInteger(index) || index < 0 || index >= editable.notes.length) {
+      emitError(`Unknown note row: ${index}`);
+      return false;
+    }
     const current = editable.notes[index];
-    if (!current) return;
+    if (!current) return false;
     const next = { ...current };
-    const numeric = Number(valueValue);
-    if (!Number.isFinite(numeric)) {
-      emitError(`Invalid ${field} value`);
-      return;
-    }
-    switch (field) {
-      case "pitch":
-        next.pitch = Math.round(numeric);
-        break;
-      case "accidental":
-        if (numeric === 0) delete next.accidental;
-        else next.accidental = Math.round(numeric);
-        break;
-      case "at":
-        next.at = Math.max(0, Math.round(numeric));
-        break;
-      case "duration":
-        next.duration = Math.max(1, Math.round(numeric));
-        break;
-      case "gate":
-        if (numeric <= 0) delete next.gate;
-        else next.gate = numeric;
-        break;
-      case "velocity":
-        if (numeric < 1) delete next.velocity;
-        else next.velocity = Math.round(clamp(numeric, 1, 127));
-        break;
-      default:
-        break;
+    let statusValue = valueValue;
+    if (field === "legato" || field === "tie") {
+      const enabled = valueValue === true || valueValue === 1 || valueValue === "1" || valueValue === "true";
+      if (enabled) next[field] = true;
+      else delete next[field];
+      statusValue = enabled;
+    } else {
+      const optional = valueValue === null || valueValue === void 0 || valueValue === "";
+      const numeric = optional ? void 0 : Number(valueValue);
+      if (numeric !== void 0 && !Number.isFinite(numeric)) {
+        emitError(`Invalid ${field} value`);
+        return false;
+      }
+      switch (field) {
+        case "pitch":
+          if (numeric === void 0) {
+            emitError("pitch cannot be empty");
+            return false;
+          }
+          next.pitch = Math.round(numeric);
+          statusValue = next.pitch;
+          break;
+        case "accidental":
+          if (numeric === void 0 || numeric === 0) delete next.accidental;
+          else next.accidental = Math.round(numeric);
+          statusValue = next.accidental ?? null;
+          break;
+        case "at":
+          if (numeric === void 0 || numeric < 0) {
+            emitError("at must be zero or greater");
+            return false;
+          }
+          next.at = Math.round(numeric);
+          statusValue = next.at;
+          break;
+        case "duration":
+          if (numeric === void 0 || numeric <= 0) {
+            emitError("duration must be greater than zero");
+            return false;
+          }
+          next.duration = Math.round(numeric);
+          statusValue = next.duration;
+          break;
+        case "gate":
+          if (numeric === void 0) delete next.gate;
+          else if (numeric <= 0) {
+            emitError("gate must be greater than zero");
+            return false;
+          } else next.gate = numeric;
+          statusValue = next.gate ?? null;
+          break;
+        case "velocity":
+          if (numeric === void 0) delete next.velocity;
+          else if (!Number.isInteger(numeric) || numeric < 1 || numeric > 127) {
+            emitError("velocity must be an integer between 1 and 127");
+            return false;
+          } else next.velocity = numeric;
+          statusValue = next.velocity ?? null;
+          break;
+        case "velocityOffset":
+          if (numeric === void 0 || numeric === 0) delete next.velocityOffset;
+          else next.velocityOffset = numeric;
+          statusValue = next.velocityOffset ?? null;
+          break;
+        case "velocityScale":
+          if (numeric === void 0) delete next.velocityScale;
+          else if (numeric < 0) {
+            emitError("velocityScale must be zero or greater");
+            return false;
+          } else next.velocityScale = numeric;
+          statusValue = next.velocityScale ?? null;
+          break;
+        default:
+          break;
+      }
     }
     const notes = editable.notes.map((note2, noteIndex) => noteIndex === index ? next : note2);
     const errors = store.setNotes(editable.id, notes);
     if (errors.length > 0) {
       emitError(errors.join("; "));
-      return;
+      return false;
     }
+    editor.markDirty();
     emitSelectedMotifUi();
-    emitStatus("note-edited", index, field, numeric);
+    emitStatus("note-edited", index, field, statusValue ?? "unset");
+    return true;
+  }
+  function edit_note(fieldValue, valueValue) {
+    const selected = currentMotif();
+    if (!selected || selected.notes.length === 0) return;
+    const index = Math.round(clamp(selectedNoteIndex, 0, selected.notes.length - 1));
+    if (updateNoteAt(index, String(fieldValue), valueValue)) {
+      selectedNoteIndex = index;
+    }
   }
   function edit_note_at(rowIndexValue, fieldValue, valueValue) {
-    const field = String(fieldValue);
-    if (!NOTE_EDIT_FIELDS.includes(field)) {
-      emitError(`Unknown note field: ${fieldValue}`);
-      return;
-    }
-    const editable = ensureEditableMotif();
-    if (!editable) return;
-    const index = Math.round(clamp(rowIndexValue, 0, editable.notes.length - 1));
-    if (index < 0 || index >= editable.notes.length) return;
-    const current = editable.notes[index];
-    if (!current) return;
-    const next = { ...current };
-    const numeric = Number(valueValue);
-    if (!Number.isFinite(numeric)) {
-      emitError(`Invalid ${field} value`);
-      return;
-    }
-    switch (field) {
-      case "pitch":
-        next.pitch = Math.round(numeric);
-        break;
-      case "accidental":
-        if (numeric === 0) delete next.accidental;
-        else next.accidental = Math.round(numeric);
-        break;
-      case "at":
-        next.at = Math.max(0, Math.round(numeric));
-        break;
-      case "duration":
-        next.duration = Math.max(1, Math.round(numeric));
-        break;
-      case "gate":
-        if (numeric <= 0) delete next.gate;
-        else next.gate = numeric;
-        break;
-      case "velocity":
-        if (numeric < 1) delete next.velocity;
-        else next.velocity = Math.round(clamp(numeric, 1, 127));
-        break;
-      default:
-        break;
-    }
-    const notes = editable.notes.map((note2, noteIndex) => noteIndex === index ? next : note2);
-    const errors = store.setNotes(editable.id, notes);
-    if (errors.length > 0) {
-      emitError(errors.join("; "));
-      return;
-    }
-    emitSelectedMotifUi();
+    updateNoteAt(Math.round(rowIndexValue), String(fieldValue), valueValue);
   }
   function add_note() {
-    const editable = ensureEditableMotif();
+    const editable = editableMotif();
     if (!editable) return;
     if (editable.notes.length >= MAX_NOTE_ROWS) {
       emitError(`Maximum ${MAX_NOTE_ROWS} notes per motif`);
@@ -2464,10 +2265,11 @@ var MotifEngine = (() => {
       emitError(errors.join("; "));
       return;
     }
+    editor.markDirty();
     emitSelectedMotifUi();
   }
   function remove_note(indexValue) {
-    const editable = ensureEditableMotif();
+    const editable = editableMotif();
     if (!editable) return;
     const index = Math.round(indexValue);
     if (index < 0 || index >= editable.notes.length) return;
@@ -2477,6 +2279,7 @@ var MotifEngine = (() => {
       emitError(errors.join("; "));
       return;
     }
+    editor.markDirty();
     emitSelectedMotifUi();
   }
   function lib_action(...encodedParts) {
@@ -2496,7 +2299,10 @@ var MotifEngine = (() => {
     const type = stringAtom(action["type"]);
     switch (type) {
       case "select_browser":
-        select_browser(Number(action["index"]));
+        select_browser(
+          action["id"] !== void 0 ? stringAtom(action["id"]) : Number(action["index"]),
+          action["discardChanges"]
+        );
         break;
       case "filter_motifs":
         filter_motifs(action["query"]);
@@ -2505,13 +2311,24 @@ var MotifEngine = (() => {
         import_clip(action["pitchMode"] !== void 0 ? stringAtom(action["pitchMode"]) : void 0);
         break;
       case "save_motif":
-        save_motif();
+        save_motif(
+          action["properties"] ?? (action["name"] !== void 0 || action["description"] !== void 0 ? {
+            ...action["name"] !== void 0 ? { name: action["name"] } : {},
+            ...action["description"] !== void 0 ? { description: action["description"] } : {}
+          } : void 0)
+        );
         break;
       case "refresh_library":
-        refresh_library();
+        refresh_library(action["discardChanges"]);
         break;
       case "begin_edit":
         begin_edit();
+        break;
+      case "cancel_edit":
+        cancel_edit();
+        break;
+      case "edit_motif":
+        edit_motif(action["properties"]);
         break;
       case "edit_meta":
         edit_meta(stringAtom(action["field"]), action["value"]);
@@ -2523,7 +2340,7 @@ var MotifEngine = (() => {
         remove_note(Number(action["index"]));
         break;
       case "edit_note_at":
-        edit_note_at(Number(action["index"]), stringAtom(action["field"]), Number(action["value"]));
+        edit_note_at(Number(action["index"]), stringAtom(action["field"]), action["value"]);
         break;
       default:
         emitError(`lib_action: unknown type ${type}`);
@@ -2569,6 +2386,8 @@ var MotifEngine = (() => {
     import_clip,
     save_motif,
     begin_edit,
+    cancel_edit,
+    edit_motif,
     edit_meta,
     select_browser,
     select_note,

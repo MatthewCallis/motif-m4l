@@ -61,3 +61,4 @@ await copyFile('dist/motif-device.js', 'max/motif-device.js');
 await rm(enginePath, { force: true });
 await rm('dist/motif-device.js.map', { force: true });
 await rm('max/motif-device.js.map', { force: true });
+
