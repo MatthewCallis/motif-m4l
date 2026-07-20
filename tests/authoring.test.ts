@@ -130,13 +130,13 @@ test('filter_motifs emits a filtered browser list', async () => {
   const engine = await createEngine();
   engine.dispatch('initialize');
   engine.outlets.length = 0;
-  engine.dispatch('filter_motifs', 'mitsuda');
+  engine.dispatch('filter_motifs', 'chromatic');
 
   const lib = lastLibState(engine.outlets);
   assert.ok(lib, 'lib state must be emitted');
   const items = lib['items'] as Array<{ name: string }>;
   assert.ok(items.length >= 1);
-  assert.ok(items.every((item) => item.name.toLowerCase().includes('mitsuda')));
+  assert.ok(items.every((item) => item.name.toLowerCase().includes('chromatic')));
 });
 
 test('clearing search restores the full browser list', async () => {
@@ -150,13 +150,13 @@ test('clearing search restores the full browser list', async () => {
   const lib = lastLibState(engine.outlets);
   assert.ok(lib, 'lib state must be emitted');
   const items = lib['items'] as Array<{ name: string }>;
-  assert.ok(items.length >= 3, 'empty/noise queries must restore builtins');
+  assert.ok(items.length >= 2, 'empty/noise queries must restore builtins');
 });
 
 test('lib state includes notes for the selected motif', async () => {
   const engine = await createEngine();
   engine.dispatch('initialize');
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
 
   const lib = lastLibState(engine.outlets);
   assert.ok(lib, 'lib state must be emitted');
@@ -175,7 +175,7 @@ test('lib state includes notes for the selected motif', async () => {
 test('begin_edit clones builtins and edit_meta renames', async () => {
   const engine = await createEngine();
   engine.dispatch('initialize');
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.outlets.length = 0;
   engine.dispatch('begin_edit');
   engine.dispatch('edit_meta', 'name', 'My', 'Lick');
@@ -195,7 +195,7 @@ test('begin_edit clones builtins and edit_meta renames', async () => {
 test('edit_note requires an explicit edit session and updates pitch', async () => {
   const engine = await createEngine();
   engine.dispatch('initialize');
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.outlets.length = 0;
   engine.dispatch('begin_edit');
   engine.dispatch('edit_note', 'pitch', 7);
@@ -345,7 +345,7 @@ test('changing a hybrid motif to chromatic re-encodes pitches instead of reinter
   const engine = await createEngine();
   engine.dispatch('song_context', 'root_note', 0);
   engine.dispatch('song_context', 'scale_intervals', 0, 2, 3, 5, 7, 8, 10);
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.dispatch('begin_edit');
   engine.dispatch('edit_motif', {
     pitchMode: 'hybrid',
@@ -361,7 +361,7 @@ test('changing a hybrid motif to chromatic re-encodes pitches instead of reinter
   const selected = lib['selected'] as Record<string, unknown>;
   assert.equal(selected['pitchMode'], 'chromatic');
   const notes = selected['notes'] as Array<Record<string, unknown>>;
-  assert.equal(notes[1]?.['pitch'], -2);
+  assert.equal(notes[1]?.['pitch'], 2);
   assert.equal(notes[1]?.['accidental'], null);
 });
 
@@ -409,17 +409,17 @@ test('save writes the unique id file and exits edit mode', async () => {
   const path = '/Motifs';
   const engine = await createEngine({ folders: { [path]: [] } });
   engine.dispatch('library_path', path);
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.dispatch('begin_edit');
 
   let lib = lastLibState(engine.outlets);
   const draftId = String((lib?.['selected'] as Record<string, unknown>)?.['id']);
-  assert.notEqual(draftId, 'mitsuda-lick');
+  assert.notEqual(draftId, 'chromatic-turn');
   assert.equal((lib?.['editing'] as Record<string, unknown>)?.['active'], true);
 
   engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({
     type: 'save_motif',
-    name: 'Mitsuda Lick',
+    name: 'Chromatic Turn',
     description: 'Saved copy',
   })));
 
@@ -432,7 +432,7 @@ test('save writes the unique id file and exits edit mode', async () => {
 
 test('cancel edit restores the original motif and removes a new draft', async () => {
   const engine = await createEngine();
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.dispatch('begin_edit');
   engine.dispatch('edit_meta', 'name', 'Temporary Name');
 
@@ -442,20 +442,20 @@ test('cancel edit restores the original motif and removes a new draft', async ()
 
   const lib = lastLibState(engine.outlets);
   assert.equal((lib?.['editing'] as Record<string, unknown>)?.['active'], false);
-  assert.equal((lib?.['selected'] as Record<string, unknown>)?.['id'], 'mitsuda-lick');
-  assert.equal((lib?.['selected'] as Record<string, unknown>)?.['name'], 'Mitsuda Lick');
+  assert.equal((lib?.['selected'] as Record<string, unknown>)?.['id'], 'chromatic-turn');
+  assert.equal((lib?.['selected'] as Record<string, unknown>)?.['name'], 'Chromatic Turn');
   assert.ok(lib);
   assert.ok(!(lib['items'] as Array<{ id: string }>).some((item) => item.id === draftId));
 });
 
 test('dirty edits block both browser and main-menu selection until explicitly discarded', async () => {
   const engine = await createEngine();
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.dispatch('begin_edit');
   engine.dispatch('edit_meta', 'name', 'Dirty Draft');
   const draftId = String((lastLibState(engine.outlets)?.['selected'] as Record<string, unknown>)?.['id']);
 
-  engine.dispatch('select_browser', 'salt-peanuts');
+  engine.dispatch('select_browser', 'scale-turn');
   let lib = lastLibState(engine.outlets);
   assert.equal((lib?.['selected'] as Record<string, unknown>)?.['id'], draftId);
 
@@ -463,9 +463,9 @@ test('dirty edits block both browser and main-menu selection until explicitly di
   lib = lastLibState(engine.outlets);
   assert.equal((lib?.['selected'] as Record<string, unknown>)?.['id'], draftId);
 
-  engine.dispatch('select_browser', 'salt-peanuts', true);
+  engine.dispatch('select_browser', 'scale-turn', true);
   lib = lastLibState(engine.outlets);
-  assert.equal((lib?.['selected'] as Record<string, unknown>)?.['id'], 'salt-peanuts');
+  assert.equal((lib?.['selected'] as Record<string, unknown>)?.['id'], 'scale-turn');
   assert.equal((lib?.['editing'] as Record<string, unknown>)?.['active'], false);
   assert.ok(lib);
   assert.ok(!(lib['items'] as Array<{ id: string }>).some((item) => item.id === draftId));
@@ -494,7 +494,7 @@ test('complete motif properties and advanced note fields can be edited and saved
   const path = '/Motifs';
   const engine = await createEngine({ folders: { [path]: [] } });
   engine.dispatch('library_path', path);
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.dispatch('begin_edit');
 
   const properties = {
@@ -598,7 +598,7 @@ test('optional motif properties can be cleared without leaving empty objects in 
 
 test('invalid property updates are rejected atomically and read-only identity fields cannot change', async () => {
   const engine = await createEngine();
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.dispatch('begin_edit');
   const before = lastLibState(engine.outlets)?.['selected'] as Record<string, unknown>;
   const draftId = String(before['id']);
@@ -613,7 +613,7 @@ test('invalid property updates are rejected atomically and read-only identity fi
     },
   })));
   let selected = lastLibState(engine.outlets)?.['selected'] as Record<string, unknown>;
-  assert.equal(selected['name'], 'Mitsuda Lick');
+  assert.equal(selected['name'], 'Chromatic Turn');
   assert.equal(selected['pitchMode'], 'chromatic');
   assert.ok(engine.errors.some((message) => message.includes('sourceMeter.denominator')));
 
@@ -629,7 +629,7 @@ test('blank names and out-of-range note edits are rejected without corrupting st
   const path = '/Motifs';
   const engine = await createEngine({ folders: { [path]: [] } });
   engine.dispatch('library_path', path);
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.dispatch('begin_edit');
   const before = lastLibState(engine.outlets);
   const draftId = String((before?.['selected'] as Record<string, unknown>)?.['id']);
@@ -639,7 +639,7 @@ test('blank names and out-of-range note edits are rejected without corrupting st
   })));
   let lib = lastLibState(engine.outlets);
   assert.equal((lib?.['editing'] as Record<string, unknown>)?.['active'], true);
-  assert.equal((lib?.['selected'] as Record<string, unknown>)?.['name'], 'Mitsuda Lick');
+  assert.equal((lib?.['selected'] as Record<string, unknown>)?.['name'], 'Chromatic Turn');
   assert.equal(engine.files[`${path}/${draftId}.json`], undefined);
 
   engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({
@@ -656,27 +656,27 @@ test('invalid and conflicting JSON filenames are reserved when creating user ids
   const path = '/Motifs';
   const engine = await createEngine({
     files: {
-      [`${path}/mitsuda-lick-2.json`]: '{ invalid json',
-      [`${path}/mitsuda-lick-3.json`]: JSON.stringify(userMotif('other-id', 'Other Motif')),
+      [`${path}/chromatic-turn-2.json`]: '{ invalid json',
+      [`${path}/chromatic-turn-3.json`]: JSON.stringify(userMotif('other-id', 'Other Motif')),
     },
-    folders: { [path]: ['mitsuda-lick-2.json', 'mitsuda-lick-3.json'] },
+    folders: { [path]: ['chromatic-turn-2.json', 'chromatic-turn-3.json'] },
   });
   engine.dispatch('library_path', path);
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.dispatch('begin_edit');
 
   const lib = lastLibState(engine.outlets);
   assert.ok(lib);
   const selected = lib['selected'] as Record<string, unknown>;
-  assert.equal(selected['id'], 'mitsuda-lick-4');
-  assert.ok(engine.errors.some((message) => message.includes('mitsuda-lick-2.json')));
+  assert.equal(selected['id'], 'chromatic-turn-4');
+  assert.ok(engine.errors.some((message) => message.includes('chromatic-turn-2.json')));
 });
 
 test('save never overwrites an unscanned file that appeared after library load', async () => {
   const path = '/Motifs';
   const engine = await createEngine({ folders: { [path]: [] } });
   engine.dispatch('library_path', path);
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.dispatch('begin_edit');
 
   const editing = lastLibState(engine.outlets);
@@ -696,7 +696,7 @@ test('save never overwrites an unscanned file that appeared after library load',
 test('unavailable library paths cannot be used for saving through direct messages', async () => {
   const engine = await createEngine();
   engine.dispatch('library_path', '/missing');
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.dispatch('begin_edit');
   engine.dispatch('save_motif');
 
@@ -709,7 +709,7 @@ test('unavailable library paths cannot be used for saving through direct message
 
 test('a failed clip import does not cancel a clean edit session', async () => {
   const engine = await createEngine();
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.dispatch('begin_edit');
   const before = lastLibState(engine.outlets);
   assert.ok(before);
@@ -726,7 +726,7 @@ test('a failed clip import does not cancel a clean edit session', async () => {
 
 test('non-primitive metadata payloads are rejected without clearing fields', async () => {
   const engine = await createEngine();
-  engine.dispatch('motif', 'Mitsuda Lick');
+  engine.dispatch('motif', 'Chromatic Turn');
   engine.dispatch('begin_edit');
   engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({
     type: 'save_motif',
@@ -736,7 +736,7 @@ test('non-primitive metadata payloads are rejected without clearing fields', asy
 
   const lib = lastLibState(engine.outlets);
   assert.ok(lib);
-  assert.equal((lib['selected'] as Record<string, unknown>)['name'], 'Mitsuda Lick');
+  assert.equal((lib['selected'] as Record<string, unknown>)['name'], 'Chromatic Turn');
   assert.equal((lib['editing'] as Record<string, unknown>)['active'], true);
   assert.ok(engine.errors.some((message) => message.includes('Motif name must be text')));
 });

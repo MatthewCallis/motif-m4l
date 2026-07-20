@@ -149,7 +149,9 @@ var MotifEngine = (() => {
     return scaleOffset + (pitchMode === "hybrid" ? note2.accidental ?? 0 : 0);
   }
   function convertMotifPitchMode(motif2, targetMode, context) {
-    if (motif2.pitchMode === targetMode) return motif2;
+    if (motif2.pitchMode === targetMode) {
+      return motif2;
+    }
     const notes = motif2.notes.map((note2) => {
       const semitoneOffset = decodeSemitoneOffset(note2, motif2.pitchMode, context);
       const encoded = encodeSemitoneOffset(semitoneOffset, targetMode, context);
@@ -224,7 +226,7 @@ var MotifEngine = (() => {
     }
   }
   function ticksUntilNextBoundary(positionTicks, gridTicks) {
-    if (!Number.isFinite(positionTicks) || gridTicks <= 0) {
+    if (!Number.isFinite(positionTicks) || !Number.isFinite(gridTicks) || gridTicks <= 0) {
       return 0;
     }
     const remainder = (positionTicks % gridTicks + gridTicks) % gridTicks;
@@ -253,9 +255,10 @@ var MotifEngine = (() => {
   function resolveMotifPitch(note2, motif2, host, options) {
     const pitchMode = options.pitchMode ?? motif2.pitchMode;
     switch (pitchMode) {
-      case "chromatic":
+      case "chromatic": {
         return transposeChromatically(options.triggerPitch, note2.pitch + (note2.accidental ?? 0));
-      case "hybrid":
+      }
+      case "hybrid": {
         return transposeHybrid(
           options.triggerPitch,
           note2.pitch,
@@ -263,13 +266,15 @@ var MotifEngine = (() => {
           host.rootNote,
           host.scaleIntervals
         );
-      default:
+      }
+      default: {
         return transposeByScaleDegree(
           options.triggerPitch,
           note2.pitch,
           host.rootNote,
           host.scaleIntervals
         );
+      }
     }
   }
   function effectiveDuration(note2, next, motif2) {
@@ -918,7 +923,8 @@ var MotifEngine = (() => {
   var triggerMap = /* @__PURE__ */ new Map();
   var activeTriggers = /* @__PURE__ */ new Set();
   var sustainedReleases = /* @__PURE__ */ new Set();
-  var currentMotifId = "mitsuda-lick";
+  var DEFAULT_MOTIF_ID = "scale-turn";
+  var currentMotifId = DEFAULT_MOTIF_ID;
   var pitchModeOverride;
   var meterMode = "preserve";
   var retriggerMode = "replace";
@@ -1190,7 +1196,13 @@ var MotifEngine = (() => {
   function song_context(property, ...values) {
     updateHost(String(property), values);
   }
+  function ensureCurrentMotifId() {
+    if (!store.get(currentMotifId)) {
+      currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
+    }
+  }
   function listMotifs() {
+    ensureCurrentMotifId();
     const labels = motifLabels();
     emit("motifs-reset");
     for (const item of store.list()) emit("motif-item", labels.get(item.id) ?? item.name);
@@ -1530,7 +1542,7 @@ var MotifEngine = (() => {
     editor.abandon();
     userLibraryPath = nextPath;
     const loaded = loadUserLibrary();
-    if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? "mitsuda-lick";
+    if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
     selectedNoteIndex = 0;
     listMotifs();
     emitStatus(loaded ? "library" : "library-unavailable", userLibraryPath);
@@ -1543,7 +1555,7 @@ var MotifEngine = (() => {
     }
     editor.abandon();
     const loaded = loadUserLibrary();
-    if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? "mitsuda-lick";
+    if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
     selectedNoteIndex = 0;
     listMotifs();
     emitStatus(loaded ? "library-refreshed" : "library-unavailable", store.list().length);
@@ -1714,7 +1726,7 @@ var MotifEngine = (() => {
     }
     const clip = resolveDetailClip();
     if (!clip) {
-      emitError("No clip selected \u2014 open a MIDI clip in Detail View, then Import Clip");
+      emitError("No clip selected - open a MIDI clip in Detail View, then Import Clip");
       return;
     }
     let absoluteNotes = [];
@@ -1756,7 +1768,7 @@ var MotifEngine = (() => {
       const motifData = { ...imported, id };
       const errors = store.add(motifData);
       if (errors.length > 0) {
-        currentMotifId = store.has(restoreId) ? restoreId : store.list()[0]?.id ?? "mitsuda-lick";
+        currentMotifId = store.has(restoreId) ? restoreId : store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
         listMotifs();
         emitError(errors.join("; "));
         return;
@@ -1764,7 +1776,7 @@ var MotifEngine = (() => {
       const edit = editor.begin(store, id, { dirty: true, created: true, sourceId: restoreId });
       if (!edit) {
         store.remove(id);
-        currentMotifId = store.has(restoreId) ? restoreId : store.list()[0]?.id ?? "mitsuda-lick";
+        currentMotifId = store.has(restoreId) ? restoreId : store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
         emitError("Could not start editing the imported motif");
         listMotifs();
         return;
@@ -1775,7 +1787,7 @@ var MotifEngine = (() => {
       emitStatus("imported-clip", id, absoluteNotes.length);
     } catch (reason) {
       store.remove(id);
-      currentMotifId = store.has(restoreId) ? restoreId : store.list()[0]?.id ?? "mitsuda-lick";
+      currentMotifId = store.has(restoreId) ? restoreId : store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
       editor.abandon();
       listMotifs();
       emitError(`Clip import failed: ${reason instanceof Error ? reason.message : String(reason)}`);
@@ -2087,7 +2099,7 @@ var MotifEngine = (() => {
       emitLibraryState();
       return;
     }
-    currentMotifId = store.has(restoredId) ? restoredId : store.list()[0]?.id ?? "mitsuda-lick";
+    currentMotifId = store.has(restoredId) ? restoredId : store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
     selectedNoteIndex = 0;
     listMotifs();
     emitStatus("editing-cancelled", currentMotifId);

@@ -143,7 +143,9 @@ const triggerMap = new Map<number, string>();
 const activeTriggers = new Set<number>();
 const sustainedReleases = new Set<number>();
 
-let currentMotifId = 'mitsuda-lick';
+const DEFAULT_MOTIF_ID = 'scale-turn';
+
+let currentMotifId = DEFAULT_MOTIF_ID;
 let pitchModeOverride: PitchMode | undefined;
 let meterMode: MeterMode = 'preserve';
 let retriggerMode: RetriggerMode = 'replace';
@@ -447,7 +449,14 @@ function song_context(property: string, ...values: unknown[]): void {
   updateHost(String(property), values);
 }
 
+function ensureCurrentMotifId(): void {
+  if (!store.get(currentMotifId)) {
+    currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
+  }
+}
+
 function listMotifs(): void {
+  ensureCurrentMotifId();
   const labels = motifLabels();
   emit('motifs-reset');
   for (const item of store.list()) emit('motif-item', labels.get(item.id) ?? item.name);
@@ -866,7 +875,7 @@ function library_path(...pathParts: unknown[]): void {
   editor.abandon();
   userLibraryPath = nextPath;
   const loaded = loadUserLibrary();
-  if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? 'mitsuda-lick';
+  if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
   selectedNoteIndex = 0;
   listMotifs();
   emitStatus(loaded ? 'library' : 'library-unavailable', userLibraryPath);
@@ -881,7 +890,7 @@ function refresh_library(discardChanges?: number | boolean): void {
 
   editor.abandon();
   const loaded = loadUserLibrary();
-  if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? 'mitsuda-lick';
+  if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
   selectedNoteIndex = 0;
   listMotifs();
   emitStatus(loaded ? 'library-refreshed' : 'library-unavailable', store.list().length);
@@ -1159,7 +1168,7 @@ function import_clip(pitchModeValue = 'chromatic'): void {
     const motifData = { ...imported, id };
     const errors = store.add(motifData);
     if (errors.length > 0) {
-      currentMotifId = store.has(restoreId) ? restoreId : (store.list()[0]?.id ?? 'mitsuda-lick');
+      currentMotifId = store.has(restoreId) ? restoreId : (store.list()[0]?.id ?? DEFAULT_MOTIF_ID);
       listMotifs();
       emitError(errors.join('; '));
       return;
@@ -1167,7 +1176,7 @@ function import_clip(pitchModeValue = 'chromatic'): void {
     const edit = editor.begin(store, id, { dirty: true, created: true, sourceId: restoreId });
     if (!edit) {
       store.remove(id);
-      currentMotifId = store.has(restoreId) ? restoreId : (store.list()[0]?.id ?? 'mitsuda-lick');
+      currentMotifId = store.has(restoreId) ? restoreId : (store.list()[0]?.id ?? DEFAULT_MOTIF_ID);
       emitError('Could not start editing the imported motif');
       listMotifs();
       return;
@@ -1178,7 +1187,7 @@ function import_clip(pitchModeValue = 'chromatic'): void {
     emitStatus('imported-clip', id, absoluteNotes.length);
   } catch (reason) {
     store.remove(id);
-    currentMotifId = store.has(restoreId) ? restoreId : (store.list()[0]?.id ?? 'mitsuda-lick');
+    currentMotifId = store.has(restoreId) ? restoreId : (store.list()[0]?.id ?? DEFAULT_MOTIF_ID);
     editor.abandon();
     listMotifs();
     emitError(`Clip import failed: ${reason instanceof Error ? reason.message : String(reason)}`);
@@ -1529,7 +1538,7 @@ function cancel_edit(): void {
     return;
   }
 
-  currentMotifId = store.has(restoredId) ? restoredId : (store.list()[0]?.id ?? 'mitsuda-lick');
+  currentMotifId = store.has(restoredId) ? restoredId : (store.list()[0]?.id ?? DEFAULT_MOTIF_ID);
   selectedNoteIndex = 0;
   listMotifs();
   emitStatus('editing-cancelled', currentMotifId);

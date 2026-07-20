@@ -69,7 +69,7 @@ test('compiled Max runtime initializes, receives Song context, previews, and sch
     selected: { name: string } | null;
   };
   assert.ok(libraryState.items.length > 0, 'library state must contain built-in motifs');
-  assert.ok(libraryState.items.some((item) => item.id === 'mitsuda-lick'), 'library state must include Mitsuda Lick');
+  assert.ok(libraryState.items.some((item) => item.id === 'scale-turn'), 'library state must include Scale Turn');
   assert.ok(libraryState.selected, 'library state must include selected motif details');
 
   send('song_context', 'tempo', 96);

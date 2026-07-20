@@ -15,8 +15,11 @@ export interface AbsoluteNote {
 
 /** Options for {@link absoluteNotesToMotif}. */
 export interface AbsoluteNotesImportOptions {
+  /** The motif ID. */
   id: string;
+  /** The motif name. */
   name: string;
+  /** The pitch mode to use for the motif. */
   pitchMode: PitchMode;
   /** MIDI pitch used as the relative phrase anchor. Defaults to the first note. */
   rootNote?: number;
@@ -26,7 +29,9 @@ export interface AbsoluteNotesImportOptions {
   scaleIntervals?: readonly number[];
   /** Stored source meter; defaults to 4/4. */
   sourceMeter?: TimeSignature;
+  /** The motif description. */
   description?: string;
+  /** The motif tags. */
   tags?: readonly string[];
 }
 
@@ -35,6 +40,7 @@ export interface PitchModeConversionContext {
   triggerPitch: number;
   /** Scale root pitch class. */
   rootNote: number;
+  /** Scale intervals. */
   scaleIntervals: readonly number[];
 }
 
@@ -45,6 +51,11 @@ export interface PitchModeConversionContext {
  * whenever the phrase anchor was not the scale tonic, and it produced surprising
  * negative-degree choices around octave boundaries. Searching actual relative
  * scale degrees guarantees that encoding mirrors playback resolution.
+ * @param {number} semitoneOffset The chromatic offset from the trigger pitch.
+ * @param {readonly number[]} intervals The scale intervals.
+ * @param {number} triggerPitch The trigger pitch.
+ * @param {number} scaleRootNote The scale root pitch.
+ * @returns {number} The nearest scale degree + accidental.
  */
 export function analyzeScaleOffset(
   semitoneOffset: number,
@@ -82,7 +93,14 @@ export function analyzeScaleOffset(
   return { degree: bestDegree, accidental: bestAccidental };
 }
 
-function encodeSemitoneOffset(
+/**
+ * Encode a semitone offset into a motif note.
+ * @param {number} semitoneOffset The chromatic offset from the trigger pitch.
+ * @param {PitchMode} pitchMode The pitch mode to use.
+ * @param {PitchModeConversionContext} context The pitch mode conversion context.
+ * @returns {Pick<MotifNote, 'pitch' | 'accidental'>} The encoded motif note.
+ */
+export function encodeSemitoneOffset(
   semitoneOffset: number,
   pitchMode: PitchMode,
   context: PitchModeConversionContext,
@@ -103,7 +121,14 @@ function encodeSemitoneOffset(
   return { pitch: analyzed.degree };
 }
 
-function decodeSemitoneOffset(
+/**
+ * Decode a motif note into a semitone offset.
+ * @param {MotifNote} note The motif note to decode.
+ * @param {PitchMode} pitchMode The pitch mode to use.
+ * @param {PitchModeConversionContext} context The pitch mode conversion context.
+ * @returns {number} The decoded semitone offset.
+ */
+export function decodeSemitoneOffset(
   note: MotifNote,
   pitchMode: PitchMode,
   context: PitchModeConversionContext,
@@ -129,13 +154,19 @@ function decodeSemitoneOffset(
  * -1 instead of the original -2 semitones). This conversion preserves sounding
  * offsets whenever the target mode can represent them exactly. `scale` mode may
  * intentionally snap chromatic notes to the nearest scale degree.
+ * @param {Motif} motif The motif to convert.
+ * @param {PitchMode} targetMode The target pitch mode.
+ * @param {PitchModeConversionContext} context The pitch mode conversion context.
+ * @returns {Motif} The converted motif.
  */
 export function convertMotifPitchMode(
   motif: Motif,
   targetMode: PitchMode,
   context: PitchModeConversionContext,
 ): Motif {
-  if (motif.pitchMode === targetMode) return motif;
+  if (motif.pitchMode === targetMode) {
+    return motif;
+  }
 
   const notes = motif.notes.map((note) => {
     const semitoneOffset = decodeSemitoneOffset(note, motif.pitchMode, context);
@@ -150,6 +181,9 @@ export function convertMotifPitchMode(
 /**
  * Convert absolute MIDI notes into a relative Motif using chromatic, scale, or hybrid analysis.
  * Notes are sorted by time; `length` is the end of the last note.
+ * @param {readonly AbsoluteNote[]} absoluteNotes The absolute MIDI notes to convert.
+ * @param {AbsoluteNotesImportOptions} options The import options.
+ * @returns {Motif} The converted motif.
  */
 export function absoluteNotesToMotif(
   absoluteNotes: readonly AbsoluteNote[],

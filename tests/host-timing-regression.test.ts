@@ -18,8 +18,8 @@ function host(tempo: number): HostContext {
   };
 }
 
-test('Mitsuda note-on delays remain sequential instead of collapsing', () => {
-  const motif = BUILTIN_MOTIFS.find(({ id }) => id === 'mitsuda-lick');
+test('Chromatic Turn note-on delays remain sequential instead of collapsing', () => {
+  const motif = BUILTIN_MOTIFS.find(({ id }) => id === 'chromatic-turn');
   assert.ok(motif);
   const compiled = compileMotif(motif, host(120), {
     channel: 1,
@@ -29,15 +29,15 @@ test('Mitsuda note-on delays remain sequential instead of collapsing', () => {
     instanceId: 1,
   });
   const noteOns = compiled.filter(({ velocity }) => velocity > 0);
-  assert.deepEqual(noteOns.map(({ offsetMs }) => offsetMs), [0, 1500, 2000, 2500, 2750, 3000]);
+  assert.deepEqual(noteOns.map(({ offsetMs }) => offsetMs), [0, 250, 500, 750, 1000, 1250, 1500]);
 
   const scheduler = new RuntimeScheduler();
   const runtime = scheduler.add(compiled, 10_000, 'ms').filter(({ velocity }) => velocity > 0);
-  assert.deepEqual(runtime.map(({ delay }) => delay), [0, 1500, 2000, 2500, 2750, 3000]);
+  assert.deepEqual(runtime.map(({ delay }) => delay), [0, 250, 500, 750, 1000, 1250, 1500]);
 });
 
 test('new triggers use the latest observed Song tempo', () => {
-  const motif = BUILTIN_MOTIFS.find(({ id }) => id === 'mitsuda-lick');
+  const motif = BUILTIN_MOTIFS.find(({ id }) => id === 'chromatic-turn');
   assert.ok(motif);
   const at120 = compileMotif(motif, host(120), {
     channel: 1,
@@ -58,7 +58,7 @@ test('new triggers use the latest observed Song tempo', () => {
 });
 
 test('BPM multiplier scales motif timing like a faster or slower Song tempo', () => {
-  const motif = BUILTIN_MOTIFS.find(({ id }) => id === 'mitsuda-lick');
+  const motif = BUILTIN_MOTIFS.find(({ id }) => id === 'chromatic-turn');
   assert.ok(motif);
   const base = compileMotif(motif, host(120), {
     channel: 1,

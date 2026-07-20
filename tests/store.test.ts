@@ -4,62 +4,62 @@ import { MotifStore } from '../src/library/store.js';
 
 test('filter matches name, id, tags, and description', () => {
   const store = new MotifStore();
-  const byName = store.filter('mitsuda');
-  assert.ok(byName.some((motif) => motif.id === 'mitsuda-lick'));
+  const byName = store.filter('chromatic');
+  assert.ok(byName.some((motif) => motif.id === 'chromatic-turn'));
 
   const byTag = store.filter('chromatic');
   assert.ok(byTag.length >= 1);
 
   assert.equal(store.filter('zzz-no-such-motif').length, 0);
-  assert.ok(store.filter('').length >= store.filter('mitsuda').length);
+  assert.ok(store.filter('').length >= store.filter('chromatic').length);
 });
 
 test('cloneAsUser copies a builtin under a new editable id', () => {
   const store = new MotifStore();
-  assert.equal(store.isBuiltin('mitsuda-lick'), true);
+  assert.equal(store.isBuiltin('chromatic-turn'), true);
 
-  const clone = store.cloneAsUser('mitsuda-lick');
+  const clone = store.cloneAsUser('chromatic-turn');
   assert.ok(clone);
-  assert.equal(clone.id, 'mitsuda-lick-2');
+  assert.equal(clone.id, 'chromatic-turn-2');
   assert.equal(store.isBuiltin(clone.id), false);
   assert.ok(clone.metadata?.tags?.includes('edited'));
-  assert.equal(clone.name, 'Mitsuda Lick', 'duplicate display names are allowed; ids are the identity');
+  assert.equal(clone.name, 'Chromatic Turn', 'duplicate display names are allowed; ids are the identity');
 
-  const again = store.cloneAsUser('mitsuda-lick');
+  const again = store.cloneAsUser('chromatic-turn');
   assert.ok(again);
   assert.notEqual(again.id, clone.id);
 });
 
 test('unique ids are deterministic and duplicate names sort stably', () => {
   const store = new MotifStore();
-  const first = store.cloneAsUser('mitsuda-lick');
-  const second = store.cloneAsUser('mitsuda-lick');
+  const first = store.cloneAsUser('chromatic-turn');
+  const second = store.cloneAsUser('chromatic-turn');
   assert.ok(first && second);
-  assert.equal(first.id, 'mitsuda-lick-2');
-  assert.equal(second.id, 'mitsuda-lick-3');
+  assert.equal(first.id, 'chromatic-turn-2');
+  assert.equal(second.id, 'chromatic-turn-3');
 
-  const sameName = store.list().filter((motif) => motif.name === 'Mitsuda Lick');
+  const sameName = store.list().filter((motif) => motif.name === 'Chromatic Turn');
   assert.deepEqual(sameName.map((motif) => motif.id), [
-    'mitsuda-lick',
-    'mitsuda-lick-2',
-    'mitsuda-lick-3',
+    'chromatic-turn',
+    'chromatic-turn-2',
+    'chromatic-turn-3',
   ]);
 });
 
 test('built-in ids cannot be overwritten or removed', () => {
   const store = new MotifStore();
-  const builtin = store.get('mitsuda-lick');
+  const builtin = store.get('chromatic-turn');
   assert.ok(builtin);
   assert.deepEqual(store.add({ ...builtin, name: 'Corrupted' }), [
-    'Cannot overwrite built-in motif: mitsuda-lick',
+    'Cannot overwrite built-in motif: chromatic-turn',
   ]);
-  assert.equal(store.remove('mitsuda-lick'), false);
-  assert.equal(store.get('mitsuda-lick')?.name, 'Mitsuda Lick');
+  assert.equal(store.remove('chromatic-turn'), false);
+  assert.equal(store.get('chromatic-turn')?.name, 'Chromatic Turn');
 });
 
 test('setNotes recomputes length and validates', () => {
   const store = new MotifStore();
-  const clone = store.cloneAsUser('mitsuda-lick');
+  const clone = store.cloneAsUser('chromatic-turn');
   assert.ok(clone);
 
   const errors = store.setNotes(clone.id, [

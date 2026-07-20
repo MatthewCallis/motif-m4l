@@ -32,18 +32,10 @@
     "devicewidth": 480,
     "description": "Scale-aware triggerable motif engine with native Live Song synchronization and visual note preview",
     "digest": "Motif/Settings tabs; native Song observers; fail-open MIDI; BPM multiplier; Library authoring popup",
-    "tags": "midi motif phrase scale preview",
+    "tags": "midi motif phrase scale",
     "boxes": [
       {
         "box": {
-          "id": "obj-1",
-          "maxclass": "live.tab",
-          "patching_rect": [
-            8,
-            4,
-            96,
-            20
-          ],
           "fontname": "Ableton Sans",
           "fontsize": 9,
           "mode": 0,
@@ -82,19 +74,19 @@
           "hidden": 0,
           "annotation_name": "Page",
           "annotation": "Switch between the Motif performance view and Settings for less-used controls.",
-          "hint": "Switch between the Motif performance view and Settings for less-used controls."
+          "hint": "Switch between the Motif performance view and Settings for less-used controls.",
+          "id": "obj-1",
+          "maxclass": "live.tab",
+          "patching_rect": [
+            8,
+            4,
+            96,
+            20
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-2",
-          "maxclass": "umenu",
-          "patching_rect": [
-            112,
-            4,
-            176,
-            20
-          ],
           "items": [
             "Loading…"
           ],
@@ -136,19 +128,19 @@
           "hidden": 0,
           "annotation_name": "Selected Motif",
           "annotation": "Choose the phrase played when a trigger note is received. The preview updates immediately.",
-          "hint": "Choose the phrase played when a trigger note is received. The preview updates immediately."
+          "hint": "Choose the phrase played when a trigger note is received. The preview updates immediately.",
+          "id": "obj-2",
+          "maxclass": "umenu",
+          "patching_rect": [
+            112,
+            4,
+            176,
+            20
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-3",
-          "maxclass": "live.comment",
-          "patching_rect": [
-            312,
-            5,
-            35,
-            20
-          ],
           "text": "BPM ×",
           "presentation": 1,
           "presentation_rect": [
@@ -158,19 +150,19 @@
             20
           ],
           "varname": "tempo-mult-label",
-          "hidden": 0
+          "hidden": 0,
+          "id": "obj-3",
+          "maxclass": "live.comment",
+          "patching_rect": [
+            312,
+            5,
+            35,
+            20
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-4",
-          "maxclass": "live.menu",
-          "patching_rect": [
-            356,
-            6.5,
-            32,
-            20
-          ],
           "appearance": 0,
           "parameter_enable": 1,
           "presentation": 1,
@@ -206,19 +198,19 @@
           "hidden": 0,
           "annotation_name": "BPM Multiplier",
           "annotation": "Multiplies Live’s Song tempo for motif scheduling only. Does not change the Live Set tempo. Default is 1.",
-          "hint": "Multiplies Live’s Song tempo for motif scheduling only. Does not change the Live Set tempo. Default is 1."
+          "hint": "Multiplies Live’s Song tempo for motif scheduling only. Does not change the Live Set tempo. Default is 1.",
+          "id": "obj-4",
+          "maxclass": "live.menu",
+          "patching_rect": [
+            356,
+            6.5,
+            32,
+            20
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-5",
-          "maxclass": "live.text",
-          "patching_rect": [
-            396,
-            4,
-            32,
-            20
-          ],
           "appearance": 0,
           "fontname": "Ableton Sans",
           "fontsize": 10,
@@ -238,19 +230,19 @@
           "hidden": 0,
           "annotation_name": "Library & Authoring",
           "annotation": "Open the floating library browser: search motifs, import a Live clip, edit notes, and save JSON.",
-          "hint": "Open the floating library browser: search motifs, import a Live clip, edit notes, and save JSON."
+          "hint": "Open the floating library browser: search motifs, import a Live clip, edit notes, and save JSON.",
+          "id": "obj-5",
+          "maxclass": "live.text",
+          "patching_rect": [
+            396,
+            4,
+            32,
+            20
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-6",
-          "maxclass": "live.text",
-          "patching_rect": [
-            432,
-            4,
-            40,
-            20
-          ],
           "appearance": 0,
           "fontname": "Ableton Sans",
           "fontsize": 10,
@@ -270,19 +262,19 @@
           "hidden": 0,
           "annotation_name": "Panic",
           "annotation": "Immediately clears scheduled phrase events and sends note-offs for active MIDI notes.",
-          "hint": "Immediately clears scheduled phrase events and sends note-offs for active MIDI notes."
+          "hint": "Immediately clears scheduled phrase events and sends note-offs for active MIDI notes.",
+          "id": "obj-6",
+          "maxclass": "live.text",
+          "patching_rect": [
+            432,
+            4,
+            40,
+            20
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-7",
-          "maxclass": "panel",
-          "patching_rect": [
-            8,
-            28,
-            464,
-            100
-          ],
           "background": 1,
           "border": 0,
           "bgcolor": [
@@ -300,19 +292,19 @@
             100
           ],
           "varname": "ui-preview-panel",
-          "hidden": 0
+          "hidden": 0,
+          "id": "obj-7",
+          "maxclass": "panel",
+          "patching_rect": [
+            8,
+            28,
+            464,
+            100
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-8",
-          "maxclass": "jsui",
-          "patching_rect": [
-            12,
-            32,
-            456,
-            92
-          ],
           "filename": "motif-preview.js",
           "border": 0,
           "ignoreclick": 0,
@@ -333,19 +325,19 @@
           "hidden": 0,
           "annotation_name": "Motif Note Preview",
           "annotation": "A time-and-pitch preview of the selected motif after applying the current Live scale, pitch mode, meter mode, BPM multiplier, and most recent trigger note.",
-          "hint": "A time-and-pitch preview of the selected motif after applying the current Live scale, pitch mode, meter mode, BPM multiplier, and most recent trigger note."
+          "hint": "A time-and-pitch preview of the selected motif after applying the current Live scale, pitch mode, meter mode, BPM multiplier, and most recent trigger note.",
+          "id": "obj-8",
+          "maxclass": "jsui",
+          "patching_rect": [
+            12,
+            32,
+            456,
+            92
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-9",
-          "maxclass": "live.comment",
-          "patching_rect": [
-            8,
-            146.5,
-            40,
-            18
-          ],
           "text": "Pitch",
           "presentation": 1,
           "presentation_rect": [
@@ -355,19 +347,19 @@
             18
           ],
           "varname": "pitch-label",
-          "hidden": 0
+          "hidden": 0,
+          "id": "obj-9",
+          "maxclass": "live.comment",
+          "patching_rect": [
+            8,
+            146.5,
+            40,
+            18
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-10",
-          "maxclass": "live.menu",
-          "patching_rect": [
-            52,
-            148,
-            88,
-            18
-          ],
           "appearance": 0,
           "parameter_enable": 1,
           "presentation": 1,
@@ -403,19 +395,19 @@
           "hidden": 0,
           "annotation_name": "Pitch Mode",
           "annotation": "Motif uses the phrase’s stored pitch mode. Scale maps stored degrees through Live’s current scale; Chromatic preserves semitone intervals; Hybrid combines scale degrees with accidentals.",
-          "hint": "Motif uses the phrase’s stored pitch mode. Scale maps stored degrees through Live’s current scale; Chromatic preserves semitone intervals; Hybrid combines scale degrees with accidentals."
+          "hint": "Motif uses the phrase’s stored pitch mode. Scale maps stored degrees through Live’s current scale; Chromatic preserves semitone intervals; Hybrid combines scale degrees with accidentals.",
+          "id": "obj-10",
+          "maxclass": "live.menu",
+          "patching_rect": [
+            52,
+            148,
+            88,
+            18
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-11",
-          "maxclass": "live.comment",
-          "patching_rect": [
-            148,
-            146.5,
-            44,
-            18
-          ],
           "text": "Scale",
           "presentation": 1,
           "presentation_rect": [
@@ -425,19 +417,19 @@
             18
           ],
           "varname": "scale-label",
-          "hidden": 0
+          "hidden": 0,
+          "id": "obj-11",
+          "maxclass": "live.comment",
+          "patching_rect": [
+            148,
+            146.5,
+            44,
+            18
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-12",
-          "maxclass": "live.menu",
-          "patching_rect": [
-            196,
-            148,
-            40,
-            18
-          ],
           "appearance": 0,
           "parameter_enable": 1,
           "presentation": 1,
@@ -481,19 +473,19 @@
           "hidden": 0,
           "annotation_name": "Live Scale Root",
           "annotation": "Live Set's current scale root, observed from Song.root_note. Dimmed when Scale Mode is off.",
-          "hint": "Live Set's current scale root, observed from Song.root_note. Dimmed when Scale Mode is off."
+          "hint": "Live Set's current scale root, observed from Song.root_note. Dimmed when Scale Mode is off.",
+          "id": "obj-12",
+          "maxclass": "live.menu",
+          "patching_rect": [
+            196,
+            148,
+            40,
+            18
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-13",
-          "maxclass": "live.menu",
-          "patching_rect": [
-            240,
-            148,
-            132,
-            18
-          ],
           "appearance": 0,
           "parameter_enable": 1,
           "presentation": 1,
@@ -560,19 +552,19 @@
           "hidden": 0,
           "annotation_name": "Live Scale Name",
           "annotation": "Live Set's current scale name, observed from Song.scale_name. Dimmed when Scale Mode is off.",
-          "hint": "Live Set's current scale name, observed from Song.scale_name. Dimmed when Scale Mode is off."
+          "hint": "Live Set's current scale name, observed from Song.scale_name. Dimmed when Scale Mode is off.",
+          "id": "obj-13",
+          "maxclass": "live.menu",
+          "patching_rect": [
+            240,
+            148,
+            132,
+            18
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-14",
-          "maxclass": "comment",
-          "patching_rect": [
-            8,
-            30,
-            80,
-            16
-          ],
           "text": "Trigger",
           "fontname": "Ableton Sans",
           "fontsize": 10,
@@ -593,19 +585,19 @@
           ],
           "varname": "trigger-label",
           "ignoreclick": 1,
-          "hidden": 1
+          "hidden": 1,
+          "id": "obj-14",
+          "maxclass": "comment",
+          "patching_rect": [
+            8,
+            30,
+            80,
+            16
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-15",
-          "maxclass": "comment",
-          "patching_rect": [
-            8,
-            52,
-            80,
-            16
-          ],
           "text": "Launch",
           "fontname": "Ableton Sans",
           "fontsize": 10,
@@ -626,19 +618,19 @@
           ],
           "varname": "quant-label",
           "ignoreclick": 1,
-          "hidden": 1
+          "hidden": 1,
+          "id": "obj-15",
+          "maxclass": "comment",
+          "patching_rect": [
+            8,
+            52,
+            80,
+            16
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-16",
-          "maxclass": "comment",
-          "patching_rect": [
-            8,
-            74,
-            80,
-            16
-          ],
           "text": "MIDI Pass",
           "fontname": "Ableton Sans",
           "fontsize": 10,
@@ -659,19 +651,19 @@
           ],
           "varname": "pass-label",
           "ignoreclick": 1,
-          "hidden": 1
+          "hidden": 1,
+          "id": "obj-16",
+          "maxclass": "comment",
+          "patching_rect": [
+            8,
+            74,
+            80,
+            16
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-17",
-          "maxclass": "comment",
-          "patching_rect": [
-            8,
-            96,
-            80,
-            16
-          ],
           "text": "Meter",
           "fontname": "Ableton Sans",
           "fontsize": 10,
@@ -692,19 +684,19 @@
           ],
           "varname": "meter-label",
           "ignoreclick": 1,
-          "hidden": 1
+          "hidden": 1,
+          "id": "obj-17",
+          "maxclass": "comment",
+          "patching_rect": [
+            8,
+            96,
+            80,
+            16
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-18",
-          "maxclass": "comment",
-          "patching_rect": [
-            8,
-            118,
-            80,
-            16
-          ],
           "text": "Retrigger",
           "fontname": "Ableton Sans",
           "fontsize": 10,
@@ -725,19 +717,19 @@
           ],
           "varname": "retrigger-label",
           "ignoreclick": 1,
-          "hidden": 1
+          "hidden": 1,
+          "id": "obj-18",
+          "maxclass": "comment",
+          "patching_rect": [
+            8,
+            118,
+            80,
+            16
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-19",
-          "maxclass": "comment",
-          "patching_rect": [
-            8,
-            140,
-            80,
-            16
-          ],
           "text": "Zone",
           "fontname": "Ableton Sans",
           "fontsize": 10,
@@ -758,19 +750,19 @@
           ],
           "varname": "zone-label",
           "ignoreclick": 1,
-          "hidden": 1
+          "hidden": 1,
+          "id": "obj-19",
+          "maxclass": "comment",
+          "patching_rect": [
+            8,
+            140,
+            80,
+            16
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-20",
-          "maxclass": "live.menu",
-          "patching_rect": [
-            96,
-            28,
-            232,
-            20
-          ],
           "appearance": 0,
           "parameter_enable": 1,
           "presentation": 1,
@@ -807,19 +799,19 @@
           "hidden": 1,
           "annotation_name": "Trigger Mode",
           "annotation": "One-shot plays the full motif; Hold stops on key release; Toggle alternates on/off; Latch replaces the active phrase; Release-tail lets scheduled notes finish.",
-          "hint": "One-shot plays the full motif; Hold stops on key release; Toggle alternates on/off; Latch replaces the active phrase; Release-tail lets scheduled notes finish."
+          "hint": "One-shot plays the full motif; Hold stops on key release; Toggle alternates on/off; Latch replaces the active phrase; Release-tail lets scheduled notes finish.",
+          "id": "obj-20",
+          "maxclass": "live.menu",
+          "patching_rect": [
+            96,
+            28,
+            232,
+            20
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-21",
-          "maxclass": "live.menu",
-          "patching_rect": [
-            96,
-            50,
-            232,
-            20
-          ],
           "appearance": 0,
           "parameter_enable": 1,
           "presentation": 1,
@@ -856,19 +848,19 @@
           "hidden": 1,
           "annotation_name": "Launch Quantization",
           "annotation": "Delay phrase start to the selected musical boundary while Live is playing. Immediate starts as soon as the trigger is received.",
-          "hint": "Delay phrase start to the selected musical boundary while Live is playing. Immediate starts as soon as the trigger is received."
+          "hint": "Delay phrase start to the selected musical boundary while Live is playing. Immediate starts as soon as the trigger is received.",
+          "id": "obj-21",
+          "maxclass": "live.menu",
+          "patching_rect": [
+            96,
+            50,
+            232,
+            20
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-22",
-          "maxclass": "live.menu",
-          "patching_rect": [
-            96,
-            72,
-            232,
-            20
-          ],
           "appearance": 0,
           "parameter_enable": 1,
           "presentation": 1,
@@ -903,19 +895,19 @@
           "hidden": 1,
           "annotation_name": "MIDI Pass Through",
           "annotation": "None blocks dry notes; Non-triggers consumes trigger-zone notes but passes other MIDI; All passes every incoming note alongside the motif.",
-          "hint": "None blocks dry notes; Non-triggers consumes trigger-zone notes but passes other MIDI; All passes every incoming note alongside the motif."
+          "hint": "None blocks dry notes; Non-triggers consumes trigger-zone notes but passes other MIDI; All passes every incoming note alongside the motif.",
+          "id": "obj-22",
+          "maxclass": "live.menu",
+          "patching_rect": [
+            96,
+            72,
+            232,
+            20
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-23",
-          "maxclass": "live.tab",
-          "patching_rect": [
-            96,
-            94,
-            232,
-            20
-          ],
           "fontname": "Ableton Sans",
           "fontsize": 9,
           "mode": 0,
@@ -954,19 +946,19 @@
           "hidden": 1,
           "annotation_name": "Meter Mode",
           "annotation": "Preserve keeps the motif’s original timing. Fit Bar scales its source bars to the Live Set’s current time signature.",
-          "hint": "Preserve keeps the motif’s original timing. Fit Bar scales its source bars to the Live Set’s current time signature."
+          "hint": "Preserve keeps the motif’s original timing. Fit Bar scales its source bars to the Live Set’s current time signature.",
+          "id": "obj-23",
+          "maxclass": "live.tab",
+          "patching_rect": [
+            96,
+            94,
+            232,
+            20
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-24",
-          "maxclass": "live.tab",
-          "patching_rect": [
-            96,
-            116,
-            232,
-            20
-          ],
           "fontname": "Ableton Sans",
           "fontsize": 9,
           "mode": 0,
@@ -1005,19 +997,19 @@
           "hidden": 1,
           "annotation_name": "Retrigger Mode",
           "annotation": "Replace clears scheduled motif notes before starting the next phrase. Overlap allows multiple triggered phrases to play together.",
-          "hint": "Replace clears scheduled motif notes before starting the next phrase. Overlap allows multiple triggered phrases to play together."
+          "hint": "Replace clears scheduled motif notes before starting the next phrase. Overlap allows multiple triggered phrases to play together.",
+          "id": "obj-24",
+          "maxclass": "live.tab",
+          "patching_rect": [
+            96,
+            116,
+            232,
+            20
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-25",
-          "maxclass": "live.numbox",
-          "patching_rect": [
-            96,
-            138,
-            56,
-            20
-          ],
           "appearance": 4,
           "fontname": "Ableton Sans",
           "fontsize": 10,
@@ -1049,19 +1041,19 @@
           "hidden": 1,
           "annotation_name": "Trigger Zone Low",
           "annotation": "Lowest MIDI note treated as a motif trigger. Notes below this value follow the MIDI Pass setting.",
-          "hint": "Lowest MIDI note treated as a motif trigger. Notes below this value follow the MIDI Pass setting."
+          "hint": "Lowest MIDI note treated as a motif trigger. Notes below this value follow the MIDI Pass setting.",
+          "id": "obj-25",
+          "maxclass": "live.numbox",
+          "patching_rect": [
+            96,
+            138,
+            56,
+            20
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-26",
-          "maxclass": "live.numbox",
-          "patching_rect": [
-            160,
-            138,
-            56,
-            20
-          ],
           "appearance": 4,
           "fontname": "Ableton Sans",
           "fontsize": 10,
@@ -1093,11 +1085,24 @@
           "hidden": 1,
           "annotation_name": "Trigger Zone High",
           "annotation": "Highest MIDI note treated as a motif trigger. Notes above this value follow the MIDI Pass setting.",
-          "hint": "Highest MIDI note treated as a motif trigger. Notes above this value follow the MIDI Pass setting."
+          "hint": "Highest MIDI note treated as a motif trigger. Notes above this value follow the MIDI Pass setting.",
+          "id": "obj-26",
+          "maxclass": "live.numbox",
+          "patching_rect": [
+            160,
+            138,
+            56,
+            20
+          ]
         }
       },
       {
         "box": {
+          "text": "§ MIDI I/O - fail-open gate → midiselect → engine / midiout",
+          "fontname": "Ableton Sans",
+          "fontsize": 12,
+          "fontface": 1,
+          "presentation": 0,
           "id": "obj-27",
           "maxclass": "comment",
           "patching_rect": [
@@ -1105,16 +1110,12 @@
             240,
             420,
             20
-          ],
-          "text": "§ MIDI I/O - fail-open gate → midiselect → engine / midiout",
-          "fontname": "Ableton Sans",
-          "fontsize": 12,
-          "fontface": 1,
-          "presentation": 0
+          ]
         }
       },
       {
         "box": {
+          "text": "midiin",
           "id": "obj-28",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1122,12 +1123,12 @@
             280,
             70,
             22
-          ],
-          "text": "midiin"
+          ]
         }
       },
       {
         "box": {
+          "text": "gate 2 1",
           "id": "obj-29",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1135,12 +1136,12 @@
             370,
             80,
             22
-          ],
-          "text": "gate 2 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "loadmess 1",
           "id": "obj-30",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1148,12 +1149,12 @@
             370,
             90,
             22
-          ],
-          "text": "loadmess 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "2",
           "id": "obj-31",
           "maxclass": "message",
           "patching_rect": [
@@ -1161,12 +1162,12 @@
             370,
             40,
             22
-          ],
-          "text": "2"
+          ]
         }
       },
       {
         "box": {
+          "text": "midiselect @ch all @note all",
           "id": "obj-32",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1174,12 +1175,12 @@
             460,
             220,
             22
-          ],
-          "text": "midiselect @ch all @note all"
+          ]
         }
       },
       {
         "box": {
+          "text": "midiparse",
           "id": "obj-33",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1187,12 +1188,12 @@
             460,
             90,
             22
-          ],
-          "text": "midiparse"
+          ]
         }
       },
       {
         "box": {
+          "text": "unpack 0 0",
           "id": "obj-34",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1200,12 +1201,12 @@
             550,
             100,
             22
-          ],
-          "text": "unpack 0 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "pack 0 0 1",
           "id": "obj-35",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1213,12 +1214,12 @@
             640,
             110,
             22
-          ],
-          "text": "pack 0 0 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend note",
           "id": "obj-36",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1226,12 +1227,12 @@
             730,
             110,
             22
-          ],
-          "text": "prepend note"
+          ]
         }
       },
       {
         "box": {
+          "text": "route 64",
           "id": "obj-37",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1239,12 +1240,12 @@
             550,
             80,
             22
-          ],
-          "text": "route 64"
+          ]
         }
       },
       {
         "box": {
+          "text": "pack 0 1",
           "id": "obj-38",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1252,12 +1253,12 @@
             640,
             80,
             22
-          ],
-          "text": "pack 0 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend sustain",
           "id": "obj-39",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1265,12 +1266,12 @@
             730,
             130,
             22
-          ],
-          "text": "prepend sustain"
+          ]
         }
       },
       {
         "box": {
+          "text": "midiflush",
           "id": "obj-40",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1278,12 +1279,12 @@
             910,
             80,
             22
-          ],
-          "text": "midiflush"
+          ]
         }
       },
       {
         "box": {
+          "text": "midiout",
           "id": "obj-41",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1291,12 +1292,16 @@
             1000,
             70,
             22
-          ],
-          "text": "midiout"
+          ]
         }
       },
       {
         "box": {
+          "text": "§ Engine - v8 motif-device.js + event pipe / panic / clear",
+          "fontname": "Ableton Sans",
+          "fontsize": 12,
+          "fontface": 1,
+          "presentation": 0,
           "id": "obj-42",
           "maxclass": "comment",
           "patching_rect": [
@@ -1304,16 +1309,17 @@
             240,
             480,
             20
-          ],
-          "text": "§ Engine - v8 motif-device.js + event pipe / panic / clear",
-          "fontname": "Ableton Sans",
-          "fontsize": 12,
-          "fontface": 1,
-          "presentation": 0
+          ]
         }
       },
       {
         "box": {
+          "text": "v8 motif-device.js",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
           "id": "obj-43",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1321,17 +1327,12 @@
             460,
             200,
             22
-          ],
-          "text": "v8 motif-device.js",
-          "numinlets": 1,
-          "numoutlets": 1,
-          "outlettype": [
-            ""
           ]
         }
       },
       {
         "box": {
+          "text": "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui",
           "id": "obj-44",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1339,12 +1340,12 @@
             550,
             820,
             22
-          ],
-          "text": "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui"
+          ]
         }
       },
       {
         "box": {
+          "text": "unpack 0 0 0 0.",
           "id": "obj-45",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1352,12 +1353,12 @@
             640,
             140,
             22
-          ],
-          "text": "unpack 0 0 0 0."
+          ]
         }
       },
       {
         "box": {
+          "text": "pipe 0 0 0 0.",
           "id": "obj-46",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1365,12 +1366,12 @@
             730,
             130,
             22
-          ],
-          "text": "pipe 0 0 0 0."
+          ]
         }
       },
       {
         "box": {
+          "text": "pack 0 0",
           "id": "obj-47",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1378,12 +1379,12 @@
             820,
             80,
             22
-          ],
-          "text": "pack 0 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "midiformat",
           "id": "obj-48",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1391,12 +1392,12 @@
             910,
             90,
             22
-          ],
-          "text": "midiformat"
+          ]
         }
       },
       {
         "box": {
+          "text": "t b b",
           "id": "obj-49",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1404,12 +1405,12 @@
             640,
             60,
             22
-          ],
-          "text": "t b b"
+          ]
         }
       },
       {
         "box": {
+          "text": "clear",
           "id": "obj-50",
           "maxclass": "message",
           "patching_rect": [
@@ -1417,12 +1418,16 @@
             730,
             60,
             22
-          ],
-          "text": "clear"
+          ]
         }
       },
       {
         "box": {
+          "text": "§ Feedback - motif menu + jweb UI emits (lib/preview as encoded JSON)",
+          "fontname": "Ableton Sans",
+          "fontsize": 12,
+          "fontface": 1,
+          "presentation": 0,
           "id": "obj-51",
           "maxclass": "comment",
           "patching_rect": [
@@ -1430,16 +1435,12 @@
             240,
             560,
             20
-          ],
-          "text": "§ Feedback - motif menu + jweb UI emits (lib/preview as encoded JSON)",
-          "fontname": "Ableton Sans",
-          "fontsize": 12,
-          "fontface": 1,
-          "presentation": 0
+          ]
         }
       },
       {
         "box": {
+          "text": "clear",
           "id": "obj-52",
           "maxclass": "message",
           "patching_rect": [
@@ -1447,12 +1448,12 @@
             460,
             60,
             22
-          ],
-          "text": "clear"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend append",
           "id": "obj-53",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1460,12 +1461,12 @@
             550,
             120,
             22
-          ],
-          "text": "prepend append"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend setsymbol",
           "id": "obj-54",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1473,12 +1474,12 @@
             640,
             140,
             22
-          ],
-          "text": "prepend setsymbol"
+          ]
         }
       },
       {
         "box": {
+          "text": "route lib preview",
           "id": "obj-55",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1486,12 +1487,12 @@
             820,
             220,
             22
-          ],
-          "text": "route lib preview"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend receiveData",
           "id": "obj-56",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1499,12 +1500,12 @@
             910,
             180,
             22
-          ],
-          "text": "prepend receiveData"
+          ]
         }
       },
       {
         "box": {
+          "text": "send ---lib-data",
           "id": "obj-57",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1512,12 +1513,12 @@
             1000,
             150,
             22
-          ],
-          "text": "send ---lib-data"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend receiveData",
           "id": "obj-58",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1525,12 +1526,12 @@
             910,
             180,
             22
-          ],
-          "text": "prepend receiveData"
+          ]
         }
       },
       {
         "box": {
+          "text": "route preview_ready preview_debug",
           "id": "obj-59",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1538,12 +1539,12 @@
             1000,
             240,
             22
-          ],
-          "text": "route preview_ready preview_debug"
+          ]
         }
       },
       {
         "box": {
+          "text": "preview_ready",
           "id": "obj-60",
           "maxclass": "message",
           "patching_rect": [
@@ -1551,12 +1552,12 @@
             1000,
             110,
             22
-          ],
-          "text": "preview_ready"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend preview",
           "id": "obj-61",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1564,12 +1565,12 @@
             1090,
             130,
             22
-          ],
-          "text": "prepend preview"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend web_debug",
           "id": "obj-62",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1577,12 +1578,16 @@
             1090,
             150,
             22
-          ],
-          "text": "prepend web_debug"
+          ]
         }
       },
       {
         "box": {
+          "text": "§ Song observers - live.path live_set → live.observer → song_context → v8",
+          "fontname": "Ableton Sans",
+          "fontsize": 12,
+          "fontface": 1,
+          "presentation": 0,
           "id": "obj-63",
           "maxclass": "comment",
           "patching_rect": [
@@ -1590,16 +1595,12 @@
             1160,
             560,
             20
-          ],
-          "text": "§ Song observers - live.path live_set → live.observer → song_context → v8",
-          "fontname": "Ableton Sans",
-          "fontsize": 12,
-          "fontface": 1,
-          "presentation": 0
+          ]
         }
       },
       {
         "box": {
+          "text": "live.thisdevice",
           "id": "obj-64",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1607,12 +1608,12 @@
             1200,
             120,
             22
-          ],
-          "text": "live.thisdevice"
+          ]
         }
       },
       {
         "box": {
+          "text": "t b b b",
           "id": "obj-65",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1620,12 +1621,12 @@
             1290,
             90,
             22
-          ],
-          "text": "t b b b"
+          ]
         }
       },
       {
         "box": {
+          "text": "t b b b b b b b b b",
           "id": "obj-66",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1633,12 +1634,12 @@
             1290,
             200,
             22
-          ],
-          "text": "t b b b b b b b b b"
+          ]
         }
       },
       {
         "box": {
+          "text": "live.path live_set",
           "id": "obj-67",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1646,12 +1647,12 @@
             1380,
             140,
             22
-          ],
-          "text": "live.path live_set"
+          ]
         }
       },
       {
         "box": {
+          "text": "deferlow",
           "id": "obj-68",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1659,12 +1660,12 @@
             1470,
             80,
             22
-          ],
-          "text": "deferlow"
+          ]
         }
       },
       {
         "box": {
+          "text": "initialize",
           "id": "obj-69",
           "maxclass": "message",
           "patching_rect": [
@@ -1672,12 +1673,12 @@
             1560,
             90,
             22
-          ],
-          "text": "initialize"
+          ]
         }
       },
       {
         "box": {
+          "text": "deferlow",
           "id": "obj-70",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1685,12 +1686,12 @@
             1560,
             80,
             22
-          ],
-          "text": "deferlow"
+          ]
         }
       },
       {
         "box": {
+          "text": "route Ready",
           "id": "obj-71",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1698,12 +1699,12 @@
             1560,
             100,
             22
-          ],
-          "text": "route Ready"
+          ]
         }
       },
       {
         "box": {
+          "text": "t b b",
           "id": "obj-72",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1711,12 +1712,12 @@
             1560,
             60,
             22
-          ],
-          "text": "t b b"
+          ]
         }
       },
       {
         "box": {
+          "text": "t b b b b b b b b b",
           "id": "obj-73",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1724,12 +1725,12 @@
             1560,
             210,
             22
-          ],
-          "text": "t b b b b b b b b b"
+          ]
         }
       },
       {
         "box": {
+          "text": "presentation 1",
           "id": "obj-74",
           "maxclass": "message",
           "patching_rect": [
@@ -1737,12 +1738,12 @@
             1380,
             120,
             22
-          ],
-          "text": "presentation 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "thispatcher",
           "id": "obj-75",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1750,12 +1751,12 @@
             1380,
             90,
             22
-          ],
-          "text": "thispatcher"
+          ]
         }
       },
       {
         "box": {
+          "text": "loadmess presentation 1",
           "id": "obj-76",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1763,12 +1764,12 @@
             1290,
             170,
             22
-          ],
-          "text": "loadmess presentation 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "property tempo",
           "id": "obj-77",
           "maxclass": "message",
           "patching_rect": [
@@ -1776,12 +1777,12 @@
             1740,
             210,
             22
-          ],
-          "text": "property tempo"
+          ]
         }
       },
       {
         "box": {
+          "text": "live.observer",
           "id": "obj-78",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1789,12 +1790,12 @@
             1740,
             110,
             22
-          ],
-          "text": "live.observer"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend tempo",
           "id": "obj-79",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1802,12 +1803,12 @@
             1740,
             220,
             22
-          ],
-          "text": "prepend tempo"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend song_context",
           "id": "obj-80",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1815,12 +1816,12 @@
             1740,
             170,
             22
-          ],
-          "text": "prepend song_context"
+          ]
         }
       },
       {
         "box": {
+          "text": "property root_note",
           "id": "obj-81",
           "maxclass": "message",
           "patching_rect": [
@@ -1828,12 +1829,12 @@
             1830,
             210,
             22
-          ],
-          "text": "property root_note"
+          ]
         }
       },
       {
         "box": {
+          "text": "live.observer",
           "id": "obj-82",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1841,12 +1842,12 @@
             1830,
             110,
             22
-          ],
-          "text": "live.observer"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend root_note",
           "id": "obj-83",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1854,12 +1855,12 @@
             1830,
             220,
             22
-          ],
-          "text": "prepend root_note"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend song_context",
           "id": "obj-84",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1867,12 +1868,12 @@
             1830,
             170,
             22
-          ],
-          "text": "prepend song_context"
+          ]
         }
       },
       {
         "box": {
+          "text": "property scale_mode",
           "id": "obj-85",
           "maxclass": "message",
           "patching_rect": [
@@ -1880,12 +1881,12 @@
             1920,
             210,
             22
-          ],
-          "text": "property scale_mode"
+          ]
         }
       },
       {
         "box": {
+          "text": "live.observer",
           "id": "obj-86",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1893,12 +1894,12 @@
             1920,
             110,
             22
-          ],
-          "text": "live.observer"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend scale_mode",
           "id": "obj-87",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1906,12 +1907,12 @@
             1920,
             220,
             22
-          ],
-          "text": "prepend scale_mode"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend song_context",
           "id": "obj-88",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1919,12 +1920,12 @@
             1920,
             170,
             22
-          ],
-          "text": "prepend song_context"
+          ]
         }
       },
       {
         "box": {
+          "text": "property scale_intervals",
           "id": "obj-89",
           "maxclass": "message",
           "patching_rect": [
@@ -1932,12 +1933,12 @@
             2010,
             210,
             22
-          ],
-          "text": "property scale_intervals"
+          ]
         }
       },
       {
         "box": {
+          "text": "live.observer",
           "id": "obj-90",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1945,12 +1946,12 @@
             2010,
             110,
             22
-          ],
-          "text": "live.observer"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend scale_intervals",
           "id": "obj-91",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1958,12 +1959,12 @@
             2010,
             220,
             22
-          ],
-          "text": "prepend scale_intervals"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend song_context",
           "id": "obj-92",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1971,12 +1972,12 @@
             2010,
             170,
             22
-          ],
-          "text": "prepend song_context"
+          ]
         }
       },
       {
         "box": {
+          "text": "property scale_name",
           "id": "obj-93",
           "maxclass": "message",
           "patching_rect": [
@@ -1984,12 +1985,12 @@
             2100,
             210,
             22
-          ],
-          "text": "property scale_name"
+          ]
         }
       },
       {
         "box": {
+          "text": "live.observer",
           "id": "obj-94",
           "maxclass": "newobj",
           "patching_rect": [
@@ -1997,12 +1998,12 @@
             2100,
             110,
             22
-          ],
-          "text": "live.observer"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend scale_name",
           "id": "obj-95",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2010,12 +2011,12 @@
             2100,
             220,
             22
-          ],
-          "text": "prepend scale_name"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend song_context",
           "id": "obj-96",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2023,12 +2024,12 @@
             2100,
             170,
             22
-          ],
-          "text": "prepend song_context"
+          ]
         }
       },
       {
         "box": {
+          "text": "property signature_numerator",
           "id": "obj-97",
           "maxclass": "message",
           "patching_rect": [
@@ -2036,12 +2037,12 @@
             2190,
             210,
             22
-          ],
-          "text": "property signature_numerator"
+          ]
         }
       },
       {
         "box": {
+          "text": "live.observer",
           "id": "obj-98",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2049,12 +2050,12 @@
             2190,
             110,
             22
-          ],
-          "text": "live.observer"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend signature_numerator",
           "id": "obj-99",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2062,12 +2063,12 @@
             2190,
             220,
             22
-          ],
-          "text": "prepend signature_numerator"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend song_context",
           "id": "obj-100",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2075,12 +2076,12 @@
             2190,
             170,
             22
-          ],
-          "text": "prepend song_context"
+          ]
         }
       },
       {
         "box": {
+          "text": "property signature_denominator",
           "id": "obj-101",
           "maxclass": "message",
           "patching_rect": [
@@ -2088,12 +2089,12 @@
             2280,
             210,
             22
-          ],
-          "text": "property signature_denominator"
+          ]
         }
       },
       {
         "box": {
+          "text": "live.observer",
           "id": "obj-102",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2101,12 +2102,12 @@
             2280,
             110,
             22
-          ],
-          "text": "live.observer"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend signature_denominator",
           "id": "obj-103",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2114,12 +2115,12 @@
             2280,
             220,
             22
-          ],
-          "text": "prepend signature_denominator"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend song_context",
           "id": "obj-104",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2127,12 +2128,12 @@
             2280,
             170,
             22
-          ],
-          "text": "prepend song_context"
+          ]
         }
       },
       {
         "box": {
+          "text": "property is_playing",
           "id": "obj-105",
           "maxclass": "message",
           "patching_rect": [
@@ -2140,12 +2141,12 @@
             2370,
             210,
             22
-          ],
-          "text": "property is_playing"
+          ]
         }
       },
       {
         "box": {
+          "text": "live.observer",
           "id": "obj-106",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2153,12 +2154,12 @@
             2370,
             110,
             22
-          ],
-          "text": "live.observer"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend is_playing",
           "id": "obj-107",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2166,12 +2167,12 @@
             2370,
             220,
             22
-          ],
-          "text": "prepend is_playing"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend song_context",
           "id": "obj-108",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2179,12 +2180,12 @@
             2370,
             170,
             22
-          ],
-          "text": "prepend song_context"
+          ]
         }
       },
       {
         "box": {
+          "text": "property current_song_time",
           "id": "obj-109",
           "maxclass": "message",
           "patching_rect": [
@@ -2192,12 +2193,12 @@
             2460,
             210,
             22
-          ],
-          "text": "property current_song_time"
+          ]
         }
       },
       {
         "box": {
+          "text": "live.observer",
           "id": "obj-110",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2205,12 +2206,12 @@
             2460,
             110,
             22
-          ],
-          "text": "live.observer"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend current_song_time",
           "id": "obj-111",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2218,12 +2219,12 @@
             2460,
             220,
             22
-          ],
-          "text": "prepend current_song_time"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend song_context",
           "id": "obj-112",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2231,12 +2232,16 @@
             2460,
             170,
             22
-          ],
-          "text": "prepend song_context"
+          ]
         }
       },
       {
         "box": {
+          "text": "§ Host displays - Scale live.menus; active follows Song.scale_mode",
+          "fontname": "Ableton Sans",
+          "fontsize": 12,
+          "fontface": 1,
+          "presentation": 0,
           "id": "obj-113",
           "maxclass": "comment",
           "patching_rect": [
@@ -2244,16 +2249,12 @@
             2600,
             520,
             20
-          ],
-          "text": "§ Host displays - Scale live.menus; active follows Song.scale_mode",
-          "fontname": "Ableton Sans",
-          "fontsize": 12,
-          "fontface": 1,
-          "presentation": 0
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend set",
           "id": "obj-114",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2261,12 +2262,12 @@
             2640,
             100,
             22
-          ],
-          "text": "prepend set"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend setsymbol",
           "id": "obj-115",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2274,12 +2275,12 @@
             2640,
             140,
             22
-          ],
-          "text": "prepend setsymbol"
+          ]
         }
       },
       {
         "box": {
+          "text": "sel 0 1",
           "id": "obj-116",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2287,12 +2288,12 @@
             2640,
             70,
             22
-          ],
-          "text": "sel 0 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "t b b",
           "id": "obj-117",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2300,12 +2301,12 @@
             2640,
             60,
             22
-          ],
-          "text": "t b b"
+          ]
         }
       },
       {
         "box": {
+          "text": "t b b",
           "id": "obj-118",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2313,12 +2314,12 @@
             2730,
             60,
             22
-          ],
-          "text": "t b b"
+          ]
         }
       },
       {
         "box": {
+          "text": "active 0",
           "id": "obj-119",
           "maxclass": "message",
           "patching_rect": [
@@ -2326,12 +2327,12 @@
             2640,
             80,
             22
-          ],
-          "text": "active 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "active 0",
           "id": "obj-120",
           "maxclass": "message",
           "patching_rect": [
@@ -2339,12 +2340,12 @@
             2640,
             80,
             22
-          ],
-          "text": "active 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "active 1",
           "id": "obj-121",
           "maxclass": "message",
           "patching_rect": [
@@ -2352,12 +2353,12 @@
             2730,
             80,
             22
-          ],
-          "text": "active 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "active 1",
           "id": "obj-122",
           "maxclass": "message",
           "patching_rect": [
@@ -2365,12 +2366,16 @@
             2730,
             80,
             22
-          ],
-          "text": "active 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "§ Tabs - live.tab → thispatcher hide/show Motif vs Settings boxes",
+          "fontname": "Ableton Sans",
+          "fontsize": 12,
+          "fontface": 1,
+          "presentation": 0,
           "id": "obj-123",
           "maxclass": "comment",
           "patching_rect": [
@@ -2378,16 +2383,12 @@
             3160,
             520,
             20
-          ],
-          "text": "§ Tabs - live.tab → thispatcher hide/show Motif vs Settings boxes",
-          "fontname": "Ableton Sans",
-          "fontsize": 12,
-          "fontface": 1,
-          "presentation": 0
+          ]
         }
       },
       {
         "box": {
+          "text": "sel 0 1",
           "id": "obj-124",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2395,12 +2396,12 @@
             3200,
             70,
             22
-          ],
-          "text": "sel 0 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "bang",
           "id": "obj-125",
           "maxclass": "message",
           "patching_rect": [
@@ -2408,12 +2409,12 @@
             3200,
             60,
             22
-          ],
-          "text": "bang"
+          ]
         }
       },
       {
         "box": {
+          "text": "bang",
           "id": "obj-126",
           "maxclass": "message",
           "patching_rect": [
@@ -2421,12 +2422,12 @@
             3290,
             60,
             22
-          ],
-          "text": "bang"
+          ]
         }
       },
       {
         "box": {
+          "text": "t b b b b b b b b b b b b b b b b b b b b b b b b b",
           "id": "obj-127",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2434,12 +2435,12 @@
             3200,
             350,
             22
-          ],
-          "text": "t b b b b b b b b b b b b b b b b b b b b b b b b b"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox trigger-label hidden 1",
           "id": "obj-128",
           "maxclass": "message",
           "patching_rect": [
@@ -2447,12 +2448,12 @@
             3200,
             260,
             22
-          ],
-          "text": "script sendbox trigger-label hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox trigger-menu hidden 1",
           "id": "obj-129",
           "maxclass": "message",
           "patching_rect": [
@@ -2460,12 +2461,12 @@
             3270,
             260,
             22
-          ],
-          "text": "script sendbox trigger-menu hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox quant-label hidden 1",
           "id": "obj-130",
           "maxclass": "message",
           "patching_rect": [
@@ -2473,12 +2474,12 @@
             3340,
             260,
             22
-          ],
-          "text": "script sendbox quant-label hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox quant-menu hidden 1",
           "id": "obj-131",
           "maxclass": "message",
           "patching_rect": [
@@ -2486,12 +2487,12 @@
             3410,
             260,
             22
-          ],
-          "text": "script sendbox quant-menu hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox pass-label hidden 1",
           "id": "obj-132",
           "maxclass": "message",
           "patching_rect": [
@@ -2499,12 +2500,12 @@
             3480,
             260,
             22
-          ],
-          "text": "script sendbox pass-label hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox pass-menu hidden 1",
           "id": "obj-133",
           "maxclass": "message",
           "patching_rect": [
@@ -2512,12 +2513,12 @@
             3550,
             260,
             22
-          ],
-          "text": "script sendbox pass-menu hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox meter-label hidden 1",
           "id": "obj-134",
           "maxclass": "message",
           "patching_rect": [
@@ -2525,12 +2526,12 @@
             3620,
             260,
             22
-          ],
-          "text": "script sendbox meter-label hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox meter-tab hidden 1",
           "id": "obj-135",
           "maxclass": "message",
           "patching_rect": [
@@ -2538,12 +2539,12 @@
             3690,
             260,
             22
-          ],
-          "text": "script sendbox meter-tab hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox retrigger-label hidden 1",
           "id": "obj-136",
           "maxclass": "message",
           "patching_rect": [
@@ -2551,12 +2552,12 @@
             3760,
             260,
             22
-          ],
-          "text": "script sendbox retrigger-label hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox retrigger-tab hidden 1",
           "id": "obj-137",
           "maxclass": "message",
           "patching_rect": [
@@ -2564,12 +2565,12 @@
             3830,
             260,
             22
-          ],
-          "text": "script sendbox retrigger-tab hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox zone-label hidden 1",
           "id": "obj-138",
           "maxclass": "message",
           "patching_rect": [
@@ -2577,12 +2578,12 @@
             3900,
             260,
             22
-          ],
-          "text": "script sendbox zone-label hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox low-number hidden 1",
           "id": "obj-139",
           "maxclass": "message",
           "patching_rect": [
@@ -2590,12 +2591,12 @@
             3970,
             260,
             22
-          ],
-          "text": "script sendbox low-number hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox high-number hidden 1",
           "id": "obj-140",
           "maxclass": "message",
           "patching_rect": [
@@ -2603,12 +2604,12 @@
             3200,
             260,
             22
-          ],
-          "text": "script sendbox high-number hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox motif-menu hidden 0",
           "id": "obj-141",
           "maxclass": "message",
           "patching_rect": [
@@ -2616,12 +2617,12 @@
             3270,
             260,
             22
-          ],
-          "text": "script sendbox motif-menu hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox tempo-mult-label hidden 0",
           "id": "obj-142",
           "maxclass": "message",
           "patching_rect": [
@@ -2629,12 +2630,12 @@
             3340,
             260,
             22
-          ],
-          "text": "script sendbox tempo-mult-label hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox tempo-mult-menu hidden 0",
           "id": "obj-143",
           "maxclass": "message",
           "patching_rect": [
@@ -2642,12 +2643,12 @@
             3410,
             260,
             22
-          ],
-          "text": "script sendbox tempo-mult-menu hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox info-button hidden 0",
           "id": "obj-144",
           "maxclass": "message",
           "patching_rect": [
@@ -2655,12 +2656,12 @@
             3480,
             260,
             22
-          ],
-          "text": "script sendbox info-button hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox panic-button hidden 0",
           "id": "obj-145",
           "maxclass": "message",
           "patching_rect": [
@@ -2668,12 +2669,12 @@
             3550,
             260,
             22
-          ],
-          "text": "script sendbox panic-button hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox ui-preview-panel hidden 0",
           "id": "obj-146",
           "maxclass": "message",
           "patching_rect": [
@@ -2681,12 +2682,12 @@
             3620,
             260,
             22
-          ],
-          "text": "script sendbox ui-preview-panel hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox motif-preview hidden 0",
           "id": "obj-147",
           "maxclass": "message",
           "patching_rect": [
@@ -2694,12 +2695,12 @@
             3690,
             260,
             22
-          ],
-          "text": "script sendbox motif-preview hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox pitch-label hidden 0",
           "id": "obj-148",
           "maxclass": "message",
           "patching_rect": [
@@ -2707,12 +2708,12 @@
             3760,
             260,
             22
-          ],
-          "text": "script sendbox pitch-label hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox pitch-menu hidden 0",
           "id": "obj-149",
           "maxclass": "message",
           "patching_rect": [
@@ -2720,12 +2721,12 @@
             3830,
             260,
             22
-          ],
-          "text": "script sendbox pitch-menu hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox scale-label hidden 0",
           "id": "obj-150",
           "maxclass": "message",
           "patching_rect": [
@@ -2733,12 +2734,12 @@
             3900,
             260,
             22
-          ],
-          "text": "script sendbox scale-label hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox root-display hidden 0",
           "id": "obj-151",
           "maxclass": "message",
           "patching_rect": [
@@ -2746,12 +2747,12 @@
             3970,
             260,
             22
-          ],
-          "text": "script sendbox root-display hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox scale-name-display hidden 0",
           "id": "obj-152",
           "maxclass": "message",
           "patching_rect": [
@@ -2759,12 +2760,12 @@
             3200,
             260,
             22
-          ],
-          "text": "script sendbox scale-name-display hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "t b b b b b b b b b b b b b b b b b b b b b b b b b",
           "id": "obj-153",
           "maxclass": "newobj",
           "patching_rect": [
@@ -2772,12 +2773,12 @@
             4460,
             350,
             22
-          ],
-          "text": "t b b b b b b b b b b b b b b b b b b b b b b b b b"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox motif-menu hidden 1",
           "id": "obj-154",
           "maxclass": "message",
           "patching_rect": [
@@ -2785,12 +2786,12 @@
             4460,
             260,
             22
-          ],
-          "text": "script sendbox motif-menu hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox tempo-mult-label hidden 1",
           "id": "obj-155",
           "maxclass": "message",
           "patching_rect": [
@@ -2798,12 +2799,12 @@
             4530,
             260,
             22
-          ],
-          "text": "script sendbox tempo-mult-label hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox tempo-mult-menu hidden 1",
           "id": "obj-156",
           "maxclass": "message",
           "patching_rect": [
@@ -2811,12 +2812,12 @@
             4600,
             260,
             22
-          ],
-          "text": "script sendbox tempo-mult-menu hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox info-button hidden 1",
           "id": "obj-157",
           "maxclass": "message",
           "patching_rect": [
@@ -2824,12 +2825,12 @@
             4670,
             260,
             22
-          ],
-          "text": "script sendbox info-button hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox panic-button hidden 1",
           "id": "obj-158",
           "maxclass": "message",
           "patching_rect": [
@@ -2837,12 +2838,12 @@
             4740,
             260,
             22
-          ],
-          "text": "script sendbox panic-button hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox ui-preview-panel hidden 1",
           "id": "obj-159",
           "maxclass": "message",
           "patching_rect": [
@@ -2850,12 +2851,12 @@
             4810,
             260,
             22
-          ],
-          "text": "script sendbox ui-preview-panel hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox motif-preview hidden 1",
           "id": "obj-160",
           "maxclass": "message",
           "patching_rect": [
@@ -2863,12 +2864,12 @@
             4880,
             260,
             22
-          ],
-          "text": "script sendbox motif-preview hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox pitch-label hidden 1",
           "id": "obj-161",
           "maxclass": "message",
           "patching_rect": [
@@ -2876,12 +2877,12 @@
             4950,
             260,
             22
-          ],
-          "text": "script sendbox pitch-label hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox pitch-menu hidden 1",
           "id": "obj-162",
           "maxclass": "message",
           "patching_rect": [
@@ -2889,12 +2890,12 @@
             5020,
             260,
             22
-          ],
-          "text": "script sendbox pitch-menu hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox scale-label hidden 1",
           "id": "obj-163",
           "maxclass": "message",
           "patching_rect": [
@@ -2902,12 +2903,12 @@
             5090,
             260,
             22
-          ],
-          "text": "script sendbox scale-label hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox root-display hidden 1",
           "id": "obj-164",
           "maxclass": "message",
           "patching_rect": [
@@ -2915,12 +2916,12 @@
             5160,
             260,
             22
-          ],
-          "text": "script sendbox root-display hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox scale-name-display hidden 1",
           "id": "obj-165",
           "maxclass": "message",
           "patching_rect": [
@@ -2928,12 +2929,12 @@
             5230,
             260,
             22
-          ],
-          "text": "script sendbox scale-name-display hidden 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox trigger-label hidden 0",
           "id": "obj-166",
           "maxclass": "message",
           "patching_rect": [
@@ -2941,12 +2942,12 @@
             4460,
             260,
             22
-          ],
-          "text": "script sendbox trigger-label hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox trigger-menu hidden 0",
           "id": "obj-167",
           "maxclass": "message",
           "patching_rect": [
@@ -2954,12 +2955,12 @@
             4530,
             260,
             22
-          ],
-          "text": "script sendbox trigger-menu hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox quant-label hidden 0",
           "id": "obj-168",
           "maxclass": "message",
           "patching_rect": [
@@ -2967,12 +2968,12 @@
             4600,
             260,
             22
-          ],
-          "text": "script sendbox quant-label hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox quant-menu hidden 0",
           "id": "obj-169",
           "maxclass": "message",
           "patching_rect": [
@@ -2980,12 +2981,12 @@
             4670,
             260,
             22
-          ],
-          "text": "script sendbox quant-menu hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox pass-label hidden 0",
           "id": "obj-170",
           "maxclass": "message",
           "patching_rect": [
@@ -2993,12 +2994,12 @@
             4740,
             260,
             22
-          ],
-          "text": "script sendbox pass-label hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox pass-menu hidden 0",
           "id": "obj-171",
           "maxclass": "message",
           "patching_rect": [
@@ -3006,12 +3007,12 @@
             4810,
             260,
             22
-          ],
-          "text": "script sendbox pass-menu hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox meter-label hidden 0",
           "id": "obj-172",
           "maxclass": "message",
           "patching_rect": [
@@ -3019,12 +3020,12 @@
             4880,
             260,
             22
-          ],
-          "text": "script sendbox meter-label hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox meter-tab hidden 0",
           "id": "obj-173",
           "maxclass": "message",
           "patching_rect": [
@@ -3032,12 +3033,12 @@
             4950,
             260,
             22
-          ],
-          "text": "script sendbox meter-tab hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox retrigger-label hidden 0",
           "id": "obj-174",
           "maxclass": "message",
           "patching_rect": [
@@ -3045,12 +3046,12 @@
             5020,
             260,
             22
-          ],
-          "text": "script sendbox retrigger-label hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox retrigger-tab hidden 0",
           "id": "obj-175",
           "maxclass": "message",
           "patching_rect": [
@@ -3058,12 +3059,12 @@
             5090,
             260,
             22
-          ],
-          "text": "script sendbox retrigger-tab hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox zone-label hidden 0",
           "id": "obj-176",
           "maxclass": "message",
           "patching_rect": [
@@ -3071,12 +3072,12 @@
             5160,
             260,
             22
-          ],
-          "text": "script sendbox zone-label hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox low-number hidden 0",
           "id": "obj-177",
           "maxclass": "message",
           "patching_rect": [
@@ -3084,12 +3085,12 @@
             5230,
             260,
             22
-          ],
-          "text": "script sendbox low-number hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "script sendbox high-number hidden 0",
           "id": "obj-178",
           "maxclass": "message",
           "patching_rect": [
@@ -3097,12 +3098,16 @@
             4460,
             260,
             22
-          ],
-          "text": "script sendbox high-number hidden 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "§ Library/Authoring - pcontrol float (search, clip import, note edit)",
+          "fontname": "Ableton Sans",
+          "fontsize": 12,
+          "fontface": 1,
+          "presentation": 0,
           "id": "obj-179",
           "maxclass": "comment",
           "patching_rect": [
@@ -3110,24 +3115,11 @@
             3160,
             480,
             20
-          ],
-          "text": "§ Library/Authoring - pcontrol float (search, clip import, note edit)",
-          "fontname": "Ableton Sans",
-          "fontsize": 12,
-          "fontface": 1,
-          "presentation": 0
+          ]
         }
       },
       {
         "box": {
-          "id": "obj-199",
-          "maxclass": "newobj",
-          "patching_rect": [
-            2000,
-            3650,
-            140,
-            22
-          ],
           "text": "p library-info",
           "patcher": {
             "fileversion": 1,
@@ -3162,14 +3154,6 @@
             "boxes": [
               {
                 "box": {
-                  "id": "obj-180",
-                  "maxclass": "jweb",
-                  "patching_rect": [
-                    0,
-                    0,
-                    640,
-                    460
-                  ],
                   "presentation": 1,
                   "presentation_rect": [
                     0,
@@ -3179,7 +3163,15 @@
                   ],
                   "rendermode": 0,
                   "autosize": 1,
-                  "varname": "jweb-library"
+                  "varname": "jweb-library",
+                  "id": "obj-180",
+                  "maxclass": "jweb",
+                  "patching_rect": [
+                    0,
+                    0,
+                    640,
+                    460
+                  ]
                 }
               },
               {
@@ -3196,6 +3188,7 @@
               },
               {
                 "box": {
+                  "text": "thispatcher",
                   "id": "obj-182",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3203,12 +3196,12 @@
                     500,
                     90,
                     22
-                  ],
-                  "text": "thispatcher"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "loadmess presentation 1",
                   "id": "obj-183",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3216,12 +3209,12 @@
                     500,
                     160,
                     22
-                  ],
-                  "text": "loadmess presentation 1"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "loadmess window size 640 460",
                   "id": "obj-184",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3229,12 +3222,12 @@
                     500,
                     180,
                     22
-                  ],
-                  "text": "loadmess window size 640 460"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "loadmess title \"Motif Library\"",
                   "id": "obj-185",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3242,12 +3235,12 @@
                     500,
                     210,
                     22
-                  ],
-                  "text": "loadmess title \"Motif Library\""
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "loadmess readfile library.html",
                   "id": "obj-186",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3255,12 +3248,12 @@
                     500,
                     210,
                     22
-                  ],
-                  "text": "loadmess readfile library.html"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "receive ---lib-data",
                   "id": "obj-187",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3268,12 +3261,12 @@
                     536,
                     170,
                     22
-                  ],
-                  "text": "receive ---lib-data"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "route choose_library library_ready web_debug lib_action url title",
                   "id": "obj-188",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3281,12 +3274,12 @@
                     608,
                     470,
                     22
-                  ],
-                  "text": "route choose_library library_ready web_debug lib_action url title"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "opendialog fold",
                   "id": "obj-189",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3294,12 +3287,12 @@
                     644,
                     120,
                     22
-                  ],
-                  "text": "opendialog fold"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "send ---library_path",
                   "id": "obj-190",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3307,12 +3300,12 @@
                     644,
                     160,
                     22
-                  ],
-                  "text": "send ---library_path"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "library_ready",
                   "id": "obj-191",
                   "maxclass": "message",
                   "patching_rect": [
@@ -3320,12 +3313,12 @@
                     644,
                     110,
                     22
-                  ],
-                  "text": "library_ready"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "prepend lib_action",
                   "id": "obj-192",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3333,12 +3326,12 @@
                     608,
                     160,
                     22
-                  ],
-                  "text": "prepend lib_action"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "send ---motif_author",
                   "id": "obj-193",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3346,12 +3339,12 @@
                     608,
                     170,
                     22
-                  ],
-                  "text": "send ---motif_author"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "send ---motif_web_debug",
                   "id": "obj-194",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3359,12 +3352,12 @@
                     644,
                     190,
                     22
-                  ],
-                  "text": "send ---motif_web_debug"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "prepend library-url",
                   "id": "obj-195",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3372,12 +3365,12 @@
                     680,
                     150,
                     22
-                  ],
-                  "text": "prepend library-url"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "prepend library-title",
                   "id": "obj-196",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3385,12 +3378,12 @@
                     680,
                     160,
                     22
-                  ],
-                  "text": "prepend library-title"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "print Motif-jweb",
                   "id": "obj-197",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3398,12 +3391,12 @@
                     680,
                     140,
                     22
-                  ],
-                  "text": "print Motif-jweb"
+                  ]
                 }
               },
               {
                 "box": {
+                  "text": "prepend library-unhandled",
                   "id": "obj-198",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3411,8 +3404,7 @@
                     680,
                     190,
                     22
-                  ],
-                  "text": "prepend library-unhandled"
+                  ]
                 }
               }
             ],
@@ -3660,11 +3652,20 @@
             ],
             "dependency_cache": [],
             "autosave": 0
-          }
+          },
+          "id": "obj-199",
+          "maxclass": "newobj",
+          "patching_rect": [
+            2000,
+            3650,
+            140,
+            22
+          ]
         }
       },
       {
         "box": {
+          "text": "pcontrol",
           "id": "obj-200",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3672,12 +3673,12 @@
             3470,
             80,
             22
-          ],
-          "text": "pcontrol"
+          ]
         }
       },
       {
         "box": {
+          "text": "t b b b b b",
           "id": "obj-201",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3685,12 +3686,12 @@
             3200,
             110,
             22
-          ],
-          "text": "t b b b b b"
+          ]
         }
       },
       {
         "box": {
+          "text": "window flags float grow close zoom",
           "id": "obj-202",
           "maxclass": "message",
           "patching_rect": [
@@ -3698,12 +3699,12 @@
             3200,
             230,
             22
-          ],
-          "text": "window flags float grow close zoom"
+          ]
         }
       },
       {
         "box": {
+          "text": "window size 640 460",
           "id": "obj-203",
           "maxclass": "message",
           "patching_rect": [
@@ -3711,12 +3712,12 @@
             3290,
             150,
             22
-          ],
-          "text": "window size 640 460"
+          ]
         }
       },
       {
         "box": {
+          "text": "window size 640 460",
           "id": "obj-204",
           "maxclass": "message",
           "patching_rect": [
@@ -3724,12 +3725,12 @@
             3380,
             150,
             22
-          ],
-          "text": "window size 640 460"
+          ]
         }
       },
       {
         "box": {
+          "text": "window exec",
           "id": "obj-205",
           "maxclass": "message",
           "patching_rect": [
@@ -3737,12 +3738,12 @@
             3470,
             110,
             22
-          ],
-          "text": "window exec"
+          ]
         }
       },
       {
         "box": {
+          "text": "open",
           "id": "obj-206",
           "maxclass": "message",
           "patching_rect": [
@@ -3750,12 +3751,12 @@
             3560,
             60,
             22
-          ],
-          "text": "open"
+          ]
         }
       },
       {
         "box": {
+          "text": "deferlow",
           "id": "obj-207",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3763,12 +3764,12 @@
             3380,
             80,
             22
-          ],
-          "text": "deferlow"
+          ]
         }
       },
       {
         "box": {
+          "text": "receive ---library_path",
           "id": "obj-208",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3776,12 +3777,12 @@
             3200,
             180,
             22
-          ],
-          "text": "receive ---library_path"
+          ]
         }
       },
       {
         "box": {
+          "text": "pattr motif_library_path @autorestore 1 @thru 2 @parameter_enable 1 @parameter_mappable 0",
           "id": "obj-209",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3789,12 +3790,12 @@
             3200,
             480,
             22
-          ],
-          "text": "pattr motif_library_path @autorestore 1 @thru 2 @parameter_enable 1 @parameter_mappable 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend library_path",
           "id": "obj-210",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3802,12 +3803,12 @@
             3200,
             160,
             22
-          ],
-          "text": "prepend library_path"
+          ]
         }
       },
       {
         "box": {
+          "text": "deferlow",
           "id": "obj-211",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3815,12 +3816,12 @@
             3290,
             80,
             22
-          ],
-          "text": "deferlow"
+          ]
         }
       },
       {
         "box": {
+          "text": "bang",
           "id": "obj-212",
           "maxclass": "message",
           "patching_rect": [
@@ -3828,12 +3829,12 @@
             3290,
             60,
             22
-          ],
-          "text": "bang"
+          ]
         }
       },
       {
         "box": {
+          "text": "receive ---motif_author",
           "id": "obj-213",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3841,12 +3842,12 @@
             3290,
             180,
             22
-          ],
-          "text": "receive ---motif_author"
+          ]
         }
       },
       {
         "box": {
+          "text": "receive ---motif_web_debug",
           "id": "obj-214",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3854,12 +3855,12 @@
             3380,
             210,
             22
-          ],
-          "text": "receive ---motif_web_debug"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend web_debug",
           "id": "obj-215",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3867,12 +3868,16 @@
             3380,
             160,
             22
-          ],
-          "text": "prepend web_debug"
+          ]
         }
       },
       {
         "box": {
+          "text": "§ Controls → v8 - menus/tabs/numbers + loadmess defaults",
+          "fontname": "Ableton Sans",
+          "fontsize": 12,
+          "fontface": 1,
+          "presentation": 0,
           "id": "obj-216",
           "maxclass": "comment",
           "patching_rect": [
@@ -3880,16 +3885,12 @@
             4760,
             480,
             20
-          ],
-          "text": "§ Controls → v8 - menus/tabs/numbers + loadmess defaults",
-          "fontname": "Ableton Sans",
-          "fontsize": 12,
-          "fontface": 1,
-          "presentation": 0
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend motif",
           "id": "obj-217",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3897,12 +3898,12 @@
             4800,
             110,
             22
-          ],
-          "text": "prepend motif"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend pitch_mode",
           "id": "obj-218",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3910,12 +3911,12 @@
             4800,
             150,
             22
-          ],
-          "text": "prepend pitch_mode"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend tempo_multiplier",
           "id": "obj-219",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3923,12 +3924,12 @@
             4800,
             180,
             22
-          ],
-          "text": "prepend tempo_multiplier"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend trigger_mode",
           "id": "obj-220",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3936,12 +3937,12 @@
             4800,
             160,
             22
-          ],
-          "text": "prepend trigger_mode"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend launch_quantization",
           "id": "obj-221",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3949,12 +3950,12 @@
             4800,
             200,
             22
-          ],
-          "text": "prepend launch_quantization"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend pass_through",
           "id": "obj-222",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3962,12 +3963,12 @@
             4800,
             170,
             22
-          ],
-          "text": "prepend pass_through"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend meter_mode",
           "id": "obj-223",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3975,12 +3976,12 @@
             4890,
             150,
             22
-          ],
-          "text": "prepend meter_mode"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend retrigger",
           "id": "obj-224",
           "maxclass": "newobj",
           "patching_rect": [
@@ -3988,12 +3989,12 @@
             4890,
             140,
             22
-          ],
-          "text": "prepend retrigger"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend trigger_low",
           "id": "obj-225",
           "maxclass": "newobj",
           "patching_rect": [
@@ -4001,12 +4002,12 @@
             4890,
             150,
             22
-          ],
-          "text": "prepend trigger_low"
+          ]
         }
       },
       {
         "box": {
+          "text": "prepend trigger_high",
           "id": "obj-226",
           "maxclass": "newobj",
           "patching_rect": [
@@ -4014,12 +4015,12 @@
             4890,
             150,
             22
-          ],
-          "text": "prepend trigger_high"
+          ]
         }
       },
       {
         "box": {
+          "text": "panic",
           "id": "obj-227",
           "maxclass": "message",
           "patching_rect": [
@@ -4027,12 +4028,12 @@
             4890,
             60,
             22
-          ],
-          "text": "panic"
+          ]
         }
       },
       {
         "box": {
+          "text": "loadmess 0",
           "id": "obj-228",
           "maxclass": "newobj",
           "patching_rect": [
@@ -4040,12 +4041,12 @@
             5070,
             90,
             22
-          ],
-          "text": "loadmess 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "loadmess 1",
           "id": "obj-229",
           "maxclass": "newobj",
           "patching_rect": [
@@ -4053,12 +4054,12 @@
             5070,
             90,
             22
-          ],
-          "text": "loadmess 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "loadmess 0",
           "id": "obj-230",
           "maxclass": "newobj",
           "patching_rect": [
@@ -4066,12 +4067,12 @@
             5070,
             90,
             22
-          ],
-          "text": "loadmess 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "loadmess 0",
           "id": "obj-231",
           "maxclass": "newobj",
           "patching_rect": [
@@ -4079,12 +4080,12 @@
             5070,
             90,
             22
-          ],
-          "text": "loadmess 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "loadmess 1",
           "id": "obj-232",
           "maxclass": "newobj",
           "patching_rect": [
@@ -4092,12 +4093,12 @@
             5070,
             90,
             22
-          ],
-          "text": "loadmess 1"
+          ]
         }
       },
       {
         "box": {
+          "text": "loadmess 0",
           "id": "obj-233",
           "maxclass": "newobj",
           "patching_rect": [
@@ -4105,12 +4106,12 @@
             5070,
             90,
             22
-          ],
-          "text": "loadmess 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "loadmess 0",
           "id": "obj-234",
           "maxclass": "newobj",
           "patching_rect": [
@@ -4118,12 +4119,12 @@
             5070,
             90,
             22
-          ],
-          "text": "loadmess 0"
+          ]
         }
       },
       {
         "box": {
+          "text": "loadmess 36",
           "id": "obj-235",
           "maxclass": "newobj",
           "patching_rect": [
@@ -4131,12 +4132,12 @@
             5070,
             90,
             22
-          ],
-          "text": "loadmess 36"
+          ]
         }
       },
       {
         "box": {
+          "text": "loadmess 84",
           "id": "obj-236",
           "maxclass": "newobj",
           "patching_rect": [
@@ -4144,12 +4145,12 @@
             5070,
             90,
             22
-          ],
-          "text": "loadmess 84"
+          ]
         }
       },
       {
         "box": {
+          "text": "loadmess 0",
           "id": "obj-237",
           "maxclass": "newobj",
           "patching_rect": [
@@ -4157,8 +4158,7 @@
             5070,
             90,
             22
-          ],
-          "text": "loadmess 0"
+          ]
         }
       }
     ],

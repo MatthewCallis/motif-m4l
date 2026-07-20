@@ -4,9 +4,9 @@ import { buildMotifPreview, midiNoteName } from '../src/core/preview.js';
 import type { HostContext } from '../src/core/types.js';
 import { BUILTIN_MOTIFS } from '../src/generated/builtins.js';
 
-const mitsuda = BUILTIN_MOTIFS.find(({ id }) => id === 'mitsuda-lick');
+const chromaticTurn = BUILTIN_MOTIFS.find(({ id }) => id === 'chromatic-turn');
 const scaleTurn = BUILTIN_MOTIFS.find(({ id }) => id === 'scale-turn');
-if (!mitsuda || !scaleTurn) throw new Error('Missing built-in motifs');
+if (!chromaticTurn || !scaleTurn) throw new Error('Missing built-in motifs');
 
 const host: HostContext = {
   tempo: 120,
@@ -26,10 +26,10 @@ test('formats MIDI note names using Ableton octave numbering', () => {
 });
 
 test('previews the Mitsuda contour chromatically from C3', () => {
-  const preview = buildMotifPreview(mitsuda, host, 60, undefined, 'preserve');
-  assert.deepEqual(preview.notes.map(({ pitch }) => pitch), [60, 58, 63, 62, 61, 60]);
-  assert.deepEqual(preview.noteNames, ['C3', 'A♯2', 'D♯3', 'D3', 'C♯3', 'C3']);
-  assert.equal(preview.bars, 2);
+  const preview = buildMotifPreview(chromaticTurn, host, 60, undefined, 'preserve');
+  assert.deepEqual(preview.notes.map(({ pitch }) => pitch), [60, 62, 63, 67, 65, 62, 60]);
+  assert.deepEqual(preview.noteNames, ['C3', 'D3', 'D♯3', 'G3', 'F3', 'D3', 'C3']);
+  assert.equal(preview.bars, 0.875);
   assert.equal(preview.effectivePitchMode, 'chromatic');
 });
 

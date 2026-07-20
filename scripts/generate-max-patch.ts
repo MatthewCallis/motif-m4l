@@ -8,7 +8,7 @@
  * - MIDI: fail-open until `status Ready`; non-note MIDI bypasses `v8`; scheduling via `pipe`
  * - Native jsui/mgraphics note preview; no HTML dependency in Live's device chain
  * - The Library jweb page announces readiness before the engine resends its latest state
- * - Resizable Library/authoring UI in a floating `pcontrol` subpatcher
+ * - Library/authoring UI in a floating `pcontrol` subpatcher
  * - Motif vs Settings pages via `live.tab` + `thispatcher` hide/show
  *
  * Prefer theme-default `live.*` colors. Every interactive control needs
@@ -29,350 +29,70 @@
 import { writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
+import {
+  MaxPatchBuilder,
+  type MaxBuilderColors,
+  type MaxPatchDocument,
+  type MaxPatcher,
+} from './max-patch-builder.js';
 
-/** Rectangle coordinates: [x, y, width, height] */
-type Rect = [number, number, number, number];
-/** Help text attributes: { name: string; description: string } */
-type HelpInfo = { name: string; description: string };
-/** Box options: key-value pairs for any Max object attribute */
-type BoxOptions = Record<string, unknown>;
+const WIDTH = 480;
+const FONT = 'Ableton Sans';
 
-type MaxBox = {
-  id: string;
-  maxclass: string;
-  patching_rect: Rect;
-  [key: string]: unknown;
+/** Fixed RGBA values for non-`live.*` UI. Live owns the theme of `live.*` objects. */
+const COLORS: MaxBuilderColors = {
+  panel: [0.12, 0.12, 0.13, 1],
+  text: [0.88, 0.88, 0.9, 1],
+  muted: [0.58, 0.59, 0.63, 1],
+  accent: [1.0, 0.55, 0.12, 1],
+  previewBg: [0.08, 0.08, 0.09, 1],
+  previewBorder: [0.2, 0.2, 0.22, 1],
 };
 
-type PatchLine = {
-  patchline: {
-    source: [string, number];
-    destination: [string, number];
-    order?: number;
-  };
-};
+/** Common Live `Song.scale_name` values, keeping `live.menu setsymbol` in range. */
+const LIVE_SCALE_NAMES = [
+  'Major', 'Minor', 'Dorian', 'Mixolydian', 'Lydian', 'Phrygian', 'Locrian',
+  'Whole Tone', 'Half-whole Dim.', 'Whole-half Dim.', 'Minor Blues', 'Minor Pentatonic',
+  'Major Pentatonic', 'Harmonic Minor', 'Harmonic Major', 'Dorian #4', 'Phrygian Dominant',
+  'Melodic Minor', 'Lydian Augmented', 'Lydian Dominant', 'Super Locrian', 'Spanish',
+  'Bhairav', 'Hungarian Minor', 'Chinese', 'Hirajoshi', 'In-Sen', 'Iwato', 'Kumoi', 'Pelog',
+  'Messiaen 3', 'Messiaen 4', 'Messiaen 5', 'Messiaen 6', 'Messiaen 7',
+] as const;
 
-function asHelp(value: unknown): HelpInfo | undefined {
-  if (!value || typeof value !== 'object') return undefined;
-  const record = value as Record<string, unknown>;
-  if (typeof record.name === 'string' && typeof record.description === 'string') {
-    return { name: record.name, description: record.description };
-  }
-  return undefined;
-}
+/** Chromatic note names used by Live's `Song.root_note` property. */
+const LIVE_ROOT_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
 
 /**
- * Write a complete Motif.maxpat from the layout tables below.
- * Invoked by `npm run build` / `scripts/build.ts` - do not hand-edit the output file.
+ * Write a complete Motif.maxpat from the declarative layout below.
+ *
+ * The reusable, validated object/connection construction logic lives in
+ * `max-patch-builder.ts`; this module now contains only Motif-specific layout,
+ * routing, and patcher metadata.
+ *
+ * @returns A promise that resolves after `max/Motif.maxpat` has been written.
+ * @see https://docs.cycling74.com/userguide/object_reference/
+ * @see https://docs.cycling74.com/apiref/js/patcher/
  */
 export async function generateMaxPatch(): Promise<void> {
-  let nextId = 1;
-  const boxes: Array<{ box: MaxBox }> = [];
-  const lines: PatchLine[] = [];
-  const ids: Record<string, string> = {};
-
-  const WIDTH = 480;
-  const FONT = 'Ableton Sans';
-
-  /** Fixed RGBA only - Max rejects named dynamic-color tokens in maxpat JSON. live.* keep defaults for theme follow. */
-  const COLORS = {
-    panel: [0.12, 0.12, 0.13, 1],
-    text: [0.88, 0.88, 0.9, 1],
-    muted: [0.58, 0.59, 0.63, 1],
-    accent: [1.0, 0.55, 0.12, 1],
-    previewBg: [0.08, 0.08, 0.09, 1],
-    previewBorder: [0.2, 0.2, 0.22, 1],
-  };
-
-  /** Common Live Song.scale_name values - keeps live.menu setsymbol in-range. */
-  const LIVE_SCALE_NAMES = [
-    'Major', 'Minor', 'Dorian', 'Mixolydian', 'Lydian', 'Phrygian', 'Locrian',
-    'Whole Tone', 'Half-whole Dim.', 'Whole-half Dim.', 'Minor Blues', 'Minor Pentatonic',
-    'Major Pentatonic', 'Harmonic Minor', 'Harmonic Major', 'Dorian #4', 'Phrygian Dominant',
-    'Melodic Minor', 'Lydian Augmented', 'Lydian Dominant', 'Super Locrian', 'Spanish',
-    'Bhairav', 'Hungarian Minor', 'Chinese', 'Hirajoshi', 'In-Sen', 'Iwato', 'Kumoi', 'Pelog',
-    'Messiaen 3', 'Messiaen 4', 'Messiaen 5', 'Messiaen 6', 'Messiaen 7',
-  ] as const;
-
-  const LIVE_ROOT_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'] as const;
-
-  function add(name: string, maxclass: string, patchingRect: Rect, options: BoxOptions = {}): string {
-    const id = `obj-${nextId++}`;
-    ids[name] = id;
-    boxes.push({ box: { id, maxclass, patching_rect: patchingRect, ...options } });
-    return id;
-  }
-
-  function object(name: string, text: string, x: number, y: number, width = 120, options: BoxOptions = {}): string {
-    return add(name, 'newobj', [x, y, width, 22], { text, ...options });
-  }
-
-  function message(name: string, text: string, x: number, y: number, width = 90): string {
-    return add(name, 'message', [x, y, width, 22], { text });
-  }
-
-  function helpAttrs(name: string, description: string): { annotation_name: string; annotation: string; hint: string } {
-    return {
-      annotation_name: name,
-      annotation: description,
-      hint: description,
-    };
-  }
-
-  function uiPanel(name: string, rect: Rect, options: BoxOptions = {}): string {
-    return add(name, 'panel', rect, {
-      background: 1,
-      border: 0,
-      bgcolor: options.bgcolor ?? COLORS.panel,
-      rounded: options.rounded ?? 0,
-      presentation: 1,
-      presentation_rect: rect,
-      varname: name,
-      hidden: options.hidden ?? 0,
-    });
-  }
-
-  function uiComment(name: string, text: string, rect: Rect, options: BoxOptions = {}): string {
-    return add(name, 'comment', rect, {
-      text,
-      fontname: FONT,
-      fontsize: options.fontsize ?? 10,
-      fontface: options.fontface ?? 0,
-      textcolor: options.textcolor ?? COLORS.text,
-      textjustification: options.justification ?? 0,
-      linecount: options.linecount,
-      presentation: 1,
-      presentation_rect: rect,
-      varname: name,
-      ignoreclick: options.ignoreclick ?? 1,
-      hidden: options.hidden ?? 0,
-      ...((() => {
-        const help = asHelp(options.help);
-        return help ? helpAttrs(help.name, help.description) : {};
-      })()),
-    });
-  }
-
-  function menuItems(values: readonly string[]): string[] {
-    const items = [];
-    for (const value of values) {
-      if (items.length) items.push(',');
-      items.push(value);
-    }
-    return items;
-  }
-
-  function parameterAttributes(longName: string, shortName: string, values: readonly string[], initial = 0): BoxOptions {
-    return {
-      valueof: {
-        parameter_enum: values,
-        parameter_longname: longName,
-        parameter_mmax: Math.max(0, values.length - 1),
-        parameter_shortname: shortName,
-        parameter_type: 2,
-        parameter_unitstyle: 9,
-        parameter_initial_enable: 1,
-        parameter_initial: [initial],
-      },
-    };
-  }
-
-  function uiDynamicMenu(name: string, items: readonly string[], rect: Rect, help: { name: string; description: string }, options: BoxOptions = {}): string {
-    return add(name, 'umenu', rect, {
-      items: menuItems(items),
-      fontname: FONT,
-      fontsize: options.fontsize ?? 10,
-      bgcolor: COLORS.previewBg,
-      textcolor: COLORS.text,
-      bordercolor: COLORS.previewBorder,
-      hltcolor: COLORS.accent,
-      ignoreclick: options.ignoreclick ?? 0,
-      presentation: 1,
-      presentation_rect: rect,
-      varname: name,
-      hidden: options.hidden ?? 0,
-      ...helpAttrs(help.name, help.description),
-    });
-  }
-
-  function uiLiveMenu(name: string, values: readonly string[], rect: Rect, longName: string, shortName: string, initial: number, help: { name: string; description: string }, options: BoxOptions = {}): string {
-    return add(name, 'live.menu', rect, {
-      appearance: 0,
-      // No font/color overrides - Live theme owns live.menu chrome (matches stock Scale device).
-      parameter_enable: options.parameter_enable ?? 1,
-      presentation: 1,
-      presentation_rect: rect,
-      saved_attribute_attributes: parameterAttributes(longName, shortName, values, initial),
-      varname: name,
-      valuepopup: 1,
-      valuepopuplabel: 3,
-      ignoreclick: options.ignoreclick ?? 0,
-      hidden: options.hidden ?? 0,
-      ...helpAttrs(help.name, help.description),
-    });
-  }
-
-  /** Section labels that follow Live’s live.comment styling (Scale / Pitch / BPM ×). */
-  function uiLiveComment(name: string, text: string, rect: Rect, options: BoxOptions = {}): string {
-    return add(name, 'live.comment', rect, {
-      text,
-      presentation: 1,
-      presentation_rect: rect,
-      varname: name,
-      hidden: options.hidden ?? 0,
-    });
-  }
-
-  function uiLiveTab(name: string, values: readonly string[], rect: Rect, longName: string, shortName: string, initial: number, help: { name: string; description: string }, options: BoxOptions = {}): string {
-    return add(name, 'live.tab', rect, {
-      fontname: FONT,
-      fontsize: 9,
-      mode: 0,
-      livemode: 1,
-      multiline: 0,
-      num_lines_patching: 1,
-      num_lines_presentation: 1,
-      parameter_enable: 1,
-      presentation: 1,
-      presentation_rect: rect,
-      saved_attribute_attributes: parameterAttributes(longName, shortName, values, initial),
-      varname: name,
-      valuepopup: 1,
-      valuepopuplabel: 3,
-      hidden: options.hidden ?? 0,
-      ...helpAttrs(help.name, help.description),
-    });
-  }
-
-  function uiLiveNumber(name: string, rect: Rect, longName: string, shortName: string, initial: number, help: { name: string; description: string }, options: BoxOptions = {}): string {
-    return add(name, 'live.numbox', rect, {
-      appearance: 4,
-      fontname: FONT,
-      fontsize: 10,
-      parameter_enable: 1,
-      presentation: 1,
-      presentation_rect: rect,
-      saved_attribute_attributes: {
-        valueof: {
-          parameter_initial: [initial],
-          parameter_initial_enable: 1,
-          parameter_longname: longName,
-          parameter_mmax: 127,
-          parameter_mmin: 0,
-          parameter_shortname: shortName,
-          parameter_type: 1,
-          parameter_unitstyle: 8,
-        },
-      },
-      varname: name,
-      valuepopup: 1,
-      valuepopuplabel: 3,
-      hidden: options.hidden ?? 0,
-      ...helpAttrs(help.name, help.description),
-    });
-  }
-
-  function uiButton(name: string, text: string, rect: Rect, help: { name: string; description: string }, options: BoxOptions = {}): string {
-    return add(name, 'live.text', rect, {
-      // Theme-default live.text (Mouse Up) - matches stock Live pill buttons; no custom colors.
-      appearance: 0,
-      fontname: FONT,
-      fontsize: options.fontsize ?? 10,
-      mode: 0,
-      outputmode: 1,
-      parameter_enable: 0,
-      text,
-      texton: text,
-      presentation: 1,
-      presentation_rect: rect,
-      varname: name,
-      hidden: options.hidden ?? 0,
-      ...helpAttrs(help.name, help.description),
-    });
-  }
-
-  /** Patching-view only section header (not in Presentation). */
-  function patchComment(name: string, text: string, x: number, y: number, width = 240): string {
-    return add(name, 'comment', [x, y, width, 20], {
-      text,
-      fontname: FONT,
-      fontsize: 12,
-      fontface: 1,
-      presentation: 0,
-    });
-  }
-
-  function uiPreview(name: string, rect: Rect, help: { name: string; description: string }, options: BoxOptions = {}): string {
-    // The device-chain preview intentionally uses native jsui/mgraphics.
-    // jweb cannot reliably unpack arbitrary HTML dependencies in a frozen
-    // Max for Live device before the page is requested.
-    return add(name, 'jsui', rect, {
-      filename: 'motif-preview.js',
-      border: 0,
-      ignoreclick: 0,
-      numinlets: 1,
-      numoutlets: 1,
-      outlettype: [''],
-      parameter_enable: 0,
-      presentation: 1,
-      presentation_rect: rect,
-      varname: name,
-      hidden: options.hidden ?? 0,
-      ...helpAttrs(help.name, help.description),
-    });
-  }
-
-  function connect(source: string, sourceOutlet: number, destination: string, destinationInlet: number, order?: number): void {
-    const patchline: PatchLine['patchline'] = {
-      source: [ids[source] ?? source, sourceOutlet],
-      destination: [ids[destination] ?? destination, destinationInlet],
-    };
-    lines.push({
-      patchline: order === undefined ? patchline : { ...patchline, order },
-    });
-  }
-
-  /**
-   * Build tab visibility as one short message per object.
-   * A single giant comma-message is truncated by Max and breaks hide/show.
-   */
-  function wireTabVisibility(triggerName: string, hideNames: readonly string[], showNames: readonly string[], baseX: number, baseY: number): void {
-    const count = hideNames.length + showNames.length;
-    const bangs = Array.from({ length: count }, () => 'b').join(' ');
-    const fanName = `${triggerName}-fan`;
-    object(fanName, `t ${bangs}`, baseX, baseY, Math.max(80, count * 14));
-    connect(triggerName, 0, fanName, 0);
-
-    const rowPitch = 70;
-    const colPitch = 320;
-    const rowsPerCol = 12;
-    let outlet = 0;
-    let slot = 0;
-    for (const name of hideNames) {
-      const col = Math.floor(slot / rowsPerCol);
-      const row = slot % rowsPerCol;
-      const x = baseX + 120 + col * colPitch;
-      const y = baseY + row * rowPitch;
-      const msg = `${triggerName}-hide-${name}`;
-      message(msg, `script sendbox ${name} hidden 1`, x, y, 260);
-      connect(fanName, outlet, msg, 0);
-      connect(msg, 0, 'thispatcher', 0);
-      outlet += 1;
-      slot += 1;
-    }
-    for (const name of showNames) {
-      const col = Math.floor(slot / rowsPerCol);
-      const row = slot % rowsPerCol;
-      const x = baseX + 120 + col * colPitch;
-      const y = baseY + row * rowPitch;
-      const msg = `${triggerName}-show-${name}`;
-      message(msg, `script sendbox ${name} hidden 0`, x, y, 260);
-      connect(fanName, outlet, msg, 0);
-      connect(msg, 0, 'thispatcher', 0);
-      outlet += 1;
-      slot += 1;
-    }
-  }
+  const builder = new MaxPatchBuilder({ fontName: FONT, colors: COLORS });
+  const { boxes, lines } = builder;
+  const {
+    addBox: add,
+    addObject: object,
+    addMessage: message,
+    addPanel: uiPanel,
+    addComment: uiComment,
+    addDynamicMenu: uiDynamicMenu,
+    addLiveMenu: uiLiveMenu,
+    addLiveComment: uiLiveComment,
+    addLiveTab: uiLiveTab,
+    addLiveNumber: uiLiveNumber,
+    addLiveTextButton: uiButton,
+    addPatchComment: patchComment,
+    addJsuiPreview: uiPreview,
+    connect,
+    wireTabVisibility,
+  } = builder;
 
   // ---------- Presentation UI (8px grid; Live owns device chrome) ----------
   //
@@ -394,7 +114,7 @@ export async function generateMaxPatch(): Promise<void> {
     },
   );
 
-  const motifHidden = { hidden: 0 };
+  const motifHidden = { hidden: 0 } as const;
   uiDynamicMenu('motif-menu', ['Loading…'], [112, 4, 176, 20], {
     name: 'Selected Motif',
     description: 'Choose the phrase played when a trigger note is received. The preview updates immediately.',
@@ -474,7 +194,7 @@ export async function generateMaxPatch(): Promise<void> {
   );
 
   // Settings tab (initially hidden) - same 8px vertical rhythm
-  const settingsHidden = { hidden: 1 };
+  const settingsHidden = { hidden: 1 } as const;
 
   uiComment('trigger-label', 'Trigger', [8, 30, 80, 16], { fontsize: 10, ...settingsHidden });
   uiComment('quant-label', 'Launch', [8, 52, 80, 16], { fontsize: 10, ...settingsHidden });
@@ -543,37 +263,23 @@ export async function generateMaxPatch(): Promise<void> {
   ];
 
   // ---------- Floating Library / Authoring subpatcher (Presentation Mode) ----------
-  function buildLibrarySubpatcher(): BoxOptions {
-    const nestedBoxes: Array<{ box: MaxBox }> = [];
-    const nestedLines: PatchLine[] = [];
-    const nestedIds: Record<string, string> = {};
+  /**
+   * Build the floating authoring patcher that hosts the `jweb` library UI.
+   *
+   * @returns A complete nested patcher body suitable for a `p library-info` box.
+   * @see https://docs.cycling74.com/reference/jweb/
+   * @see https://docs.cycling74.com/reference/pcontrol/
+   * @see https://docs.cycling74.com/reference/thispatcher/
+   */
+  function buildLibrarySubpatcher(): MaxPatcher {
+    const nestedBuilder = builder.createChild();
+    const {
+      addBox: nadd,
+      addObject: nobject,
+      connect: nconnect,
+    } = nestedBuilder;
     const POP_W = 640;
     const POP_H = 460;
-
-    function nadd(name: string, maxclass: string, patchingRect: Rect, options: BoxOptions = {}): string {
-      const id = `obj-${nextId++}`;
-      nestedIds[name] = id;
-      nestedBoxes.push({ box: { id, maxclass, patching_rect: patchingRect, ...options } });
-      return id;
-    }
-
-    function nobject(name: string, text: string, x: number, y: number, width = 120, options: BoxOptions = {}): string {
-      return nadd(name, 'newobj', [x, y, width, 22], { text, ...options });
-    }
-
-    function nconnect(source: string, sourceOutlet: number, destination: string, destinationInlet: number): void {
-      const sourceId = nestedIds[source];
-      const destinationId = nestedIds[destination];
-      if (!sourceId || !destinationId) {
-        throw new Error(`Unknown nested connection ${source} -> ${destination}`);
-      }
-      nestedLines.push({
-        patchline: {
-          source: [sourceId, sourceOutlet],
-          destination: [destinationId, destinationInlet],
-        },
-      });
-    }
 
     // jweb fills the initial 640×460 Presentation view. `autosize` caches
     // its zero-pixel right/bottom margins so it follows later window resizes.
@@ -660,8 +366,8 @@ export async function generateMaxPatch(): Promise<void> {
       objectsnaponopen: 1,
       statusbarvisible: 2,
       toolbarvisible: 1,
-      boxes: nestedBoxes,
-      lines: nestedLines,
+      boxes: nestedBuilder.boxes,
+      lines: nestedBuilder.lines,
       dependency_cache: [],
       autosave: 0,
     };
@@ -1009,7 +715,7 @@ export async function generateMaxPatch(): Promise<void> {
     connect(source, 0, destination, 0);
   }
 
-  const patch = {
+  const patch: MaxPatchDocument = {
     patcher: {
       fileversion: 1,
       appversion: { major: 9, minor: 0, revision: 0, architecture: 'x64', modernui: 1 },
@@ -1029,7 +735,7 @@ export async function generateMaxPatch(): Promise<void> {
       devicewidth: WIDTH,
       description: 'Scale-aware triggerable motif engine with native Live Song synchronization and visual note preview',
       digest: 'Motif/Settings tabs; native Song observers; fail-open MIDI; BPM multiplier; Library authoring popup',
-      tags: 'midi motif phrase scale preview',
+      tags: 'midi motif phrase scale',
       boxes,
       lines,
       dependency_cache: [

@@ -10,7 +10,7 @@
     "check": "npm run generate && tsc --noEmit",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "test": "npm run generate && npm run build && tsx --test tests/**/*.test.ts",
+    "test": "npm run generate && npm run build && c8 tsx --test tests/**/*.test.ts",
     "verify": "npm run lint && npm run check && npm test && npm run validate:max",
     "midi:import": "tsx scripts/midi-to-motif.ts",
     "midi:export": "tsx scripts/motif-to-midi.ts",
@@ -18,6 +18,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.15.3",
+    "c8": "^12.0.0",
     "esbuild": "^0.28.1",
     "midi-file": "^1.2.4",
     "oxlint": "^1.73.0",

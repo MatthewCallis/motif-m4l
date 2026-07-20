@@ -1,8 +1,9 @@
 /**
  * In-process MIDI event scheduler for overlap-safe note-on/off bookkeeping.
  *
- * Used by unit tests and pure-engine reasoning. The Live device does **not**
- * import this class - it schedules note events through Max `pipe` via
+ * Used by unit tests and pure-engine reasoning.
+ * The Live device does **not** import this class,
+ * it schedules note events through Max `pipe` using
  * `emit('event', pitch, velocity, channel, delayMs)` from `device.ts`.
  *
  * The model tracks per-instance active notes so a cancelled or replaced
@@ -13,7 +14,15 @@
 
 import type { ScheduleUnit, ScheduledMidiEvent } from './types.js';
 
-/** Relative MIDI event returned after queue rebuild (delay from `now`). */
+/**
+ * Relative MIDI event returned after queue rebuild (delay from `now`).
+ * @property {number} pitch The pitch of the MIDI note.
+ * @property {number} velocity The velocity of the MIDI note.
+ * @property {number} channel The channel of the MIDI note.
+ * @property {number} delay The delay from `now` in the schedule unit.
+ * @property {ScheduleUnit} unit The schedule unit.
+ * @property {number} instanceId The instance ID.
+ */
 export interface RuntimeMidiEvent {
   pitch: number;
   velocity: number;

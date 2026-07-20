@@ -6,7 +6,7 @@ import { MotifStore } from '../src/library/store.js';
 test('built-in editing creates a unique same-name draft and cancel removes it', () => {
   const store = new MotifStore();
   const editor = new MotifEditorState();
-  const source = store.get('mitsuda-lick');
+  const source = store.get('chromatic-turn');
   assert.ok(source);
 
   const draft = editor.begin(store, source.id);
@@ -25,7 +25,7 @@ test('built-in editing creates a unique same-name draft and cancel removes it', 
 test('cancel restores an existing user motif snapshot', () => {
   const store = new MotifStore();
   const editor = new MotifEditorState();
-  const user = store.cloneAsUser('mitsuda-lick', 'user-motif');
+  const user = store.cloneAsUser('chromatic-turn', 'user-motif');
   assert.ok(user);
 
   editor.begin(store, user.id);
@@ -38,14 +38,14 @@ test('cancel restores an existing user motif snapshot', () => {
 test('new imported sessions are removed on cancel and successful save exits editing', () => {
   const store = new MotifStore();
   const editor = new MotifEditorState();
-  const imported = store.cloneAsUser('mitsuda-lick', 'imported');
+  const imported = store.cloneAsUser('chromatic-turn', 'imported');
   assert.ok(imported);
 
   editor.begin(store, imported.id, { created: true, dirty: true, sourceId: 'salt-peanuts' });
   assert.equal(editor.cancel(store), 'salt-peanuts');
   assert.equal(store.has(imported.id), false);
 
-  const saved = store.cloneAsUser('mitsuda-lick', 'saved-copy');
+  const saved = store.cloneAsUser('chromatic-turn', 'saved-copy');
   assert.ok(saved);
   editor.begin(store, saved.id, { dirty: true });
   assert.equal(editor.finishSave(), saved.id);
@@ -61,8 +61,8 @@ test('new imported sessions are removed on cancel and successful save exits edit
 test('an active session cannot silently switch targets', () => {
   const store = new MotifStore();
   const editor = new MotifEditorState();
-  const first = store.cloneAsUser('mitsuda-lick', 'first');
-  const second = store.cloneAsUser('mitsuda-lick', 'second');
+  const first = store.cloneAsUser('chromatic-turn', 'first');
+  const second = store.cloneAsUser('chromatic-turn', 'second');
   assert.ok(first && second);
 
   assert.equal(editor.begin(store, first.id)?.id, first.id);
@@ -74,7 +74,7 @@ test('an active session cannot silently switch targets', () => {
 test('built-in editing accepts a pre-reserved target id', () => {
   const store = new MotifStore();
   const editor = new MotifEditorState();
-  const draft = editor.begin(store, 'mitsuda-lick', { targetId: 'mitsuda-lick-9' });
-  assert.equal(draft?.id, 'mitsuda-lick-9');
-  assert.equal(editor.snapshot().targetId, 'mitsuda-lick-9');
+  const draft = editor.begin(store, 'chromatic-turn', { targetId: 'chromatic-turn-9' });
+  assert.equal(draft?.id, 'chromatic-turn-9');
+  assert.equal(editor.snapshot().targetId, 'chromatic-turn-9');
 });
