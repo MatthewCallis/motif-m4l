@@ -29,6 +29,10 @@ function noteKey(channel: number, note: number): string {
 /**
  * Parse Standard MIDI File bytes into a relative Motif.
  * Note-off (or note-on velocity 0) closes the matching channel/pitch stack.
+ * @param {Uint8Array} bytes The Standard MIDI File bytes to parse.
+ * @param {MidiImportOptions} options The motif metadata and pitch-analysis options.
+ * @returns {Motif} The imported relative motif.
+ * @throws {Error} If the MIDI file contains no completed notes.
  */
 export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions): Motif {
   const pitchMode = options.pitchMode ?? 'chromatic';
@@ -90,7 +94,10 @@ export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions):
  * Compile a Motif (or unknown JSON) to SMF bytes at motif PPQ.
  * Validates first; throws joined validation errors on failure.
  *
- * @param triggerPitch - Anchor pitch for relative → absolute mapping (default 60 / C3).
+ * @param {unknown} value The motif value to validate and export.
+ * @param {number} triggerPitch The anchor pitch for relative-to-absolute mapping.
+ * @returns {Uint8Array} The encoded Standard MIDI File bytes.
+ * @throws {Error} If the motif fails validation.
  */
 export function motifToMidiBytes(value: unknown, triggerPitch = 60): Uint8Array {
   const validation = validateMotif(value);

@@ -55,7 +55,7 @@ export interface PitchModeConversionContext {
  * @param {readonly number[]} intervals The scale intervals.
  * @param {number} triggerPitch The trigger pitch.
  * @param {number} scaleRootNote The scale root pitch.
- * @returns {number} The nearest scale degree + accidental.
+ * @returns {{ degree: number, accidental: number }} The nearest scale degree and accidental.
  */
 export function analyzeScaleOffset(
   semitoneOffset: number,

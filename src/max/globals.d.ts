@@ -16,14 +16,27 @@ declare let outlets: number;
 
 /**
  * Send a Max message out of the `v8` object.
+ * @param {number} index The zero-based outlet index.
+ * @param {unknown[]} values The message atoms to send.
+ * @returns {void}
  * @see https://docs.cycling74.com/apiref/js/jsthis/
  */
 declare function outlet(index: number, ...values: unknown[]): void;
 
-/** Print to the Max Console. @see https://docs.cycling74.com/apiref/js/ */
+/**
+ * Print values to the Max Console.
+ * @param {unknown[]} values The values to print.
+ * @returns {void}
+ * @see https://docs.cycling74.com/apiref/js/
+ */
 declare function post(...values: unknown[]): void;
 
-/** Print a red error line to the Max Console. @see https://docs.cycling74.com/apiref/js/ */
+/**
+ * Print a red error line to the Max Console.
+ * @param {unknown[]} values The values to print.
+ * @returns {void}
+ * @see https://docs.cycling74.com/apiref/js/
+ */
 declare function error(...values: unknown[]): void;
 
 /**

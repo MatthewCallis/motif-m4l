@@ -37,7 +37,7 @@ export function applyVelocityCurve(value: number, curve?: VelocityCurve): number
 
 /**
  * Resolve one motif note to a MIDI velocity for the active velocity mode.
- * Uses `options.velocityMode` when set, otherwise `motif.velocityMode`.
+ * Applies the motif curve before note-specific velocity scaling and offsets.
  * @param {MotifNote} note The motif note.
  * @param {Motif} motif The motif.
  * @param {number} triggerVelocity The trigger velocity.

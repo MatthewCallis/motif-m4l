@@ -182,6 +182,8 @@ function validateMetadata(value: unknown, errors: string[]): void {
 /**
  * Validate unknown JSON against schema version {@link MOTIF_SCHEMA_VERSION}.
  * On success returns a typed Motif; on failure returns path-prefixed error messages.
+ * @param {unknown} value The value to validate as a motif.
+ * @returns {ValidationResult} The validation status, errors, and typed motif when valid.
  */
 export function validateMotif(value: unknown): ValidationResult {
   const errors: string[] = [];

@@ -28,6 +28,8 @@ export interface MotifPreview {
 
 /**
  * Format a MIDI note number using Ableton Live's octave labeling (MIDI 60 = C3).
+ * @param {number} pitchValue The MIDI note number to format.
+ * @returns {string} The clamped, rounded note name and octave.
  */
 export function midiNoteName(pitchValue: number): string {
   const pitch = Math.max(0, Math.min(127, Math.round(pitchValue)));
@@ -40,6 +42,13 @@ export function midiNoteName(pitchValue: number): string {
 /**
  * Build a compact pitch contour for the selected motif under current host settings.
  * Caps note count for the multislider; ranges expand by ±1 when all pitches match.
+ * @param {Motif} motif The motif to preview.
+ * @param {HostContext} host The current Live host context.
+ * @param {number} triggerPitch The MIDI note that anchors relative motif pitches.
+ * @param {PitchMode | undefined} pitchModeOverride An optional pitch-mode override.
+ * @param {MeterMode} meterMode The meter scaling mode.
+ * @param {number} maxNotes The maximum number of notes to include.
+ * @returns {MotifPreview} The mapped notes and aggregate preview metadata.
  */
 export function buildMotifPreview(
   motif: Motif,

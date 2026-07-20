@@ -708,21 +708,38 @@ var MotifEngine = (() => {
       __privateAdd(this, _builtinIds, new Set(BUILTIN_MOTIFS.map((motif2) => motif2.id)));
       this.resetToBuiltins();
     }
-    /** Replace contents with the compiled built-in library only. */
+    /**
+     * Replace the store contents with the compiled built-in library.
+     * @returns {void}
+     */
     resetToBuiltins() {
       __privateGet(this, _motifs).clear();
       for (const motif2 of BUILTIN_MOTIFS) {
         __privateGet(this, _motifs).set(motif2.id, motif2);
       }
     }
-    /** True when `id` is from `motifs/builtin/` (generated into BUILTIN_MOTIFS). */
+    /**
+     * Determine whether an id belongs to the compiled built-in library.
+     * @param {string} id The motif id to inspect.
+     * @returns {boolean} Whether the id is built in.
+     */
     isBuiltin(id) {
       return __privateGet(this, _builtinIds).has(id);
     }
+    /**
+     * Determine whether the store contains a motif id.
+     * @param {string} id The motif id to find.
+     * @returns {boolean} Whether the id exists.
+     */
     has(id) {
       return __privateGet(this, _motifs).has(id);
     }
-    /** Return an unused id, appending `-2`, `-3`, … when needed. */
+    /**
+     * Return an unused id, appending `-2`, `-3`, … when needed.
+     * @param {string} baseValue The preferred id or display name.
+     * @param {string | undefined} excludedId An existing id allowed during rename checks.
+     * @returns {string} An id unused by every non-excluded motif.
+     */
     uniqueId(baseValue, excludedId) {
       const base = uniqueMotifId(baseValue);
       let candidate = base;
@@ -735,7 +752,8 @@ var MotifEngine = (() => {
     }
     /**
      * Validate and insert/replace a motif by id.
-     * @returns Empty array on success, or validation error strings.
+     * @param {unknown} value The motif value to validate and store.
+     * @returns {string[]} An empty array on success, or validation error strings.
      */
     add(value) {
       const result = validateMotif(value);
@@ -748,30 +766,54 @@ var MotifEngine = (() => {
       __privateGet(this, _motifs).set(result.motif.id, result.motif);
       return [];
     }
-    /** Alias for {@link MotifStore.add} (replace-by-id). */
+    /**
+     * Replace a motif by id through {@link MotifStore.add}.
+     * @param {unknown} value The motif value to validate and store.
+     * @returns {string[]} An empty array on success, or validation error strings.
+     */
     update(value) {
       return this.add(value);
     }
+    /**
+     * Retrieve a motif by id.
+     * @param {string} id The motif id to retrieve.
+     * @returns {Motif | undefined} The motif, or undefined when the id is unknown.
+     */
     get(id) {
       return __privateGet(this, _motifs).get(id);
     }
+    /**
+     * Remove a user motif while protecting built-in ids.
+     * @param {string} id The motif id to remove.
+     * @returns {boolean} Whether a motif was removed.
+     */
     remove(id) {
       if (this.isBuiltin(id)) return false;
       return __privateGet(this, _motifs).delete(id);
     }
-    /** All motifs sorted by display name and then id so duplicate names remain stable/selectable. */
+    /**
+     * List motifs by display name and then id so duplicate names remain stable.
+     * @returns {Motif[]} A newly sorted motif list.
+     */
     list() {
       return [...__privateGet(this, _motifs).values()].sort(
         (left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id)
       );
     }
-    /** Case-insensitive substring match across id, name, description, tags, suggestedModes. */
+    /**
+     * Search id, name, description, tags, and suggested modes case-insensitively.
+     * @param {string} query The substring to search for.
+     * @returns {Motif[]} The matching motifs in stable display order.
+     */
     filter(query) {
       return this.list().filter((motif2) => matchesQuery(motif2, query));
     }
     /**
      * Clone a built-in (or any motif) to a new user id so edits can be saved without overwriting builtins.
      * Display names are intentionally preserved; ids, not names, are the selection identity.
+     * @param {string} id The source motif id.
+     * @param {string | undefined} newId The preferred id for the clone.
+     * @returns {Motif | undefined} The stored clone, or undefined when the source is unknown.
      */
     cloneAsUser(id, newId) {
       const source = __privateGet(this, _motifs).get(id);
@@ -792,7 +834,9 @@ var MotifEngine = (() => {
     }
     /**
      * Replace notes on an existing motif and recompute `length` to cover the new span.
-     * @returns Validation errors, or a single error if the id is unknown.
+     * @param {string} id The id of the motif to update.
+     * @param {readonly MotifNote[]} notes The new notes to set.
+     * @returns {string[]} Validation errors, or a single error if the id is unknown.
      */
     setNotes(id, notes) {
       const existing = __privateGet(this, _motifs).get(id);
@@ -830,6 +874,10 @@ var MotifEngine = (() => {
     constructor() {
       __privateAdd(this, _edit);
     }
+    /**
+     * Read an immutable summary of the current edit session.
+     * @returns {EditSnapshot} The active or inactive edit snapshot.
+     */
     snapshot() {
       const edit = __privateGet(this, _edit);
       return edit ? {
@@ -846,12 +894,28 @@ var MotifEngine = (() => {
         targetId: null
       };
     }
+    /**
+     * Determine whether a session is active, optionally for one target id.
+     * @param {string | undefined} id The target id to match.
+     * @returns {boolean} Whether the requested edit session is active.
+     */
     isEditing(id) {
       return __privateGet(this, _edit) !== void 0 && (id === void 0 || __privateGet(this, _edit).targetId === id);
     }
+    /**
+     * Determine whether the active session contains unsaved changes.
+     * @returns {boolean} Whether the current edit is dirty.
+     */
     isDirty() {
       return __privateGet(this, _edit)?.dirty ?? false;
     }
+    /**
+     * Begin editing a motif, cloning built-ins to an editable user id.
+     * @param {MotifStore} store The motif store containing the source.
+     * @param {string} id The source motif id.
+     * @param {BeginEditOptions} options Initial session and target-id options.
+     * @returns {Motif | undefined} The editable motif, or undefined when editing cannot start.
+     */
     begin(store2, id, options = {}) {
       if (__privateGet(this, _edit)) {
         return __privateGet(this, _edit).targetId === id ? store2.get(__privateGet(this, _edit).targetId) : void 0;
@@ -890,10 +954,18 @@ var MotifEngine = (() => {
       });
       return source;
     }
+    /**
+     * Mark the active edit session as dirty.
+     * @returns {void}
+     */
     markDirty() {
       if (__privateGet(this, _edit)) __privateGet(this, _edit).dirty = true;
     }
-    /** Cancel edits and return the motif id that should become selected. */
+    /**
+     * Cancel the active edit and restore or remove its target motif.
+     * @param {MotifStore} store The motif store containing the edit target.
+     * @returns {string | undefined} The motif id to select, or undefined when no edit is active.
+     */
     cancel(store2) {
       const edit = __privateGet(this, _edit);
       if (!edit) return void 0;
@@ -902,13 +974,19 @@ var MotifEngine = (() => {
       __privateSet(this, _edit, void 0);
       return edit.sourceId;
     }
-    /** Finish a successful save and return the now-persisted motif id. */
+    /**
+     * Finish the active edit after a successful save.
+     * @returns {string | undefined} The persisted motif id, or undefined when no edit is active.
+     */
     finishSave() {
       const id = __privateGet(this, _edit)?.targetId;
       __privateSet(this, _edit, void 0);
       return id;
     }
-    /** Drop session bookkeeping without restoring data (used after deletion/reload). */
+    /**
+     * Drop session bookkeeping without restoring data after deletion or reload.
+     * @returns {void}
+     */
     abandon() {
       __privateSet(this, _edit, void 0);
     }
@@ -1234,8 +1312,11 @@ var MotifEngine = (() => {
     }
     const line = `Motif jweb ${String(page)} [${String(level)}] ${message}
 `;
-    if (String(level).toLowerCase() === "error") error(line);
-    else post(line);
+    if (String(level).toLowerCase() === "error") {
+      error(line);
+    } else {
+      post(line);
+    }
   }
   function launchOffsetTicks() {
     if (!hostContext.isPlaying || launchQuantization === "immediate") return 0;

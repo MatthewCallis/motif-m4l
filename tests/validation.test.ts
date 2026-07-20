@@ -1,11 +1,144 @@
 import assert from 'node:assert/strict';
-import test from 'node:test';
+import { describe, it } from 'node:test';
 import { validateMotif } from '../src/library/validate.js';
 
-test('reports useful errors for malformed motif files', () => {
-  const result = validateMotif({ schemaVersion: 1, id: '', notes: [] });
-  assert.equal(result.valid, false);
-  assert.ok(result.errors.some((error) => error.includes('id')));
-  assert.ok(result.errors.some((error) => error.includes('sourceMeter')));
-  assert.ok(result.errors.some((error) => error.includes('notes')));
+describe('motif validation', () => {
+  it('reports useful errors for malformed motif files', () => {
+    const result = validateMotif({ schemaVersion: 1, id: '', notes: [] });
+    assert.equal(result.valid, false);
+    assert.ok(result.errors.some((error) => error.includes('id')));
+    assert.ok(result.errors.some((error) => error.includes('sourceMeter')));
+    assert.ok(result.errors.some((error) => error.includes('notes')));
+  });
+
+  it('rejects non-object values and invalid required fields', () => {
+    assert.deepEqual(validateMotif(null), { valid: false, errors: ['motif must be an object'] });
+
+    const result = validateMotif({
+      schemaVersion: 2,
+      id: 'invalid',
+      name: 42,
+      description: '',
+      pitchMode: 'absolute',
+      sourceMeter: { numerator: 0, denominator: 3 },
+      length: 0,
+      defaultGate: 0,
+      velocityCurve: 'linear',
+      metadata: 'unknown',
+      notes: [null],
+    });
+
+    assert.equal(result.valid, false);
+    for (const fragment of [
+      'schemaVersion',
+      'name',
+      'description',
+      'pitchMode',
+      'sourceMeter.numerator',
+      'sourceMeter.denominator',
+      'length',
+      'defaultGate',
+      'velocityCurve',
+      'metadata',
+      'notes[0]',
+    ]) {
+      assert.ok(result.errors.some((error) => error.includes(fragment)), `missing ${fragment}`);
+    }
+  });
+
+  it('validates optional curve, metadata, and note fields', () => {
+    const result = validateMotif({
+      schemaVersion: 1,
+      id: 'invalid-optionals',
+      name: 'Invalid Optionals',
+      description: 'Exercises every optional validator.',
+      pitchMode: 'hybrid',
+      sourceMeter: { numerator: 4, denominator: 4 },
+      length: 100,
+      velocityCurve: {
+        inputMin: 'quiet',
+        inputMax: Number.NaN,
+        outputMin: null,
+        outputMax: {},
+        exponent: 0,
+      },
+      metadata: {
+        author: 1,
+        source: false,
+        license: [],
+        tags: ['valid', 2],
+        suggestedModes: 'major',
+        pickupTicks: -1,
+      },
+      notes: [{
+        at: -1,
+        duration: 0,
+        pitch: 'C3',
+        accidental: Number.NaN,
+        velocity: 128,
+        velocityOffset: 'loud',
+        velocityScale: -1,
+        gate: 0,
+        legato: 'yes',
+        tie: 1,
+      }],
+    });
+
+    assert.equal(result.valid, false);
+    for (const fragment of [
+      'velocityCurve.inputMin',
+      'velocityCurve.inputMax',
+      'velocityCurve.outputMin',
+      'velocityCurve.outputMax',
+      'velocityCurve.exponent',
+      'metadata.author',
+      'metadata.tags',
+      'metadata.suggestedModes',
+      'metadata.pickupTicks',
+      'notes[0].at',
+      'notes[0].duration',
+      'notes[0].pitch',
+      'notes[0].accidental',
+      'notes[0].velocity',
+      'notes[0].velocityOffset',
+      'notes[0].velocityScale',
+      'notes[0].gate',
+      'notes[0].legato',
+      'notes[0].tie',
+    ]) {
+      assert.ok(result.errors.some((error) => error.includes(fragment)), `missing ${fragment}`);
+    }
+  });
+
+  it('returns a typed motif for complete valid input and catches notes beyond its length', () => {
+    const motif = {
+      schemaVersion: 1,
+      id: 'complete',
+      name: 'Complete',
+      description: 'A complete valid motif.',
+      pitchMode: 'scale',
+      sourceMeter: { numerator: 7, denominator: 8 },
+      length: 960,
+      defaultGate: 0.9,
+      velocityCurve: { inputMin: 1, inputMax: 127, outputMin: 10, outputMax: 120, exponent: 1.2 },
+      metadata: {
+        author: 'Tester',
+        source: 'Unit test',
+        license: 'MIT',
+        tags: ['valid'],
+        suggestedModes: ['Dorian'],
+        pickupTicks: 0,
+      },
+      notes: [{ at: 0, duration: 960, pitch: 0, velocity: 100, legato: false, tie: false }],
+    };
+
+    const valid = validateMotif(motif);
+    assert.equal(valid.valid, true);
+    assert.equal(valid.motif?.id, motif.id);
+    assert.deepEqual(valid.errors, []);
+
+    const tooShort = validateMotif({ ...motif, length: 959 });
+    assert.equal(tooShort.valid, false);
+    assert.ok(tooShort.errors.includes('notes[0] extends beyond motif length'));
+  });
 });

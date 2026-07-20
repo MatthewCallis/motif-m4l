@@ -69,7 +69,7 @@ const LIVE_ROOT_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', '
  * `max-patch-builder.ts`; this module now contains only Motif-specific layout,
  * routing, and patcher metadata.
  *
- * @returns A promise that resolves after `max/Motif.maxpat` has been written.
+ * @returns {Promise<void>} A promise that resolves after `max/Motif.maxpat` has been written.
  * @see https://docs.cycling74.com/userguide/object_reference/
  * @see https://docs.cycling74.com/apiref/js/patcher/
  */
@@ -266,7 +266,7 @@ export async function generateMaxPatch(): Promise<void> {
   /**
    * Build the floating authoring patcher that hosts the `jweb` library UI.
    *
-   * @returns A complete nested patcher body suitable for a `p library-info` box.
+   * @returns {MaxPatcher} A complete nested patcher body suitable for a `p library-info` box.
    * @see https://docs.cycling74.com/reference/jweb/
    * @see https://docs.cycling74.com/reference/pcontrol/
    * @see https://docs.cycling74.com/reference/thispatcher/

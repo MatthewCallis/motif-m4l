@@ -218,8 +218,8 @@ export interface MaxSavedAttributeAttributes extends MaxJsonObject {
 /**
  * Convert help metadata into Max's three user-facing help attributes.
  *
- * @param help - Non-empty title and description shown in Max and Live.
- * @returns Attributes suitable for spreading onto a UI box.
+ * @param {MaxHelpInfo} help Non-empty title and description shown in Max and Live.
+ * @returns {MaxHelpAttributes} Attributes suitable for spreading onto a UI box.
  * @throws {TypeError} If either help string is empty.
  */
 export function createHelpAttributes(help: MaxHelpInfo): MaxHelpAttributes {
@@ -236,8 +236,8 @@ export function createHelpAttributes(help: MaxHelpInfo): MaxHelpAttributes {
  * Encode `umenu` items using the comma separators expected by Max's Inspector
  * representation.
  *
- * @param values - Menu labels in display order.
- * @returns A new list alternating labels with comma separator atoms.
+ * @param {readonly string[]} values Menu labels in display order.
+ * @returns {string[]} A new list alternating labels with comma separator atoms.
  * @throws {TypeError} If a label is empty.
  * @see https://docs.cycling74.com/reference/ubumenu/#items
  */
@@ -257,11 +257,11 @@ export function createMenuItems(values: readonly string[]): string[] {
  * Max for Live enum parameters are zero-based and require an initial index that
  * exists in `values`.
  *
- * @param longName - Unique automation name shown by Live.
- * @param shortName - Compact label shown by Live UI objects.
- * @param values - Enumeration labels in numeric order.
- * @param initial - Zero-based initial enum index.
- * @returns Serialized parameter metadata for a Live UI box.
+ * @param {string} longName Unique automation name shown by Live.
+ * @param {string} shortName Compact label shown by Live UI objects.
+ * @param {readonly string[]} values Enumeration labels in numeric order.
+ * @param {number} initial Zero-based initial enum index.
+ * @returns {MaxSavedAttributeAttributes} Serialized parameter metadata for a Live UI box.
  * @throws {RangeError} If the enum is empty or the initial index is invalid.
  * @see https://docs.cycling74.com/userguide/m4l/live_parameters/
  * @see https://docs.cycling74.com/reference/live.menu/
@@ -296,12 +296,12 @@ export function createEnumParameterAttributes(
 /**
  * Build the integer parameter definition used by Motif's MIDI note controls.
  *
- * @param longName - Unique automation name shown by Live.
- * @param shortName - Compact label shown by the control.
- * @param initial - Initial integer value.
- * @param minimum - Inclusive lower bound.
- * @param maximum - Inclusive upper bound.
- * @returns Serialized parameter metadata for `live.numbox`.
+ * @param {string} longName Unique automation name shown by Live.
+ * @param {string} shortName Compact label shown by the control.
+ * @param {number} initial Initial integer value.
+ * @param {number} minimum Inclusive lower bound.
+ * @param {number} maximum Inclusive upper bound.
+ * @returns {MaxSavedAttributeAttributes} Serialized parameter metadata for `live.numbox`.
  * @throws {RangeError} If the range or initial value is invalid.
  * @see https://docs.cycling74.com/reference/live.numbox/
  * @see https://docs.cycling74.com/userguide/m4l/live_parameters/
@@ -364,7 +364,9 @@ export class MaxPatchBuilder {
   private readonly allocator: MaxObjectIdAllocator;
 
   /**
-   * @param options - Font and color defaults shared by generated UI objects.
+   * Create a patch builder with shared UI defaults.
+   * @param {MaxPatchBuilderOptions} options Font and color defaults shared by generated UI objects.
+   * @param {MaxObjectIdAllocator} allocator The document-wide object id allocator.
    * @throws {TypeError} If the font name or any RGBA color is invalid.
    */
   constructor(options: MaxPatchBuilderOptions, allocator = new MaxObjectIdAllocator()) {
@@ -378,7 +380,7 @@ export class MaxPatchBuilder {
   /**
    * Create a builder for a nested patcher while sharing document-wide IDs.
    *
-   * @returns An empty builder with the same fonts/colors and a local name table.
+   * @returns {MaxPatchBuilder} An empty builder with the same fonts/colors and a local name table.
    */
   readonly createChild = (): MaxPatchBuilder => new MaxPatchBuilder({
     fontName: this.fontName,
@@ -388,11 +390,11 @@ export class MaxPatchBuilder {
   /**
    * Add a generic Max object box.
    *
-   * @param name - Local scripting key used by later {@link connect} calls.
-   * @param maxclass - Max object's class name, such as `panel`, `message`, or `jweb`.
-   * @param patchingRect - Unlocked-patcher position and size.
-   * @param options - Documented object-specific attributes.
-   * @returns The generated Max object ID.
+   * @param {string} name Local scripting key used by later {@link connect} calls.
+   * @param {string} maxclass Max object's class name, such as `panel`, `message`, or `jweb`.
+   * @param {MaxRect} patchingRect Unlocked-patcher position and size.
+   * @param {MaxBoxAttributes} options Documented object-specific attributes.
+   * @returns {string} The generated Max object ID.
    * @throws {Error} If `name` is duplicated at this patcher level.
    * @see https://docs.cycling74.com/apiref/js/patcher/#newobject
    */
@@ -424,6 +426,13 @@ export class MaxPatchBuilder {
   /**
    * Add a typed `newobj` box containing a Max object expression.
    *
+   * @param {string} name The local scripting key for the box.
+   * @param {string} text The Max object expression.
+   * @param {number} x The patching-view left position.
+   * @param {number} y The patching-view top position.
+   * @param {number} width The patching-view width.
+   * @param {MaxBoxAttributes} options Additional box attributes.
+   * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/apiref/js/patcher/#newdefault
    */
   readonly addObject = (
@@ -441,6 +450,12 @@ export class MaxPatchBuilder {
   /**
    * Add a Max `message` box.
    *
+   * @param {string} name The local scripting key for the box.
+   * @param {string} text The message contents.
+   * @param {number} x The patching-view left position.
+   * @param {number} y The patching-view top position.
+   * @param {number} width The patching-view width.
+   * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/message/
    */
   readonly addMessage = (name: string, text: string, x: number, y: number, width = 90): string => {
@@ -451,6 +466,10 @@ export class MaxPatchBuilder {
   /**
    * Add a presentation-mode `panel` used as a visual background.
    *
+   * @param {string} name The local scripting key and varname.
+   * @param {MaxRect} rect The patching and presentation rectangle.
+   * @param {MaxPanelOptions} options Optional panel styling and visibility.
+   * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/panel/
    */
   readonly addPanel = (name: string, rect: MaxRect, options: MaxPanelOptions = {}): string => this.addBox(
@@ -472,6 +491,11 @@ export class MaxPatchBuilder {
   /**
    * Add a presentation-mode `comment` label.
    *
+   * @param {string} name The local scripting key and varname.
+   * @param {string} text The label text.
+   * @param {MaxRect} rect The patching and presentation rectangle.
+   * @param {MaxCommentOptions} options Optional typography, help, and visibility.
+   * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/comment/
    */
   readonly addComment = (
@@ -498,6 +522,12 @@ export class MaxPatchBuilder {
   /**
    * Add a dynamically populated `umenu` presentation control.
    *
+   * @param {string} name The local scripting key and varname.
+   * @param {readonly string[]} items The initial menu items.
+   * @param {MaxRect} rect The patching and presentation rectangle.
+   * @param {MaxHelpInfo} help The user-facing help metadata.
+   * @param {MaxUiOptions} options Optional UI attributes.
+   * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/ubumenu/
    */
   readonly addDynamicMenu = (
@@ -525,6 +555,15 @@ export class MaxPatchBuilder {
   /**
    * Add an enumerated `live.menu` parameter.
    *
+   * @param {string} name The local scripting key and varname.
+   * @param {readonly string[]} values The enumeration labels.
+   * @param {MaxRect} rect The patching and presentation rectangle.
+   * @param {string} longName The unique Live automation name.
+   * @param {string} shortName The compact control label.
+   * @param {number} initial The zero-based initial enum index.
+   * @param {MaxHelpInfo} help The user-facing help metadata.
+   * @param {MaxUiOptions & { parameter_enable?: MaxBoolean }} options Optional UI attributes.
+   * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/live.menu/
    */
   readonly addLiveMenu = (
@@ -553,6 +592,11 @@ export class MaxPatchBuilder {
   /**
    * Add a theme-owned `live.comment` presentation label.
    *
+   * @param {string} name The local scripting key and varname.
+   * @param {string} text The label text.
+   * @param {MaxRect} rect The patching and presentation rectangle.
+   * @param {Pick<MaxUiOptions, 'hidden'>} options Optional visibility attributes.
+   * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/live.comment/
    */
   readonly addLiveComment = (
@@ -571,6 +615,15 @@ export class MaxPatchBuilder {
   /**
    * Add an enumerated `live.tab` parameter.
    *
+   * @param {string} name The local scripting key and varname.
+   * @param {readonly string[]} values The tab labels.
+   * @param {MaxRect} rect The patching and presentation rectangle.
+   * @param {string} longName The unique Live automation name.
+   * @param {string} shortName The compact control label.
+   * @param {number} initial The zero-based initial tab index.
+   * @param {MaxHelpInfo} help The user-facing help metadata.
+   * @param {Pick<MaxUiOptions, 'hidden'>} options Optional visibility attributes.
+   * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/live.tab/
    */
   readonly addLiveTab = (
@@ -604,6 +657,14 @@ export class MaxPatchBuilder {
   /**
    * Add a bounded integer `live.numbox` parameter.
    *
+   * @param {string} name The local scripting key and varname.
+   * @param {MaxRect} rect The patching and presentation rectangle.
+   * @param {string} longName The unique Live automation name.
+   * @param {string} shortName The compact control label.
+   * @param {number} initial The initial integer value.
+   * @param {MaxHelpInfo} help The user-facing help metadata.
+   * @param {Pick<MaxUiOptions, 'hidden'> & { minimum?: number; maximum?: number }} options Optional bounds and visibility.
+   * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/live.numbox/
    */
   readonly addLiveNumber = (
@@ -638,6 +699,12 @@ export class MaxPatchBuilder {
   /**
    * Add a momentary `live.text` button that emits on mouse-up.
    *
+   * @param {string} name The local scripting key and varname.
+   * @param {string} text The button label.
+   * @param {MaxRect} rect The patching and presentation rectangle.
+   * @param {MaxHelpInfo} help The user-facing help metadata.
+   * @param {Pick<MaxUiOptions, 'hidden' | 'fontsize'>} options Optional font and visibility attributes.
+   * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/live.text/
    */
   readonly addLiveTextButton = (
@@ -665,6 +732,12 @@ export class MaxPatchBuilder {
   /**
    * Add a bold patching-view-only section label.
    *
+   * @param {string} name The local scripting key.
+   * @param {string} text The section label text.
+   * @param {number} x The patching-view left position.
+   * @param {number} y The patching-view top position.
+   * @param {number} width The patching-view width.
+   * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/comment/
    */
   readonly addPatchComment = (name: string, text: string, x: number, y: number, width = 240): string => this.addBox(
@@ -686,6 +759,11 @@ export class MaxPatchBuilder {
    * Max requires patching and Presentation dimensions to remain identical for
    * reliable mouse coordinates and redraw behavior in `jsui`.
    *
+   * @param {string} name The local scripting key and varname.
+   * @param {MaxRect} rect The patching and presentation rectangle.
+   * @param {MaxHelpInfo} help The user-facing help metadata.
+   * @param {Pick<MaxUiOptions, 'hidden'> & { filename?: string }} options Optional filename and visibility.
+   * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/jsui/
    */
   readonly addJsuiPreview = (
@@ -714,6 +792,12 @@ export class MaxPatchBuilder {
    * Names are resolved only within this patcher level. A generated object ID may
    * also be supplied directly when it belongs to this builder.
    *
+   * @param {string} source The local name or generated id of the source box.
+   * @param {number} sourceOutlet The zero-based source outlet.
+   * @param {string} destination The local name or generated id of the destination box.
+   * @param {number} destinationInlet The zero-based destination inlet.
+   * @param {number | undefined} order Optional patch-cord execution order.
+   * @returns {void}
    * @throws {Error} If either endpoint is unknown.
    * @throws {RangeError} If a port index or order is not a non-negative integer.
    * @see https://docs.cycling74.com/apiref/js/patcher/#connect
@@ -744,6 +828,12 @@ export class MaxPatchBuilder {
    * `thispatcher` script message. The target `thispatcher` box and all listed
    * controls must already exist.
    *
+   * @param {string} triggerName The tab control that drives visibility.
+   * @param {readonly string[]} hideNames The controls to hide for this tab state.
+   * @param {readonly string[]} showNames The controls to show for this tab state.
+   * @param {number} baseX The patching-view x origin for generated helper boxes.
+   * @param {number} baseY The patching-view y origin for generated helper boxes.
+   * @returns {void}
    * @see https://docs.cycling74.com/reference/thispatcher/
    * @see https://docs.cycling74.com/reference/trigger/
    */

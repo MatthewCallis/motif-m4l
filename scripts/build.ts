@@ -18,6 +18,7 @@ import type { Motif } from '../src/core/types.js';
 
 /**
  * Read sorted builtin JSON files and emit the TypeScript module.
+ * @returns {Promise<void>} A promise that resolves after the module is written.
  */
 export async function generateBuiltins(): Promise<void> {
   const directory = path.resolve('motifs/builtin');
@@ -82,4 +83,3 @@ await copyFile('dist/motif-device.js', 'max/motif-device.js');
 await rm(enginePath, { force: true });
 await rm('dist/motif-device.js.map', { force: true });
 await rm('max/motif-device.js.map', { force: true });
-

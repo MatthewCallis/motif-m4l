@@ -63,12 +63,18 @@ export class RuntimeScheduler {
   #unit: ScheduleUnit | undefined;
   #lastNow = 0;
 
-  /** Current schedule unit (`ticks` or `ms`), or undefined before the first event. */
+  /**
+   * Read the active schedule unit.
+   * @returns {ScheduleUnit | undefined} The active unit, or undefined before the first event.
+   */
   get unit(): ScheduleUnit | undefined {
     return this.#unit;
   }
 
-  /** Clear the queue and return immediate note-offs for every still-held pitch. */
+  /**
+   * Clear the queue and release every still-held pitch.
+   * @returns {RuntimeMidiEvent[]} Immediate note-off events for held pitches.
+   */
   reset(): RuntimeMidiEvent[] {
     const releases = [...this.#activeTotals.entries()]
       .filter(([, count]) => count > 0)
@@ -87,6 +93,9 @@ export class RuntimeScheduler {
 
   /**
    * Apply due events at `now`. Resets if the unit changes or time jumps backward.
+   * @param {number} now The current absolute scheduler time.
+   * @param {ScheduleUnit} unit The unit used by `now` and queued events.
+   * @returns {void}
    */
   advance(now: number, unit: ScheduleUnit): void {
     if (this.#unit !== undefined && this.#unit !== unit) {
@@ -117,6 +126,10 @@ export class RuntimeScheduler {
   /**
    * Enqueue compiled events and return a full relative schedule from `now`,
    * with duplicate note-offs collapsed via active-note reference counts.
+   * @param {readonly ScheduledMidiEvent[]} events The compiled events to enqueue.
+   * @param {number} now The current absolute scheduler time.
+   * @param {ScheduleUnit} unit The unit used by the schedule.
+   * @returns {RuntimeMidiEvent[]} The rebuilt schedule relative to `now`.
    */
   add(
     events: readonly ScheduledMidiEvent[],
@@ -132,7 +145,13 @@ export class RuntimeScheduler {
     return this.#rebuild(now, unit);
   }
 
-  /** Cancel one trigger instance; returns releases plus the rebuilt schedule. */
+  /**
+   * Cancel one trigger instance.
+   * @param {number} instanceId The trigger instance to cancel.
+   * @param {number} now The current absolute scheduler time.
+   * @param {ScheduleUnit} unit The unit used by the schedule.
+   * @returns {RuntimeMidiEvent[]} Immediate releases followed by the rebuilt schedule.
+   */
   cancelInstance(instanceId: number, now: number, unit: ScheduleUnit): RuntimeMidiEvent[] {
     return this.cancelInstances([instanceId], now, unit);
   }
@@ -140,6 +159,10 @@ export class RuntimeScheduler {
   /**
    * Drop pending events for the given instances and release pitches no longer
    * held by any remaining instance.
+   * @param {readonly number[]} instanceIds The trigger instances to cancel.
+   * @param {number} now The current absolute scheduler time.
+   * @param {ScheduleUnit} unit The unit used by the schedule.
+   * @returns {RuntimeMidiEvent[]} Immediate releases followed by the rebuilt schedule.
    */
   cancelInstances(
     instanceIds: readonly number[],

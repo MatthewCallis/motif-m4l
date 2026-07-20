@@ -6,7 +6,7 @@
 
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import test from 'node:test';
+import { describe, it } from 'node:test';
 import vm from 'node:vm';
 
 /** Representative messages the generated patch (or UI) can send to `v8`. */
@@ -62,59 +62,61 @@ const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ['dump_context'],
 ];
 
-test('every patch message is accepted through the single Max anything() bridge', async () => {
-  const source = await readFile('dist/motif-device.js', 'utf8');
-  const errors: string[] = [];
-  const context = vm.createContext({
-    outlet: () => undefined,
-    error: (message: string) => errors.push(String(message)),
-    post: () => undefined,
-    arrayfromargs: (values: IArguments | ArrayLike<unknown>) => Array.from(values),
-    messagename: '',
-    File: class {
-      isopen = false;
-      eof = 0;
-      constructor() {
-        this.isopen = false;
-      }
-      readstring(): string {
-        return '{}';
-      }
-      writestring(): void {}
-      close(): void {}
-    },
-    Folder: class {
-      end = true;
-      count = 0;
-      pathname = '';
-      filename = '';
-      next(): void {
-        this.end = true;
-      }
-      close(): void {}
-    },
-    LiveAPI: class {
-      id = 0;
-      get(): unknown {
-        return '';
-      }
-      call(): unknown {
-        return [];
-      }
-    },
-    console,
+describe('Max handler contract', () => {
+  it('every patch message is accepted through the single Max anything() bridge', async () => {
+    const source = await readFile('dist/motif-device.js', 'utf8');
+    const errors: string[] = [];
+    const context = vm.createContext({
+      outlet: () => undefined,
+      error: (message: string) => errors.push(String(message)),
+      post: () => undefined,
+      arrayfromargs: (values: IArguments | ArrayLike<unknown>) => Array.from(values),
+      messagename: '',
+      File: class {
+        isopen = false;
+        eof = 0;
+        constructor() {
+          this.isopen = false;
+        }
+        readstring(): string {
+          return '{}';
+        }
+        writestring(): void {}
+        close(): void {}
+      },
+      Folder: class {
+        end = true;
+        count = 0;
+        pathname = '';
+        filename = '';
+        next(): void {
+          this.end = true;
+        }
+        close(): void {}
+      },
+      LiveAPI: class {
+        id = 0;
+        get(): unknown {
+          return '';
+        }
+        call(): unknown {
+          return [];
+        }
+      },
+      console,
+    });
+
+    vm.runInContext(source, context, { filename: 'motif-device.js' });
+
+    for (const [message, ...args] of PATCH_MESSAGES) {
+      (context as Record<string, unknown>).messagename = message;
+      (context as Record<string, unknown>).__args = args;
+      vm.runInContext('anything.apply(null, __args)', context);
+    }
+
+    assert.deepEqual(
+      errors.filter((message) => message.includes('Unknown message') || message.includes('dispatcher is unavailable')),
+      [],
+    );
   });
-
-  vm.runInContext(source, context, { filename: 'motif-device.js' });
-
-  for (const [message, ...args] of PATCH_MESSAGES) {
-    (context as Record<string, unknown>).messagename = message;
-    (context as Record<string, unknown>).__args = args;
-    vm.runInContext('anything.apply(null, __args)', context);
-  }
-
-  assert.deepEqual(
-    errors.filter((message) => message.includes('Unknown message') || message.includes('dispatcher is unavailable')),
-    [],
-  );
 });
