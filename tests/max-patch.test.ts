@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import vm from 'node:vm';
@@ -12,6 +13,7 @@ type Box = {
   maxclass: string;
   numoutlets?: number;
   filename?: string;
+  template?: string;
   varname?: string;
   annotation?: string;
   annotation_name?: string;
@@ -21,9 +23,12 @@ type Box = {
   outputmode?: number;
   parameter_enable?: number;
   ignoreclick?: number;
+  border?: number;
+  jsarguments?: number[];
   rendermode?: number;
   autosize?: number;
   fontname?: string;
+  url?: string;
   saved_attribute_attributes?: { valueof?: { parameter_enum?: string[] } };
   patcher?: {
     boxes: Array<{ box: Box }>;
@@ -77,9 +82,27 @@ describe('Motif Max patch integration', () => {
   it('generates a compact Max 9 device with Motif/Settings tabs and native preview', async () => {
     const patcher = await readPatch();
     const { boxes, lines } = patcher;
+    const dependencyNames = patcher.dependency_cache.map(({ name }) => name);
+    const engineFilename = dependencyNames.find((name) => /^motif-device-[a-f0-9]{12}\.js$/.test(name));
+    const previewFilename = dependencyNames.find((name) => /^motif-preview-[a-f0-9]{12}\.js$/.test(name));
+    assert.ok(engineFilename && previewFilename, 'runtime dependencies must use content-addressed filenames');
+    const engineSource = await readFile(`max/${engineFilename}`, 'utf8');
+    const previewSource = await readFile(`max/${previewFilename}`, 'utf8');
+    assert.equal(engineSource, await readFile('max/motif-device.js', 'utf8'));
+    assert.equal(previewSource, await readFile('max/motif-preview.js', 'utf8'));
+    assert.equal(previewSource, await readFile('src/max/motif-preview.js', 'utf8'));
+    assert.equal(
+      engineFilename,
+      `motif-device-${createHash('sha256').update(engineSource).digest('hex').slice(0, 12)}.js`,
+    );
+    assert.equal(
+      previewFilename,
+      `motif-preview-${createHash('sha256').update(previewSource).digest('hex').slice(0, 12)}.js`,
+    );
+    const v8Text = `v8 ${engineFilename}`;
 
     assert.equal(patcher.openinpresentation, 1);
-    assert.equal(patcher.devicewidth, 480);
+    assert.equal(patcher.devicewidth, 475);
     assert.equal(patcher.default_fontname, 'Ableton Sans');
     assert.ok(boxes.filter(({ box }) => box.presentation === 1).length >= 24);
     for (const { box } of boxes.filter(({ box }) => box.presentation === 1)) {
@@ -87,12 +110,12 @@ describe('Motif Max patch integration', () => {
       assert.ok(rect, `${box.varname ?? box.id} is missing a presentation rectangle`);
       const [x, y, width, height] = rect;
       assert.ok(x >= 0 && y >= 0, `${box.varname ?? box.id} starts outside the device`);
-      assert.ok(x + width <= 480, `${box.varname ?? box.id} exceeds the device width`);
+      assert.ok(x + width <= patcher.devicewidth, `${box.varname ?? box.id} exceeds the device width`);
       assert.ok(y + height <= 169, `${box.varname ?? box.id} exceeds Live's fixed 169px height`);
     }
 
     const texts = boxes.map(({ box }) => box.text).filter((text): text is string => Boolean(text));
-    assert.ok(texts.includes('v8 motif-device.js'));
+    assert.ok(texts.includes(v8Text));
     assert.ok(texts.includes('live.path live_set'));
     assert.ok(texts.includes('live.observer'));
     assert.ok(texts.includes('pcontrol'));
@@ -118,7 +141,7 @@ describe('Motif Max patch integration', () => {
     assert.ok(!texts.some((text) => text === 'prepend host' || text.startsWith('prepend host_')));
     assert.ok(texts.includes('route Ready'));
     assert.ok(texts.includes('t b b b b b b b b b'));
-    assert.ok(texts.includes('route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui'));
+    assert.ok(texts.includes('route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page'));
     assert.ok(texts.includes('route lib preview'), 'ui-route must handle library and preview state');
     assert.ok(texts.includes('window size 640 460'));
     assert.ok(texts.includes('window flags float grow close zoom'));
@@ -127,12 +150,12 @@ describe('Motif Max patch integration', () => {
     assert.ok(texts.includes('receive ---motif_author'));
     assert.ok(texts.includes('pipe 0 0 0 0.'));
 
-    const v8 = boxByText(boxes, 'v8 motif-device.js');
+    const v8 = boxByText(boxes, v8Text);
     assert.equal(v8?.numoutlets, 1);
     assert.ok(v8);
     assert.ok(lines.every(({ patchline }) => patchline.source[0] !== v8.id || patchline.source[1] === 0));
 
-    const engineRoute = boxByText(boxes, 'route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui');
+    const engineRoute = boxByText(boxes, 'route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page');
     assert.ok(engineRoute);
     assert.ok(!boxByText(boxes, 'prepend delete_file'));
     assert.ok(!boxByText(boxes, 'node.script motif-file-service.cjs @autostart 1 @restart 1'));
@@ -174,16 +197,36 @@ describe('Motif Max patch integration', () => {
     const preview = boxByVarname(boxes, 'motif-preview');
     const previewReadyRoute = boxByText(boxes, 'route preview_ready preview_debug');
     const previewReadyMessage = boxes.find(({ box }) => box.maxclass === 'message' && box.text === 'preview_ready')?.box;
+    const previewLoadMessage = boxByText(boxes, `jsfile ${previewFilename}, loadbang`);
     const previewDebugPage = boxByText(boxes, 'prepend preview');
     const previewDebugPrepend = boxByText(boxes, 'prepend web_debug');
-    assert.ok(preview && previewReadyRoute && previewReadyMessage && previewDebugPage && previewDebugPrepend);
+    const engineReadyRoute = boxByText(boxes, 'route Ready');
+    const readyTriggerId = engineReadyRoute
+      ? lines.find(({ patchline }) =>
+        patchline.source[0] === engineReadyRoute.id && patchline.source[1] === 0)?.patchline.destination[0]
+      : undefined;
+    const readyTrigger = boxes.find(({ box }) => box.id === readyTriggerId)?.box;
+    assert.ok(
+      preview
+      && previewReadyRoute
+      && previewReadyMessage
+      && previewLoadMessage
+      && previewDebugPage
+      && previewDebugPrepend
+      && readyTrigger,
+    );
     assert.equal(preview.maxclass, 'jsui', 'preview must use native jsui rather than jweb in Live');
-    assert.equal(preview.filename, 'motif-preview.js');
+    assert.equal(preview.filename, previewFilename);
+    assert.equal(preview.template, previewFilename, 'preview must never fall back to Max’s stock radial dial');
+    assert.equal(preview.border, 0, 'preview draws its own rounded border in motif-preview.js');
+    assert.deepEqual(preview.jsarguments, [6, 1], 'preview chrome radius and border are forwarded to jsui');
     assert.equal(preview.ignoreclick, 0, 'preview diagnostics must remain clickable in locked Presentation Mode');
     assert.ok(!boxByText(boxes, 'readfile preview.html'), 'native preview must not load an external HTML page');
     assert.ok(hasLine(lines, preview, 0, previewReadyRoute, 0), 'preview output must route readiness and diagnostics');
     assert.ok(hasLine(lines, previewReadyRoute, 0, previewReadyMessage, 0));
     assert.ok(hasLine(lines, previewReadyMessage, 0, v8, 0), 'preview readiness must request fresh engine state');
+    assert.ok(hasLine(lines, readyTrigger, 2, previewLoadMessage, 0), 'engine readiness must reload the frozen jsui dependency');
+    assert.ok(hasLine(lines, previewLoadMessage, 0, preview, 0), 'the explicit jsfile message must target the preview');
     assert.ok(hasLine(lines, previewReadyRoute, 1, previewDebugPage, 0));
     assert.ok(hasLine(lines, previewDebugPage, 0, previewDebugPrepend, 0));
     assert.ok(hasLine(lines, previewDebugPrepend, 0, v8, 0), 'native preview diagnostics must reach the engine');
@@ -216,7 +259,7 @@ describe('Motif Max patch integration', () => {
 
     assert.deepEqual(
       patcher.dependency_cache.map(({ name }) => name),
-      ['motif-device.js', 'motif-preview.js', 'library.html'],
+      [engineFilename, previewFilename],
     );
     assert.ok(!JSON.stringify(patcher).match(/motif-(?:device|preview)-v\d/i));
     assert.ok(!JSON.stringify(patcher).includes('file://'), 'patch must not embed platform-specific file URLs');
@@ -254,8 +297,16 @@ describe('Motif Max patch integration', () => {
     const jwebLibrary = nested.find((box) => box.varname === 'jweb-library');
     assert.ok(jwebLibrary, 'library subpatcher must contain a jweb-library object');
     assert.equal(jwebLibrary?.maxclass, 'jweb', 'jweb-library must be a jweb object');
-    const libraryLoad = boxByText(libraryPatcher.boxes, 'loadmess readfile library.html');
-    const libraryRoute = boxByText(libraryPatcher.boxes, 'route choose_library library_ready web_debug lib_action url title');
+    assert.equal(jwebLibrary.url, undefined, 'jweb must not navigate through an unsupported URL attribute');
+    assert.ok(
+      !JSON.stringify(libraryPatcher).includes('data:text/html'),
+      'jweb must not receive a data URI',
+    );
+    const libraryInlet = libraryPatcher.boxes.find(({ box }) => box.maxclass === 'inlet')?.box;
+    const libraryInletRoute = boxByText(libraryPatcher.boxes, 'route library_page');
+    const libraryReadfilePrepend = boxByText(libraryPatcher.boxes, 'prepend readfile');
+    const libraryThispatcher = boxByText(libraryPatcher.boxes, 'thispatcher');
+    const libraryRoute = boxByText(libraryPatcher.boxes, 'route choose_library library_ready web_debug lib_action url title onloadend');
     const libraryReadyMessage = libraryPatcher.boxes.find(({ box }) =>
       box.maxclass === 'message' && box.text === 'library_ready')?.box;
     const libraryAction = boxByText(libraryPatcher.boxes, 'prepend lib_action');
@@ -264,7 +315,10 @@ describe('Motif Max patch integration', () => {
     const libraryTitle = boxByText(libraryPatcher.boxes, 'loadmess title "Motif Library"');
     const libraryReceiveData = boxByText(libraryPatcher.boxes, 'receive ---lib-data');
     assert.ok(
-      libraryLoad &&
+      libraryInlet &&
+        libraryInletRoute &&
+        libraryReadfilePrepend &&
+        libraryThispatcher &&
         libraryRoute &&
         libraryReadyMessage &&
         libraryAction &&
@@ -273,9 +327,12 @@ describe('Motif Max patch integration', () => {
         libraryTitle &&
         libraryReceiveData,
     );
-    assert.ok(hasLine(libraryPatcher.lines, libraryLoad, 0, jwebLibrary, 0));
-    assert.equal(jwebLibrary.rendermode, 0, 'library must use offscreen jweb rendering in Live');
+    assert.equal(jwebLibrary.rendermode, 1, 'standalone library window must use onscreen jweb rendering');
     assert.equal(jwebLibrary.autosize, 1, 'library jweb must follow floating-window resizes');
+    assert.ok(hasLine(libraryPatcher.lines, libraryInlet, 0, libraryInletRoute, 0));
+    assert.ok(hasLine(libraryPatcher.lines, libraryInletRoute, 0, libraryReadfilePrepend, 0));
+    assert.ok(hasLine(libraryPatcher.lines, libraryReadfilePrepend, 0, jwebLibrary, 0));
+    assert.ok(hasLine(libraryPatcher.lines, libraryInletRoute, 1, libraryThispatcher, 0));
     assert.ok(hasLine(libraryPatcher.lines, libraryReceiveData, 0, jwebLibrary, 0));
     assert.ok(hasLine(libraryPatcher.lines, jwebLibrary, 0, libraryRoute, 0));
     assert.ok(hasLine(libraryPatcher.lines, libraryRoute, 1, libraryReadyMessage, 0));
@@ -285,8 +342,32 @@ describe('Motif Max patch integration', () => {
 
     const libraryInfo = boxByText(boxes, 'p library-info');
     const libraryPcontrol = boxByText(boxes, 'pcontrol');
+    const infoTrigger = boxByText(boxes, 't b b b b b b');
     const libraryOpen = boxes.find(({ box }) => box.maxclass === 'message' && box.text === 'open')?.box;
-    assert.ok(libraryInfo && libraryPcontrol && libraryOpen);
+    const libraryPrepare = boxes.find(({ box }) =>
+      box.maxclass === 'message' && box.text === 'library_prepare')?.box;
+    const libraryPrepareDefer = libraryPrepare
+      ? boxes.find(({ box }) => box.text === 'deferlow' && hasLine(lines, box, 0, libraryPrepare, 0))?.box
+      : undefined;
+    const libraryPagePrepend = boxByText(boxes, 'prepend library_page');
+    const libraryEngineRoute = boxByText(boxes, 'route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page');
+    assert.ok(
+      libraryInfo &&
+        libraryPcontrol &&
+        infoTrigger &&
+        libraryOpen &&
+        libraryPrepare &&
+        libraryPrepareDefer &&
+        libraryPagePrepend &&
+        libraryEngineRoute &&
+        v8,
+    );
+    assert.ok(hasLine(lines, infoTrigger, 2, libraryOpen, 0), 'window must open before page preparation is deferred');
+    assert.ok(hasLine(lines, infoTrigger, 1, libraryPrepareDefer, 0));
+    assert.ok(hasLine(lines, libraryPrepareDefer, 0, libraryPrepare, 0));
+    assert.ok(hasLine(lines, libraryPrepare, 0, v8, 0));
+    assert.ok(hasLine(lines, libraryEngineRoute, 11, libraryPagePrepend, 0));
+    assert.ok(hasLine(lines, libraryPagePrepend, 0, libraryInfo, 0));
     assert.ok(hasLine(lines, libraryOpen, 0, libraryPcontrol, 0), 'only open should be sent to pcontrol');
     for (const text of ['window flags float grow close zoom', 'window size 640 460', 'window exec']) {
       for (const { box } of boxes.filter(({ box }) => box.text === text)) {
@@ -319,7 +400,7 @@ describe('Motif Max patch integration', () => {
   });
 
   it('library jweb binds receiveData before readiness and contains valid diagnostic JavaScript', async () => {
-    const libraryHtml = await readFile('max/library.html', 'utf8');
+    const libraryHtml = await readFile('src/max/library.html', 'utf8');
     const bindIndex = libraryHtml.indexOf("window.max.bindInlet('receiveData', receiveData)");
     const readyIndex = libraryHtml.indexOf("window.max.outlet('library_ready')");
     const script = libraryHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
@@ -357,7 +438,7 @@ describe('Motif Max patch integration', () => {
   });
 
   it('native preview script parses and exposes state, readiness, and diagnostics handlers', async () => {
-    const previewScript = await readFile('max/motif-preview.js', 'utf8');
+    const previewScript = await readFile('src/max/motif-preview.js', 'utf8');
 
     assert.doesNotThrow(() => new vm.Script(previewScript, { filename: 'motif-preview.js' }));
     assert.match(previewScript, /mgraphics\.init\(\)/);
@@ -366,16 +447,23 @@ describe('Motif Max patch integration', () => {
     assert.match(previewScript, /outlet\(0, "preview_ready"\)/);
     assert.match(previewScript, /outlet\(0, "preview_debug", level/);
     assert.match(previewScript, /function paint\(\)/);
+    assert.match(
+      previewScript,
+      /jsarguments\.length > 1[\s\S]*Number\(jsarguments\[1\]\)[\s\S]*jsarguments\.length > 2[\s\S]*Number\(jsarguments\[2\]\)/,
+      'preview arguments must skip jsarguments[0], which Max reserves for the filename',
+    );
+    assert.doesNotMatch(previewScript, /mgraphics\.clip\(/, 'legacy jsui does not expose mgraphics.clip()');
     assert.doesNotMatch(previewScript, /window\.max|readfile|preview\.html/);
   });
 
   it('native preview executes and renders a valid payload without jweb', async () => {
-    const previewScript = await readFile('max/motif-preview.js', 'utf8');
+    const previewScript = await readFile('src/max/motif-preview.js', 'utf8');
     const outletMessages: unknown[][] = [];
     const errors: string[] = [];
     const drawingMethods = [
       'init',
       'rectangle',
+      'rectangle_rounded',
       'fill',
       'set_source_rgba',
       'set_line_width',
@@ -452,7 +540,7 @@ describe('Motif Max patch integration', () => {
     const readyTriggerId = lines.find(({ patchline }) =>
       patchline.source[0] === readyRoute.id && patchline.source[1] === 0)?.patchline.destination[0];
     const readyTrigger = boxes.find(({ box }) => box.id === readyTriggerId)?.box;
-    assert.equal(readyTrigger?.text, 't b b');
+    assert.equal(readyTrigger?.text, 't b b b');
     assert.ok(readyTrigger);
     assert.ok(hasLine(lines, readyTrigger, 1, engineMode, 0));
     assert.ok(hasLine(lines, engineMode, 0, inputGate, 0));

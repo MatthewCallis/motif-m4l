@@ -14,6 +14,7 @@ const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ['initialize'],
   ['preview_ready'],
   ['library_ready'],
+  ['library_prepare'],
   ['web_debug', 'preview', 'ok', encodeURIComponent('bridge ready')],
   ['song_context', 'tempo', 120],
   ['song_context', 'root_note', 0],
@@ -73,10 +74,12 @@ describe('Max handler contract', () => {
       arrayfromargs: (values: IArguments | ArrayLike<unknown>) => Array.from(values),
       messagename: '',
       File: class {
-        isopen = false;
-        eof = 0;
-        constructor() {
-          this.isopen = false;
+        isopen = true;
+        eof = 1;
+        filename = 'uttori-motif-library-test.html';
+        foldername = '/tmp';
+        constructor(filename: string) {
+          this.filename = filename.split('/').pop() ?? filename;
         }
         readstring(): string {
           return '{}';

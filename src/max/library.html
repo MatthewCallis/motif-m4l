@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Motif Library</title>
+  <style>
+    *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
+    :root {
+      --bg:#141415; --surface:#1c1c1e; --surface2:#18181a; --border:#2e2e32;
+      --accent:#ff8c1f; --text:#e0e0e6; --muted:#7a7a82; --input:#0e0e10;
+      --btn:#2a2a2e; --btn-hover:#363638; --danger:#d55549; --note-alt:#1a1a1c;
+    }
+    html, body { height:100%; background:var(--bg); color:var(--text); font:11px "Ableton Sans",system-ui,-apple-system,sans-serif; overflow:hidden; }
+    button, input, textarea, select { font:inherit; }
+    button:disabled, input:disabled, textarea:disabled, select:disabled { opacity:.42; cursor:not-allowed !important; }
+    .hidden { display:none !important; }
+    #app { display:flex; height:calc(100% - 20px); }
+    #left { width:clamp(170px,30vw,240px); min-width:150px; flex-shrink:0; display:flex; flex-direction:column; border-right:1px solid var(--border); }
+    #right { flex:1; min-width:0; display:flex; flex-direction:column; }
+    #search-row { display:flex; align-items:center; gap:4px; padding:6px 6px 4px; }
+    #search { flex:1; min-width:0; background:var(--input); border:1px solid var(--border); color:var(--text); padding:3px 6px; outline:none; }
+    #clear-search { background:none; border:0; color:var(--muted); cursor:pointer; font-size:13px; padding:0 2px; }
+    #browser-list { flex:1; overflow-y:auto; border-top:1px solid var(--border); }
+    .browser-item { padding:5px 8px; cursor:pointer; border-bottom:1px solid transparent; }
+    .browser-item:hover { background:var(--btn); }
+    .browser-item.selected { background:var(--accent); color:#000; }
+    .browser-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .browser-id { margin-top:1px; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .browser-item.selected .browser-id { color:rgba(0,0,0,.62); }
+    #empty-list { padding:12px 8px; color:var(--muted); text-align:center; }
+    #browser-actions { border-top:1px solid var(--border); display:flex; gap:4px; padding:5px; }
+    #library-path { padding:0 6px 5px; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .btn { background:var(--btn); border:1px solid var(--border); color:var(--text); cursor:pointer; padding:3px 7px; text-align:center; white-space:nowrap; }
+    .btn:hover:not(:disabled) { background:var(--btn-hover); }
+    .btn:active:not(:disabled), .btn.accent { background:var(--accent); color:#000; border-color:transparent; }
+    #meta { padding:6px 8px 4px; border-bottom:1px solid var(--border); display:flex; flex-direction:column; gap:3px; }
+    #meta-row-1 { display:flex; align-items:center; gap:4px; }
+    #name-edit { flex:1; min-width:0; font-size:12px; font-weight:600; }
+    .field { background:var(--input); border:1px solid var(--border); color:var(--text); padding:3px 5px; outline:none; min-width:0; }
+    .field:focus { border-color:var(--accent); }
+    .field[readonly], .field:disabled { background:transparent; border-color:transparent; color:var(--muted); }
+    #description-edit { resize:none; height:34px; width:100%; }
+    #stats-line { color:var(--muted); font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    #edit-state { color:var(--accent); font-size:10px; min-height:12px; }
+    #detail-actions { display:flex; gap:4px; padding:4px 8px; border-bottom:1px solid var(--border); }
+    #detail-actions .btn { flex:1; }
+    #import-mode { width:104px; flex:0 0 auto; }
+    #panel-tabs { display:flex; border-bottom:1px solid var(--border); background:var(--surface2); }
+    .panel-tab { flex:1; border:0; border-right:1px solid var(--border); background:transparent; color:var(--muted); cursor:pointer; padding:4px 8px; }
+    .panel-tab:last-child { border-right:0; }
+    .panel-tab.active { background:var(--surface); color:var(--text); box-shadow:inset 0 -2px var(--accent); }
+    .panel { flex:1; min-height:0; overflow:auto; }
+    #properties-panel { padding:7px 8px 12px; }
+    .section { margin-bottom:9px; }
+    .section-title { color:var(--muted); font-size:10px; font-weight:600; text-transform:uppercase; letter-spacing:.05em; margin-bottom:4px; }
+    .property-grid { display:grid; grid-template-columns:92px minmax(0,1fr) 92px minmax(0,1fr); gap:4px 6px; align-items:center; }
+    .property-grid .wide { grid-column:2 / 5; }
+    .property-grid label { color:var(--muted); font-size:10px; text-align:right; }
+    .property-grid input, .property-grid select, .property-grid textarea { width:100%; }
+    .property-grid textarea { min-height:38px; resize:vertical; }
+    .identity { font:9px ui-monospace,SFMono-Regular,Menlo,monospace; }
+    .help { grid-column:2 / 5; color:var(--muted); font-size:9px; line-height:1.25; }
+    #notes-panel { overflow:auto; }
+    #note-table { min-width:780px; display:flex; flex-direction:column; min-height:100%; }
+    #note-header, .note-row { display:grid; grid-template-columns:28px 48px 38px 48px 54px 44px 48px 50px 50px 42px 42px 26px; }
+    #note-header { position:sticky; top:0; z-index:2; background:var(--surface); border-bottom:1px solid var(--border); color:var(--muted); font-size:9px; font-weight:600; }
+    #note-header span { padding:3px 2px; text-align:right; border-right:1px solid var(--border); }
+    #note-header span:first-child, #note-header span:nth-last-child(-n+3) { text-align:center; }
+    #note-rows { flex:1; }
+    .note-row { border-bottom:1px solid var(--border); align-items:center; }
+    .note-row:nth-child(even) { background:var(--note-alt); }
+    .note-row > span { color:var(--muted); font-size:10px; text-align:center; padding:2px; }
+    .note-row input[type="number"] { background:transparent; border:0; border-left:1px solid var(--border); color:var(--text); font-size:10px; padding:2px 3px; text-align:right; width:100%; outline:none; -moz-appearance:textfield; }
+    .note-row input[type="number"]::-webkit-inner-spin-button, .note-row input[type="number"]::-webkit-outer-spin-button { display:none; }
+    .note-row input[type="number"]:focus { background:var(--input); }
+    .check-cell { display:flex; justify-content:center; border-left:1px solid var(--border); }
+    .check-cell input { accent-color:var(--accent); }
+    .remove-btn { background:none; border:0; border-left:1px solid var(--border); color:var(--danger); cursor:pointer; font-size:13px; width:100%; height:100%; }
+    .remove-btn:hover:not(:disabled) { background:var(--danger); color:#fff; }
+    #add-row { position:sticky; bottom:0; border-top:1px solid var(--border); padding:4px 8px; background:var(--bg); }
+    #add-note-btn { width:100%; }
+    #modal-backdrop { position:fixed; inset:0; z-index:100; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,.68); }
+    #modal { width:330px; max-width:calc(100% - 32px); background:var(--surface); border:1px solid #4a4a50; box-shadow:0 12px 40px rgba(0,0,0,.55); padding:12px; }
+    #modal-title { font-size:13px; margin-bottom:7px; }
+    #modal-message { color:var(--muted); line-height:1.4; white-space:pre-wrap; }
+    #modal-actions { display:flex; justify-content:flex-end; gap:6px; margin-top:12px; }
+    #debug-bar { position:fixed; left:0; right:0; bottom:0; height:20px; z-index:30; display:flex; align-items:center; gap:5px; padding:0 6px; border-top:1px solid var(--border); background:#101012; color:var(--muted); font-size:9px; }
+    #debug-indicator { color:#b0a050; } #debug-indicator.ok { color:#70c070; } #debug-indicator.error { color:#ff7066; }
+    #debug-summary { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    #debug-toggle { border:0; background:transparent; color:var(--muted); cursor:pointer; }
+    #debug-panel { position:fixed; left:0; right:0; bottom:20px; z-index:29; display:none; max-height:160px; overflow:auto; padding:6px; border-top:1px solid var(--border); background:rgba(8,8,9,.97); color:#c8c8ce; font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:pre-wrap; user-select:text; }
+    #debug-panel.open { display:block; } #debug-panel.has-error { color:#ff8b82; }
+    @media (max-width:520px) {
+      #app { flex-direction:column; }
+      #left { width:100%; min-width:0; height:140px; border-right:0; border-bottom:1px solid var(--border); }
+      #right { min-height:0; }
+      .property-grid { grid-template-columns:80px minmax(0,1fr); }
+      .property-grid .wide { grid-column:2; }
+      .help { grid-column:1 / -1; }
+    }
+  /* Firefox */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: #7a7a82 #141415;
+  }
+  /* Chrome, Edge, and Safari */
+  *::-webkit-scrollbar {
+    width: 16px;
+  }
+  *::-webkit-scrollbar-track {
+    background: #141415;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: #7a7a82;
+    border-radius: 10px;
+    border: 3px none #000000;
+  }
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="left">
+    <div id="search-row">
+      <input id="search" type="text" placeholder="Search…" autocomplete="off" spellcheck="false">
+      <button id="clear-search" title="Clear search">✕</button>
+    </div>
+    <div id="browser-list"></div>
+    <div id="browser-actions">
+      <button class="btn" id="choose-btn" title="Choose and remember a library folder">Choose</button>
+      <button class="btn" id="refresh-btn" title="Reload the chosen library folder">Refresh</button>
+    </div>
+    <div id="library-path" title="No user library selected">Built-ins only</div>
+  </div>
+
+  <div id="right">
+    <div id="meta">
+      <div id="meta-row-1">
+        <input class="field" id="name-edit" type="text" placeholder="(no motif selected)" readonly>
+        <button class="btn" id="edit-btn">Edit</button>
+        <button class="btn hidden" id="cancel-edit-btn">Cancel Edit</button>
+      </div>
+      <textarea class="field" id="description-edit" placeholder="Description" readonly></textarea>
+      <div id="stats-line">–</div>
+      <div id="edit-state"></div>
+    </div>
+
+    <div id="detail-actions">
+      <select class="field" id="import-mode" title="Chromatic preserves the MIDI exactly; Scale and Hybrid encode relative scale degrees">
+        <option value="chromatic">Exact / Chromatic</option>
+        <option value="hybrid">Hybrid</option>
+        <option value="scale">Scale</option>
+      </select>
+      <button class="btn accent" id="import-clip-btn">Import Clip</button>
+      <button class="btn" id="save-motif-btn">Save &amp; Finish</button>
+    </div>
+
+    <div id="panel-tabs">
+      <button class="panel-tab active" data-panel="properties">Properties</button>
+      <button class="panel-tab" data-panel="notes">Notes</button>
+    </div>
+
+    <div class="panel" id="properties-panel">
+      <div class="section">
+        <div class="section-title">Identity</div>
+        <div class="property-grid">
+          <label for="id-display">ID</label><input class="field identity" id="id-display" readonly>
+          <label for="schema-display">Schema</label><input class="field identity" id="schema-display" readonly>
+          <label for="length-display">Length</label><input class="field identity" id="length-display" readonly>
+          <div class="help">ID is generated once and remains stable. Length is recalculated from the final note end.</div>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Pitch &amp; Timing</div>
+        <div class="property-grid">
+          <label for="pitch-mode-edit">Pitch mode</label>
+          <select class="field editable-property" id="pitch-mode-edit" disabled>
+            <option value="scale">Scale</option><option value="chromatic">Chromatic</option><option value="hybrid">Hybrid</option>
+          </select>
+          <label for="default-gate-edit">Default gate</label><input class="field editable-property" id="default-gate-edit" type="number" min="0.01" step="0.01" placeholder="1" disabled>
+          <label for="meter-numerator-edit">Source meter</label>
+          <div style="display:flex;gap:4px">
+            <input class="field editable-property" id="meter-numerator-edit" type="number" min="1" step="1" disabled>
+            <select class="field editable-property" id="meter-denominator-edit" disabled>
+              <option>1</option><option>2</option><option>4</option><option>8</option><option>16</option><option>32</option>
+            </select>
+          </div>
+          <label for="pickup-ticks-edit">Pickup ticks</label><input class="field editable-property" id="pickup-ticks-edit" type="number" min="0" step="1" placeholder="0" disabled>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Velocity Curve</div>
+        <div class="property-grid">
+          <label for="curve-input-min">Input min</label><input class="field editable-property" id="curve-input-min" type="number" placeholder="default" disabled>
+          <label for="curve-input-max">Input max</label><input class="field editable-property" id="curve-input-max" type="number" placeholder="default" disabled>
+          <label for="curve-output-min">Output min</label><input class="field editable-property" id="curve-output-min" type="number" placeholder="default" disabled>
+          <label for="curve-output-max">Output max</label><input class="field editable-property" id="curve-output-max" type="number" placeholder="default" disabled>
+          <label for="curve-exponent">Exponent</label><input class="field editable-property" id="curve-exponent" type="number" min="0.01" step="0.01" placeholder="1" disabled>
+        </div>
+      </div>
+
+      <div class="section">
+        <div class="section-title">Metadata</div>
+        <div class="property-grid">
+          <label for="author-edit">Author</label><input class="field editable-property wide" id="author-edit" type="text" disabled>
+          <label for="source-edit">Source</label><input class="field editable-property wide" id="source-edit" type="text" disabled>
+          <label for="license-edit">License</label><textarea class="field editable-property wide" id="license-edit" disabled></textarea>
+          <label for="tags-edit">Tags</label><input class="field editable-property wide" id="tags-edit" type="text" placeholder="comma-separated" disabled>
+          <label for="suggested-modes-edit">Suggested modes</label><input class="field editable-property wide" id="suggested-modes-edit" type="text" placeholder="comma-separated" disabled>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel hidden" id="notes-panel">
+      <div id="note-table">
+        <div id="note-header">
+          <span>#</span><span>Pitch</span><span>Acc</span><span>Start</span><span>Duration</span><span>Gate</span><span>Vel</span><span>Vel +</span><span>Vel ×</span><span>Legato</span><span>Tie</span><span></span>
+        </div>
+        <div id="note-rows"></div>
+        <div id="add-row"><button class="btn" id="add-note-btn">+ Add Note</button></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="modal-backdrop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+  <div id="modal">
+    <div id="modal-title"></div>
+    <div id="modal-message"></div>
+    <div id="modal-actions">
+      <button class="btn" id="modal-cancel">Cancel</button>
+      <button class="btn" id="modal-confirm">Continue</button>
+    </div>
+  </div>
+</div>
+
+<div id="debug-panel" aria-live="polite"></div>
+<div id="debug-bar">
+  <span id="debug-indicator">●</span><span id="debug-summary">Loading jweb bridge…</span>
+  <button id="debug-toggle" type="button">Debug</button>
+</div>
+
+<script>
+  const PAGE = 'library';
+  const MAX_NOTE_ROWS = 16;
+  const NOTE_FIELDS = [
+    { name:'pitch', type:'number', required:true, step:'1' },
+    { name:'accidental', type:'number', step:'1' },
+    { name:'at', type:'number', required:true, min:'0', step:'1' },
+    { name:'duration', type:'number', required:true, min:'1', step:'1' },
+    { name:'gate', type:'number', min:'0.01', step:'0.01' },
+    { name:'velocity', type:'number', min:'1', max:'127', step:'1' },
+    { name:'velocityOffset', type:'number', step:'1' },
+    { name:'velocityScale', type:'number', min:'0', step:'0.01' },
+    { name:'legato', type:'checkbox' },
+    { name:'tie', type:'checkbox' },
+  ];
+  const PROPERTY_INPUT_IDS = [
+    'name-edit','description-edit','pitch-mode-edit','default-gate-edit','meter-numerator-edit',
+    'meter-denominator-edit','pickup-ticks-edit','curve-input-min','curve-input-max',
+    'curve-output-min','curve-output-max','curve-exponent','author-edit','source-edit',
+    'license-edit','tags-edit','suggested-modes-edit',
+  ];
+  const isMax = typeof window.max !== 'undefined' && typeof window.max.outlet === 'function';
+
+  if (!isMax) {
+    const browserInlets = new Map();
+    window.max = {
+      outlet: (...args) => console.log('→ Max:', ...args),
+      bindInlet: (name, handler) => browserInlets.set(name, handler),
+    };
+    window.__motifBrowserInlets = browserInlets;
+  }
+
+  function createStore(initialState) {
+    let current = initialState;
+    const subscribers = new Set();
+    return {
+      getState: () => current,
+      setState(update) {
+        current = typeof update === 'function' ? update(current) : { ...current, ...update };
+        for (const subscriber of subscribers) subscriber(current);
+      },
+      subscribe(subscriber) {
+        subscribers.add(subscriber);
+        return () => subscribers.delete(subscriber);
+      },
+    };
+  }
+
+  const store = createStore({ server:null, modal:null, formDirty:false, activePanel:'properties' });
+  const debugEntries = [];
+  let stateDeadline = null;
+  const debugIndicator = document.getElementById('debug-indicator');
+  const debugSummary = document.getElementById('debug-summary');
+  const debugPanel = document.getElementById('debug-panel');
+
+  function errorText(reason) { return reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason); }
+  function debug(level, message) {
+    const line = `${new Date().toLocaleTimeString()} [${level}] ${message}`;
+    debugEntries.push(line);
+    if (debugEntries.length > 80) debugEntries.shift();
+    debugSummary.textContent = message;
+    debugIndicator.className = level === 'error' ? 'error' : level === 'ok' ? 'ok' : '';
+    debugPanel.classList.toggle('has-error', debugEntries.some((entry) => entry.includes('[error]')));
+    debugPanel.textContent = debugEntries.join('\n');
+    if (isMax) window.max.outlet('web_debug', PAGE, level, encodeURIComponent(message));
+  }
+
+  window.addEventListener('error', (event) => debug('error', `${event.message} @ ${event.filename}:${event.lineno}`));
+  window.addEventListener('unhandledrejection', (event) => debug('error', `Unhandled promise: ${errorText(event.reason)}`));
+  document.getElementById('debug-toggle').addEventListener('click', () => debugPanel.classList.toggle('open'));
+
+  function send(action) {
+    try {
+      window.max.outlet('lib_action', encodeURIComponent(JSON.stringify(action)));
+      debug('info', `Action: ${action.type}`);
+    } catch (reason) {
+      debug('error', `Action failed: ${errorText(reason)}`);
+    }
+  }
+
+  function selectedIsEditing(server) {
+    return Boolean(server?.selected && server.editing?.active && server.editing.targetId === server.selected.id);
+  }
+
+  function hasUnsavedChanges() {
+    const current = store.getState();
+    return Boolean(current.formDirty || current.server?.editing?.dirty);
+  }
+
+  function openModal(options) { store.setState({ modal:options }); }
+  function closeModal() { store.setState({ modal:null }); }
+  function confirmDiscard(onConfirm, message = 'Discard the unsaved changes to this motif?') {
+    if (!hasUnsavedChanges()) { onConfirm(); return; }
+    openModal({ title:'Discard unsaved changes?', message, confirmLabel:'Discard', onConfirm });
+  }
+
+  function renderModal(modal) {
+    const backdrop = document.getElementById('modal-backdrop');
+    if (!modal) { backdrop.classList.add('hidden'); return; }
+    backdrop.classList.remove('hidden');
+    document.getElementById('modal-title').textContent = modal.title;
+    document.getElementById('modal-message').textContent = modal.message;
+    document.getElementById('modal-confirm').textContent = modal.confirmLabel ?? 'Continue';
+  }
+
+  function renderBrowser(server) {
+    const list = document.getElementById('browser-list');
+    list.innerHTML = '';
+    if (!server || server.items.length === 0) {
+      const empty = document.createElement('div');
+      empty.id = 'empty-list';
+      empty.textContent = server?.query ? 'No matching motifs' : 'No motifs found';
+      list.append(empty);
+      return;
+    }
+    for (const item of server.items) {
+      const el = document.createElement('div');
+      el.className = `browser-item${server.selected?.id === item.id ? ' selected' : ''}`;
+      const name = document.createElement('div');
+      name.className = 'browser-name';
+      name.textContent = item.name;
+      el.append(name);
+      if (item.showId) {
+        const id = document.createElement('div');
+        id.className = 'browser-id';
+        id.textContent = item.id;
+        el.append(id);
+      }
+      el.title = item.showId ? `${item.name}\nID: ${item.id}` : item.name;
+      el.addEventListener('click', () => {
+        if (server.selected?.id === item.id) return;
+        confirmDiscard(() => send({ type:'select_browser', id:item.id, discardChanges:true }));
+      });
+      list.append(el);
+    }
+  }
+
+  function buildNoteRows() {
+    const container = document.getElementById('note-rows');
+    for (let index = 0; index < MAX_NOTE_ROWS; index += 1) {
+      const row = document.createElement('div');
+      row.className = 'note-row hidden';
+      const label = document.createElement('span');
+      label.textContent = String(index + 1);
+      row.append(label);
+      for (const field of NOTE_FIELDS) {
+        if (field.type === 'checkbox') {
+          const cell = document.createElement('label');
+          cell.className = 'check-cell';
+          const input = document.createElement('input');
+          input.type = 'checkbox';
+          input.dataset.field = field.name;
+          input.addEventListener('change', () => send({ type:'edit_note_at', index, field:field.name, value:input.checked }));
+          cell.append(input);
+          row.append(cell);
+          continue;
+        }
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.dataset.field = field.name;
+        if (field.min !== undefined) input.min = field.min;
+        if (field.max !== undefined) input.max = field.max;
+        if (field.step !== undefined) input.step = field.step;
+        input.addEventListener('change', () => {
+          const value = input.value === '' ? null : Number(input.value);
+          if (value !== null && !Number.isFinite(value)) return;
+          send({ type:'edit_note_at', index, field:field.name, value });
+        });
+        row.append(input);
+      }
+      const remove = document.createElement('button');
+      remove.className = 'remove-btn';
+      remove.textContent = '✕';
+      remove.title = 'Remove note';
+      remove.addEventListener('click', () => send({ type:'remove_note', index }));
+      row.append(remove);
+      container.append(row);
+    }
+  }
+
+  function renderNoteRows(server, editing) {
+    const notes = server?.selected?.notes ?? [];
+    document.querySelectorAll('.note-row').forEach((row, index) => {
+      const note = notes[index];
+      row.classList.toggle('hidden', !note);
+      if (!note) return;
+      for (const field of NOTE_FIELDS) {
+        const input = row.querySelector(`[data-field="${field.name}"]`);
+        input.disabled = !editing;
+        if (field.type === 'checkbox') input.checked = Boolean(note[field.name]);
+        else if (document.activeElement !== input) input.value = note[field.name] == null ? '' : String(note[field.name]);
+      }
+      row.querySelector('.remove-btn').disabled = !editing || notes.length <= 1;
+    });
+  }
+
+  function setValue(id, value, editing) {
+    const input = document.getElementById(id);
+    if (document.activeElement === input && editing) return;
+    input.value = value == null ? '' : String(value);
+  }
+
+  function setEditable(editing) {
+    for (const id of PROPERTY_INPUT_IDS) {
+      const input = document.getElementById(id);
+      if (id === 'name-edit' || id === 'description-edit') input.readOnly = !editing;
+      else input.disabled = !editing;
+    }
+  }
+
+  function renderProperties(selected, editing) {
+    const curve = selected?.velocityCurve ?? {};
+    const metadata = selected?.metadata ?? {};
+    setValue('id-display', selected?.id ?? '', false);
+    setValue('schema-display', selected ? `v${selected.schemaVersion}` : '', false);
+    setValue('length-display', selected ? `${selected.length} ticks` : '', false);
+    setValue('pitch-mode-edit', selected?.pitchMode ?? 'scale', editing);
+    setValue('default-gate-edit', selected?.defaultGate, editing);
+    setValue('meter-numerator-edit', selected?.sourceMeter?.numerator ?? '', editing);
+    setValue('meter-denominator-edit', selected?.sourceMeter?.denominator ?? 4, editing);
+    setValue('pickup-ticks-edit', metadata.pickupTicks, editing);
+    setValue('curve-input-min', curve.inputMin, editing);
+    setValue('curve-input-max', curve.inputMax, editing);
+    setValue('curve-output-min', curve.outputMin, editing);
+    setValue('curve-output-max', curve.outputMax, editing);
+    setValue('curve-exponent', curve.exponent, editing);
+    setValue('author-edit', metadata.author ?? '', editing);
+    setValue('source-edit', metadata.source ?? '', editing);
+    setValue('license-edit', metadata.license ?? '', editing);
+    setValue('tags-edit', Array.isArray(metadata.tags) ? metadata.tags.join(', ') : '', editing);
+    setValue('suggested-modes-edit', Array.isArray(metadata.suggestedModes) ? metadata.suggestedModes.join(', ') : '', editing);
+  }
+
+  function renderDetail(server, local) {
+    const selected = server?.selected ?? null;
+    const editing = selectedIsEditing(server);
+    const edit = document.getElementById('edit-btn');
+    const cancel = document.getElementById('cancel-edit-btn');
+    const save = document.getElementById('save-motif-btn');
+    const add = document.getElementById('add-note-btn');
+
+    if (!selected) {
+      setValue('name-edit', '', false); setValue('description-edit', '', false);
+      setEditable(false); renderProperties(null, false);
+      document.getElementById('stats-line').textContent = '–';
+      document.getElementById('edit-state').textContent = '';
+      edit.disabled = true; cancel.classList.add('hidden'); save.disabled = true; add.disabled = true;
+      renderNoteRows(server, false);
+      return;
+    }
+
+    setValue('name-edit', selected.name, editing);
+    setValue('description-edit', selected.description ?? '', editing);
+    setEditable(editing);
+    renderProperties(selected, editing);
+    document.getElementById('stats-line').textContent = selected.stats ?? '';
+    document.getElementById('edit-state').textContent = editing
+      ? `${server.editing.dirty || local.formDirty ? 'Unsaved changes' : 'Editing'} · ${selected.id}`
+      : selected.isBuiltin
+        ? 'Built-in · Edit creates a user copy'
+        : `${selected.isPersisted ? 'Saved' : 'Not yet saved'} · ${selected.id}`;
+    edit.classList.toggle('hidden', editing);
+    edit.disabled = false;
+    cancel.classList.toggle('hidden', !editing);
+    cancel.disabled = false;
+    save.disabled = !editing || !server.libraryLoaded;
+    save.title = server.libraryLoaded ? 'Save changes and exit editing' : 'Choose a valid library folder before saving';
+    add.disabled = !editing || selected.notes.length >= MAX_NOTE_ROWS;
+    renderNoteRows(server, editing);
+  }
+
+  function renderPanels(activePanel) {
+    document.getElementById('properties-panel').classList.toggle('hidden', activePanel !== 'properties');
+    document.getElementById('notes-panel').classList.toggle('hidden', activePanel !== 'notes');
+    document.querySelectorAll('.panel-tab').forEach((tab) => tab.classList.toggle('active', tab.dataset.panel === activePanel));
+  }
+
+  function render(state) {
+    const server = state.server;
+    renderBrowser(server);
+    renderDetail(server, state);
+    renderModal(state.modal);
+    renderPanels(state.activePanel);
+    const search = document.getElementById('search');
+    if (server && document.activeElement !== search) search.value = server.query ?? '';
+    const path = document.getElementById('library-path');
+    path.textContent = server?.libraryPath ? `${server.libraryLoaded ? '' : 'Unavailable · '}${server.libraryPath}` : 'Built-ins only';
+    path.title = server?.libraryPath || 'No user library selected';
+    document.getElementById('refresh-btn').disabled = !server?.libraryPath;
+  }
+
+  function optionalNumber(id) {
+    const value = document.getElementById(id).value.trim();
+    return value === '' ? null : Number(value);
+  }
+
+  function textList(id) {
+    return [...new Set(document.getElementById(id).value.split(/[\n,]/).map((value) => value.trim()).filter(Boolean))];
+  }
+
+  function readProperties() {
+    return {
+      name:document.getElementById('name-edit').value,
+      description:document.getElementById('description-edit').value,
+      pitchMode:document.getElementById('pitch-mode-edit').value,
+      sourceMeter:{
+        numerator:Number(document.getElementById('meter-numerator-edit').value),
+        denominator:Number(document.getElementById('meter-denominator-edit').value),
+      },
+      defaultGate:optionalNumber('default-gate-edit'),
+      velocityCurve:{
+        inputMin:optionalNumber('curve-input-min'), inputMax:optionalNumber('curve-input-max'),
+        outputMin:optionalNumber('curve-output-min'), outputMax:optionalNumber('curve-output-max'),
+        exponent:optionalNumber('curve-exponent'),
+      },
+      metadata:{
+        author:document.getElementById('author-edit').value,
+        source:document.getElementById('source-edit').value,
+        license:document.getElementById('license-edit').value,
+        tags:textList('tags-edit'), suggestedModes:textList('suggested-modes-edit'),
+        pickupTicks:optionalNumber('pickup-ticks-edit'),
+      },
+    };
+  }
+
+  function pushProperties() {
+    if (!selectedIsEditing(store.getState().server)) return;
+    send({ type:'edit_motif', properties:readProperties() });
+  }
+
+  function normalizeServerState(value) {
+    if (!value || !Array.isArray(value.items)) throw new TypeError('items must be an array');
+    if (!value.editing || typeof value.editing.active !== 'boolean') throw new TypeError('editing state is missing');
+    return {
+      ...value,
+      items:value.items.filter((item) => item && typeof item.id === 'string' && typeof item.name === 'string'),
+      selectedIndex:Number.isInteger(value.selectedIndex) ? value.selectedIndex : -1,
+      libraryPath:typeof value.libraryPath === 'string' ? value.libraryPath : '',
+    };
+  }
+
+  function receiveData(...values) {
+    const encoded = values[values.length - 1];
+    try {
+      const server = normalizeServerState(JSON.parse(decodeURIComponent(String(encoded))));
+      const previous = store.getState();
+      const selectedChanged = previous.server?.selected?.id !== server.selected?.id;
+      const editingEnded = previous.server?.editing?.active && !server.editing.active;
+      store.setState({ server, formDirty:selectedChanged || editingEnded ? false : previous.formDirty });
+      if (stateDeadline !== null) { clearTimeout(stateDeadline); stateDeadline = null; }
+      debug('ok', `State: ${server.items.length} motifs${server.libraryPath ? ` · ${server.libraryPath}` : ''}`);
+    } catch (reason) {
+      debug('error', `Bad library payload: ${errorText(reason)}`);
+    }
+  }
+
+  store.subscribe(render);
+  buildNoteRows();
+  render(store.getState());
+
+  document.querySelectorAll('.panel-tab').forEach((tab) => tab.addEventListener('click', () => store.setState({ activePanel:tab.dataset.panel })));
+  document.getElementById('search').addEventListener('input', (event) => send({ type:'filter_motifs', query:event.target.value }));
+  document.getElementById('clear-search').addEventListener('click', () => send({ type:'filter_motifs', query:'' }));
+  document.getElementById('choose-btn').addEventListener('click', () => {
+    confirmDiscard(() => {
+      if (store.getState().server?.editing?.active) send({ type:'cancel_edit' });
+      window.max.outlet('choose_library');
+    }, 'Discard the current edits and choose another library folder?');
+  });
+  document.getElementById('refresh-btn').addEventListener('click', () => confirmDiscard(
+    () => send({ type:'refresh_library', discardChanges:true }),
+    'Discard the current edits and reload the library folder?',
+  ));
+  document.getElementById('edit-btn').addEventListener('click', () => send({ type:'begin_edit' }));
+  document.getElementById('cancel-edit-btn').addEventListener('click', () => confirmDiscard(() => send({ type:'cancel_edit' })));
+  document.getElementById('import-clip-btn').addEventListener('click', () => confirmDiscard(
+    () => send({ type:'import_clip', pitchMode:document.getElementById('import-mode').value }),
+    'Discard the current edits and import the selected Live clip?',
+  ));
+  document.getElementById('save-motif-btn').addEventListener('click', () => send({ type:'save_motif', properties:readProperties() }));
+  document.getElementById('add-note-btn').addEventListener('click', () => send({ type:'add_note' }));
+
+  for (const id of PROPERTY_INPUT_IDS) {
+    const input = document.getElementById(id);
+    input.addEventListener('input', () => store.setState({ formDirty:true }));
+    input.addEventListener('change', pushProperties);
+    if (input.tagName === 'TEXTAREA' || input.type === 'text') input.addEventListener('blur', pushProperties);
+  }
+
+  document.getElementById('modal-cancel').addEventListener('click', closeModal);
+  document.getElementById('modal-backdrop').addEventListener('click', (event) => { if (event.target === event.currentTarget) closeModal(); });
+  document.getElementById('modal-confirm').addEventListener('click', () => {
+    const modal = store.getState().modal;
+    closeModal();
+    if (modal?.onConfirm) modal.onConfirm();
+  });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && store.getState().modal) closeModal(); });
+
+  if (isMax) {
+    if (typeof window.max.bindInlet !== 'function') {
+      debug('error', 'Max jweb bridge is missing bindInlet');
+    } else {
+      window.max.bindInlet('receiveData', receiveData);
+      debug('info', `Bridge ready; waiting for library state (${location.href})`);
+      window.max.outlet('library_ready');
+      stateDeadline = setTimeout(() => {
+        if (!store.getState().server) debug('error', 'No library state received within 2 seconds');
+      }, 2000);
+    }
+  } else {
+    receiveData(encodeURIComponent(JSON.stringify({
+      query:'', libraryPath:'/Users/example/Motifs', libraryLoaded:true,
+      editing:{ active:false, dirty:false, created:false, sourceId:null, targetId:null },
+      items:[
+        { id:'mitsuda-lick', name:'Mitsuda Lick', showId:true },
+        { id:'mitsuda-lick-2', name:'Mitsuda Lick', showId:true },
+        { id:'salt-peanuts', name:'Salt Peanuts', showId:false },
+      ],
+      selectedIndex:0,
+      selected:{
+        schemaVersion:1, id:'mitsuda-lick', name:'Mitsuda Lick', description:'Canonical two-bar contour.',
+        pitchMode:'chromatic', sourceMeter:{ numerator:4, denominator:4 }, length:7680, defaultGate:.92,
+        velocityCurve:{ inputMin:null, inputMax:null, outputMin:48, outputMax:118, exponent:.85 },
+        metadata:{ author:'Traditional/canonical VGM vocabulary', source:'', license:'', tags:['mitsuda','chromatic'], suggestedModes:['minor','dorian'], pickupTicks:null },
+        stats:'6 notes • 2 bars • 4/4 source • chromatic', isBuiltin:true, isPersisted:false,
+        notes:[
+          { pitch:0, accidental:null, at:0, duration:2880, gate:.96, velocity:null, velocityOffset:5, velocityScale:null, legato:false, tie:false },
+          { pitch:-2, accidental:null, at:2880, duration:960, gate:null, velocity:null, velocityOffset:-4, velocityScale:null, legato:false, tie:false },
+        ],
+      },
+    })));
+  }
+</script>
+</body>
+</html>

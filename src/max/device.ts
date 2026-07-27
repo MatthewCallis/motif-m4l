@@ -1,5 +1,6 @@
 /**
- * Motif Max for Live engine - TypeScript side of `v8 motif-device.js`.
+ * Motif Max for Live engine - TypeScript source for the content-addressed
+ * `v8 motif-device-<hash>.js` runtime.
  *
  * ## Message path
  * The hand-written bridge in `scripts/build.ts` exposes a single Max top-level
@@ -75,6 +76,11 @@ interface MotifHandlers {
    * @returns {void}
    */
   library_ready: () => void;
+  /**
+   * Materialize the bundled library page into Max's temporary folder.
+   * @returns {void}
+   */
+  library_prepare: () => void;
   /**
    * Mirror diagnostics emitted by an embedded page.
    * @param {string} page The page reporting the diagnostic.
@@ -716,6 +722,69 @@ function preview_ready(): void {
  */
 function library_ready(): void {
   emitLibraryState();
+}
+
+/**
+ * Join an absolute Max folder path and a filename.
+ * @param {string} folder The absolute parent folder reported by Max's File API.
+ * @param {string} filename The filename to append.
+ * @returns {string} The complete Max pathname.
+ */
+function joinMaxPath(folder: string, filename: string): string {
+  const separator = folder.endsWith('/') || folder.endsWith(':') ? '' : '/';
+  return `${folder}${separator}${filename}`;
+}
+
+/**
+ * Write text through Max's File API without crossing its per-call string limit.
+ * @param {File} file The open output file.
+ * @param {string} text The complete text to write.
+ * @returns {void}
+ */
+function writeTextChunks(file: File, text: string): void {
+  const chunkSize = 8_192;
+  for (let offset = 0; offset < text.length; offset += chunkSize) {
+    file.writestring(text.slice(offset, offset + chunkSize));
+  }
+}
+
+/**
+ * Write the build-injected Library page to Max's temporary folder and report
+ * its resolved absolute path. jweb requires a real file loaded via `readfile`;
+ * URL attributes and data URIs do not provide the Max bridge reliably.
+ * @returns {void}
+ * @see https://docs.cycling74.com/apiref/js/file/
+ * @see https://docs.cycling74.com/userguide/search_path/#path-prefixes
+ * @see https://docs.cycling74.com/reference/jweb/#readfile
+ */
+function library_prepare(): void {
+  const temporaryPath = `Tempfolder:/${__MOTIF_LIBRARY_PAGE_NAME__}`;
+  let output: File | undefined;
+
+  try {
+    output = new File(temporaryPath, 'write');
+    if (!output.isopen) throw new Error(`could not create ${temporaryPath}`);
+
+    output.eof = 0;
+    output.position = 0;
+    writeTextChunks(output, __MOTIF_LIBRARY_HTML__);
+    const absolutePath = joinMaxPath(output.foldername, __MOTIF_LIBRARY_PAGE_NAME__);
+    output.close();
+    output = undefined;
+
+    const verification = new File(absolutePath, 'read');
+    if (!verification.isopen) throw new Error(`could not reopen ${absolutePath}`);
+    const byteLength = verification.eof;
+    verification.close();
+    if (byteLength < __MOTIF_LIBRARY_HTML__.length) {
+      throw new Error(`wrote a truncated page to ${absolutePath} (${byteLength} bytes)`);
+    }
+
+    emit('library-page', absolutePath);
+  } catch (reason) {
+    if (output?.isopen) output.close();
+    emitError(`Library page preparation failed: ${reason instanceof Error ? reason.message : String(reason)}`);
+  }
 }
 
 /**
@@ -2402,11 +2471,19 @@ function lib_action(...encodedParts: unknown[]): void {
   }
 }
 
+/**
+ * Panic the device.
+ * @returns {void}
+ */
 function panic(): void {
   clearScheduledNotes();
   emitStatus('panic');
 }
 
+/**
+ * Dump the context.
+ * @returns {void}
+ */
 function dump_context(): void {
   emit(
     'context',
@@ -2422,6 +2499,7 @@ const handlers: MotifHandlers = {
   initialize,
   preview_ready,
   library_ready,
+  library_prepare,
   web_debug,
   note,
   cc,

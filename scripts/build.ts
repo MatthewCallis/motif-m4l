@@ -1,5 +1,6 @@
 /**
- * Build Motif runtime artifacts: builtins, Max patch, and `motif-device.js`.
+ * Build Motif runtime artifacts and generate a patch that references
+ * content-addressed JavaScript filenames.
  *
  * The hand-written Max bridge (`MAX_BRIDGE`) is concatenated **before** the
  * esbuild IIFE so Max can discover a top-level `anything()` at global scope.
@@ -9,8 +10,9 @@
  * @see https://docs.cycling74.com/apiref/js/jsthis/
  */
 
+import { createHash } from 'node:crypto';
 import { build } from 'esbuild';
-import { copyFile, mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { generateMaxPatch } from './generate-max-patch.js';
 import path from 'node:path';
 
@@ -33,6 +35,7 @@ import type { Motif } from '../core/types.js';
 
 export const BUILTIN_MOTIFS = ${JSON.stringify(motifs, null, 2)} as const satisfies readonly Motif[];
 `;
+  await mkdir('src/generated', { recursive: true });
   await writeFile('src/generated/builtins.ts', output);
 }
 
@@ -57,29 +60,89 @@ function anything() {
 }
 `;
 
+const HASH_LENGTH = 12;
+
+/**
+ * Build a content-addressed JavaScript filename.
+ * @param {string} stem The filename stem without its extension.
+ * @param {string} content The exact file content Max will load.
+ * @returns {string} A filename containing the leading SHA-256 digest.
+ */
+function hashedJavaScriptFilename(stem: string, content: string): string {
+  const digest = createHash('sha256').update(content).digest('hex').slice(0, HASH_LENGTH);
+  return `${stem}-${digest}.js`;
+}
+
+/**
+ * Remove obsolete generated hashes while preserving the current artifact.
+ * @param {string} directory The generated-artifact directory.
+ * @param {string} stem The content-addressed filename stem.
+ * @param {string} currentFilename The current artifact to retain.
+ * @returns {Promise<void>} A promise that resolves after stale artifacts are removed.
+ */
+async function removeStaleHashedArtifacts(
+  directory: string,
+  stem: string,
+  currentFilename: string,
+): Promise<void> {
+  const pattern = new RegExp(`^${stem}-[a-f0-9]{${HASH_LENGTH}}\\.js$`);
+  const files = await readdir(directory);
+  await Promise.all(
+    files
+      .filter((filename) => pattern.test(filename) && filename !== currentFilename)
+      .map((filename) => rm(path.join(directory, filename), { force: true })),
+  );
+}
+
 await generateBuiltins();
-await generateMaxPatch();
 
-await mkdir('dist', { recursive: true });
-await mkdir('max', { recursive: true });
-
-const enginePath = 'dist/.motif-engine.js';
-await build({
+const [libraryHtml, preview] = await Promise.all([
+  readFile('src/max/library.html', 'utf8'),
+  readFile('src/max/motif-preview.js', 'utf8'),
+]);
+const libraryDigest = createHash('sha256').update(libraryHtml).digest('hex').slice(0, 12);
+const libraryPageName = `uttori-motif-library-${libraryDigest}.html`;
+const buildResult = await build({
   entryPoints: ['src/max/device.ts'],
-  outfile: enginePath,
   bundle: true,
   format: 'iife',
   globalName: 'MotifEngine',
   platform: 'neutral',
   target: 'es2020',
+  write: false,
   sourcemap: false,
   legalComments: 'none',
+  define: {
+    __MOTIF_LIBRARY_HTML__: JSON.stringify(libraryHtml),
+    __MOTIF_LIBRARY_PAGE_NAME__: JSON.stringify(libraryPageName),
+  },
 });
 
-const engine = await readFile(enginePath, 'utf8');
+const engine = buildResult.outputFiles?.[0]?.text;
+if (engine === undefined) throw new Error('esbuild did not produce the Max engine bundle');
+
 const output = `${MAX_BRIDGE}\n${engine}`;
+const engineFilename = hashedJavaScriptFilename('motif-device', output);
+const previewFilename = hashedJavaScriptFilename('motif-preview', preview);
+
+await mkdir('dist', { recursive: true });
+await mkdir('max', { recursive: true });
+
+await Promise.all([
+  removeStaleHashedArtifacts('dist', 'motif-device', engineFilename),
+  removeStaleHashedArtifacts('dist', 'motif-preview', previewFilename),
+  removeStaleHashedArtifacts('max', 'motif-device', engineFilename),
+  removeStaleHashedArtifacts('max', 'motif-preview', previewFilename),
+]);
+
 await writeFile('dist/motif-device.js', output);
-await copyFile('dist/motif-device.js', 'max/motif-device.js');
-await rm(enginePath, { force: true });
+await writeFile(path.join('dist', engineFilename), output);
+await writeFile(path.join('dist', previewFilename), preview);
+await writeFile('max/library.html', libraryHtml);
+await writeFile('max/motif-device.js', output);
+await writeFile('max/motif-preview.js', preview);
+await writeFile(path.join('max', engineFilename), output);
+await writeFile(path.join('max', previewFilename), preview);
+await generateMaxPatch({ engineFilename, previewFilename });
 await rm('dist/motif-device.js.map', { force: true });
 await rm('max/motif-device.js.map', { force: true });

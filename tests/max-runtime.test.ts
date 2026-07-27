@@ -24,13 +24,43 @@ describe('compiled Max runtime', () => {
     const source = await readFile('dist/motif-device.js', 'utf8');
     const emissions: Emission[] = [];
     const errors: string[] = [];
+    const temporaryFiles = new Map<string, string>();
+    class MockFile {
+      isopen: boolean;
+      eof = 0;
+      position = 0;
+      filename: string;
+      foldername: string;
+      private readonly absolutePath: string;
+
+      constructor(filename: string, access = 'read') {
+        this.filename = filename.split('/').pop() ?? filename;
+        this.foldername = filename.startsWith('Tempfolder:') ? '/tmp/max-temp' : filename.slice(0, filename.lastIndexOf('/'));
+        this.absolutePath = filename.startsWith('Tempfolder:')
+          ? `${this.foldername}/${this.filename}`
+          : filename;
+        this.isopen = access === 'write' || temporaryFiles.has(this.absolutePath);
+        this.eof = Buffer.byteLength(temporaryFiles.get(this.absolutePath) ?? '');
+      }
+
+      writestring(text: string): void {
+        const current = temporaryFiles.get(this.absolutePath) ?? '';
+        temporaryFiles.set(this.absolutePath, `${current}${text}`);
+        this.position += text.length;
+        this.eof = temporaryFiles.get(this.absolutePath)?.length ?? 0;
+      }
+
+      close(): void {
+        this.isopen = false;
+      }
+    }
     const context = vm.createContext({
       outlet: (_index: number, ...values: unknown[]) => emissions.push(values),
       error: (message: string) => errors.push(String(message)),
       post: () => undefined,
       arrayfromargs: (values: IArguments | ArrayLike<unknown>) => Array.from(values),
       messagename: '',
-      File: class {},
+      File: MockFile,
       Folder: class {},
       console,
     });
@@ -62,6 +92,7 @@ describe('compiled Max runtime', () => {
     emissions.length = 0;
     send('preview_ready');
     send('library_ready');
+    send('library_prepare');
     assert.ok(lastEmission(emissions, ['ui', 'preview']), 'preview readiness must resend current preview state');
     const libraryStateRaw = lastEmission(emissions, ['ui', 'lib']);
     assert.ok(libraryStateRaw, 'library readiness must resend current library state');
@@ -72,6 +103,13 @@ describe('compiled Max runtime', () => {
     assert.ok(libraryState.items.length > 0, 'library state must contain built-in motifs');
     assert.ok(libraryState.items.some((item) => item.id === 'scale-turn'), 'library state must include Scale Turn');
     assert.ok(libraryState.selected, 'library state must include selected motif details');
+    const libraryPage = lastEmission(emissions, ['library-page']);
+    assert.match(String(libraryPage?.[1]), /^\/tmp\/max-temp\/uttori-motif-library-[a-f0-9]{12}\.html$/);
+    assert.equal(
+      temporaryFiles.get(String(libraryPage?.[1])),
+      await readFile('src/max/library.html', 'utf8'),
+      'library_prepare must materialize the exact bundled page',
+    );
 
     send('song_context', 'tempo', 96);
     send('song_context', 'root_note', 5);

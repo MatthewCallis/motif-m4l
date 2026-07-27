@@ -178,6 +178,15 @@ export interface MaxPanelOptions {
   hidden?: MaxBoolean;
 }
 
+/** Optional chrome for {@link MaxPatchBuilder.addJsuiPreview}. */
+export interface MaxJsuiPreviewOptions extends Pick<MaxUiOptions, 'hidden'> {
+  filename?: string;
+  /** Draw a border in motif-preview.js (jsui's built-in border is always square). */
+  border?: MaxBoolean;
+  /** Corner radius in pixels, forwarded to motif-preview.js via jsarguments. */
+  rounded?: number;
+}
+
 /** Optional attributes supported by {@link MaxPatchBuilder.addComment}. */
 export interface MaxCommentOptions {
   fontsize?: number;
@@ -770,21 +779,34 @@ export class MaxPatchBuilder {
     name: string,
     rect: MaxRect,
     help: MaxHelpInfo,
-    options: Pick<MaxUiOptions, 'hidden'> & { filename?: string } = {},
-  ): string => this.addBox(name, 'jsui', rect, {
-    filename: options.filename ?? 'motif-preview.js',
-    border: 0,
-    ignoreclick: 0,
-    numinlets: 1,
-    numoutlets: 1,
-    outlettype: [''],
-    parameter_enable: 0,
-    presentation: 1,
-    presentation_rect: [...rect] as MaxRect,
-    varname: name,
-    hidden: options.hidden ?? 0,
-    ...createHelpAttributes(help),
-  });
+    options: MaxJsuiPreviewOptions = {},
+  ): string => {
+    const rounded = Math.max(0, options.rounded ?? 0);
+    const border = options.border ?? 0;
+    const jsarguments = rounded > 0 || border > 0
+      ? [rounded > 0 ? rounded : 6, border > 0 ? 1 : 0]
+      : undefined;
+
+    return this.addBox(name, 'jsui', rect, {
+      filename: options.filename ?? 'motif-preview.js',
+      // Avoid Max's stock radial-dial template if the frozen dependency is
+      // unavailable during jsui's first construction.
+      template: options.filename ?? 'motif-preview.js',
+      // Rounded chrome is drawn in motif-preview.js; keep the native jsui border off.
+      border: 0,
+      ...(jsarguments === undefined ? {} : { jsarguments }),
+      ignoreclick: 0,
+      numinlets: 1,
+      numoutlets: 1,
+      outlettype: [''],
+      parameter_enable: 0,
+      presentation: 1,
+      presentation_rect: [...rect] as MaxRect,
+      varname: name,
+      hidden: options.hidden ?? 0,
+      ...createHelpAttributes(help),
+    });
+  };
 
   /**
    * Connect a source outlet to a destination inlet using zero-based indices.

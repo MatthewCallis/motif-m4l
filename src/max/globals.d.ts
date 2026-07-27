@@ -65,11 +65,19 @@ declare class File {
   constructor(filename: string, access?: 'read' | 'write' | 'readwrite', typelist?: string);
   isopen: boolean;
   eof: number;
+  filename: string;
+  readonly foldername: string;
   position: number;
   readstring(count: number): string;
   writestring(text: string): void;
   close(): void;
 }
+
+/** HTML source injected by the build into the frozen Max engine bundle. */
+declare const __MOTIF_LIBRARY_HTML__: string;
+
+/** Content-addressed filename used for the extracted jweb page. */
+declare const __MOTIF_LIBRARY_PAGE_NAME__: string;
 
 /**
  * Live Object Model access from JavaScript.

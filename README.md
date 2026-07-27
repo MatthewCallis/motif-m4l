@@ -7,10 +7,10 @@ A scale-aware MIDI phrase trigger written in TypeScript. Ableton Live Song state
 - Native `live.path live_set` and `live.observer` synchronization for tempo, scale, meter, transport, and song position.
 - Fail-open native MIDI routing: raw MIDI passes while the engine starts, then `midiselect` extracts notes while preserving unrelated MIDI bytes.
 - Compact 480 × 169 Presentation Mode UI with Motif/Settings tabs, Ableton Sans, and Live theme colors.
-- Native `multislider` phrase contour preview plus exact note names beside the current root/scale, with a device-local BPM multiplier.
+- Native `jsui` phrase contour preview plus exact note names beside the current root/scale, with a device-local BPM multiplier.
 - Floating Library window: searchable browser, Live clip import, per-note editor, Save, plus description/stats/tags and library Choose/Refresh.
 - Clue-window annotations and locked-patcher hints on every interactive control.
-- Stable, unversioned runtime filenames so updates can replace files in place.
+- Content-addressed runtime filenames so Max cannot silently reuse an older frozen JavaScript dependency.
 
 ## Build
 
@@ -19,7 +19,9 @@ npm install
 npm run verify
 ```
 
-`verify` type-checks the TypeScript, rebuilds generated files, runs the test suite, executes the compiled Max runtime in a VM, and validates the native MIDI graph, Song observers, dependency list, help metadata, and all 480×169 Presentation bounds.
+`verify` type-checks the TypeScript, rebuilds generated files, runs the test suite, executes the compiled Max runtime in a VM, and validates the native MIDI graph, Song observers, dependency list, help metadata, and all 475×169 Presentation bounds.
+
+Use `npm run build:clean` to remove and recreate every generated runtime artifact. Handwritten Library and preview sources live under `src/max`; cleaning preserves `max/Motif.amxd` and `max/INSTALL.md`.
 
 ## Development files
 
@@ -27,10 +29,11 @@ Keep these files together while editing the device:
 
 ```text
 Motif.maxpat
-motif-device.js
+motif-device-<content-hash>.js
+motif-preview-<content-hash>.js
 ```
 
-Open an existing Max MIDI Effect using **Edit in Max**, replace every old patch object with the contents of `Motif.maxpat`, and save. Freeze the device after confirming the engine says `Ready`, BPM/key update, the preview renders, and MIDI reaches the following instrument.
+`npm run build` creates those content-addressed files and writes their exact names into `Motif.maxpat`. Open an existing Max MIDI Effect using **Edit in Max**, replace every old patch object with the contents of `Motif.maxpat`, and save. Max sees new JavaScript content as a new dependency instead of reusing a frozen file with the same name. Freeze the device after confirming the engine says `Ready`, BPM/key update, the preview renders, and MIDI reaches the following instrument.
 
 ## Host behavior
 
@@ -49,6 +52,6 @@ Open an existing Max MIDI Effect using **Edit in Max**, replace every old patch 
 
 ## Max JavaScript message boundary
 
-`motif-device.js` intentionally exposes only one top-level Max function: `anything()`. It uses Max's global `messagename` and `arrayfromargs(arguments)` values, then forwards the message to the TypeScript engine's `dispatch()` function. This avoids relying on bundler-generated global functions for selectors such as `song_context`.
+The generated `motif-device-<content-hash>.js` intentionally exposes only one top-level Max function: `anything()`. It uses Max's global `messagename` and `arrayfromargs(arguments)` values, then forwards the message to the TypeScript engine's `dispatch()` function. This avoids relying on bundler-generated global functions for selectors such as `song_context`.
 
-After replacing the JavaScript file in an open device, send `compile` to the `v8 motif-device.js` object or reload the device.
+Do not replace JavaScript inside an open device. Rebuild and copy the regenerated patch; its new hashed dependency name forces Max to load the new engine.

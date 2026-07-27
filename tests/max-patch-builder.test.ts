@@ -381,12 +381,21 @@ describe('MaxPatchBuilder', () => {
       const customId = builder.addJsuiPreview('custom-preview', [3, 4, 320, 90], HELP, {
         filename: 'custom-preview.js',
         hidden: 1,
+        border: 1,
+        rounded: 8,
       });
       const defaultBox = boxById(builder, defaultId);
       assert.equal(defaultBox.filename, 'motif-preview.js');
+      assert.equal(defaultBox.template, 'motif-preview.js');
       assert.deepEqual(defaultBox.patching_rect, defaultBox.presentation_rect);
-      assert.equal(boxById(builder, customId).filename, 'custom-preview.js');
-      assert.equal(boxById(builder, customId).hidden, 1);
+      assert.equal(defaultBox.border, 0);
+      assert.equal(defaultBox.jsarguments, undefined);
+
+      const customBox = boxById(builder, customId);
+      assert.equal(customBox.filename, 'custom-preview.js');
+      assert.equal(customBox.template, 'custom-preview.js');
+      assert.equal(customBox.hidden, 1);
+      assert.deepEqual(customBox.jsarguments, [8, 1]);
     });
   });
 

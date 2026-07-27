@@ -2,12 +2,14 @@
  * Generate `max/Motif.maxpat` - the Motif MIDI Effect patcher.
  *
  * ## Architecture (do not regress)
- * - Presentation Mode, fixed 480×169 Live device height, Ableton Sans
+ * - Presentation Mode, fixed 475×169 Live device height, Ableton Sans
  * - Song state via native `live.path` + `live.observer` (tempo, scale, meter, transport);
  *   JS receives updates as `song_context` through `deferlow`
  * - MIDI: fail-open until `status Ready`; non-note MIDI bypasses `v8`; scheduling via `pipe`
  * - Native jsui/mgraphics note preview; no HTML dependency in Live's device chain
- * - The Library jweb page announces readiness before the engine resends its latest state
+ * - The Library page is materialized by the frozen engine into Max's temporary
+ *   folder, then loaded through jweb's documented `readfile` message
+ * - The Library page announces readiness before the engine resends its latest state
  * - Library/authoring UI in a floating `pcontrol` subpatcher
  * - Motif vs Settings pages via `live.tab` + `thispatcher` hide/show
  *
@@ -27,8 +29,6 @@
  */
 
 import { writeFile } from 'node:fs/promises';
-import { fileURLToPath } from 'node:url';
-import path from 'node:path';
 import {
   MaxPatchBuilder,
   type MaxBuilderColors,
@@ -36,8 +36,14 @@ import {
   type MaxPatcher,
 } from './max-patch-builder.js';
 
-const WIDTH = 480;
+const WIDTH = 475;
 const FONT = 'Ableton Sans';
+
+/** Content-addressed JavaScript artifacts consumed by the generated Max patch. */
+export interface MaxRuntimeArtifacts {
+  engineFilename: string;
+  previewFilename: string;
+}
 
 /** Fixed RGBA values for non-`live.*` UI. Live owns the theme of `live.*` objects. */
 const COLORS: MaxBuilderColors = {
@@ -69,18 +75,18 @@ const LIVE_ROOT_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', '
  * `max-patch-builder.ts`; this module now contains only Motif-specific layout,
  * routing, and patcher metadata.
  *
+ * @param {MaxRuntimeArtifacts} runtime Content-addressed runtime filenames produced by the build.
  * @returns {Promise<void>} A promise that resolves after `max/Motif.maxpat` has been written.
  * @see https://docs.cycling74.com/userguide/object_reference/
  * @see https://docs.cycling74.com/apiref/js/patcher/
  */
-export async function generateMaxPatch(): Promise<void> {
+export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<void> {
   const builder = new MaxPatchBuilder({ fontName: FONT, colors: COLORS });
   const { boxes, lines } = builder;
   const {
     addBox: add,
     addObject: object,
     addMessage: message,
-    addPanel: uiPanel,
     addComment: uiComment,
     addDynamicMenu: uiDynamicMenu,
     addLiveMenu: uiLiveMenu,
@@ -104,7 +110,7 @@ export async function generateMaxPatch(): Promise<void> {
   uiLiveTab(
     'page-tab',
     ['Motif', 'Settings'],
-    [8, 4, 96, 20],
+    [0, 4, 96, 20],
     'Page',
     'Page',
     0,
@@ -115,11 +121,11 @@ export async function generateMaxPatch(): Promise<void> {
   );
 
   const motifHidden = { hidden: 0 } as const;
-  uiDynamicMenu('motif-menu', ['Loading…'], [112, 4, 176, 20], {
+  uiDynamicMenu('motif-menu', ['Loading…'], [100, 4, 210, 20], {
     name: 'Selected Motif',
     description: 'Choose the phrase played when a trigger note is received. The preview updates immediately.',
   }, { fontsize: 10, ...motifHidden });
-  uiLiveComment('tempo-mult-label', 'BPM ×', [312, 5, 35, 20], motifHidden);
+  uiLiveComment('tempo-mult-label', 'BPM ×', [318, 5, 35, 20], motifHidden);
   uiLiveMenu(
     'tempo-mult-menu',
     ['0.5', '1', '1.5', '2'],
@@ -129,47 +135,51 @@ export async function generateMaxPatch(): Promise<void> {
     1,
     {
       name: 'BPM Multiplier',
-      description: 'Multiplies Live’s Song tempo for motif scheduling only. Does not change the Live Set tempo. Default is 1.',
+      description: 'Multiplies Live\'s Song tempo for motif scheduling only. Does not change the Live Set tempo. Default is 1.',
     },
     motifHidden,
   );
-  uiButton('info-button', 'Info', [396, 4, 32, 20], {
+  uiButton('info-button', 'Info', [399, 4, 32, 20], {
     name: 'Library & Authoring',
     description: 'Open the floating library browser: search motifs, import a Live clip, edit notes, and save JSON.',
   }, motifHidden);
-  uiButton('panic-button', 'Panic', [432, 4, 40, 20], {
+  uiButton('panic-button', 'Panic', [435, 4, 40, 20], {
     name: 'Panic',
     description: 'Immediately clears scheduled phrase events and sends note-offs for active MIDI notes.',
   }, motifHidden);
 
-  uiPanel('ui-preview-panel', [8, 28, 464, 100], { bgcolor: COLORS.previewBg, ...motifHidden });
-  uiPreview('motif-preview', [12, 32, 456, 92], {
+  uiPreview('motif-preview', [2, 28, 471, 120], {
     name: 'Motif Note Preview',
     description: 'A time-and-pitch preview of the selected motif after applying the current Live scale, pitch mode, meter mode, BPM multiplier, and most recent trigger note.',
-  }, motifHidden);
+  }, {
+    ...motifHidden,
+    border: 1,
+    rounded: 6,
+    filename: runtime.previewFilename,
+  });
 
   // Single bottom row - inline labels; Scale menus dim via `active` when Song.scale_mode is off
-  uiLiveComment('pitch-label', 'Pitch', [8, 146.5, 40, 18], motifHidden);
+  uiLiveComment('pitch-label', 'Pitch', [0, 150, 40, 18], motifHidden);
   uiLiveMenu(
     'pitch-menu',
     ['motif', 'scale', 'chromatic', 'hybrid'],
-    [52, 148, 88, 18],
+    [32, 151, 64, 18],
     'Pitch Mode',
     'Pitch',
     0,
     {
       name: 'Pitch Mode',
-      description: 'Motif uses the phrase’s stored pitch mode. Scale maps stored degrees through Live’s current scale; Chromatic preserves semitone intervals; Hybrid combines scale degrees with accidentals.',
+      description: 'Motif uses the phrase\'s stored pitch mode. Scale maps stored degrees through Live\'s current scale; Chromatic preserves semitone intervals; Hybrid combines scale degrees with accidentals.',
     },
     motifHidden,
   );
-  uiLiveComment('scale-label', 'Scale', [148, 146.5, 44, 18], motifHidden);
+  uiLiveComment('scale-label', 'Scale', [148, 150, 44, 18], motifHidden);
   // parameter_enable must stay 1 - live.menu loads parameter_enum from the Live parameter.
   // ignoreclick keeps them Song-driven; active 0/1 follows Song.scale_mode for Live’s disabled look.
   uiLiveMenu(
     'root-display',
     LIVE_ROOT_NAMES,
-    [196, 148, 40, 18],
+    [196, 151, 40, 18],
     'Live Scale Root',
     'Root',
     0,
@@ -182,7 +192,7 @@ export async function generateMaxPatch(): Promise<void> {
   uiLiveMenu(
     'scale-name-display',
     LIVE_SCALE_NAMES,
-    [240, 148, 132, 18],
+    [240, 151, 132, 18],
     'Live Scale Name',
     'Scale',
     0,
@@ -238,7 +248,6 @@ export async function generateMaxPatch(): Promise<void> {
     'tempo-mult-menu',
     'info-button',
     'panic-button',
-    'ui-preview-panel',
     'motif-preview',
     'pitch-label',
     'pitch-menu',
@@ -283,11 +292,12 @@ export async function generateMaxPatch(): Promise<void> {
 
     // jweb fills the initial 640×460 Presentation view. `autosize` caches
     // its zero-pixel right/bottom margins so it follows later window resizes.
-    // Loaded by `readfile library.html` from the device dependency cache.
+    // This separate window has no overlapping Max UI, so onscreen rendering is
+    // both faster and avoids offscreen-rendering issues with HTML form controls.
     nadd('jweb-library', 'jweb', [0, 0, POP_W, POP_H], {
       presentation: 1,
       presentation_rect: [0, 0, POP_W, POP_H],
-      rendermode: 0,
+      rendermode: 1,
       autosize: 1,
       varname: 'jweb-library',
     });
@@ -300,16 +310,19 @@ export async function generateMaxPatch(): Promise<void> {
     const LY = 500;
     const LROW = 36;
     nobject('lib-thispatcher', 'thispatcher', LX, LY, 90);
+    nobject('lib-inlet-route', 'route library_page', LX, LY - LROW, 160);
+    nobject('lib-readfile-prepend', 'prepend readfile', LX + 190, LY - LROW, 120);
     // loadmess fires on load to configure the floating window before it is first opened.
     nobject('lib-force-pres', 'loadmess presentation 1', LX + 120, LY, 160);
     nobject('lib-force-size', 'loadmess window size 640 460', LX + 300, LY, 180);
     nobject('lib-force-title', 'loadmess title "Motif Library"', LX + 500, LY, 210);
-    nobject('lib-page-load', 'loadmess readfile library.html', LX + 740, LY, 210);
     nconnect('lib-force-pres', 0, 'lib-thispatcher', 0);
     nconnect('lib-force-size', 0, 'lib-thispatcher', 0);
     nconnect('lib-force-title', 0, 'lib-thispatcher', 0);
-    nconnect('lib-inlet', 0, 'lib-thispatcher', 0);
-    nconnect('lib-page-load', 0, 'jweb-library', 0);
+    nconnect('lib-inlet', 0, 'lib-inlet-route', 0);
+    nconnect('lib-inlet-route', 0, 'lib-readfile-prepend', 0);
+    nconnect('lib-readfile-prepend', 0, 'jweb-library', 0);
+    nconnect('lib-inlet-route', 1, 'lib-thispatcher', 0);
 
     nobject('lib-data-recv', 'receive ---lib-data', LX, LY + LROW, 170);
     // The parent patch already prepends `receiveData`. Adding it again makes
@@ -323,7 +336,7 @@ export async function generateMaxPatch(): Promise<void> {
     //   outlet 3 (lib_action): explicitly tagged encoded JSON action
     //   outlets 4–5 (url/title): print page-load metadata to the Max Console
     //   outlet 6 (no match): print unexpected messages; never execute them
-    nobject('lib-out-route', 'route choose_library library_ready web_debug lib_action url title', LX, LY + LROW * 3, 470);
+    nobject('lib-out-route', 'route choose_library library_ready web_debug lib_action url title onloadend', LX, LY + LROW * 3, 540);
     nobject('lib-opendialog', 'opendialog fold', LX, LY + LROW * 4, 120);
     nobject('lib-s-path', 'send ---library_path', LX + 160, LY + LROW * 4, 160);
     nadd('lib-ready-message', 'message', [LX + 300, LY + LROW * 4, 110, 22], { text: 'library_ready' });
@@ -332,8 +345,9 @@ export async function generateMaxPatch(): Promise<void> {
     nobject('lib-debug-send', 'send ---motif_web_debug', LX + 430, LY + LROW * 4, 190);
     nobject('lib-url-prepend', 'prepend library-url', LX, LY + LROW * 5, 150);
     nobject('lib-title-prepend', 'prepend library-title', LX + 180, LY + LROW * 5, 160);
-    nobject('lib-jweb-print', 'print Motif-jweb', LX + 380, LY + LROW * 5, 140);
-    nobject('lib-unhandled-prepend', 'prepend library-unhandled', LX + 540, LY + LROW * 5, 190);
+    nobject('lib-load-prepend', 'prepend library-load-code', LX + 360, LY + LROW * 5, 180);
+    nobject('lib-jweb-print', 'print Motif-jweb', LX + 570, LY + LROW * 5, 140);
+    nobject('lib-unhandled-prepend', 'prepend library-unhandled', LX + 730, LY + LROW * 5, 190);
     nconnect('jweb-library', 0, 'lib-out-route', 0);
     nconnect('lib-out-route', 0, 'lib-opendialog', 0);
     nconnect('lib-opendialog', 0, 'lib-s-path', 0);
@@ -343,9 +357,11 @@ export async function generateMaxPatch(): Promise<void> {
     nconnect('lib-out-route', 3, 'lib-action-prepend', 0);
     nconnect('lib-out-route', 4, 'lib-url-prepend', 0);
     nconnect('lib-out-route', 5, 'lib-title-prepend', 0);
+    nconnect('lib-out-route', 6, 'lib-load-prepend', 0);
     nconnect('lib-url-prepend', 0, 'lib-jweb-print', 0);
     nconnect('lib-title-prepend', 0, 'lib-jweb-print', 0);
-    nconnect('lib-out-route', 6, 'lib-unhandled-prepend', 0);
+    nconnect('lib-load-prepend', 0, 'lib-jweb-print', 0);
+    nconnect('lib-out-route', 7, 'lib-unhandled-prepend', 0);
     nconnect('lib-unhandled-prepend', 0, 'lib-jweb-print', 0);
     nconnect('lib-action-prepend', 0, 'lib-s-author', 0);
 
@@ -373,7 +389,7 @@ export async function generateMaxPatch(): Promise<void> {
     };
   }
 
-  // Unlocked patcher layout: Presentation UI occupies 0..480×0..169.
+  // Unlocked patcher layout: Presentation UI occupies 0..475×0..169.
   // Logic uses wide columns below/right so cords and boxes stay readable.
   const ROW = 90;
   const COL = {
@@ -407,9 +423,9 @@ export async function generateMaxPatch(): Promise<void> {
 
   // ---------- Engine column ----------
   const ENG_Y = 280;
-  patchComment('section-engine', '§ Engine - v8 motif-device.js + event pipe / panic / clear', COL.engine, ENG_Y - 40, 480);
-  object('v8', 'v8 motif-device.js', COL.engine, ENG_Y + ROW * 2, 200, { numinlets: 1, numoutlets: 1, outlettype: [''] });
-  object('engine-route', 'route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui', COL.engine, ENG_Y + ROW * 3, 820);
+  patchComment('section-engine', `§ Engine - v8 ${runtime.engineFilename} + event pipe / panic / clear`, COL.engine, ENG_Y - 40, 620);
+  object('v8', `v8 ${runtime.engineFilename}`, COL.engine, ENG_Y + ROW * 2, 280, { numinlets: 1, numoutlets: 1, outlettype: [''] });
+  object('engine-route', 'route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page', COL.engine, ENG_Y + ROW * 3, 920);
   object('event-unpack', 'unpack 0 0 0 0.', COL.engine, ENG_Y + ROW * 4, 140);
   object('event-pipe', 'pipe 0 0 0 0.', COL.engine, ENG_Y + ROW * 5, 130);
   object('note-output-pack', 'pack 0 0', COL.engine, ENG_Y + ROW * 6, 80);
@@ -431,6 +447,13 @@ export async function generateMaxPatch(): Promise<void> {
   object('preview-data-prepend', 'prepend receiveData', COL.feedback + 240, FB_Y + ROW * 7, 180);
   object('preview-out-route', 'route preview_ready preview_debug', COL.feedback + 500, FB_Y + ROW * 8, 240);
   message('preview-ready-message', 'preview_ready', COL.feedback + 760, FB_Y + ROW * 8, 110);
+  message(
+    'preview-load-message',
+    `jsfile ${runtime.previewFilename}, loadbang`,
+    COL.feedback + 760,
+    FB_Y + ROW * 9,
+    300,
+  );
   object('preview-debug-page', 'prepend preview', COL.feedback + 500, FB_Y + ROW * 9, 130);
   object('preview-debug-prepend', 'prepend web_debug', COL.feedback + 660, FB_Y + ROW * 9, 150);
 
@@ -445,7 +468,7 @@ export async function generateMaxPatch(): Promise<void> {
   message('initialize-message', 'initialize', COL.song, OBS_Y + ROW * 4, 90);
   object('song-context-defer', 'deferlow', COL.song + 220, OBS_Y + ROW * 4, 80);
   object('ready-route', 'route Ready', COL.song + 400, OBS_Y + ROW * 4, 100);
-  object('ready-trigger', 't b b', COL.song + 580, OBS_Y + ROW * 4, 60);
+  object('ready-trigger', 't b b b', COL.song + 580, OBS_Y + ROW * 4, 80);
   object('observer-refresh', 't b b b b b b b b b', COL.song + 720, OBS_Y + ROW * 4, 210);
   message('presentation-message', 'presentation 1', COL.song + 400, OBS_Y + ROW * 2, 120);
   object('thispatcher', 'thispatcher', COL.song + 620, OBS_Y + ROW * 2, 90);
@@ -544,20 +567,27 @@ export async function generateMaxPatch(): Promise<void> {
     patcher: buildLibrarySubpatcher(),
   });
   object('library-pcontrol', 'pcontrol', COL.library, LIB_Y + ROW * 3, 80);
-  // t fires right→left: resizable flags → initial size → open → exec → initial size again.
-  object('info-trigger', 't b b b b b', COL.library, LIB_Y, 110);
+  // t fires right→left: configure → open → defer page materialization/readfile
+  // until jweb is visible → size again.
+  object('info-trigger', 't b b b b b b', COL.library, LIB_Y, 120);
   message('library-flags', 'window flags float grow close zoom', COL.library + 200, LIB_Y, 230);
   message('library-size', 'window size 640 460', COL.library + 200, LIB_Y + ROW, 150);
   message('library-size-again', 'window size 640 460', COL.library + 200, LIB_Y + ROW * 2, 150);
   message('library-exec', 'window exec', COL.library + 200, LIB_Y + ROW * 3, 110);
   message('library-open', 'open', COL.library + 200, LIB_Y + ROW * 4, 60);
+  object('library-prepare-defer', 'deferlow', COL.library + 320, LIB_Y + ROW * 4, 80);
+  message('library-prepare', 'library_prepare', COL.library + 420, LIB_Y + ROW * 4, 120);
+  object('library-page-prepend', 'prepend library_page', COL.library + 560, LIB_Y + ROW * 4, 160);
   object('library-size-defer', 'deferlow', COL.library + 400, LIB_Y + ROW * 2, 80);
   connect('info-button', 0, 'info-trigger', 0);
-  connect('info-trigger', 4, 'library-flags', 0);
-  connect('info-trigger', 3, 'library-size', 0);
+  connect('info-trigger', 5, 'library-flags', 0);
+  connect('info-trigger', 4, 'library-size', 0);
+  connect('info-trigger', 3, 'library-exec', 0);
   connect('info-trigger', 2, 'library-open', 0);
-  connect('info-trigger', 1, 'library-exec', 0);
+  connect('info-trigger', 1, 'library-prepare-defer', 0);
   connect('info-trigger', 0, 'library-size-defer', 0);
+  connect('library-prepare-defer', 0, 'library-prepare', 0);
+  connect('library-prepare', 0, 'v8', 0);
   connect('library-size-defer', 0, 'library-size-again', 0);
   // pcontrol only accepts patcher-control messages such as `open` and `close`.
   // Window configuration is forwarded through the subpatch inlet to its
@@ -633,6 +663,8 @@ export async function generateMaxPatch(): Promise<void> {
   connect('engine-route', 8, 'menu-select', 0);
   connect('menu-select', 0, 'motif-menu', 0);
   connect('engine-route', 10, 'ui-route', 0);
+  connect('engine-route', 11, 'library-page-prepend', 0);
+  connect('library-page-prepend', 0, 'library-info', 0);
   connect('ui-route', 0, 'lib-data-prepend', 0);
   connect('lib-data-prepend', 0, 'lib-data-send', 0);
   connect('ui-route', 1, 'preview-data-prepend', 0);
@@ -640,6 +672,8 @@ export async function generateMaxPatch(): Promise<void> {
   connect('motif-preview', 0, 'preview-out-route', 0);
   connect('preview-out-route', 0, 'preview-ready-message', 0);
   connect('preview-ready-message', 0, 'v8', 0);
+  connect('ready-trigger', 2, 'preview-load-message', 0);
+  connect('preview-load-message', 0, 'motif-preview', 0);
   connect('preview-out-route', 1, 'preview-debug-page', 0);
   connect('preview-debug-page', 0, 'preview-debug-prepend', 0);
   connect('preview-debug-prepend', 0, 'v8', 0);
@@ -739,20 +773,12 @@ export async function generateMaxPatch(): Promise<void> {
       boxes,
       lines,
       dependency_cache: [
-        { name: 'motif-device.js', bootpath: '.', patcherrelativepath: '.', type: 'TEXT', implicit: 1 },
-        { name: 'motif-preview.js', bootpath: '.', patcherrelativepath: '.', type: 'TEXT', implicit: 1 },
-        { name: 'library.html', bootpath: '.', patcherrelativepath: '.', type: 'TEXT', implicit: 1 },
+        { name: runtime.engineFilename, bootpath: '.', patcherrelativepath: '.', type: 'TEXT', implicit: 1 },
+        { name: runtime.previewFilename, bootpath: '.', patcherrelativepath: '.', type: 'TEXT', implicit: 1 },
       ],
       autosave: 0,
     },
   };
 
   await writeFile('max/Motif.maxpat', `${JSON.stringify(patch, null, 2)}\n`);
-}
-
-const isMain = process.argv[1] !== undefined
-  && path.resolve(fileURLToPath(import.meta.url)) === path.resolve(process.argv[1]);
-
-if (isMain) {
-  await generateMaxPatch();
 }

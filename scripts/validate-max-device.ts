@@ -1,8 +1,8 @@
 /**
- * Static assertions over the generated Max device (`max/Motif.maxpat` + `motif-device.js`).
+ * Static assertions over the generated Max device and its hashed runtime artifacts.
  *
  * Guards the contributor contracts that are easy to break in the patch generator
- * or bridge: Presentation bounds (169px), unversioned runtime filenames, fail-open
+ * or bridge: Presentation bounds (169px), content-addressed runtime filenames, fail-open
  * MIDI graph, native Song observers (no JS LiveAPI for Song sync), and a single
  * top-level `anything()` - not per-message globals or esbuild footer handlers.
  *
@@ -12,7 +12,8 @@
  */
 
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
+import { readFile, readdir } from 'node:fs/promises';
 import vm from 'node:vm';
 
 type Rect = [number, number, number, number];
@@ -22,6 +23,7 @@ type MaxBox = {
   maxclass: string;
   text?: string;
   filename?: string;
+  template?: string;
   varname?: string;
   presentation?: number;
   presentation_rect?: Rect;
@@ -29,6 +31,7 @@ type MaxBox = {
   ignoreclick?: number;
   rendermode?: number;
   autosize?: number;
+  url?: string;
   patcher?: {
     openinpresentation?: number;
     rect?: [number, number, number, number];
@@ -55,6 +58,18 @@ const DEVICE_HEIGHT = 169;
 const patch = (JSON.parse(await readFile('max/Motif.maxpat', 'utf8')) as { patcher: Patcher }).patcher;
 const boxes = patch.boxes.map(({ box }) => box);
 const lines = patch.lines.map(({ patchline }) => patchline);
+const dependencyNames = patch.dependency_cache.map(({ name }) => name);
+const engineFilename = dependencyNames.find((name) => /^motif-device-[a-f0-9]{12}\.js$/.test(name));
+const previewFilename = dependencyNames.find((name) => /^motif-preview-[a-f0-9]{12}\.js$/.test(name));
+assert.ok(engineFilename && previewFilename, 'runtime dependencies must use content-addressed filenames');
+const generatedRuntimeFiles = (await readdir('max'))
+  .filter((name) => /^motif-(?:device|preview)-[a-f0-9]{12}\.js$/.test(name))
+  .sort();
+assert.deepEqual(
+  generatedRuntimeFiles,
+  [engineFilename, previewFilename].sort(),
+  'max directory contains missing or stale hashed runtime artifacts',
+);
 
 assert.equal(patch.openinpresentation, 1, 'device must open in Presentation Mode');
 assert.ok(Number.isFinite(patch.devicewidth) && patch.devicewidth > 0, 'devicewidth must be fixed');
@@ -88,14 +103,14 @@ const hasLine = (
       ),
   );
 
-const v8 = byText('v8 motif-device.js');
+const v8 = byText(`v8 ${engineFilename}`);
 const midiin = byText('midiin');
 const inputGate = byText('gate 2 1');
 const bypassDefault = byText('loadmess 1');
 const midiselect = byText('midiselect @ch all @note all');
 const midiflush = byText('midiflush');
 const midiout = byText('midiout');
-assert.ok(v8, 'missing v8 motif-device.js');
+assert.ok(v8, `missing v8 ${engineFilename}`);
 assert.ok(midiin && inputGate && bypassDefault && midiselect && midiflush && midiout, 'missing native MIDI routing object');
 assert.ok(hasLine(midiin, 0, inputGate, 1), 'midiin does not feed fail-open gate');
 assert.ok(hasLine(bypassDefault, 0, inputGate, 0), 'fail-open gate has no startup selection');
@@ -104,12 +119,12 @@ assert.ok(hasLine(inputGate, 1, midiselect, 0), 'engine MIDI route is missing');
 assert.ok(hasLine(midiselect, 7, midiflush, 0), 'unselected raw MIDI is not passed through');
 assert.ok(hasLine(midiflush, 0, midiout, 0), 'MIDI output chain is incomplete');
 
-const engineRoute = byText('route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui');
+const engineRoute = byText('route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page');
 assert.ok(engineRoute, 'missing engine output route');
 assert.ok(!byText('prepend delete_file'), 'removed motif deletion path must not be generated');
 assert.ok(!byText('node.script motif-file-service.cjs @autostart 1 @restart 1'), 'removed deletion service must not be packaged');
 
-assert.equal(patch.devicewidth, 480, 'device width should be the compact 480px Presentation width');
+assert.equal(patch.devicewidth, 475, 'device width should be the compact 475px Presentation width');
 assert.equal(patch.default_fontname, 'Ableton Sans', 'device should use Ableton Sans');
 assert.equal(byVarname('root-display')?.maxclass, 'live.menu', 'root must be theme-default live.menu');
 assert.equal(byVarname('scale-name-display')?.maxclass, 'live.menu', 'scale name must be theme-default live.menu');
@@ -122,10 +137,19 @@ assert.equal(byVarname('pitch-label')?.text, 'Pitch', 'Pitch label is required b
 assert.equal(byVarname('tempo-mult-label')?.text, 'BPM ×', 'BPM multiplier label must be BPM ×');
 assert.ok(boxes.some((box) => box.text === 'active 0'), 'Scale menus need active 0 when scale mode is off');
 assert.equal(byVarname('motif-preview')?.maxclass, 'jsui', 'preview must use native jsui in Live');
-assert.equal(byVarname('motif-preview')?.filename, 'motif-preview.js', 'preview must load motif-preview.js');
+assert.equal(byVarname('motif-preview')?.filename, previewFilename, `preview must load ${previewFilename}`);
+assert.equal(
+  byVarname('motif-preview')?.template,
+  previewFilename,
+  'preview fallback template must not be Max’s stock radial dial',
+);
 assert.equal(byVarname('motif-preview')?.ignoreclick, 0, 'preview diagnostics must be clickable');
 assert.ok(!byText('readfile preview.html'), 'preview must not depend on an external HTML page');
 assert.ok(byText('route preview_ready preview_debug'), 'native preview readiness and diagnostics must be routed');
+assert.ok(
+  byText(`jsfile ${previewFilename}, loadbang`),
+  'engine readiness must explicitly load the frozen preview dependency',
+);
 assert.equal(byVarname('page-tab')?.maxclass, 'live.tab', 'Motif/Settings page tabs are required');
 assert.equal(byVarname('page-tab')?.livemode, 1, 'page tabs must enable Live mode');
 assert.equal(byVarname('tempo-mult-menu')?.maxclass, 'live.menu', 'BPM multiplier menu is required');
@@ -158,14 +182,24 @@ const libraryVarnames = new Set(libraryBoxes.map((entry) => entry.box.varname).f
 assert.ok(libraryVarnames.has('jweb-library'), 'library subpatcher must contain a jweb-library object');
 const jwebLibraryBox = libraryBoxes.find((entry) => entry.box.varname === 'jweb-library');
 assert.equal(jwebLibraryBox?.box.maxclass, 'jweb', 'jweb-library must be a jweb object');
-assert.equal(jwebLibraryBox?.box.rendermode, 0, 'library must use offscreen rendering in Live');
+assert.equal(jwebLibraryBox?.box.rendermode, 1, 'standalone library window must use onscreen rendering');
 assert.equal(jwebLibraryBox?.box.autosize, 1, 'library jweb must resize with its containing window');
+assert.equal(jwebLibraryBox?.box.url, undefined, 'library jweb must not use URL or data-URI navigation');
 assert.ok(
-  libraryBoxes.some((entry) => entry.box.text === 'loadmess readfile library.html'),
-  'jweb-library must load library.html relative to the patcher',
+  !JSON.stringify(byText('p library-info')?.patcher).includes('data:text/html'),
+  'library jweb must not use a data URI',
 );
+const libraryInlet = libraryBoxes.find((entry) => entry.box.maxclass === 'inlet')?.box;
+const libraryInletRoute = libraryByText('route library_page');
+const libraryReadfilePrepend = libraryByText('prepend readfile');
+const libraryThispatcher = libraryByText('thispatcher');
+assert.ok(libraryInlet && libraryInletRoute && libraryReadfilePrepend && libraryThispatcher);
+assert.ok(libraryHasLine(libraryInlet, 0, libraryInletRoute, 0), 'library inlet must route page paths');
+assert.ok(libraryHasLine(libraryInletRoute, 0, libraryReadfilePrepend, 0), 'page paths must become readfile messages');
+assert.ok(libraryHasLine(libraryReadfilePrepend, 0, jwebLibraryBox?.box, 0), 'readfile must reach jweb');
+assert.ok(libraryHasLine(libraryInletRoute, 1, libraryThispatcher, 0), 'window messages must reach thispatcher');
 assert.ok(
-  libraryBoxes.some((entry) => entry.box.text === 'route choose_library library_ready web_debug lib_action url title'),
+  libraryBoxes.some((entry) => entry.box.text === 'route choose_library library_ready web_debug lib_action url title onloadend'),
   'library jweb readiness must be routed back to the engine',
 );
 assert.ok(
@@ -183,7 +217,23 @@ assert.ok((byVarname('motif-preview')?.presentation_rect?.[3] ?? 0) >= 60, 'prev
 
 const pcontrol = byText('pcontrol');
 const libraryInfo = byText('p library-info');
+const infoTrigger = byText('t b b b b b b');
 const openMessage = boxes.find((box) => box.maxclass === 'message' && box.text === 'open');
+const prepareMessage = boxes.find((box) => box.maxclass === 'message' && box.text === 'library_prepare');
+const prepareDefer = prepareMessage
+  ? boxes.find((box) => box.text === 'deferlow' && hasLine(box, 0, prepareMessage, 0))
+  : undefined;
+const libraryPagePrepend = byText('prepend library_page');
+assert.ok(
+  infoTrigger && prepareDefer && prepareMessage && libraryPagePrepend && engineRoute,
+  'Info trigger must prepare a real library page after opening',
+);
+assert.ok(hasLine(infoTrigger, 2, openMessage, 0), 'library window must open before page preparation');
+assert.ok(hasLine(infoTrigger, 1, prepareDefer, 0), 'page preparation must be deferred until jweb is visible');
+assert.ok(hasLine(prepareDefer, 0, prepareMessage, 0), 'deferred preparation must reach the engine message');
+assert.ok(hasLine(prepareMessage, 0, v8, 0), 'library_prepare must reach v8');
+assert.ok(hasLine(engineRoute, 11, libraryPagePrepend, 0), 'engine page paths must be routed separately');
+assert.ok(hasLine(libraryPagePrepend, 0, libraryInfo, 0), 'resolved page path must reach the library subpatch');
 assert.ok(hasLine(openMessage, 0, pcontrol, 0), 'open must be sent to pcontrol');
 for (const text of ['window flags float grow close zoom', 'window size 640 460', 'window exec']) {
   for (const box of boxes.filter((item) => item.text === text)) {
@@ -222,7 +272,7 @@ assert.ok(contextDefer && lines.some((line) => line.source[0] === contextDefer.i
 
 assert.deepEqual(
   patch.dependency_cache.map(({ name }) => name),
-  ['motif-device.js', 'motif-preview.js', 'library.html'],
+  [engineFilename, previewFilename],
 );
 assert.ok(!JSON.stringify(patch).match(/motif-(?:device|preview)-v\d/i), 'versioned runtime dependency found');
 assert.ok(!JSON.stringify(patch).includes('file://'), 'generated patch must not contain platform-specific file URLs');
@@ -233,14 +283,29 @@ assert.ok(
 );
 
 
-const previewSource = await readFile('max/motif-preview.js', 'utf8');
+const previewSource = await readFile('src/max/motif-preview.js', 'utf8');
+const copiedPreviewSource = await readFile('max/motif-preview.js', 'utf8');
+const hashedPreviewSource = await readFile(`max/${previewFilename}`, 'utf8');
+assert.equal(copiedPreviewSource, previewSource, 'Max preview output differs from its source asset');
+assert.equal(hashedPreviewSource, previewSource, 'hashed preview artifact differs from its canonical source');
+assert.equal(
+  previewFilename,
+  `motif-preview-${createHash('sha256').update(previewSource).digest('hex').slice(0, 12)}.js`,
+  'preview filename does not match its content hash',
+);
 assert.doesNotThrow(() => new vm.Script(previewSource, { filename: 'motif-preview.js' }), 'native preview JavaScript must parse');
 assert.match(previewSource, /mgraphics\.init\(\)/, 'native preview must initialize mgraphics');
 assert.match(previewSource, /function receiveData\(\)/, 'native preview must accept preview state');
 assert.match(previewSource, /outlet\(0, "preview_ready"\)/, 'native preview must request fresh state on load');
+assert.doesNotMatch(previewSource, /mgraphics\.clip\(/, 'legacy jsui does not expose mgraphics.clip()');
 assert.doesNotMatch(previewSource, /window\.max|readfile|preview\.html/, 'native preview must not depend on jweb');
 
-const librarySource = await readFile('max/library.html', 'utf8');
+const librarySource = await readFile('src/max/library.html', 'utf8');
+assert.equal(
+  await readFile('max/library.html', 'utf8'),
+  librarySource,
+  'Max library output differs from its source asset',
+);
 const libraryScript = librarySource.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 assert.ok(libraryScript, 'library.html must include its state manager');
 assert.doesNotThrow(() => new vm.Script(libraryScript, { filename: 'library.html' }), 'library state manager must parse');
@@ -255,6 +320,15 @@ assert.match(librarySource, /velocityOffset/, 'library must expose advanced note
 assert.match(librarySource, /legato/, 'library must expose note articulation fields');
 
 const source = await readFile('dist/motif-device.js', 'utf8');
+const hashedSource = await readFile(`max/${engineFilename}`, 'utf8');
+assert.equal(hashedSource, source, 'hashed engine artifact differs from its canonical build output');
+assert.equal(
+  engineFilename,
+  `motif-device-${createHash('sha256').update(source).digest('hex').slice(0, 12)}.js`,
+  'engine filename does not match its content hash',
+);
+assert.match(source, /uttori-motif-library-[a-f0-9]{12}\.html/, 'engine must use a content-addressed temporary page');
+assert.ok(source.includes('<!DOCTYPE html>'), 'compiled engine must contain the build-injected library page');
 assert.match(
   source.slice(0, 600),
   /var inlets = 1;[\s\S]*var outlets = 1;[\s\S]*function anything\(\)/,
