@@ -120,7 +120,7 @@ interface MotifHandlers {
   motif: (id: string) => void;
   /**
    * Set the motif pitch-mode override.
-   * @param {string} mode The `motif`, `auto`, `scale`, `chromatic`, or `hybrid` mode.
+   * @param {string} mode The `motif`, `scale`, `chromatic`, or `hybrid` mode.
    * @returns {void}
    */
   pitch_mode: (mode: string) => void;
@@ -212,43 +212,23 @@ interface MotifHandlers {
    */
   begin_edit: () => void;
   /**
-   * Edit a motif name or description through the legacy message.
-   * @param {string} field The metadata field to edit.
-   * @param {unknown[]} textParts The Max atoms composing the new text.
-   * @returns {void}
-   */
-  edit_meta: (field: string, ...textParts: unknown[]) => void;
-  /**
    * Atomically edit all non-identity motif properties.
    * @param {unknown} properties The property payload from the library form.
    * @returns {void}
    */
   edit_motif: (properties: unknown) => void;
   /**
-   * Select a motif by stable id or legacy filtered-list index.
-   * @param {string | number} idOrIndex The stable id or numeric index.
+   * Select a motif by stable id.
+   * @param {string} id The stable motif id.
    * @param {number | boolean | undefined} discardChanges Whether dirty changes may be discarded.
    * @returns {void}
    */
-  select_browser: (idOrIndex: string | number, discardChanges?: number | boolean) => void;
+  select_browser: (id: string, discardChanges?: number | boolean) => void;
   /**
    * Exit edit mode and restore the pre-edit snapshot.
    * @returns {void}
    */
   cancel_edit: () => void;
-  /**
-   * Select a note index through the legacy authoring message.
-   * @param {number} index The zero-based note index.
-   * @returns {void}
-   */
-  select_note: (index: number) => void;
-  /**
-   * Edit one field of the selected note.
-   * @param {string} field The note field to edit.
-   * @param {unknown} value The replacement field value.
-   * @returns {void}
-   */
-  edit_note: (field: string, value: unknown) => void;
   /**
    * Dispatch a URL-encoded JSON action from the library page.
    * @param {unknown[]} encodedParts The Max atoms containing the encoded action.
@@ -301,7 +281,6 @@ let previewTriggerPitch = 60;
 let previewWasTriggered = false;
 let tempoMultiplier = 1;
 let browserQuery = '';
-let selectedNoteIndex = 0;
 
 const TEMPO_MULTIPLIERS = [0.5, 1, 1.5, 2] as const;
 const NOTE_EDIT_FIELDS = [
@@ -1006,7 +985,6 @@ function motif(value: string): void {
   }
 
   currentMotifId = selected.id;
-  selectedNoteIndex = 0;
   emit('motif-selected', motifLabels().get(selected.id) ?? selected.name);
   emitSelectedMotifUi();
   emitStatus('Motif', selected.name);
@@ -1018,15 +996,15 @@ function motif(value: string): void {
  * @returns {void}
  */
 function pitch_mode(mode: string): void {
-  // `motif` = use the phrase’s stored pitch mode; accept legacy `auto` from older patches.
-  if (mode === 'motif' || mode === 'auto') pitchModeOverride = undefined;
+  // `motif` = use the phrase's stored pitch mode.
+  if (mode === 'motif') pitchModeOverride = undefined;
   else if (mode === 'scale' || mode === 'chromatic' || mode === 'hybrid') pitchModeOverride = mode;
   else {
     emitError(`Unknown pitch mode: ${mode}`);
     return;
   }
   emitSelectedMotifUi();
-  emitStatus('Pitch', mode === 'auto' ? 'motif' : mode);
+  emitStatus('Pitch', mode);
 }
 
 /**
@@ -1352,7 +1330,6 @@ function library_path(...pathParts: unknown[]): void {
   userLibraryPath = nextPath;
   const loaded = loadUserLibrary();
   if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
-  selectedNoteIndex = 0;
   listMotifs();
   emitStatus(loaded ? 'library' : 'library-unavailable', userLibraryPath);
 }
@@ -1372,7 +1349,6 @@ function refresh_library(discardChanges?: number | boolean): void {
   editor.abandon();
   const loaded = loadUserLibrary();
   if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
-  selectedNoteIndex = 0;
   listMotifs();
   emitStatus(loaded ? 'library-refreshed' : 'library-unavailable', store.list().length);
 }
@@ -1393,9 +1369,6 @@ function tempo_multiplier(value: string | number): void {
   emitStatus('tempo-multiplier', tempoMultiplier);
 }
 
-/** Max textedit / empty-clear noise that must mean “show all”, not a literal query. */
-const FILTER_NOISE = new Set(['', 'set', 'text', 'clear', 'bang', 'symbol', 'undefined', 'null']);
-
 /**
  * Handle a filter motifs event.
  * @param {unknown[]} queryParts The query parts.
@@ -1405,7 +1378,7 @@ function filter_motifs(...queryParts: unknown[]): void {
   const raw = flattenValues(queryParts)
     .map(String)
     .map((part) => part.trim())
-    .filter((part) => !FILTER_NOISE.has(part.toLowerCase()))
+    .filter(Boolean)
     .join(' ')
     .trim();
   browserQuery = raw;
@@ -1415,16 +1388,9 @@ function filter_motifs(...queryParts: unknown[]): void {
 
 // --- Clip import (LiveAPI only; Song state stays on native observers) ---
 // @see https://docs.cycling74.com/apiref/js/liveapi/
-// @see https://docs.cycling74.com/userguide/m4l/live_api_overview/
-
-/**
- * Get the LiveAPI id.
- * @param {LiveAPI} api The LiveAPI instance.
- * @returns {string} The LiveAPI id.
- */
-function liveApiId(api: LiveAPI): string {
-  return String(api.id ?? '');
-}
+// @see https://docs.cycling74.com/apiref/lom/song_view/
+// @see https://docs.cycling74.com/apiref/lom/clipslot/
+// @see https://docs.cycling74.com/apiref/lom/clip/
 
 /**
  * Check if a LiveAPI instance is valid.
@@ -1432,9 +1398,7 @@ function liveApiId(api: LiveAPI): string {
  * @returns {boolean} Whether the LiveAPI instance is valid.
  */
 function isLiveApiValid(api: LiveAPI | undefined): api is LiveAPI {
-  if (!api) return false;
-  const id = liveApiId(api);
-  return id !== '' && id !== '0' && id !== 'id 0';
+  return api !== undefined && api.id !== 0;
 }
 
 /**
@@ -1478,16 +1442,16 @@ function resolveDetailClip(): LiveAPI | undefined {
   if (typeof LiveAPI === 'undefined') return undefined;
 
   try {
-    const detail = new LiveAPI('live_set view detail_clip');
+    const detail = new LiveAPI(undefined, 'live_set view detail_clip');
     if (isLiveApiValid(detail) && isMidiClip(detail)) return detail;
   } catch {
     // detail_clip path unavailable
   }
 
   try {
-    const slot = new LiveAPI('live_set view highlighted_clip_slot');
+    const slot = new LiveAPI(undefined, 'live_set view highlighted_clip_slot');
     if (!isLiveApiValid(slot) || !liveTruthy(slot.get('has_clip'))) return undefined;
-    const clip = new LiveAPI('live_set view highlighted_clip_slot clip');
+    const clip = new LiveAPI(undefined, 'live_set view highlighted_clip_slot clip');
     if (isLiveApiValid(clip) && isMidiClip(clip)) return clip;
   } catch {
     // No highlighted clip slot / empty slot.
@@ -1568,69 +1532,18 @@ function parseClipNotesExtended(raw: unknown): AbsoluteNote[] {
 }
 
 /**
- * Parse notes from a LiveAPI payload.
- * @param {unknown} raw The LiveAPI payload to parse.
- * @returns {AbsoluteNote[]} The parsed notes.
- */
-function parseClipNotesLegacy(raw: unknown): AbsoluteNote[] {
-  const values = flattenValues(Array.isArray(raw) ? raw : [raw]).map((value) => {
-    const asNumber = Number(value);
-    return Number.isFinite(asNumber) ? asNumber : value;
-  });
-
-  // Expected: notes <count> <pitch> <time> <duration> <velocity> <muted> ...
-  let index = 0;
-  if (String(values[0]) === 'notes') index = 1;
-  const count = Number(values[index]);
-  if (!Number.isFinite(count) || count <= 0) return [];
-  index += 1;
-
-  const notes: AbsoluteNote[] = [];
-  for (let noteIndex = 0; noteIndex < count; noteIndex += 1) {
-    const pitch = Number(values[index]);
-    const time = Number(values[index + 1]);
-    const duration = Number(values[index + 2]);
-    const velocity = Number(values[index + 3]);
-    const muted = Number(values[index + 4]);
-    index += 5;
-    if (!Number.isFinite(pitch) || !Number.isFinite(time) || !Number.isFinite(duration)) continue;
-    if (muted === 1) continue;
-    notes.push({
-      at: Math.round(time * PPQ),
-      duration: Math.max(1, Math.round(duration * PPQ)),
-      pitch: Math.round(pitch),
-      velocity: Math.round(clamp(Number.isFinite(velocity) ? velocity : 100, 1, 127)),
-    });
-  }
-  return notes;
-}
-
-/**
- * Read notes from a Live MIDI clip. Prefer `get_notes_extended`; fall back to `get_notes`.
+ * Read notes from a Live MIDI clip with Live 11+'s documented
+ * `get_notes_extended(from_pitch, pitch_span, from_time, time_span)`.
  * Beat times are converted to motif PPQ ticks.
  * @param {LiveAPI} clip The Live MIDI clip to read.
  * @returns {AbsoluteNote[]} The imported notes in motif PPQ ticks.
- * @throws {Error} If both LiveAPI note-reading methods fail.
+ * @see https://docs.cycling74.com/apiref/js/liveapi/#call
+ * @see https://docs.cycling74.com/apiref/lom/clip/#get_notes_extended
  */
 function readClipNotes(clip: LiveAPI): AbsoluteNote[] {
-  try {
-    // get_notes_extended(from_pitch, pitch_span, from_time, time_span) - returns JSON string in Max JS.
-    const extended = clip.call('get_notes_extended', 0, 127, 0, 4096);
-    const fromExtended = parseClipNotesExtended(extended);
-    if (fromExtended.length > 0) return fromExtended;
-  } catch {
-    // Older Live builds may not expose get_notes_extended.
-  }
-
-  try {
-    // get_notes(from_time, time_span, from_pitch, pitch_span)
-    const legacy = clip.call('get_notes', 0, 4096, 0, 127);
-    return parseClipNotesLegacy(legacy);
-  } catch (reason) {
-    throw new Error(
-      `Could not read clip notes: ${reason instanceof Error ? reason.message : String(reason)}`,
-    );
-  }
+  // A span of 128 includes every documented MIDI pitch from 0 through 127.
+  const payload = clip.call('get_notes_extended', 0, 128, 0, 4096);
+  return parseClipNotesExtended(payload);
 }
 
 /**
@@ -1671,7 +1584,7 @@ function import_clip(pitchModeValue = 'chromatic'): void {
     return;
   }
 
-  const clipNameRaw = clip.get('name');
+  const clipNameRaw = clip.getstring('name');
   const clipName = String(Array.isArray(clipNameRaw) ? clipNameRaw[0] : clipNameRaw || 'Imported Clip').trim()
     || 'Imported Clip';
   let imported: Motif;
@@ -1716,7 +1629,6 @@ function import_clip(pitchModeValue = 'chromatic'): void {
       return;
     }
     currentMotifId = id;
-    selectedNoteIndex = 0;
     listMotifs();
     emitStatus('imported-clip', id, absoluteNotes.length);
   } catch (reason) {
@@ -2115,7 +2027,6 @@ function begin_edit(): void {
     return;
   }
   currentMotifId = editable.id;
-  selectedNoteIndex = 0;
   listMotifs();
   emitStatus('editing', editable.id, editable.name);
 }
@@ -2132,7 +2043,6 @@ function cancel_edit(): void {
   }
 
   currentMotifId = store.has(restoredId) ? restoredId : (store.list()[0]?.id ?? DEFAULT_MOTIF_ID);
-  selectedNoteIndex = 0;
   listMotifs();
   emitStatus('editing-cancelled', currentMotifId);
 }
@@ -2149,35 +2059,13 @@ function edit_motif(properties: unknown): void {
 }
 
 /**
- * Edit the metadata of the current motif.
- * @param {string} fieldValue The field value.
- * @param {unknown[]} textParts The text parts.
- * @returns {void}
- */
-function edit_meta(fieldValue: string, ...textParts: unknown[]): void {
-  const field = String(fieldValue);
-  if (field !== 'name' && field !== 'description') {
-    emitError(`Unknown meta field: ${field}`);
-    return;
-  }
-
-  const value = flattenValues(textParts).map(String).join(' ').trim().replace(/^"|"$/g, '');
-  if (!applyMotifProperties({ [field]: value })) return;
-  emitSelectedMotifUi();
-  emitStatus('meta-edited', field, currentMotif()?.name ?? '');
-}
-
-/**
  * Select a motif from the browser.
- * @param {string | number} idOrIndex The id or index of the motif.
+ * @param {string} id The stable motif id.
  * @param {number | boolean | undefined} discardChanges The discard changes value.
  * @returns {void}
  */
-function select_browser(idOrIndex: string | number, discardChanges?: number | boolean): void {
-  const items = store.filter(browserQuery);
-  const item = typeof idOrIndex === 'number'
-    ? items[Math.round(clamp(idOrIndex, 0, Math.max(0, items.length - 1)))]
-    : store.get(String(idOrIndex));
+function select_browser(id: string, discardChanges?: number | boolean): void {
+  const item = store.get(String(id));
   if (!item) return;
   if (item.id === currentMotifId) return;
 
@@ -2193,25 +2081,9 @@ function select_browser(idOrIndex: string | number, discardChanges?: number | bo
   const selected = store.get(item.id);
   if (!selected) return;
   currentMotifId = selected.id;
-  selectedNoteIndex = 0;
   emit('motif-selected', motifLabels().get(selected.id) ?? selected.name);
   emitSelectedMotifUi();
   emitStatus('Motif', selected.name);
-}
-
-/**
- * Select a note from the current motif.
- * @param {number} indexValue The index of the note.
- * @returns {void}
- */
-function select_note(indexValue: number): void {
-  const selected = currentMotif();
-  if (!selected || selected.notes.length === 0) return;
-  selectedNoteIndex = Math.round(clamp(indexValue, 0, selected.notes.length - 1));
-  const note = selected.notes[selectedNoteIndex];
-  if (!note) return;
-  emitLibraryState();
-  emitStatus('note-selected', selectedNoteIndex);
 }
 
 function updateNoteAt(index: number, field: NoteEditField, valueValue: unknown): boolean {
@@ -2323,21 +2195,6 @@ function updateNoteAt(index: number, field: NoteEditField, valueValue: unknown):
 }
 
 /**
- * Edit a note of the current motif.
- * @param {string} fieldValue The field value.
- * @param {unknown} valueValue The value value.
- * @returns {void}
- */
-function edit_note(fieldValue: string, valueValue: unknown): void {
-  const selected = currentMotif();
-  if (!selected || selected.notes.length === 0) return;
-  const index = Math.round(clamp(selectedNoteIndex, 0, selected.notes.length - 1));
-  if (updateNoteAt(index, String(fieldValue) as NoteEditField, valueValue)) {
-    selectedNoteIndex = index;
-  }
-}
-
-/**
  * Edit a note at a specific row index of the current motif.
  * @param {number} rowIndexValue The row index of the note.
  * @param {string} fieldValue The field value.
@@ -2421,7 +2278,7 @@ function lib_action(...encodedParts: unknown[]): void {
   switch (type) {
     case 'select_browser':
       select_browser(
-        action['id'] !== undefined ? stringAtom(action['id']) : Number(action['index']),
+        stringAtom(action['id']),
         action['discardChanges'] as number | boolean | undefined,
       );
       break;
@@ -2432,15 +2289,7 @@ function lib_action(...encodedParts: unknown[]): void {
       import_clip(action['pitchMode'] !== undefined ? stringAtom(action['pitchMode']) : undefined);
       break;
     case 'save_motif':
-      save_motif(
-        action['properties']
-        ?? (action['name'] !== undefined || action['description'] !== undefined
-          ? {
-              ...(action['name'] !== undefined ? { name: action['name'] } : {}),
-              ...(action['description'] !== undefined ? { description: action['description'] } : {}),
-            }
-          : undefined),
-      );
+      save_motif(action['properties']);
       break;
     case 'refresh_library':
       refresh_library(action['discardChanges'] as number | boolean | undefined);
@@ -2453,9 +2302,6 @@ function lib_action(...encodedParts: unknown[]): void {
       break;
     case 'edit_motif':
       edit_motif(action['properties']);
-      break;
-    case 'edit_meta':
-      edit_meta(stringAtom(action['field']), action['value']);
       break;
     case 'add_note':
       add_note();
@@ -2525,10 +2371,7 @@ const handlers: MotifHandlers = {
   begin_edit,
   cancel_edit,
   edit_motif,
-  edit_meta,
   select_browser,
-  select_note,
-  edit_note,
   lib_action,
   panic,
   list_motifs: listMotifs,

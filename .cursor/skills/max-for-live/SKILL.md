@@ -17,7 +17,7 @@ function anything() {
 }
 ```
 
-The bridge must appear before the generated TypeScript bundle in `motif-device.js`.
+The bridge must appear before the generated TypeScript bundle in `motif-device-<hash>.js`.
 
 Do not expose Max handlers through:
 
@@ -27,7 +27,7 @@ Do not expose Max handlers through:
 - one generated top-level function per message
 - `this.messagename` instead of Max's global `messagename`
 
-The TypeScript engine exports a single `dispatch(message, args)` function. Every symbolic message sent to `v8 motif-device.js` is handled by the bridge's `anything()` function.
+The TypeScript engine exports a single `dispatch(message, args)` function. Every symbolic message sent to `v8 motif-device-<hash>.js` is handled by the bridge's `anything()` function.
 
 ## Adding or changing a Max message
 
@@ -58,7 +58,7 @@ Current observed properties:
 
 The observer values may be forwarded to TypeScript for motif calculations, but the visible host-state displays should remain connected to native Max objects. Live key/scale use theme-default `live.menu` (read-only, `ignoreclick`) with a `live.comment` “Scale” label on one bottom row with Pitch; `active` follows Song.scale_mode. Pitch Mode enum starts with `motif`. There is no BPM readout - only a `BPM ×` label + multiplier menu.
 
-**Exception - clip import only:** `import_clip` may use JavaScript `LiveAPI` to read the selected Detail View clip (`detail_clip` / `highlighted_clip_slot clip`) via `get_notes_extended` or `get_notes`. Do not use LiveAPI for Song tempo/key/scale/meter/transport sync.
+**Exception - clip import only:** `import_clip` may use JavaScript `LiveAPI` to read the selected Detail View clip (`detail_clip` / `highlighted_clip_slot clip`) via the current `get_notes_extended` API. Construct it with the documented `(callback?, path?)` signature. Do not use LiveAPI for Song tempo/key/scale/meter/transport sync and do not restore the retired `get_notes` fallback.
 
 ## MIDI safety
 
@@ -67,19 +67,19 @@ MIDI input must remain fail-open until the engine reports `Ready`. Non-note MIDI
 ## UI constraints
 
 - Presentation Mode must be enabled.
-- Device width is fixed at 480px by the patch generator.
+- Device width is fixed at 475px by the patch generator.
 - Every Presentation object must fit within Live's 169px device height.
 - Prefer theme-default / dynamic Live colors on `live.*` controls; use Ableton Sans.
 - Motif vs Settings pages use `live.tab` with `livemode` and `thispatcher` hide/show.
 - Library/authoring UI opens via a floating `pcontrol` subpatcher (~640×460): searchable browser, Import Clip, note editor, Save. Send only `open`/`close`-style patcher-control messages to `pcontrol`; send `window flags`, `window size`, `window exec`, and title messages through the subpatch inlet to its internal `thispatcher`.
 - A jweb inlet selector must be prepended exactly once. The parent emits `receiveData <encoded-json>`; a `send`/`receive` hop must forward that message directly rather than prepending `receiveData` again.
 - Browser-to-Max actions require an explicit selector such as `lib_action <encoded-json>`. Never treat the unmatched outlet of `route ... url title` as executable JSON because jweb may emit additional lifecycle messages.
-- Embedded Live previews use `jweb @rendermode 0`, load after `live.thisdevice`, and keep `ignoreclick 0` so the diagnostic control remains usable. Prefer DOM/CSS rendering over canvas for the compact Live device preview.
+- The embedded Live preview uses native content-addressed `jsui` / MGraphics, loads after `live.thisdevice`, and keeps `ignoreclick 0` so diagnostics remain usable. The separate Library/Authoring window uses `jweb` with onscreen rendering.
 - Do not embed Jitter (`jit.*`) in the device maxpat - it can make the patch unloadable in Max/M4L. Use `umenu` for dynamic lists.
 - No Presentation `status-display` for engine debug (`trigger …`); Ready still gates MIDI via `route Ready`.
 - Unlocked patcher should keep `§ …` section comments for MIDI / engine / Song / tabs / library / controls.
 - Every interactive control requires `annotation_name`, `annotation`, and `hint`.
-- Runtime filenames must remain unversioned.
+- Runtime filenames must remain content-addressed. The production `max/` folder must not contain stable-name JavaScript or standalone HTML runtime copies.
 
 ## Adding built-in motifs
 
@@ -102,6 +102,6 @@ The verification must cover:
 - Song-context handling
 - MIDI scheduling and fail-open routing
 - Presentation bounds
-- unversioned dependencies
+- content-addressed dependencies and absence of stale/stable-name leftovers
 
-When replacing `motif-device.js` while Max is open, send `compile` to the `v8` object or close and reopen the device so Max recompiles the file.
+Do not replace a runtime under the same filename. Rebuild and copy the generated patch plus its newly hashed dependencies together, then close and reopen the device.

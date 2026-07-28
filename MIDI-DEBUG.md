@@ -1,6 +1,6 @@
 # MIDI routing checklist
 
-The device must remain audible even if `motif-device.js` has not initialized:
+The device must remain audible even if `motif-device-<hash>.js` has not initialized:
 
 ```text
 midiin

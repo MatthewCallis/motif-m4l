@@ -7,7 +7,10 @@
  * Handlers created inside the IIFE or via esbuild `footer` are not visible to
  * Max message dispatch.
  *
- * @see https://docs.cycling74.com/apiref/js/jsthis/
+ * @see https://docs.cycling74.com/apiref/js/jsthis/#anything
+ * @see https://docs.cycling74.com/apiref/js/jsthis/#messagename
+ * @see https://docs.cycling74.com/apiref/js/jsthis/#arrayfromargs
+ * @see https://docs.cycling74.com/apiref/js/error/
  */
 
 import { createHash } from 'node:crypto';
@@ -42,6 +45,9 @@ export const BUILTIN_MOTIFS = ${JSON.stringify(motifs, null, 2)} as const satisf
 /**
  * Top-level Max `v8` entry: route every unknown selector through MotifEngine.dispatch.
  * Uses Max globals `messagename` and `arrayfromargs` - not `this.messagename`.
+ * @see https://docs.cycling74.com/apiref/js/jsthis/#anything
+ * @see https://docs.cycling74.com/apiref/js/jsthis/#messagename
+ * @see https://docs.cycling74.com/apiref/js/jsthis/#arrayfromargs
  */
 const MAX_BRIDGE = `// Hand-written Max v8 bridge. Keep this at the top level and before the bundle.
 var inlets = 1;
@@ -133,14 +139,17 @@ await Promise.all([
   removeStaleHashedArtifacts('dist', 'motif-preview', previewFilename),
   removeStaleHashedArtifacts('max', 'motif-device', engineFilename),
   removeStaleHashedArtifacts('max', 'motif-preview', previewFilename),
+  // Stable-name Max copies were used by earlier builds but are not patch
+  // dependencies. Remove them so a production folder contains only the exact
+  // content-addressed artifacts referenced by Motif.maxpat.
+  rm('max/library.html', { force: true }),
+  rm('max/motif-device.js', { force: true }),
+  rm('max/motif-preview.js', { force: true }),
 ]);
 
 await writeFile('dist/motif-device.js', output);
 await writeFile(path.join('dist', engineFilename), output);
 await writeFile(path.join('dist', previewFilename), preview);
-await writeFile('max/library.html', libraryHtml);
-await writeFile('max/motif-device.js', output);
-await writeFile('max/motif-preview.js', preview);
 await writeFile(path.join('max', engineFilename), output);
 await writeFile(path.join('max', previewFilename), preview);
 await generateMaxPatch({ engineFilename, previewFilename });

@@ -3,8 +3,8 @@ name: add-motif
 description: >-
   Author and ship Motif v1 built-in or library phrases for uttori-motif-m4l.
   Use when adding a motif, lick, phrase, builtin JSON under motifs/builtin,
-  importing MIDI to motif JSON, or when the user mentions Salt Peanuts, Mitsuda,
-  pitchMode, PPQ ticks, or BUILTIN_MOTIFS.
+  importing MIDI to motif JSON, or when the user mentions pitchMode, PPQ ticks,
+  contour extraction, or BUILTIN_MOTIFS.
 ---
 
 # Add a Motif
@@ -13,7 +13,7 @@ description: >-
 
 | Kind | Path | How it ships |
 |------|------|----------------|
-| Built-in | `motifs/builtin/<id>.json` | `npm run generate` → `src/generated/builtins.ts` → bundled into `motif-device.js` |
+| Built-in | `motifs/builtin/<id>.json` | `npm run generate` → `src/generated/builtins.ts` → bundled into `motif-device-<hash>.js` |
 | User library | any `.json` Motif file | Live Library/Info Choose path at runtime (not generated) |
 
 **Never edit `src/generated/builtins.ts` by hand.** Always add/edit JSON under `motifs/builtin/`, then regenerate.
@@ -24,7 +24,7 @@ Schema: `schemas/motif.schema.json`. Runtime types: `src/core/types.ts`. Validat
 
 1. Choose `id` (kebab-case, unique) and `pitchMode` (`chromatic` | `scale` | `hybrid`).
 2. Write `motifs/builtin/<id>.json` (template below).
-3. Optionally add `tests/<id>.test.ts` asserting contour pitches/`at` and a `compileMotif` transpose check (see `tests/mitsuda.test.ts`, `tests/salt-peanuts.test.ts`).
+3. Optionally add `tests/<id>.test.ts` asserting contour pitches/`at` and a `compileMotif` transpose check (see the current compile/import tests).
 4. Changelog: one Unreleased bullet naming the motif id.
 5. From repo root with Node 22+: `npm run generate && npm test` (or `npm run verify` if touching the device).
 6. Reload the Max device so the menu picks up the new built-in.
@@ -38,7 +38,7 @@ npm run midi:import -- input.mid motifs/builtin/<id>.json chromatic
 
 Then hand-edit name/description/metadata/timing; re-check `length` covers every note.
 
-In Live, open a MIDI clip in Detail View and use **Import Clip** in the floating Library window (hybrid analysis against Song scale by default). Save writes JSON into the chosen library folder.
+In Live, open a MIDI clip in Detail View and use **Import Clip** in the floating Library window. Exact/chromatic analysis is the default; scale and hybrid analysis are explicit choices. Save writes JSON into the chosen library folder.
 
 ## Timing (PPQ = 960)
 
@@ -63,7 +63,7 @@ Trigger note = anchor. `pitch` is **relative**:
 
 | `pitchMode` | `pitch` means | Typical use |
 |-------------|---------------|-------------|
-| `chromatic` | semitone offset from trigger | Fixed licks (Mitsuda, Salt Peanuts) |
+| `chromatic` | semitone offset from trigger | Fixed-interval phrases |
 | `scale` | scale-degree steps from trigger’s degree | Diatonic turns that follow Live’s scale |
 | `hybrid` | scale degrees + optional `accidental` semitones | Imported MIDI with blue notes |
 
@@ -101,9 +101,9 @@ Device UI Pitch Mode `motif` = use the phrase’s stored `pitchMode` (not an ove
 - Optional: `accidental`, `velocity` (absolute 1–127), `velocityOffset`, `velocityScale`, `gate`, `legato`, `tie`
 - Prefer relative `velocityOffset` + motif `velocityCurve` over hard-coded `velocity` so trigger dynamics still matter
 
-### Metadata conventions (famous licks)
+### Metadata conventions
 
-Match Mitsuda / Salt Peanuts: tags, `suggestedModes`, source URL, and the shared license disclaimer for vocabulary phrases.
+For sourced vocabulary, include tags, `suggestedModes`, a source URL, and clear provenance/license notes. Demo motifs may use compact metadata.
 
 ## Authoring heuristics
 
@@ -121,8 +121,7 @@ Match Mitsuda / Salt Peanuts: tags, `suggestedModes`, source URL, and the shared
 
 ## Reference examples
 
-- Chromatic shout: `motifs/builtin/salt-peanuts.json`
-- Chromatic two-bar cadence: `motifs/builtin/mitsuda-lick.json`
+- Chromatic intervals: `motifs/builtin/chromatic-turn.json`
 - Scale degrees: `motifs/builtin/scale-turn.json`
 - More field detail: [examples.md](examples.md)
 

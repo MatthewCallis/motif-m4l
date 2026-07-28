@@ -6,9 +6,10 @@ import vm from 'node:vm';
 type OutletArgs = unknown[];
 
 async function createEngine(options: {
-  liveApi?: new (path?: string) => {
-    id: number | string;
-    get: (property: string) => unknown;
+  liveApi?: new (callback?: (args: unknown[]) => void, path?: string) => {
+    id: number;
+    get: (property: string) => number | number[];
+    getstring: (property: string) => string | string[];
     call: (method: string, ...args: unknown[]) => unknown;
   };
   files?: Record<string, string>;
@@ -25,7 +26,10 @@ async function createEngine(options: {
 
   const LiveAPI = options.liveApi ?? class {
     id = 0;
-    get(): unknown {
+    get(): number {
+      return 0;
+    }
+    getstring(): string {
       return '';
     }
     call(): unknown {
@@ -150,12 +154,11 @@ describe('Max authoring runtime', () => {
     engine.dispatch('filter_motifs', 'zzz-no-match');
     engine.outlets.length = 0;
     engine.dispatch('filter_motifs');
-    engine.dispatch('filter_motifs', 'set');
 
     const lib = lastLibState(engine.outlets);
     assert.ok(lib, 'lib state must be emitted');
     const items = lib['items'] as Array<{ name: string }>;
-    assert.ok(items.length >= 2, 'empty/noise queries must restore builtins');
+    assert.ok(items.length >= 2, 'an empty query must restore builtins');
   });
 
   it('lib state includes notes for the selected motif', async () => {
@@ -177,17 +180,16 @@ describe('Max authoring runtime', () => {
     }
   });
 
-  it('begin_edit clones builtins and edit_meta renames', async () => {
+  it('begin_edit clones builtins and edit_motif updates metadata', async () => {
     const engine = await createEngine();
     engine.dispatch('initialize');
     engine.dispatch('motif', 'Chromatic Turn');
     engine.outlets.length = 0;
     engine.dispatch('begin_edit');
-    engine.dispatch('edit_meta', 'name', 'My', 'Lick');
-    engine.dispatch('edit_meta', 'description', 'Edited', 'blurb');
+    engine.dispatch('edit_motif', { name: 'My Lick', description: 'Edited blurb' });
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib, 'lib state must be emitted after edit_meta');
+    assert.ok(lib, 'lib state must be emitted after edit_motif');
     const selected = lib['selected'] as Record<string, unknown>;
     assert.ok(selected);
     assert.equal(String(selected['name']), 'My Lick');
@@ -197,13 +199,18 @@ describe('Max authoring runtime', () => {
     assert.ok(noteRowData.length === 0 || true, 'note-row-data no longer emitted individually (consolidated into lib)');
   });
 
-  it('edit_note requires an explicit edit session and updates pitch', async () => {
+  it('edit_note_at requires an explicit edit session and updates pitch', async () => {
     const engine = await createEngine();
     engine.dispatch('initialize');
     engine.dispatch('motif', 'Chromatic Turn');
     engine.outlets.length = 0;
     engine.dispatch('begin_edit');
-    engine.dispatch('edit_note', 'pitch', 7);
+    engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({
+      type: 'edit_note_at',
+      index: 0,
+      field: 'pitch',
+      value: 7,
+    })));
 
     assert.ok(!engine.errors.some((message) => message.includes('Unknown message')));
     const edited = engine.outlets.find((args) => args[0] === 'status' && args[1] === 'note-edited');
@@ -213,30 +220,38 @@ describe('Max authoring runtime', () => {
 
     // lib state should reflect the updated pitch value
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib, 'lib state must be emitted after edit_note');
+    assert.ok(lib, 'lib state must be emitted after edit_note_at');
     const notes = (lib['selected'] as Record<string, unknown>)?.['notes'] as Array<Record<string, number>>;
     assert.ok(notes, 'selected notes must be present');
     assert.equal(notes[0]?.['pitch'], 7, 'pitch updated in lib state notes');
   });
 
-  it('import_clip builds a motif from LiveAPI get_notes', async () => {
+  it('import_clip uses the documented LiveAPI constructor and full get_notes_extended pitch span', async () => {
+    const constructorCalls: Array<[((args: unknown[]) => void) | undefined, string | undefined]> = [];
+    const methodCalls: Array<[string, ...unknown[]]> = [];
+
     class MockLiveAPI {
-      id: string | number;
-      constructor(path = '') {
-        this.id = path.includes('detail_clip') ? 'id 99' : 0;
+      id: number;
+      constructor(callback?: (args: unknown[]) => void, path?: string) {
+        constructorCalls.push([callback, path]);
+        this.id = path?.includes('detail_clip') ? 99 : 0;
       }
-      get(property: string): unknown {
-        if (property === 'name') return 'Clip Phrase';
+      get(property: string): number {
         if (property === 'is_midi_clip') return 1;
-        return '';
+        return 0;
       }
-      call(method: string): unknown {
+      getstring(property: string): string {
+        return property === 'name' ? 'Clip Phrase' : '';
+      }
+      call(method: string, ...args: unknown[]): unknown {
+        methodCalls.push([method, ...args]);
         if (method === 'get_notes_extended') {
-          throw new Error('unsupported');
-        }
-        if (method === 'get_notes') {
-          // notes count pitch time duration velocity muted ×2
-          return ['notes', 2, 60, 0, 0.5, 100, 0, 63, 0.5, 0.5, 90, 0];
+          return JSON.stringify({
+            notes: [
+              { pitch: 60, start_time: 0, duration: 0.5, velocity: 100, mute: 0 },
+              { pitch: 63, start_time: 0.5, duration: 0.5, velocity: 90, mute: 0 },
+            ],
+          });
         }
         return [];
       }
@@ -257,18 +272,22 @@ describe('Max authoring runtime', () => {
     const selected = lib['selected'] as Record<string, unknown>;
     assert.ok(selected, 'selected motif must be present after import');
     assert.equal(String(selected['name']), 'Clip Phrase');
+    assert.deepEqual(constructorCalls[0], [undefined, 'live_set view detail_clip']);
+    assert.deepEqual(methodCalls[0], ['get_notes_extended', 0, 128, 0, 4096]);
   });
 
   it('import_clip parses get_notes_extended JSON strings from LiveAPI', async () => {
     class MockLiveAPI {
-      id: string | number;
-      constructor(path = '') {
-        this.id = path.includes('detail_clip') ? 'id 42' : 0;
+      id: number;
+      constructor(_callback?: (args: unknown[]) => void, path?: string) {
+        this.id = path?.includes('detail_clip') ? 42 : 0;
       }
-      get(property: string): unknown {
-        if (property === 'name') return 'JSON Clip';
+      get(property: string): number {
         if (property === 'is_midi_clip') return 1;
-        return '';
+        return 0;
+      }
+      getstring(property: string): string {
+        return property === 'name' ? 'JSON Clip' : '';
       }
       call(method: string): unknown {
         if (method === 'get_notes_extended') {
@@ -311,14 +330,16 @@ describe('Max authoring runtime', () => {
 
   it('import_clip defaults to exact chromatic offsets', async () => {
     class MockLiveAPI {
-      id: string | number;
-      constructor(path = '') {
-        this.id = path.includes('detail_clip') ? 'id 77' : 0;
+      id: number;
+      constructor(_callback?: (args: unknown[]) => void, path?: string) {
+        this.id = path?.includes('detail_clip') ? 77 : 0;
       }
-      get(property: string): unknown {
-        if (property === 'name') return 'Descending Clip';
+      get(property: string): number {
         if (property === 'is_midi_clip') return 1;
-        return '';
+        return 0;
+      }
+      getstring(property: string): string {
+        return property === 'name' ? 'Descending Clip' : '';
       }
       call(method: string): unknown {
         if (method === 'get_notes_extended') {
@@ -439,7 +460,7 @@ describe('Max authoring runtime', () => {
     const engine = await createEngine();
     engine.dispatch('motif', 'Chromatic Turn');
     engine.dispatch('begin_edit');
-    engine.dispatch('edit_meta', 'name', 'Temporary Name');
+    engine.dispatch('edit_motif', { name: 'Temporary Name' });
 
     const editing = lastLibState(engine.outlets);
     const draftId = String((editing?.['selected'] as Record<string, unknown>)?.['id']);
@@ -457,14 +478,14 @@ describe('Max authoring runtime', () => {
     const engine = await createEngine();
     engine.dispatch('motif', 'Chromatic Turn');
     engine.dispatch('begin_edit');
-    engine.dispatch('edit_meta', 'name', 'Dirty Draft');
+    engine.dispatch('edit_motif', { name: 'Dirty Draft' });
     const draftId = String((lastLibState(engine.outlets)?.['selected'] as Record<string, unknown>)?.['id']);
 
     engine.dispatch('select_browser', 'scale-turn');
     let lib = lastLibState(engine.outlets);
     assert.equal((lib?.['selected'] as Record<string, unknown>)?.['id'], draftId);
 
-    engine.dispatch('motif', 'Salt Peanuts');
+    engine.dispatch('motif', 'Scale Turn');
     lib = lastLibState(engine.outlets);
     assert.equal((lib?.['selected'] as Record<string, unknown>)?.['id'], draftId);
 
@@ -640,7 +661,7 @@ describe('Max authoring runtime', () => {
     const draftId = String((before?.['selected'] as Record<string, unknown>)?.['id']);
 
     engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({
-      type: 'save_motif', name: '   ', description: 'invalid',
+      type: 'save_motif', properties: { name: '   ', description: 'invalid' },
     })));
     let lib = lastLibState(engine.outlets);
     assert.equal((lib?.['editing'] as Record<string, unknown>)?.['active'], true);
@@ -735,8 +756,10 @@ describe('Max authoring runtime', () => {
     engine.dispatch('begin_edit');
     engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({
       type: 'save_motif',
-      name: { malicious: true },
-      description: [],
+      properties: {
+        name: { malicious: true },
+        description: [],
+      },
     })));
 
     const lib = lastLibState(engine.outlets);

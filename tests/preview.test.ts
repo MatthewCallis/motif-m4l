@@ -26,7 +26,7 @@ describe('motif preview', () => {
     assert.equal(midiNoteName(0), 'C-2');
   });
 
-  it('previews the Mitsuda contour chromatically from C3', () => {
+  it('previews the Chromatic Turn contour from C3', () => {
     const preview = buildMotifPreview(chromaticTurn, host, 60, undefined, 'preserve');
     assert.deepEqual(preview.notes.map(({ pitch }) => pitch), [60, 62, 63, 67, 65, 62, 60]);
     assert.deepEqual(preview.noteNames, ['C3', 'D3', 'D♯3', 'G3', 'F3', 'D3', 'C3']);

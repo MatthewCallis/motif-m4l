@@ -27,7 +27,7 @@ const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ['song_context', 'current_song_time', 0],
   ['note', 60, 100, 1],
   ['sustain', 0, 1],
-  ['motif', 'Mitsuda Lick'],
+  ['motif', 'Chromatic Turn'],
   ['pitch_mode', 'motif'],
   ['meter_mode', 'preserve'],
   ['retrigger', 'replace'],
@@ -39,7 +39,7 @@ const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ['tempo_multiplier', 1],
   ['tempo_multiplier', 0.5],
   ['tempo_multiplier', 2],
-  ['filter_motifs', 'mitsuda'],
+  ['filter_motifs', 'chromatic'],
   ['filter_motifs'],
   ['library_path', '/tmp/Motif Library'],
   ['refresh_library'],
@@ -49,11 +49,7 @@ const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ['begin_edit'],
   ['cancel_edit'],
   ['edit_motif', { pitchMode: 'chromatic' }],
-  ['edit_meta', 'name', 'Test Name'],
-  ['edit_meta', 'description', 'Test', 'description'],
-  ['select_browser', 0],
-  ['select_note', 0],
-  ['edit_note', 'pitch', 1],
+  ['select_browser', 'chromatic-turn'],
   ['lib_action', encodeURIComponent(JSON.stringify({ type: 'add_note' }))],
   ['lib_action', encodeURIComponent(JSON.stringify({ type: 'remove_note', index: 0 }))],
   ['lib_action', encodeURIComponent(JSON.stringify({ type: 'edit_note_at', index: 0, field: 'legato', value: true }))],
@@ -99,7 +95,10 @@ describe('Max handler contract', () => {
       },
       LiveAPI: class {
         id = 0;
-        get(): unknown {
+        get(): number {
+          return 0;
+        }
+        getstring(): string {
           return '';
         }
         call(): unknown {

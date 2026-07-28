@@ -1,15 +1,14 @@
 # UI checklist
 
-- Presentation dimensions are fixed at 480 × 169.
+- Presentation dimensions are fixed at 475 × 169.
 - Motif and Settings pages share that area via `live.tab` (Live mode) and `thispatcher` hide/show scripting.
-- Root, scale name, BPM, and status are read-only text; BPM × is a separate device-local `live.menu`.
-- The root display must never be a `umenu`; the Song BPM display must never be an editable Live parameter.
-- The pitch contour uses native `multislider`; there is no `v8ui` or `motif-preview.js` dependency.
-- `preview-pitches` supplies the slider list and `preview-range` supplies its maximum.
-- Exact note names appear beside the Live root/scale displays under the contour.
+- Root and scale name are Song-driven, non-clickable `live.menu` displays; BPM and status readouts are absent. BPM × is a separate device-local `live.menu`.
+- The pitch contour uses the content-addressed native `jsui` / MGraphics renderer; there is no `v8ui`, Jitter, or HTML preview dependency in the device view.
+- Encoded `receiveData` payloads provide note timing, duration, pitch range, and exact note names to the renderer.
+- Exact note names appear in the renderer footer above the Live root/scale row.
 - Motif description/stats/tags and library Choose/Refresh live in the floating `p library-info` window (`pcontrol`, float).
 - Interactive controls use Ableton Sans; `live.*` keep theme defaults (do not embed `live_lcd_*` tokens in maxpat - Max reports `bad number`).
-- Non-live chrome (`panel` / `comment` / `umenu` / `multislider`) uses fixed Live-like gray/orange RGBA.
+- Non-live chrome (`comment` / `umenu` / `jsui`) uses fixed Live-like gray/orange RGBA.
 - Every interactive control must include `annotation_name`, `annotation`, and `hint`.
 - `live.text` buttons use Mouse Up (`outputmode` 1).
 
@@ -19,4 +18,4 @@ Run:
 npm run verify
 ```
 
-The generated-patch test fails if a Presentation object exceeds Live's 169px height or the 480px width, host telemetry becomes editable, the preview gains a second JavaScript dependency, or help metadata disappears.
+The generated-patch test fails if a Presentation object exceeds Live's 169px height or the 475px width, host telemetry becomes editable, runtime dependencies stop being content-addressed, or help metadata disappears.

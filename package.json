@@ -14,9 +14,11 @@
     "lint:fix": "oxlint --fix",
     "test": "npm run build:clean && c8 tsx --test tests/**/*.test.ts",
     "verify": "npm run lint && npm run check && npm test && npm run validate:max",
+    "verify:release": "npm run verify && npm run validate:amxd",
     "midi:import": "tsx scripts/midi-to-motif.ts",
     "midi:export": "tsx scripts/motif-to-midi.ts",
-    "validate:max": "tsx scripts/validate-max-device.ts"
+    "validate:max": "tsx scripts/validate-max-device.ts",
+    "validate:amxd": "tsx scripts/validate-amxd.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",

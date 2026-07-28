@@ -25,14 +25,14 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 ## 0.3 - Performance device ✅
 
 - [x] Native Song observers for tempo, Current Scale, meter, transport, and song position.
-- [x] Compact Presentation Mode interface with Motif/Settings tabs (480 × 169), theme-aware `live.*` controls, and Ableton Sans.
-- [x] Native `multislider` pitch-contour preview plus exact resulting MIDI note names beside Live key/scale.
+- [x] Compact Presentation Mode interface with Motif/Settings tabs (475 × 169), theme-aware `live.*` controls, and Ableton Sans.
+- [x] Native `jsui` / MGraphics pitch-and-duration preview plus exact resulting MIDI note names above Live key/scale.
 - [x] Preview recalculation for Live scale changes, pitch mode, meter fit, motif selection, BPM multiplier, and trigger transposition.
 - [x] Selected-motif description, note count, bar length, source meter, tags, and suggested modes in a floating Library/Info window.
 - [x] Help annotations and hover hints for every interactive control.
-- [x] Stable unversioned runtime filenames.
+- [x] Content-addressed runtime filenames with stale-hash cleanup.
 - [x] Launch quantization, performance trigger modes, keyboard zone, sustain behavior, and pass-through policies.
-- [x] External JSON libraries, MIDI import/export, validation, and canonical Mitsuda Lick preset.
+- [x] External JSON libraries, MIDI import/export, validation, and built-in chromatic/scale demo motifs.
 - [x] Native Max `pipe` scheduling with replace/overlap behavior and panic handling.
 - [x] Automated coverage for host timing, preview pitch mapping, 169px UI bounds, fail-open MIDI routing, native Song displays, compiled-runtime behavior, control help, MIDI conversion, and overlap safety.
 
@@ -40,7 +40,7 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 
 - [ ] Confirm Motif/Settings tabs, enlarged contour, and Library/Info floating window in the target Max 9 / Live themes.
 - [ ] Check text wrapping and control spacing at default and HiDPI display scaling.
-- [ ] Freeze the device and verify `motif-device.js` is embedded.
+- [ ] Freeze the device and verify the exact `motif-device-<hash>.js` and `motif-preview-<hash>.js` dependencies are embedded.
 - [ ] Smoke-test all controls, automation recall, pass-through modes, BPM multiplier, and tempo automation.
 
 ## 0.5 - Authoring UI

@@ -1,4 +1,9 @@
 <!DOCTYPE html>
+<!--
+  Max jweb bridge documentation:
+  https://docs.cycling74.com/reference/jweb/
+  https://docs.cycling74.com/userguide/web_browser/#javascript-communication
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -656,20 +661,19 @@
       query:'', libraryPath:'/Users/example/Motifs', libraryLoaded:true,
       editing:{ active:false, dirty:false, created:false, sourceId:null, targetId:null },
       items:[
-        { id:'mitsuda-lick', name:'Mitsuda Lick', showId:true },
-        { id:'mitsuda-lick-2', name:'Mitsuda Lick', showId:true },
-        { id:'salt-peanuts', name:'Salt Peanuts', showId:false },
+        { id:'chromatic-turn', name:'Chromatic Turn', showId:false },
+        { id:'scale-turn', name:'Scale Turn', showId:false },
       ],
       selectedIndex:0,
       selected:{
-        schemaVersion:1, id:'mitsuda-lick', name:'Mitsuda Lick', description:'Canonical two-bar contour.',
-        pitchMode:'chromatic', sourceMeter:{ numerator:4, denominator:4 }, length:7680, defaultGate:.92,
-        velocityCurve:{ inputMin:null, inputMax:null, outputMin:48, outputMax:118, exponent:.85 },
-        metadata:{ author:'Traditional/canonical VGM vocabulary', source:'', license:'', tags:['mitsuda','chromatic'], suggestedModes:['minor','dorian'], pickupTicks:null },
-        stats:'6 notes • 2 bars • 4/4 source • chromatic', isBuiltin:true, isPersisted:false,
+        schemaVersion:1, id:'chromatic-turn', name:'Chromatic Turn', description:'Fixed-interval phrase that ignores the selected scale.',
+        pitchMode:'chromatic', sourceMeter:{ numerator:4, denominator:4 }, length:3360, defaultGate:.82,
+        velocityCurve:{ inputMin:null, inputMax:null, outputMin:null, outputMax:null, exponent:null },
+        metadata:{ author:'', source:'', license:'', tags:['demo','chromatic'], suggestedModes:[], pickupTicks:null },
+        stats:'7 notes • 0.88 bars • 4/4 source • chromatic', isBuiltin:true, isPersisted:false,
         notes:[
-          { pitch:0, accidental:null, at:0, duration:2880, gate:.96, velocity:null, velocityOffset:5, velocityScale:null, legato:false, tie:false },
-          { pitch:-2, accidental:null, at:2880, duration:960, gate:null, velocity:null, velocityOffset:-4, velocityScale:null, legato:false, tie:false },
+          { pitch:0, accidental:null, at:0, duration:480, gate:null, velocity:null, velocityOffset:null, velocityScale:null, legato:false, tie:false },
+          { pitch:2, accidental:null, at:480, duration:480, gate:null, velocity:null, velocityOffset:null, velocityScale:null, legato:false, tie:false },
         ],
       },
     })));

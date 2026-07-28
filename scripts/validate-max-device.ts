@@ -30,7 +30,6 @@ type MaxBox = {
   livemode?: number;
   ignoreclick?: number;
   rendermode?: number;
-  autosize?: number;
   url?: string;
   patcher?: {
     openinpresentation?: number;
@@ -62,13 +61,18 @@ const dependencyNames = patch.dependency_cache.map(({ name }) => name);
 const engineFilename = dependencyNames.find((name) => /^motif-device-[a-f0-9]{12}\.js$/.test(name));
 const previewFilename = dependencyNames.find((name) => /^motif-preview-[a-f0-9]{12}\.js$/.test(name));
 assert.ok(engineFilename && previewFilename, 'runtime dependencies must use content-addressed filenames');
-const generatedRuntimeFiles = (await readdir('max'))
+const maxOutputFiles = await readdir('max');
+const generatedRuntimeFiles = maxOutputFiles
   .filter((name) => /^motif-(?:device|preview)-[a-f0-9]{12}\.js$/.test(name))
   .sort();
 assert.deepEqual(
   generatedRuntimeFiles,
   [engineFilename, previewFilename].sort(),
   'max directory contains missing or stale hashed runtime artifacts',
+);
+assert.ok(
+  !maxOutputFiles.some((name) => ['library.html', 'motif-device.js', 'motif-preview.js'].includes(name)),
+  'max directory must not contain unreferenced stable-name runtime leftovers',
 );
 
 assert.equal(patch.openinpresentation, 1, 'device must open in Presentation Mode');
@@ -156,8 +160,8 @@ assert.equal(byVarname('tempo-mult-menu')?.maxclass, 'live.menu', 'BPM multiplie
 assert.ok(byText('p library-info')?.patcher, 'Library/Authoring floating subpatcher is required');
 assert.ok(byText('pcontrol'), 'floating window must use pcontrol');
 assert.ok(byText('window size 640 460'), 'authoring float window must start at 640×460');
-assert.ok(byText('window flags float grow close zoom'), 'authoring float window must be resizable');
-assert.ok(!byText('window flags nogrow'), 'authoring float window must not disable resizing');
+assert.ok(byText('window flags float nogrow close zoom'), 'authoring float window must use documented fixed sizing');
+assert.ok(!byText('window flags float grow close zoom'), 'authoring float window must not depend on resize behavior');
 assert.ok(byText('receive ---motif_author'), 'authoring controls must feed v8 via ---motif_author');
 assert.ok(byText('prepend tempo_multiplier'), 'BPM multiplier must be wired to the engine');
 assert.ok(!boxes.some((box) => box.maxclass === 'v8ui'), 'core preview must not depend on v8ui');
@@ -183,7 +187,7 @@ assert.ok(libraryVarnames.has('jweb-library'), 'library subpatcher must contain 
 const jwebLibraryBox = libraryBoxes.find((entry) => entry.box.varname === 'jweb-library');
 assert.equal(jwebLibraryBox?.box.maxclass, 'jweb', 'jweb-library must be a jweb object');
 assert.equal(jwebLibraryBox?.box.rendermode, 1, 'standalone library window must use onscreen rendering');
-assert.equal(jwebLibraryBox?.box.autosize, 1, 'library jweb must resize with its containing window');
+assert.ok(jwebLibraryBox && !('autosize' in jwebLibraryBox.box), 'library jweb must not use the undocumented autosize attribute');
 assert.equal(jwebLibraryBox?.box.url, undefined, 'library jweb must not use URL or data-URI navigation');
 assert.ok(
   !JSON.stringify(byText('p library-info')?.patcher).includes('data:text/html'),
@@ -199,7 +203,7 @@ assert.ok(libraryHasLine(libraryInletRoute, 0, libraryReadfilePrepend, 0), 'page
 assert.ok(libraryHasLine(libraryReadfilePrepend, 0, jwebLibraryBox?.box, 0), 'readfile must reach jweb');
 assert.ok(libraryHasLine(libraryInletRoute, 1, libraryThispatcher, 0), 'window messages must reach thispatcher');
 assert.ok(
-  libraryBoxes.some((entry) => entry.box.text === 'route choose_library library_ready web_debug lib_action url title onloadend'),
+  libraryBoxes.some((entry) => entry.box.text === 'route choose_library library_ready web_debug lib_action url title'),
   'library jweb readiness must be routed back to the engine',
 );
 assert.ok(
@@ -217,7 +221,14 @@ assert.ok((byVarname('motif-preview')?.presentation_rect?.[3] ?? 0) >= 60, 'prev
 
 const pcontrol = byText('pcontrol');
 const libraryInfo = byText('p library-info');
-const infoTrigger = byText('t b b b b b b');
+const libraryOpenTrigger = byText('t b b b b b b');
+const closeMessage = boxes.find((box) => box.maxclass === 'message' && box.text === 'close');
+const infoTrigger = closeMessage
+  ? boxes.find((box) => box.text === 't b b' && hasLine(box, 1, closeMessage, 0))
+  : undefined;
+const reopenDefer = libraryOpenTrigger
+  ? boxes.find((box) => box.text === 'deferlow' && hasLine(box, 0, libraryOpenTrigger, 0))
+  : undefined;
 const openMessage = boxes.find((box) => box.maxclass === 'message' && box.text === 'open');
 const prepareMessage = boxes.find((box) => box.maxclass === 'message' && box.text === 'library_prepare');
 const prepareDefer = prepareMessage
@@ -225,17 +236,28 @@ const prepareDefer = prepareMessage
   : undefined;
 const libraryPagePrepend = byText('prepend library_page');
 assert.ok(
-  infoTrigger && prepareDefer && prepareMessage && libraryPagePrepend && engineRoute,
+  infoTrigger &&
+    libraryOpenTrigger &&
+    closeMessage &&
+    reopenDefer &&
+    prepareDefer &&
+    prepareMessage &&
+    libraryPagePrepend &&
+    engineRoute,
   'Info trigger must prepare a real library page after opening',
 );
-assert.ok(hasLine(infoTrigger, 2, openMessage, 0), 'library window must open before page preparation');
-assert.ok(hasLine(infoTrigger, 1, prepareDefer, 0), 'page preparation must be deferred until jweb is visible');
+assert.ok(hasLine(infoTrigger, 1, closeMessage, 0), 'repeated Info presses must close the prior window');
+assert.ok(hasLine(closeMessage, 0, pcontrol, 0), 'close must be sent to pcontrol');
+assert.ok(hasLine(infoTrigger, 0, reopenDefer, 0), 'reopening must be deferred until the close completes');
+assert.ok(hasLine(reopenDefer, 0, libraryOpenTrigger, 0), 'deferred reopening must reach its ordered trigger');
+assert.ok(hasLine(libraryOpenTrigger, 2, openMessage, 0), 'library window must open before page preparation');
+assert.ok(hasLine(libraryOpenTrigger, 1, prepareDefer, 0), 'page preparation must be deferred until jweb is visible');
 assert.ok(hasLine(prepareDefer, 0, prepareMessage, 0), 'deferred preparation must reach the engine message');
 assert.ok(hasLine(prepareMessage, 0, v8, 0), 'library_prepare must reach v8');
 assert.ok(hasLine(engineRoute, 11, libraryPagePrepend, 0), 'engine page paths must be routed separately');
 assert.ok(hasLine(libraryPagePrepend, 0, libraryInfo, 0), 'resolved page path must reach the library subpatch');
 assert.ok(hasLine(openMessage, 0, pcontrol, 0), 'open must be sent to pcontrol');
-for (const text of ['window flags float grow close zoom', 'window size 640 460', 'window exec']) {
+for (const text of ['window flags float nogrow close zoom', 'window size 640 460', 'window exec']) {
   for (const box of boxes.filter((item) => item.text === text)) {
     assert.ok(hasLine(box, 0, libraryInfo, 0), `${text} must be sent to the library subpatch`);
     assert.ok(!hasLine(box, 0, pcontrol, 0), `${text} must not be sent to pcontrol`);
@@ -284,9 +306,7 @@ assert.ok(
 
 
 const previewSource = await readFile('src/max/motif-preview.js', 'utf8');
-const copiedPreviewSource = await readFile('max/motif-preview.js', 'utf8');
 const hashedPreviewSource = await readFile(`max/${previewFilename}`, 'utf8');
-assert.equal(copiedPreviewSource, previewSource, 'Max preview output differs from its source asset');
 assert.equal(hashedPreviewSource, previewSource, 'hashed preview artifact differs from its canonical source');
 assert.equal(
   previewFilename,
@@ -301,11 +321,6 @@ assert.doesNotMatch(previewSource, /mgraphics\.clip\(/, 'legacy jsui does not ex
 assert.doesNotMatch(previewSource, /window\.max|readfile|preview\.html/, 'native preview must not depend on jweb');
 
 const librarySource = await readFile('src/max/library.html', 'utf8');
-assert.equal(
-  await readFile('max/library.html', 'utf8'),
-  librarySource,
-  'Max library output differs from its source asset',
-);
 const libraryScript = librarySource.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 assert.ok(libraryScript, 'library.html must include its state manager');
 assert.doesNotThrow(() => new vm.Script(libraryScript, { filename: 'library.html' }), 'library state manager must parse');

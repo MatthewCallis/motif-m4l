@@ -5,13 +5,18 @@
  * Song tempo, key, scale, meter, and transport stay on native `live.path` /
  * `live.observer` objects in the patch - do not sync those through LiveAPI.
  *
- * @see https://docs.cycling74.com/apiref/js/
  * @see https://docs.cycling74.com/apiref/js/jsthis/
  */
 
-/** Inlet count assigned in global code (Motif uses 1). */
+/**
+ * Inlet count assigned in global code (Motif uses 1).
+ * @see https://docs.cycling74.com/apiref/js/jsthis/#inlets
+ */
 declare let inlets: number;
-/** Outlet count assigned in global code (Motif uses 1). */
+/**
+ * Outlet count assigned in global code (Motif uses 1).
+ * @see https://docs.cycling74.com/apiref/js/jsthis/#outlets
+ */
 declare let outlets: number;
 
 /**
@@ -19,7 +24,7 @@ declare let outlets: number;
  * @param {number} index The zero-based outlet index.
  * @param {unknown[]} values The message atoms to send.
  * @returns {void}
- * @see https://docs.cycling74.com/apiref/js/jsthis/
+ * @see https://docs.cycling74.com/apiref/js/jsthis/#outlet
  */
 declare function outlet(index: number, ...values: unknown[]): void;
 
@@ -27,7 +32,7 @@ declare function outlet(index: number, ...values: unknown[]): void;
  * Print values to the Max Console.
  * @param {unknown[]} values The values to print.
  * @returns {void}
- * @see https://docs.cycling74.com/apiref/js/
+ * @see https://docs.cycling74.com/apiref/js/post/
  */
 declare function post(...values: unknown[]): void;
 
@@ -35,7 +40,7 @@ declare function post(...values: unknown[]): void;
  * Print a red error line to the Max Console.
  * @param {unknown[]} values The values to print.
  * @returns {void}
- * @see https://docs.cycling74.com/apiref/js/
+ * @see https://docs.cycling74.com/apiref/js/error/
  */
 declare function error(...values: unknown[]): void;
 
@@ -47,11 +52,9 @@ declare function error(...values: unknown[]): void;
  */
 declare class Folder {
   constructor(pathname: string);
-  end: boolean;
-  count: number;
-  pathname: string;
-  filename: string;
-  extension: string;
+  readonly end: boolean;
+  readonly pathname: string;
+  readonly filename: string;
   next(): void;
   close(): void;
 }
@@ -62,15 +65,14 @@ declare class Folder {
  * @see https://docs.cycling74.com/apiref/js/file/
  */
 declare class File {
-  constructor(filename: string, access?: 'read' | 'write' | 'readwrite', typelist?: string);
-  isopen: boolean;
+  constructor(filename?: string, access?: 'read' | 'write' | 'readwrite', typelist?: string[]);
+  readonly isopen: boolean;
   eof: number;
-  filename: string;
   readonly foldername: string;
   position: number;
   readstring(count: number): string;
   writestring(text: string): void;
-  close(): void;
+  close(text?: string): void;
 }
 
 /** HTML source injected by the build into the frozen Max engine bundle. */
@@ -90,10 +92,9 @@ declare const __MOTIF_LIBRARY_PAGE_NAME__: string;
  * @see https://docs.cycling74.com/userguide/m4l/live_api_overview/
  */
 declare class LiveAPI {
-  constructor(path?: string);
-  id: number | string;
-  get(property: string): unknown;
-  set(property: string, value: unknown): void;
+  constructor(callback?: (args: unknown[]) => void, path?: string);
+  readonly id: number;
+  get(property: string): number | number[];
+  getstring(property: string): string | string[];
   call(method: string, ...args: unknown[]): unknown;
-  goto(path: string): void;
 }

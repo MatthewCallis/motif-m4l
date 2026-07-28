@@ -290,15 +290,14 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     const POP_W = 640;
     const POP_H = 460;
 
-    // jweb fills the initial 640×460 Presentation view. `autosize` caches
-    // its zero-pixel right/bottom margins so it follows later window resizes.
+    // jweb fills the documented, fixed 640×460 Presentation view. Avoid
+    // relying on undocumented jweb sizing attributes.
     // This separate window has no overlapping Max UI, so onscreen rendering is
     // both faster and avoids offscreen-rendering issues with HTML form controls.
     nadd('jweb-library', 'jweb', [0, 0, POP_W, POP_H], {
       presentation: 1,
       presentation_rect: [0, 0, POP_W, POP_H],
       rendermode: 1,
-      autosize: 1,
       varname: 'jweb-library',
     });
 
@@ -329,14 +328,15 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     // bindInlet receive the literal selector instead of the encoded payload.
     nconnect('lib-data-recv', 0, 'jweb-library', 0);
 
-    // jweb outlet → route actions, readiness, diagnostics, and load metadata.
+    // jweb outlet → route actions, readiness, diagnostics, and documented load metadata.
     //   outlet 0 (choose_library): opendialog fold → s ---library_path
     //   outlet 1 (library_ready): send selector directly to v8 so state is resent after load
     //   outlet 2 (web_debug): forward browser diagnostics to v8
     //   outlet 3 (lib_action): explicitly tagged encoded JSON action
-    //   outlets 4–5 (url/title): print page-load metadata to the Max Console
-    //   outlet 6 (no match): print unexpected messages; never execute them
-    nobject('lib-out-route', 'route choose_library library_ready web_debug lib_action url title onloadend', LX, LY + LROW * 3, 540);
+    //   outlets 4–5 (url/title): print documented page-load metadata to the Max Console
+    //   outlet 6 (no match): print undocumented lifecycle messages; never execute them
+    // @see https://docs.cycling74.com/reference/jweb/#readfile
+    nobject('lib-out-route', 'route choose_library library_ready web_debug lib_action url title', LX, LY + LROW * 3, 500);
     nobject('lib-opendialog', 'opendialog fold', LX, LY + LROW * 4, 120);
     nobject('lib-s-path', 'send ---library_path', LX + 160, LY + LROW * 4, 160);
     nadd('lib-ready-message', 'message', [LX + 300, LY + LROW * 4, 110, 22], { text: 'library_ready' });
@@ -345,9 +345,8 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     nobject('lib-debug-send', 'send ---motif_web_debug', LX + 430, LY + LROW * 4, 190);
     nobject('lib-url-prepend', 'prepend library-url', LX, LY + LROW * 5, 150);
     nobject('lib-title-prepend', 'prepend library-title', LX + 180, LY + LROW * 5, 160);
-    nobject('lib-load-prepend', 'prepend library-load-code', LX + 360, LY + LROW * 5, 180);
-    nobject('lib-jweb-print', 'print Motif-jweb', LX + 570, LY + LROW * 5, 140);
-    nobject('lib-unhandled-prepend', 'prepend library-unhandled', LX + 730, LY + LROW * 5, 190);
+    nobject('lib-jweb-print', 'print Motif-jweb', LX + 380, LY + LROW * 5, 140);
+    nobject('lib-unhandled-prepend', 'prepend library-unhandled', LX + 540, LY + LROW * 5, 190);
     nconnect('jweb-library', 0, 'lib-out-route', 0);
     nconnect('lib-out-route', 0, 'lib-opendialog', 0);
     nconnect('lib-opendialog', 0, 'lib-s-path', 0);
@@ -357,11 +356,9 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     nconnect('lib-out-route', 3, 'lib-action-prepend', 0);
     nconnect('lib-out-route', 4, 'lib-url-prepend', 0);
     nconnect('lib-out-route', 5, 'lib-title-prepend', 0);
-    nconnect('lib-out-route', 6, 'lib-load-prepend', 0);
     nconnect('lib-url-prepend', 0, 'lib-jweb-print', 0);
     nconnect('lib-title-prepend', 0, 'lib-jweb-print', 0);
-    nconnect('lib-load-prepend', 0, 'lib-jweb-print', 0);
-    nconnect('lib-out-route', 7, 'lib-unhandled-prepend', 0);
+    nconnect('lib-out-route', 6, 'lib-unhandled-prepend', 0);
     nconnect('lib-unhandled-prepend', 0, 'lib-jweb-print', 0);
     nconnect('lib-action-prepend', 0, 'lib-s-author', 0);
 
@@ -567,10 +564,16 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     patcher: buildLibrarySubpatcher(),
   });
   object('library-pcontrol', 'pcontrol', COL.library, LIB_Y + ROW * 3, 80);
-  // t fires right→left: configure → open → defer page materialization/readfile
-  // until jweb is visible → size again.
-  object('info-trigger', 't b b b b b b', COL.library, LIB_Y, 120);
-  message('library-flags', 'window flags float grow close zoom', COL.library + 200, LIB_Y, 230);
+  // Every click closes the existing floating window before reopening it on the
+  // next scheduler turn. Reloading jweb while its patcher window is already
+  // active can leave its onscreen renderer blank on repeated Info presses.
+  object('info-trigger', 't b b', COL.library, LIB_Y, 70);
+  message('library-close', 'close', COL.library + 100, LIB_Y, 60);
+  object('library-reopen-defer', 'deferlow', COL.library + 100, LIB_Y + ROW, 80);
+  // t fires right→left after the close: configure → open → defer page
+  // materialization/readfile until jweb is visible → size again.
+  object('library-open-trigger', 't b b b b b b', COL.library + 200, LIB_Y, 120);
+  message('library-flags', 'window flags float nogrow close zoom', COL.library + 200, LIB_Y, 230);
   message('library-size', 'window size 640 460', COL.library + 200, LIB_Y + ROW, 150);
   message('library-size-again', 'window size 640 460', COL.library + 200, LIB_Y + ROW * 2, 150);
   message('library-exec', 'window exec', COL.library + 200, LIB_Y + ROW * 3, 110);
@@ -580,12 +583,15 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   object('library-page-prepend', 'prepend library_page', COL.library + 560, LIB_Y + ROW * 4, 160);
   object('library-size-defer', 'deferlow', COL.library + 400, LIB_Y + ROW * 2, 80);
   connect('info-button', 0, 'info-trigger', 0);
-  connect('info-trigger', 5, 'library-flags', 0);
-  connect('info-trigger', 4, 'library-size', 0);
-  connect('info-trigger', 3, 'library-exec', 0);
-  connect('info-trigger', 2, 'library-open', 0);
-  connect('info-trigger', 1, 'library-prepare-defer', 0);
-  connect('info-trigger', 0, 'library-size-defer', 0);
+  connect('info-trigger', 1, 'library-close', 0);
+  connect('info-trigger', 0, 'library-reopen-defer', 0);
+  connect('library-reopen-defer', 0, 'library-open-trigger', 0);
+  connect('library-open-trigger', 5, 'library-flags', 0);
+  connect('library-open-trigger', 4, 'library-size', 0);
+  connect('library-open-trigger', 3, 'library-exec', 0);
+  connect('library-open-trigger', 2, 'library-open', 0);
+  connect('library-open-trigger', 1, 'library-prepare-defer', 0);
+  connect('library-open-trigger', 0, 'library-size-defer', 0);
   connect('library-prepare-defer', 0, 'library-prepare', 0);
   connect('library-prepare', 0, 'v8', 0);
   connect('library-size-defer', 0, 'library-size-again', 0);
@@ -596,6 +602,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect('library-size', 0, 'library-info', 0);
   connect('library-size-again', 0, 'library-info', 0);
   connect('library-exec', 0, 'library-info', 0);
+  connect('library-close', 0, 'library-pcontrol', 0);
   connect('library-open', 0, 'library-pcontrol', 0);
   connect('library-pcontrol', 0, 'library-info', 0);
 

@@ -26,7 +26,6 @@ type Box = {
   border?: number;
   jsarguments?: number[];
   rendermode?: number;
-  autosize?: number;
   fontname?: string;
   url?: string;
   saved_attribute_attributes?: { valueof?: { parameter_enum?: string[] } };
@@ -88,8 +87,7 @@ describe('Motif Max patch integration', () => {
     assert.ok(engineFilename && previewFilename, 'runtime dependencies must use content-addressed filenames');
     const engineSource = await readFile(`max/${engineFilename}`, 'utf8');
     const previewSource = await readFile(`max/${previewFilename}`, 'utf8');
-    assert.equal(engineSource, await readFile('max/motif-device.js', 'utf8'));
-    assert.equal(previewSource, await readFile('max/motif-preview.js', 'utf8'));
+    assert.equal(engineSource, await readFile('dist/motif-device.js', 'utf8'));
     assert.equal(previewSource, await readFile('src/max/motif-preview.js', 'utf8'));
     assert.equal(
       engineFilename,
@@ -144,8 +142,8 @@ describe('Motif Max patch integration', () => {
     assert.ok(texts.includes('route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page'));
     assert.ok(texts.includes('route lib preview'), 'ui-route must handle library and preview state');
     assert.ok(texts.includes('window size 640 460'));
-    assert.ok(texts.includes('window flags float grow close zoom'));
-    assert.ok(!texts.includes('window flags nogrow'));
+    assert.ok(texts.includes('window flags float nogrow close zoom'));
+    assert.ok(!texts.includes('window flags float grow close zoom'));
     assert.ok(texts.filter((text) => text === 'window size 640 460').length >= 2, 'size must be applied before and after open');
     assert.ok(texts.includes('receive ---motif_author'));
     assert.ok(texts.includes('pipe 0 0 0 0.'));
@@ -306,7 +304,7 @@ describe('Motif Max patch integration', () => {
     const libraryInletRoute = boxByText(libraryPatcher.boxes, 'route library_page');
     const libraryReadfilePrepend = boxByText(libraryPatcher.boxes, 'prepend readfile');
     const libraryThispatcher = boxByText(libraryPatcher.boxes, 'thispatcher');
-    const libraryRoute = boxByText(libraryPatcher.boxes, 'route choose_library library_ready web_debug lib_action url title onloadend');
+    const libraryRoute = boxByText(libraryPatcher.boxes, 'route choose_library library_ready web_debug lib_action url title');
     const libraryReadyMessage = libraryPatcher.boxes.find(({ box }) =>
       box.maxclass === 'message' && box.text === 'library_ready')?.box;
     const libraryAction = boxByText(libraryPatcher.boxes, 'prepend lib_action');
@@ -328,7 +326,7 @@ describe('Motif Max patch integration', () => {
         libraryReceiveData,
     );
     assert.equal(jwebLibrary.rendermode, 1, 'standalone library window must use onscreen jweb rendering');
-    assert.equal(jwebLibrary.autosize, 1, 'library jweb must follow floating-window resizes');
+    assert.ok(!('autosize' in jwebLibrary), 'library jweb must avoid undocumented sizing attributes');
     assert.ok(hasLine(libraryPatcher.lines, libraryInlet, 0, libraryInletRoute, 0));
     assert.ok(hasLine(libraryPatcher.lines, libraryInletRoute, 0, libraryReadfilePrepend, 0));
     assert.ok(hasLine(libraryPatcher.lines, libraryReadfilePrepend, 0, jwebLibrary, 0));
@@ -342,7 +340,14 @@ describe('Motif Max patch integration', () => {
 
     const libraryInfo = boxByText(boxes, 'p library-info');
     const libraryPcontrol = boxByText(boxes, 'pcontrol');
-    const infoTrigger = boxByText(boxes, 't b b b b b b');
+    const libraryOpenTrigger = boxByText(boxes, 't b b b b b b');
+    const libraryClose = boxes.find(({ box }) => box.maxclass === 'message' && box.text === 'close')?.box;
+    const infoTrigger = libraryClose
+      ? boxes.find(({ box }) => box.text === 't b b' && hasLine(lines, box, 1, libraryClose, 0))?.box
+      : undefined;
+    const libraryReopenDefer = libraryOpenTrigger
+      ? boxes.find(({ box }) => box.text === 'deferlow' && hasLine(lines, box, 0, libraryOpenTrigger, 0))?.box
+      : undefined;
     const libraryOpen = boxes.find(({ box }) => box.maxclass === 'message' && box.text === 'open')?.box;
     const libraryPrepare = boxes.find(({ box }) =>
       box.maxclass === 'message' && box.text === 'library_prepare')?.box;
@@ -355,6 +360,9 @@ describe('Motif Max patch integration', () => {
       libraryInfo &&
         libraryPcontrol &&
         infoTrigger &&
+        libraryOpenTrigger &&
+        libraryClose &&
+        libraryReopenDefer &&
         libraryOpen &&
         libraryPrepare &&
         libraryPrepareDefer &&
@@ -362,14 +370,18 @@ describe('Motif Max patch integration', () => {
         libraryEngineRoute &&
         v8,
     );
-    assert.ok(hasLine(lines, infoTrigger, 2, libraryOpen, 0), 'window must open before page preparation is deferred');
-    assert.ok(hasLine(lines, infoTrigger, 1, libraryPrepareDefer, 0));
+    assert.ok(hasLine(lines, infoTrigger, 1, libraryClose, 0), 'each Info press must close the prior window first');
+    assert.ok(hasLine(lines, libraryClose, 0, libraryPcontrol, 0), 'close must be sent to pcontrol');
+    assert.ok(hasLine(lines, infoTrigger, 0, libraryReopenDefer, 0), 'reopening must wait until the close completes');
+    assert.ok(hasLine(lines, libraryReopenDefer, 0, libraryOpenTrigger, 0));
+    assert.ok(hasLine(lines, libraryOpenTrigger, 2, libraryOpen, 0), 'window must open before page preparation is deferred');
+    assert.ok(hasLine(lines, libraryOpenTrigger, 1, libraryPrepareDefer, 0));
     assert.ok(hasLine(lines, libraryPrepareDefer, 0, libraryPrepare, 0));
     assert.ok(hasLine(lines, libraryPrepare, 0, v8, 0));
     assert.ok(hasLine(lines, libraryEngineRoute, 11, libraryPagePrepend, 0));
     assert.ok(hasLine(lines, libraryPagePrepend, 0, libraryInfo, 0));
     assert.ok(hasLine(lines, libraryOpen, 0, libraryPcontrol, 0), 'only open should be sent to pcontrol');
-    for (const text of ['window flags float grow close zoom', 'window size 640 460', 'window exec']) {
+    for (const text of ['window flags float nogrow close zoom', 'window size 640 460', 'window exec']) {
       for (const { box } of boxes.filter(({ box }) => box.text === text)) {
         assert.ok(hasLine(lines, box, 0, libraryInfo, 0), `${text} must be forwarded to the subpatch thispatcher`);
         assert.ok(!hasLine(lines, box, 0, libraryPcontrol, 0), `${text} must never be sent to pcontrol`);

@@ -1020,7 +1020,6 @@ var MotifEngine = (() => {
   var previewWasTriggered = false;
   var tempoMultiplier = 1;
   var browserQuery = "";
-  var selectedNoteIndex = 0;
   var TEMPO_MULTIPLIERS = [0.5, 1, 1.5, 2];
   var NOTE_EDIT_FIELDS = [
     "pitch",
@@ -1315,7 +1314,7 @@ var MotifEngine = (() => {
     }
   }
   function library_prepare() {
-    const temporaryPath = `Tempfolder:/${"uttori-motif-library-7fe5861712fd.html"}`;
+    const temporaryPath = `Tempfolder:/${"uttori-motif-library-54a944d70130.html"}`;
     let output;
     try {
       output = new File(temporaryPath, "write");
@@ -1323,6 +1322,11 @@ var MotifEngine = (() => {
       output.eof = 0;
       output.position = 0;
       writeTextChunks(output, `<!DOCTYPE html>
+<!--
+  Max jweb bridge documentation:
+  https://docs.cycling74.com/reference/jweb/
+  https://docs.cycling74.com/userguide/web_browser/#javascript-communication
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -1980,20 +1984,19 @@ var MotifEngine = (() => {
       query:'', libraryPath:'/Users/example/Motifs', libraryLoaded:true,
       editing:{ active:false, dirty:false, created:false, sourceId:null, targetId:null },
       items:[
-        { id:'mitsuda-lick', name:'Mitsuda Lick', showId:true },
-        { id:'mitsuda-lick-2', name:'Mitsuda Lick', showId:true },
-        { id:'salt-peanuts', name:'Salt Peanuts', showId:false },
+        { id:'chromatic-turn', name:'Chromatic Turn', showId:false },
+        { id:'scale-turn', name:'Scale Turn', showId:false },
       ],
       selectedIndex:0,
       selected:{
-        schemaVersion:1, id:'mitsuda-lick', name:'Mitsuda Lick', description:'Canonical two-bar contour.',
-        pitchMode:'chromatic', sourceMeter:{ numerator:4, denominator:4 }, length:7680, defaultGate:.92,
-        velocityCurve:{ inputMin:null, inputMax:null, outputMin:48, outputMax:118, exponent:.85 },
-        metadata:{ author:'Traditional/canonical VGM vocabulary', source:'', license:'', tags:['mitsuda','chromatic'], suggestedModes:['minor','dorian'], pickupTicks:null },
-        stats:'6 notes \u2022 2 bars \u2022 4/4 source \u2022 chromatic', isBuiltin:true, isPersisted:false,
+        schemaVersion:1, id:'chromatic-turn', name:'Chromatic Turn', description:'Fixed-interval phrase that ignores the selected scale.',
+        pitchMode:'chromatic', sourceMeter:{ numerator:4, denominator:4 }, length:3360, defaultGate:.82,
+        velocityCurve:{ inputMin:null, inputMax:null, outputMin:null, outputMax:null, exponent:null },
+        metadata:{ author:'', source:'', license:'', tags:['demo','chromatic'], suggestedModes:[], pickupTicks:null },
+        stats:'7 notes \u2022 0.88 bars \u2022 4/4 source \u2022 chromatic', isBuiltin:true, isPersisted:false,
         notes:[
-          { pitch:0, accidental:null, at:0, duration:2880, gate:.96, velocity:null, velocityOffset:5, velocityScale:null, legato:false, tie:false },
-          { pitch:-2, accidental:null, at:2880, duration:960, gate:null, velocity:null, velocityOffset:-4, velocityScale:null, legato:false, tie:false },
+          { pitch:0, accidental:null, at:0, duration:480, gate:null, velocity:null, velocityOffset:null, velocityScale:null, legato:false, tie:false },
+          { pitch:2, accidental:null, at:480, duration:480, gate:null, velocity:null, velocityOffset:null, velocityScale:null, legato:false, tie:false },
         ],
       },
     })));
@@ -2002,7 +2005,7 @@ var MotifEngine = (() => {
 </body>
 </html>
 `);
-      const absolutePath = joinMaxPath(output.foldername, "uttori-motif-library-7fe5861712fd.html");
+      const absolutePath = joinMaxPath(output.foldername, "uttori-motif-library-54a944d70130.html");
       output.close();
       output = void 0;
       const verification = new File(absolutePath, "read");
@@ -2010,6 +2013,11 @@ var MotifEngine = (() => {
       const byteLength = verification.eof;
       verification.close();
       if (byteLength < `<!DOCTYPE html>
+<!--
+  Max jweb bridge documentation:
+  https://docs.cycling74.com/reference/jweb/
+  https://docs.cycling74.com/userguide/web_browser/#javascript-communication
+-->
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -2667,20 +2675,19 @@ var MotifEngine = (() => {
       query:'', libraryPath:'/Users/example/Motifs', libraryLoaded:true,
       editing:{ active:false, dirty:false, created:false, sourceId:null, targetId:null },
       items:[
-        { id:'mitsuda-lick', name:'Mitsuda Lick', showId:true },
-        { id:'mitsuda-lick-2', name:'Mitsuda Lick', showId:true },
-        { id:'salt-peanuts', name:'Salt Peanuts', showId:false },
+        { id:'chromatic-turn', name:'Chromatic Turn', showId:false },
+        { id:'scale-turn', name:'Scale Turn', showId:false },
       ],
       selectedIndex:0,
       selected:{
-        schemaVersion:1, id:'mitsuda-lick', name:'Mitsuda Lick', description:'Canonical two-bar contour.',
-        pitchMode:'chromatic', sourceMeter:{ numerator:4, denominator:4 }, length:7680, defaultGate:.92,
-        velocityCurve:{ inputMin:null, inputMax:null, outputMin:48, outputMax:118, exponent:.85 },
-        metadata:{ author:'Traditional/canonical VGM vocabulary', source:'', license:'', tags:['mitsuda','chromatic'], suggestedModes:['minor','dorian'], pickupTicks:null },
-        stats:'6 notes \u2022 2 bars \u2022 4/4 source \u2022 chromatic', isBuiltin:true, isPersisted:false,
+        schemaVersion:1, id:'chromatic-turn', name:'Chromatic Turn', description:'Fixed-interval phrase that ignores the selected scale.',
+        pitchMode:'chromatic', sourceMeter:{ numerator:4, denominator:4 }, length:3360, defaultGate:.82,
+        velocityCurve:{ inputMin:null, inputMax:null, outputMin:null, outputMax:null, exponent:null },
+        metadata:{ author:'', source:'', license:'', tags:['demo','chromatic'], suggestedModes:[], pickupTicks:null },
+        stats:'7 notes \u2022 0.88 bars \u2022 4/4 source \u2022 chromatic', isBuiltin:true, isPersisted:false,
         notes:[
-          { pitch:0, accidental:null, at:0, duration:2880, gate:.96, velocity:null, velocityOffset:5, velocityScale:null, legato:false, tie:false },
-          { pitch:-2, accidental:null, at:2880, duration:960, gate:null, velocity:null, velocityOffset:-4, velocityScale:null, legato:false, tie:false },
+          { pitch:0, accidental:null, at:0, duration:480, gate:null, velocity:null, velocityOffset:null, velocityScale:null, legato:false, tie:false },
+          { pitch:2, accidental:null, at:480, duration:480, gate:null, velocity:null, velocityOffset:null, velocityScale:null, legato:false, tie:false },
         ],
       },
     })));
@@ -2818,20 +2825,19 @@ var MotifEngine = (() => {
       }
     }
     currentMotifId = selected.id;
-    selectedNoteIndex = 0;
     emit("motif-selected", motifLabels().get(selected.id) ?? selected.name);
     emitSelectedMotifUi();
     emitStatus("Motif", selected.name);
   }
   function pitch_mode(mode) {
-    if (mode === "motif" || mode === "auto") pitchModeOverride = void 0;
+    if (mode === "motif") pitchModeOverride = void 0;
     else if (mode === "scale" || mode === "chromatic" || mode === "hybrid") pitchModeOverride = mode;
     else {
       emitError(`Unknown pitch mode: ${mode}`);
       return;
     }
     emitSelectedMotifUi();
-    emitStatus("Pitch", mode === "auto" ? "motif" : mode);
+    emitStatus("Pitch", mode);
   }
   function meter_mode(mode) {
     if (mode !== "preserve" && mode !== "fit-bar") {
@@ -3017,7 +3023,6 @@ var MotifEngine = (() => {
     userLibraryPath = nextPath;
     const loaded = loadUserLibrary();
     if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
-    selectedNoteIndex = 0;
     listMotifs();
     emitStatus(loaded ? "library" : "library-unavailable", userLibraryPath);
   }
@@ -3030,7 +3035,6 @@ var MotifEngine = (() => {
     editor.abandon();
     const loaded = loadUserLibrary();
     if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
-    selectedNoteIndex = 0;
     listMotifs();
     emitStatus(loaded ? "library-refreshed" : "library-unavailable", store.list().length);
   }
@@ -3044,20 +3048,14 @@ var MotifEngine = (() => {
     emitSelectedMotifUi();
     emitStatus("tempo-multiplier", tempoMultiplier);
   }
-  var FILTER_NOISE = /* @__PURE__ */ new Set(["", "set", "text", "clear", "bang", "symbol", "undefined", "null"]);
   function filter_motifs(...queryParts) {
-    const raw = flattenValues(queryParts).map(String).map((part) => part.trim()).filter((part) => !FILTER_NOISE.has(part.toLowerCase())).join(" ").trim();
+    const raw = flattenValues(queryParts).map(String).map((part) => part.trim()).filter(Boolean).join(" ").trim();
     browserQuery = raw;
     emitLibraryState();
     emitStatus("filter", browserQuery || "(all)");
   }
-  function liveApiId(api) {
-    return String(api.id ?? "");
-  }
   function isLiveApiValid(api) {
-    if (!api) return false;
-    const id = liveApiId(api);
-    return id !== "" && id !== "0" && id !== "id 0";
+    return api !== void 0 && api.id !== 0;
   }
   function liveTruthy(value) {
     if (Array.isArray(value)) return liveTruthy(value[0]);
@@ -3080,14 +3078,14 @@ var MotifEngine = (() => {
   function resolveDetailClip() {
     if (typeof LiveAPI === "undefined") return void 0;
     try {
-      const detail = new LiveAPI("live_set view detail_clip");
+      const detail = new LiveAPI(void 0, "live_set view detail_clip");
       if (isLiveApiValid(detail) && isMidiClip(detail)) return detail;
     } catch {
     }
     try {
-      const slot = new LiveAPI("live_set view highlighted_clip_slot");
+      const slot = new LiveAPI(void 0, "live_set view highlighted_clip_slot");
       if (!isLiveApiValid(slot) || !liveTruthy(slot.get("has_clip"))) return void 0;
-      const clip = new LiveAPI("live_set view highlighted_clip_slot clip");
+      const clip = new LiveAPI(void 0, "live_set view highlighted_clip_slot clip");
       if (isLiveApiValid(clip) && isMidiClip(clip)) return clip;
     } catch {
     }
@@ -3142,50 +3140,9 @@ var MotifEngine = (() => {
     }
     return notes;
   }
-  function parseClipNotesLegacy(raw) {
-    const values = flattenValues(Array.isArray(raw) ? raw : [raw]).map((value) => {
-      const asNumber = Number(value);
-      return Number.isFinite(asNumber) ? asNumber : value;
-    });
-    let index = 0;
-    if (String(values[0]) === "notes") index = 1;
-    const count = Number(values[index]);
-    if (!Number.isFinite(count) || count <= 0) return [];
-    index += 1;
-    const notes = [];
-    for (let noteIndex = 0; noteIndex < count; noteIndex += 1) {
-      const pitch = Number(values[index]);
-      const time = Number(values[index + 1]);
-      const duration = Number(values[index + 2]);
-      const velocity = Number(values[index + 3]);
-      const muted = Number(values[index + 4]);
-      index += 5;
-      if (!Number.isFinite(pitch) || !Number.isFinite(time) || !Number.isFinite(duration)) continue;
-      if (muted === 1) continue;
-      notes.push({
-        at: Math.round(time * PPQ),
-        duration: Math.max(1, Math.round(duration * PPQ)),
-        pitch: Math.round(pitch),
-        velocity: Math.round(clamp(Number.isFinite(velocity) ? velocity : 100, 1, 127))
-      });
-    }
-    return notes;
-  }
   function readClipNotes(clip) {
-    try {
-      const extended = clip.call("get_notes_extended", 0, 127, 0, 4096);
-      const fromExtended = parseClipNotesExtended(extended);
-      if (fromExtended.length > 0) return fromExtended;
-    } catch {
-    }
-    try {
-      const legacy = clip.call("get_notes", 0, 4096, 0, 127);
-      return parseClipNotesLegacy(legacy);
-    } catch (reason) {
-      throw new Error(
-        `Could not read clip notes: ${reason instanceof Error ? reason.message : String(reason)}`
-      );
-    }
+    const payload = clip.call("get_notes_extended", 0, 128, 0, 4096);
+    return parseClipNotesExtended(payload);
   }
   function import_clip(pitchModeValue = "chromatic") {
     if (editor.isDirty()) {
@@ -3214,7 +3171,7 @@ var MotifEngine = (() => {
       emitError("Selected clip has no notes");
       return;
     }
-    const clipNameRaw = clip.get("name");
+    const clipNameRaw = clip.getstring("name");
     const clipName = String(Array.isArray(clipNameRaw) ? clipNameRaw[0] : clipNameRaw || "Imported Clip").trim() || "Imported Clip";
     let imported;
     try {
@@ -3256,7 +3213,6 @@ var MotifEngine = (() => {
         return;
       }
       currentMotifId = id;
-      selectedNoteIndex = 0;
       listMotifs();
       emitStatus("imported-clip", id, absoluteNotes.length);
     } catch (reason) {
@@ -3563,7 +3519,6 @@ var MotifEngine = (() => {
       return;
     }
     currentMotifId = editable.id;
-    selectedNoteIndex = 0;
     listMotifs();
     emitStatus("editing", editable.id, editable.name);
   }
@@ -3574,7 +3529,6 @@ var MotifEngine = (() => {
       return;
     }
     currentMotifId = store.has(restoredId) ? restoredId : store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
-    selectedNoteIndex = 0;
     listMotifs();
     emitStatus("editing-cancelled", currentMotifId);
   }
@@ -3583,20 +3537,8 @@ var MotifEngine = (() => {
     emitSelectedMotifUi();
     emitStatus("motif-edited", currentMotifId);
   }
-  function edit_meta(fieldValue, ...textParts) {
-    const field = String(fieldValue);
-    if (field !== "name" && field !== "description") {
-      emitError(`Unknown meta field: ${field}`);
-      return;
-    }
-    const value = flattenValues(textParts).map(String).join(" ").trim().replace(/^"|"$/g, "");
-    if (!applyMotifProperties({ [field]: value })) return;
-    emitSelectedMotifUi();
-    emitStatus("meta-edited", field, currentMotif()?.name ?? "");
-  }
-  function select_browser(idOrIndex, discardChanges) {
-    const items = store.filter(browserQuery);
-    const item = typeof idOrIndex === "number" ? items[Math.round(clamp(idOrIndex, 0, Math.max(0, items.length - 1)))] : store.get(String(idOrIndex));
+  function select_browser(id, discardChanges) {
+    const item = store.get(String(id));
     if (!item) return;
     if (item.id === currentMotifId) return;
     if (editor.isEditing()) {
@@ -3610,19 +3552,9 @@ var MotifEngine = (() => {
     const selected = store.get(item.id);
     if (!selected) return;
     currentMotifId = selected.id;
-    selectedNoteIndex = 0;
     emit("motif-selected", motifLabels().get(selected.id) ?? selected.name);
     emitSelectedMotifUi();
     emitStatus("Motif", selected.name);
-  }
-  function select_note(indexValue) {
-    const selected = currentMotif();
-    if (!selected || selected.notes.length === 0) return;
-    selectedNoteIndex = Math.round(clamp(indexValue, 0, selected.notes.length - 1));
-    const note2 = selected.notes[selectedNoteIndex];
-    if (!note2) return;
-    emitLibraryState();
-    emitStatus("note-selected", selectedNoteIndex);
   }
   function updateNoteAt(index, field, valueValue) {
     if (!NOTE_EDIT_FIELDS.includes(field)) {
@@ -3725,14 +3657,6 @@ var MotifEngine = (() => {
     emitStatus("note-edited", index, field, statusValue ?? "unset");
     return true;
   }
-  function edit_note(fieldValue, valueValue) {
-    const selected = currentMotif();
-    if (!selected || selected.notes.length === 0) return;
-    const index = Math.round(clamp(selectedNoteIndex, 0, selected.notes.length - 1));
-    if (updateNoteAt(index, String(fieldValue), valueValue)) {
-      selectedNoteIndex = index;
-    }
-  }
   function edit_note_at(rowIndexValue, fieldValue, valueValue) {
     updateNoteAt(Math.round(rowIndexValue), String(fieldValue), valueValue);
   }
@@ -3786,7 +3710,7 @@ var MotifEngine = (() => {
     switch (type) {
       case "select_browser":
         select_browser(
-          action["id"] !== void 0 ? stringAtom(action["id"]) : Number(action["index"]),
+          stringAtom(action["id"]),
           action["discardChanges"]
         );
         break;
@@ -3797,12 +3721,7 @@ var MotifEngine = (() => {
         import_clip(action["pitchMode"] !== void 0 ? stringAtom(action["pitchMode"]) : void 0);
         break;
       case "save_motif":
-        save_motif(
-          action["properties"] ?? (action["name"] !== void 0 || action["description"] !== void 0 ? {
-            ...action["name"] !== void 0 ? { name: action["name"] } : {},
-            ...action["description"] !== void 0 ? { description: action["description"] } : {}
-          } : void 0)
-        );
+        save_motif(action["properties"]);
         break;
       case "refresh_library":
         refresh_library(action["discardChanges"]);
@@ -3815,9 +3734,6 @@ var MotifEngine = (() => {
         break;
       case "edit_motif":
         edit_motif(action["properties"]);
-        break;
-      case "edit_meta":
-        edit_meta(stringAtom(action["field"]), action["value"]);
         break;
       case "add_note":
         add_note();
@@ -3875,10 +3791,7 @@ var MotifEngine = (() => {
     begin_edit,
     cancel_edit,
     edit_motif,
-    edit_meta,
     select_browser,
-    select_note,
-    edit_note,
     lib_action,
     panic,
     list_motifs: listMotifs,

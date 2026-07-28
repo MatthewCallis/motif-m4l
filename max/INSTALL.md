@@ -16,9 +16,10 @@
    - Notes outside the trigger zone pass through.
    - Notes inside the trigger zone play the motif.
 10. Open Info repeatedly, including after closing and reopening the floating window, and confirm the Library UI reloads each time.
-11. Freeze and save the device to embed the two hashed JavaScript dependencies. No separate HTML runtime dependency or project Search Path is required.
-12. Cycle Live Look/Feel themes and confirm controls remain legible.
+11. [Freeze and save the device](https://docs.cycling74.com/userguide/m4l/live_freezing/) to embed the two hashed JavaScript dependencies. No separate HTML runtime dependency or project Search Path is required.
+12. Run `npm run validate:amxd`. Do not ship until it confirms that the frozen container embeds the same hashes as `Motif.maxpat` and contains no retired Max surfaces.
+13. Cycle Live Look/Feel themes and confirm controls remain legible.
 
-The native `live.path` / `live.observer` graph supplies tempo, root, scale, meter, transport, and song position. JavaScript is not used to query the Live Object Model.
+The native `live.path` / `live.observer` graph supplies tempo, root, scale, meter, transport, and song position. JavaScript `LiveAPI` is used only when the user invokes **Import Clip**; it is not used for continuous Song synchronization.
 
 Do not rename `Motif.maxpat` to `.amxd`; only Max can write a valid Max for Live device container.

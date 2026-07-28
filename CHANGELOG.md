@@ -2,18 +2,13 @@
 
 ## Unreleased
 
-- Authoring UI in the floating Library window: searchable motif browser, Live clip import (`import_clip`), per-note editor, and Save to the user library folder.
-- Authoring polish: umenu-safe note labels, All button to reset search (empty textedit does not re-fire), `get_notes_extended` JSON parsing, constrained float window.
-- Authoring editor: Max `number` fields (pitch/`set` no longer wrong), Edit + name/description textedits; browser/notes stay `umenu` (Jitter `jit.cellblock` breaks maxpat/M4L load).
-- Shared `absoluteNotesToMotif` analysis core (CLI MIDI import + in-device clip import); Song sync stays on native observers - LiveAPI is clip-import only.
-- MIDI preview sends `preview-size` before `setlist` so multislider columns match motifs with more than 6 notes.
-- Added built-in `salt-peanuts` motif (Gillespie shout figure: paired sixteenths + minor-third kick on beats 1 and 3).
-- Top row: tabs + motif + `BPM ×` + multiplier + Info/Panic; one bottom row: `Pitch` menu + `Scale` root/name.
-- Scale menus use theme-default `live.menu` (`ignoreclick`); `active` follows Song.scale_mode (no ♭♯ chip).
-- Pitch Mode `auto` renamed to `motif` (legacy `auto` still accepted).
-- Keep `parameter_enable` on Scale `live.menu`s so Max loads `parameter_enum` (avoids “there's no enum”).
-- Removed BPM readout and the anchor/debug metadata line from Presentation.
-- Theme-default `live.text` pills; unlocked patcher section comments (`§ MIDI`, `§ Engine`, …).
+- Added the native content-addressed `jsui` / MGraphics preview with timing, duration, pitch range, exact note names, and clickable diagnostics.
+- Added the embedded jweb Library/Authoring page: searchable browser, selected-clip import, complete motif/note editing, and Save to a user library folder.
+- Materialize the Library page into `Tempfolder:` at runtime and load it through jweb's documented `readfile` message, avoiding a separate frozen HTML dependency.
+- Reset the floating Library patcher before each Info-button open so repeated presses cannot leave jweb's onscreen renderer blank.
+- Use content-addressed engine and preview filenames, remove stale hashes automatically, and keep only the two exact runtime files referenced by `Motif.maxpat` in `max/`.
+- Keep continuous Song state on native `live.path` / `live.observer`; use the documented `LiveAPI(callback?, path?)` and `get_notes_extended` only for on-demand clip import.
+- Tightened the Presentation UI to 475 × 169 and expanded generated-patch, runtime, stale-artifact, and documentation-contract validation.
 
 ## 0.3.8 - Theme-compliant Motif/Settings UI
 

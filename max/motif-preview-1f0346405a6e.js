@@ -6,6 +6,12 @@
  * This intentionally uses jsui/mgraphics rather than jweb. Frozen Max for Live
  * devices do not reliably unpack arbitrary HTML dependencies before jweb tries
  * to load them, which can turn a relative filename into an invalid file URL.
+ *
+ * Max API:
+ * https://docs.cycling74.com/reference/jsui/
+ * https://docs.cycling74.com/apiref/js/jsthis/
+ * https://docs.cycling74.com/apiref/js/maxobj/#rect
+ * https://docs.cycling74.com/apiref/js/mgraphics/
  */
 
 autowatch = 1;

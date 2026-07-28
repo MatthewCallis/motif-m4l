@@ -21,7 +21,7 @@ Observed Song properties:
 - `is_playing`
 - `current_song_time`
 
-Tempo, root, scale name/mode, meter, and transport connect directly to read-only Presentation comments. JavaScript is not required for these displays.
+Root and scale name connect directly to Song-driven, non-clickable Presentation `live.menu` displays. The other observed values feed the engine without adding stale BPM/status controls to Presentation.
 
 Each observer value is also normalized as:
 
@@ -37,10 +37,10 @@ On-demand **Import Clip** is the only intentional JavaScript LiveAPI path:
 
 ```text
 Import Clip → import_clip
-  → LiveAPI("live_set view detail_clip")
-    or LiveAPI("live_set view highlighted_clip_slot clip")
-  → get_notes_extended / get_notes
-  → absoluteNotesToMotif (hybrid by default + Song scale_intervals)
+  → new LiveAPI(undefined, "live_set view detail_clip")
+    or new LiveAPI(undefined, "live_set view highlighted_clip_slot clip")
+  → get_notes_extended
+  → absoluteNotesToMotif (chromatic by default; scale/hybrid are explicit choices)
 ```
 
 Do not move Song tempo/key/scale/meter/transport onto this path.
@@ -56,4 +56,4 @@ If Import Clip fails:
 
 1. Open a MIDI clip in Detail View (or highlight a clip slot with a MIDI clip).
 2. Confirm Max Console for `Motif: No clip selected…` / empty-clip errors.
-3. Confirm the device JS was recompiled after updating `motif-device.js`.
+3. Confirm the generated patch references the latest `motif-device-<hash>.js`.

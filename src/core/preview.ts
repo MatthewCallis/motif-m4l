@@ -1,7 +1,8 @@
 /**
- * Pitch-contour preview helpers for the Presentation `multislider` and note-name strip.
+ * Pitch-contour data for the native Presentation `jsui` / MGraphics renderer.
  *
- * @see https://docs.cycling74.com/reference/multislider
+ * @see https://docs.cycling74.com/reference/jsui/
+ * @see https://docs.cycling74.com/apiref/js/mgraphics/
  */
 
 import { barLengthTicks } from './timing.js';
@@ -15,7 +16,7 @@ export interface PreviewNote {
   durationTicks: number;
 }
 
-/** Aggregated preview data for UI (`preview-pitches`, note names, range). */
+/** Aggregated note geometry, names, and range for the native preview UI. */
 export interface MotifPreview {
   notes: PreviewNote[];
   noteNames: string[];
@@ -41,7 +42,7 @@ export function midiNoteName(pitchValue: number): string {
 
 /**
  * Build a compact pitch contour for the selected motif under current host settings.
- * Caps note count for the multislider; ranges expand by ±1 when all pitches match.
+ * Caps note count for rendering; ranges expand by ±1 when all pitches match.
  * @param {Motif} motif The motif to preview.
  * @param {HostContext} host The current Live host context.
  * @param {number} triggerPitch The MIDI note that anchors relative motif pitches.

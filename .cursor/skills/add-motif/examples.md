@@ -1,24 +1,13 @@
 # Motif examples (copy patterns, not pitches blindly)
 
-## Chromatic: Salt Peanuts (1 bar, beats 1 & 3)
+## Chromatic turn
 
-`0 0 +3` as 16th–16th–8th, twice. Trigger = repeated pitch.
-
-```text
-at:        0,  240,  480, 1920, 2160, 2400
-pitch:     0,    0,    3,    0,    0,    3
-duration: 240, 240,  480,  240,  240,  480
-length: 3840
-```
-
-## Chromatic: Mitsuda (2 bars)
-
-Long tonic → −2 → +3 → chromatic walk 2,1 → tonic.
+Fixed semitone offsets from the trigger note.
 
 ```text
-at:        0, 2880, 3840, 4800, 5280, 5760
-pitch:     0,   -2,    3,    2,    1,    0
-length: 7680
+at:       0, 480, 960, 1440, 1920, 2400, 2880
+pitch:    0,   2,   3,    7,    5,    2,    0
+length: 3360
 ```
 
 ## Scale: degree turn
@@ -27,6 +16,7 @@ length: 7680
 
 ```text
 pitch: 0, 1, 2, 4, 3, 1, 0
+length: 3360
 ```
 
 ## Test sketch
@@ -53,4 +43,4 @@ test('transposes <Name> from the trigger note', () => {
 });
 ```
 
-Reuse `HOST` from `tests/mitsuda.test.ts` / `tests/salt-peanuts.test.ts`.
+Reuse the host-context fixtures in `tests/compile-motif.test.ts` / `tests/import-notes.test.ts`.

@@ -42,8 +42,8 @@ describe('MotifEditorState', () => {
     const imported = store.cloneAsUser('chromatic-turn', 'imported');
     assert.ok(imported);
 
-    editor.begin(store, imported.id, { created: true, dirty: true, sourceId: 'salt-peanuts' });
-    assert.equal(editor.cancel(store), 'salt-peanuts');
+    editor.begin(store, imported.id, { created: true, dirty: true, sourceId: 'scale-turn' });
+    assert.equal(editor.cancel(store), 'scale-turn');
     assert.equal(store.has(imported.id), false);
 
     const saved = store.cloneAsUser('chromatic-turn', 'saved-copy');
