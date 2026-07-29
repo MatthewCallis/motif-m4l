@@ -195,12 +195,11 @@
             <select class="field" id="hotkey-action">
               <option value="trigger">Trigger Motif</option>
               <option value="select">Select Motif</option>
-              <option value="repeat">Hold &amp; Repeat</option>
             </select>
             <button class="btn" id="assign-hotkey-btn">Assign to Motif</button>
           </div>
           <label>Assigned</label><div class="wide" id="hotkey-list"></div>
-          <div class="help">Trigger Motif plays once. Select Motif makes it active for later trigger-zone notes. Hold &amp; Repeat loops the motif until the assigned key is released. Enter a note name such as C3, F♯2, or Bb4; click an assignment to remove it.</div>
+          <div class="help">Trigger Motif plays this motif using the device’s current Trigger Mode. Select Motif makes it active for later trigger-zone notes. Enter a note name such as C3, F♯2, or Bb4; click an assignment to remove it.</div>
         </div>
       </div>
 
@@ -446,10 +445,9 @@
       if (Array.isArray(item.hotkeys) && item.hotkeys.length > 0) {
         const badge = document.createElement('div');
         badge.className = 'hotkey-badge';
-        badge.textContent = item.hotkeys.map((mapping) => {
-          const symbol = mapping.action === 'select' ? '↦' : mapping.action === 'repeat' ? '↻' : '▶';
-          return `${midiNoteName(mapping.pitch)} ${symbol}`;
-        }).join(' ');
+        badge.textContent = item.hotkeys
+          .map((mapping) => `${midiNoteName(mapping.pitch)} ${mapping.action === 'select' ? '↦' : '▶'}`)
+          .join(' ');
         el.append(badge);
       }
       if (item.showId) {
@@ -503,11 +501,7 @@
     for (const mapping of mappings) {
       const chip = document.createElement('button');
       chip.className = 'hotkey-chip';
-      const actionLabel = mapping.action === 'select'
-        ? 'Select'
-        : mapping.action === 'repeat'
-          ? 'Hold & Repeat'
-          : 'Trigger';
+      const actionLabel = mapping.action === 'select' ? 'Select' : 'Trigger';
       chip.title = `Remove ${midiNoteName(mapping.pitch)} · ${actionLabel}`;
       chip.textContent = `${midiNoteName(mapping.pitch)} · ${actionLabel}  ×`;
       chip.addEventListener('click', () => send({ type:'unmap_trigger', pitch:mapping.pitch }));

@@ -251,6 +251,9 @@ describe('Motif Max patch integration', () => {
     const pitchEnum = pitchMenu?.saved_attribute_attributes?.valueof?.parameter_enum;
     assert.ok(pitchEnum?.includes('motif'), 'Pitch Mode first item is motif');
     assert.ok(!pitchEnum?.includes('auto'), 'Pitch Mode auto was renamed to motif');
+    const triggerEnum = boxByVarname(boxes, 'trigger-menu')
+      ?.saved_attribute_attributes?.valueof?.parameter_enum;
+    assert.ok(triggerEnum?.includes('hold-repeat'), 'Trigger Mode must expose global hold-repeat');
 
     const libraryPatcher = boxByText(boxes, 'p library-info')?.patcher;
     assert.ok(libraryPatcher, 'Library/Info floating window subpatcher is required');
@@ -452,9 +455,7 @@ describe('Motif Max patch integration', () => {
     assert.ok(libraryHtml.includes('id="hotkey-action"'), 'MIDI hot keys must choose their behavior');
     assert.ok(libraryHtml.includes('<option value="trigger">Trigger Motif</option>'));
     assert.ok(libraryHtml.includes('<option value="select">Select Motif</option>'));
-    assert.ok(libraryHtml.includes('<option value="repeat">Hold &amp; Repeat</option>'));
-    assert.ok(libraryHtml.includes("mapping.action === 'repeat' ? '↻'"));
-    assert.ok(libraryHtml.includes("? 'Hold & Repeat'"));
+    assert.ok(!libraryHtml.includes('<option value="repeat">'), 'repeat must be a global Trigger Mode');
     assert.ok(libraryHtml.includes('function parseMidiNoteName(noteName)'), 'library must parse MIDI note names');
     assert.ok(!libraryHtml.includes('`${midiNoteName(pitch)} · ${pitch}'), 'assignments must not display MIDI numbers');
     assert.ok(libraryHtml.includes("type:'map_trigger'"), 'library must assign MIDI hot keys');

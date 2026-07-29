@@ -213,9 +213,9 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   uiComment('retrigger-label', 'Retrigger', [8, 118, 80, 16], { fontsize: 10, ...settingsHidden });
   uiComment('zone-label', 'Zone', [8, 140, 80, 16], { fontsize: 10, ...settingsHidden });
 
-  uiLiveMenu('trigger-menu', ['one-shot', 'hold', 'toggle', 'latch', 'release-tail'], [96, 28, 232, 20], 'Trigger Mode', 'Trigger', 0, {
+  uiLiveMenu('trigger-menu', ['one-shot', 'hold', 'hold-repeat', 'toggle', 'latch', 'release-tail'], [96, 28, 232, 20], 'Trigger Mode', 'Trigger', 0, {
     name: 'Trigger Mode',
-    description: 'One-shot plays the full motif; Hold stops on key release; Toggle alternates on/off; Latch replaces the active phrase; Release-tail lets scheduled notes finish.',
+    description: 'One-shot plays the full motif; Hold stops on release; Hold Repeat loops while held; Toggle alternates on/off; Latch replaces the active phrase; Release-tail lets scheduled notes finish.',
   }, settingsHidden);
   uiLiveMenu('quant-menu', ['immediate', '1/16', '1/8', '1/4', 'bar'], [96, 50, 232, 20], 'Launch Quantization', 'Launch', 0, {
     name: 'Launch Quantization',

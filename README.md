@@ -54,6 +54,7 @@ motif-preview-<content-hash>.js
 - The eighth `midiselect` outlet passes controllers, bend, pressure, program changes, and other unselected raw MIDI directly to `midiout`.
 - The default `non-triggers` policy consumes notes inside the trigger zone and passes notes outside it.
 - Library MIDI hot keys map individual trigger notes to specific motifs. A mapped note remains a trigger even when it is outside the global trigger zone.
+- The Settings tab’s Trigger Mode includes `hold-repeat`, which loops the resolved motif at motif-length boundaries while any trigger-zone note or Trigger hot key remains held.
 
 ## User library
 
@@ -62,7 +63,7 @@ motif-preview-<content-hash>.js
 - Folder groups can be collapsed to keep large libraries compact; active searches temporarily expand matching groups.
 - Editing an existing motif saves it back to its original subfolder. New motifs are saved at the chosen library root.
 - Motif ids must remain unique across the entire folder tree; duplicate ids are skipped with an error naming the conflicting relative path.
-- MIDI hot keys are entered and displayed as Ableton-style note names such as `C3`, `F♯2`, or `Bb4` rather than raw MIDI numbers. Each mapping can trigger its motif once, select it for subsequent trigger-zone notes, or use Hold & Repeat to loop it at motif-length boundaries until the assigned key is released.
+- MIDI hot keys are entered and displayed as Ableton-style note names such as `C3`, `F♯2`, or `Bb4` rather than raw MIDI numbers. Each mapping either triggers its motif using the device-wide Trigger Mode or selects that motif for subsequent trigger-zone notes.
 - Motifs and Live clip imports support up to 512 editable notes. The Notes panel is one scrollable table; large note lists are transported to jweb in bounded internal chunks and assembled before rendering so they remain editable without exceeding Max’s message capacity. Longer clips receive an actionable warning to shorten or split the phrase.
 
 ## Max JavaScript message boundary

@@ -143,7 +143,7 @@ interface MotifHandlers {
   retrigger: (mode: string | number) => void;
   /**
    * Set the keyboard trigger mode.
-   * @param {string} mode The `one-shot`, `hold`, `toggle`, `latch`, or `release-tail` mode.
+   * @param {string} mode The `one-shot`, `hold`, `hold-repeat`, `toggle`, `latch`, or `release-tail` mode.
    * @returns {void}
    */
   trigger_mode: (mode: string) => void;
@@ -278,9 +278,8 @@ const occupiedLibraryPaths = new Set<string>();
  * Behavior assigned to one MIDI hot key.
  * - `trigger` plays one motif instance on note-on.
  * - `select` changes the motif used by subsequent trigger-zone notes.
- * - `repeat` plays the assigned motif repeatedly until the hot key is released.
  */
-type HotkeyAction = 'trigger' | 'select' | 'repeat';
+type HotkeyAction = 'trigger' | 'select';
 
 /** A MIDI hot key's stable motif target and note-on behavior. */
 interface HotkeyMapping {
@@ -361,7 +360,7 @@ interface LibraryNoteData {
   tie: boolean;
 }
 
-/** One active Hold & Repeat assignment and the Max task that launches its next cycle. */
+/** One trigger held in global `hold-repeat` mode and the Task that launches its next cycle. */
 interface HeldRepeat {
   /** Stable motif id captured when the key was pressed. */
   motifId: string;
@@ -450,9 +449,9 @@ const hostContext: HostContext = {
   currentSongTime: 0,
 };
 
-/** Active Hold & Repeat task for each currently held mapped MIDI pitch. */
+/** Active repeat task for each pitch currently held in global `hold-repeat` mode. */
 const heldRepeats = new Map<number, HeldRepeat>();
-/** Hold & Repeat key releases deferred while the sustain pedal remains down. */
+/** Global `hold-repeat` releases deferred while the sustain pedal remains down. */
 const sustainedRepeatReleases = new Set<number>();
 
 /**
@@ -1121,6 +1120,17 @@ function shouldPassDry(isTrigger: boolean): boolean {
 }
 
 /**
+ * Resolve the motif used by a trigger pitch.
+ * Trigger hot keys override the current selection; trigger-zone notes use it.
+ * @param {number} triggerPitch The incoming MIDI trigger pitch.
+ * @returns {string} Stable motif id to play.
+ */
+function motifIdForTrigger(triggerPitch: number): string {
+  const mapping = triggerMap.get(triggerPitch);
+  return mapping?.action === 'trigger' ? mapping.motifId : currentMotifId;
+}
+
+/**
  * Trigger a motif and emit the corresponding MIDI events.
  * @param {number} triggerPitch The pitch of the trigger.
  * @param {number} triggerVelocity The velocity of the trigger.
@@ -1134,9 +1144,7 @@ function triggerMotif(
   channel: number,
   triggerOptions: TriggerMotifOptions = {},
 ): number | undefined {
-  const mapping = triggerMap.get(triggerPitch);
-  const motifId = triggerOptions.motifId
-    ?? (mapping?.action === 'trigger' ? mapping.motifId : currentMotifId);
+  const motifId = triggerOptions.motifId ?? motifIdForTrigger(triggerPitch);
   const selected = resolveMotif(motifId);
   if (!selected) {
     emitError(`Unknown motif: ${motifId}`);
@@ -1169,8 +1177,8 @@ function triggerMotif(
 }
 
 /**
- * Cancel one Hold & Repeat task without cutting off the cycle already sent to Max `pipe`.
- * @param {number} triggerPitch The held MIDI hot-key pitch.
+ * Cancel one global hold-repeat task without cutting off the cycle already sent to Max `pipe`.
+ * @param {number} triggerPitch The held MIDI trigger pitch.
  * @param {boolean} emitFeedback Whether to emit the user-facing stopped status.
  * @returns {void}
  */
@@ -1185,7 +1193,7 @@ function stopHeldRepeat(triggerPitch: number, emitFeedback = true): void {
 }
 
 /**
- * Cancel every active Hold & Repeat task.
+ * Cancel every active global hold-repeat task.
  * @param {boolean} emitFeedback Whether each stopped assignment should emit a status.
  * @returns {void}
  */
@@ -1195,25 +1203,24 @@ function stopAllHeldRepeats(emitFeedback = false): void {
 }
 
 /**
- * Play a mapped motif once and schedule further cycles until note-off.
+ * Play the trigger's resolved motif once and schedule further cycles until note-off.
  * Duplicate note-ons for a physically held key are ignored so controller
  * key-repeat cannot create parallel Max Tasks.
- * @param {number} triggerPitch The mapped MIDI hot-key pitch.
+ * @param {number} triggerPitch The MIDI trigger pitch.
  * @param {number} triggerVelocity The original note-on velocity.
  * @param {number} channel The original one-based MIDI channel.
- * @param {HotkeyMapping} mapping The repeat-mode mapping captured at note-on.
  * @returns {void}
  */
 function startHeldRepeat(
   triggerPitch: number,
   triggerVelocity: number,
   channel: number,
-  mapping: HotkeyMapping,
 ): void {
   if (heldRepeats.has(triggerPitch)) return;
-  const motif = resolveMotif(mapping.motifId);
+  const motifId = motifIdForTrigger(triggerPitch);
+  const motif = resolveMotif(motifId);
   if (!motif) {
-    emitError(`Unknown motif: ${mapping.motifId}`);
+    emitError(`Unknown motif: ${motifId}`);
     return;
   }
 
@@ -1295,9 +1302,9 @@ function note(pitchValue: number, velocityValue: number, channelValue = 1): void
     return;
   }
 
-  if (mapping?.action === 'repeat' || heldRepeats.has(pitch)) {
+  if (triggerMode === 'hold-repeat' || heldRepeats.has(pitch)) {
     if (velocity > 0) {
-      if (mapping?.action === 'repeat') startHeldRepeat(pitch, velocity, channel, mapping);
+      if (triggerMode === 'hold-repeat') startHeldRepeat(pitch, velocity, channel);
     } else if (sustainDown) {
       sustainedRepeatReleases.add(pitch);
     } else {
@@ -1447,12 +1454,14 @@ function retrigger(mode: string | number): void {
  * @returns {void}
  */
 function trigger_mode(mode: string): void {
-  const valid: TriggerMode[] = ['one-shot', 'hold', 'toggle', 'latch', 'release-tail'];
+  const valid: TriggerMode[] = ['one-shot', 'hold', 'hold-repeat', 'toggle', 'latch', 'release-tail'];
   if (!valid.includes(mode as TriggerMode)) {
     emitError(`Unknown trigger mode: ${mode}`);
     return;
   }
-  triggerMode = mode as TriggerMode;
+  const nextMode = mode as TriggerMode;
+  if (triggerMode === 'hold-repeat' && nextMode !== 'hold-repeat') stopAllHeldRepeats();
+  triggerMode = nextMode;
   emitStatus('trigger-mode', triggerMode);
 }
 
@@ -1526,7 +1535,7 @@ function triggerPitchValue(value: number | string): number | undefined {
  * Handle a trigger map event.
  * @param {number | string} pitchValue The MIDI pitch or Ableton-style note name.
  * @param {string} motifId The motif id.
- * @param {string} actionValue Whether the note triggers, selects, or repeats the motif while held.
+ * @param {string} actionValue Whether the note triggers or selects the motif.
  * @returns {void}
  */
 function map_trigger(
@@ -1544,7 +1553,7 @@ function map_trigger(
     emitError(`Cannot map ${pitch}: unknown motif ${motifId}`);
     return;
   }
-  if (actionValue !== 'trigger' && actionValue !== 'select' && actionValue !== 'repeat') {
+  if (actionValue !== 'trigger' && actionValue !== 'select') {
     emitError(`Cannot map ${pitch}: unknown hot-key action ${actionValue}`);
     return;
   }
@@ -1577,7 +1586,7 @@ function unmap_trigger(pitchValue: number | string): void {
  * @returns {void}
  */
 function clear_trigger_map(): void {
-  stopAllHeldRepeats();
+  for (const pitch of triggerMap.keys()) stopHeldRepeat(pitch, false);
   triggerMap.clear();
   emitLibraryState();
   emitStatus('map-cleared');

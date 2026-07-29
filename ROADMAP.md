@@ -54,6 +54,7 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 ## 0.6 - Trigger Modes
 
 - [x] UI for assigning specific motifs to individual trigger notes.
+- [x] Device-wide Hold Repeat mode for looping the resolved motif while a trigger remains held.
 
 ## 1.0 - Productized device
 

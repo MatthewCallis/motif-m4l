@@ -752,12 +752,13 @@
               "parameter_enum": [
                 "one-shot",
                 "hold",
+                "hold-repeat",
                 "toggle",
                 "latch",
                 "release-tail"
               ],
               "parameter_longname": "Trigger Mode",
-              "parameter_mmax": 4,
+              "parameter_mmax": 5,
               "parameter_shortname": "Trigger",
               "parameter_type": 2,
               "parameter_unitstyle": 9,
@@ -773,8 +774,8 @@
           "ignoreclick": 0,
           "hidden": 1,
           "annotation_name": "Trigger Mode",
-          "annotation": "One-shot plays the full motif; Hold stops on key release; Toggle alternates on/off; Latch replaces the active phrase; Release-tail lets scheduled notes finish.",
-          "hint": "One-shot plays the full motif; Hold stops on key release; Toggle alternates on/off; Latch replaces the active phrase; Release-tail lets scheduled notes finish.",
+          "annotation": "One-shot plays the full motif; Hold stops on release; Hold Repeat loops while held; Toggle alternates on/off; Latch replaces the active phrase; Release-tail lets scheduled notes finish.",
+          "hint": "One-shot plays the full motif; Hold stops on release; Hold Repeat loops while held; Toggle alternates on/off; Latch replaces the active phrase; Release-tail lets scheduled notes finish.",
           "id": "obj-19",
           "maxclass": "live.menu",
           "patching_rect": [
@@ -1272,7 +1273,7 @@
       },
       {
         "box": {
-          "text": "§ Engine - v8 motif-device-a408fb0a629e.js + event pipe / panic / clear",
+          "text": "§ Engine - v8 motif-device-e04bccfab540.js + event pipe / panic / clear",
           "fontname": "Ableton Sans",
           "fontsize": 12,
           "fontface": 1,
@@ -1289,7 +1290,7 @@
       },
       {
         "box": {
-          "text": "v8 motif-device-a408fb0a629e.js",
+          "text": "v8 motif-device-e04bccfab540.js",
           "numinlets": 1,
           "numoutlets": 1,
           "outlettype": [
@@ -7962,7 +7963,7 @@
     ],
     "dependency_cache": [
       {
-        "name": "motif-device-a408fb0a629e.js",
+        "name": "motif-device-e04bccfab540.js",
         "bootpath": ".",
         "patcherrelativepath": ".",
         "type": "TEXT",

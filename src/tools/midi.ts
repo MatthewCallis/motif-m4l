@@ -12,7 +12,9 @@ import { compileMotif } from '../core/compile-motif.js';
 import { PPQ, type HostContext, type Motif, type PitchMode } from '../core/types.js';
 import { validateMotif } from '../library/validate.js';
 
+/** Active note with its start time & velocity. */
 interface ActiveNote {
+  /** The time in ticks when the note started. */
   at: number;
   velocity: number;
 }

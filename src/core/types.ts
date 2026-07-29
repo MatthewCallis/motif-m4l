@@ -27,8 +27,14 @@ export type MeterMode = 'preserve' | 'fit-bar';
 /** Behavior when a new trigger starts while another instance is still sounding. */
 export type RetriggerMode = 'replace' | 'overlap';
 
-/** How keyboard triggers start/stop motif instances. */
-export type TriggerMode = 'one-shot' | 'hold' | 'toggle' | 'latch' | 'release-tail';
+/** How keyboard triggers start, stop, or repeat motif instances. */
+export type TriggerMode =
+  | 'one-shot'
+  | 'hold'
+  | 'hold-repeat'
+  | 'toggle'
+  | 'latch'
+  | 'release-tail';
 
 /** Delay trigger start to the next Live song-time grid boundary. */
 export type LaunchQuantization = 'immediate' | '1/16' | '1/8' | '1/4' | 'bar';

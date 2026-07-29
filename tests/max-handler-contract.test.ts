@@ -32,6 +32,7 @@ const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ['meter_mode', 'preserve'],
   ['retrigger', 'replace'],
   ['trigger_mode', 'one-shot'],
+  ['trigger_mode', 'hold-repeat'],
   ['launch_quantization', 'immediate'],
   ['pass_through', 'non-triggers'],
   ['trigger_low', 36],
@@ -39,7 +40,6 @@ const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ['map_trigger', 36, 'chromatic-turn'],
   ['map_trigger', 'C3', 'scale-turn'],
   ['map_trigger', 'D3', 'chromatic-turn', 'select'],
-  ['map_trigger', 'E3', 'scale-turn', 'repeat'],
   ['unmap_trigger', 36],
   ['unmap_trigger', 'C3'],
   ['clear_trigger_map'],
@@ -63,9 +63,6 @@ const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ['lib_action', encodeURIComponent(JSON.stringify({ type: 'map_trigger', pitch: 36, motifId: 'chromatic-turn' }))],
   ['lib_action', encodeURIComponent(JSON.stringify({
     type: 'map_trigger', pitch: 'C3', motifId: 'scale-turn', action: 'select',
-  }))],
-  ['lib_action', encodeURIComponent(JSON.stringify({
-    type: 'map_trigger', pitch: 'D3', motifId: 'chromatic-turn', action: 'repeat',
   }))],
   ['lib_action', encodeURIComponent(JSON.stringify({ type: 'unmap_trigger', pitch: 36 }))],
   ['lib_action', encodeURIComponent(JSON.stringify({ type: 'clear_trigger_map' }))],

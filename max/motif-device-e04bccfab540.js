@@ -1415,7 +1415,7 @@ var MotifEngine = (() => {
     }
   }
   function library_prepare() {
-    const temporaryPath = `Tempfolder:/${"uttori-motif-library-8bc6fd09e8b5.html"}`;
+    const temporaryPath = `Tempfolder:/${"uttori-motif-library-ce085acf5373.html"}`;
     let output;
     try {
       output = new File(temporaryPath, "write");
@@ -1619,12 +1619,11 @@ var MotifEngine = (() => {
             <select class="field" id="hotkey-action">
               <option value="trigger">Trigger Motif</option>
               <option value="select">Select Motif</option>
-              <option value="repeat">Hold &amp; Repeat</option>
             </select>
             <button class="btn" id="assign-hotkey-btn">Assign to Motif</button>
           </div>
           <label>Assigned</label><div class="wide" id="hotkey-list"></div>
-          <div class="help">Trigger Motif plays once. Select Motif makes it active for later trigger-zone notes. Hold &amp; Repeat loops the motif until the assigned key is released. Enter a note name such as C3, F\u266F2, or Bb4; click an assignment to remove it.</div>
+          <div class="help">Trigger Motif plays this motif using the device\u2019s current Trigger Mode. Select Motif makes it active for later trigger-zone notes. Enter a note name such as C3, F\u266F2, or Bb4; click an assignment to remove it.</div>
         </div>
       </div>
 
@@ -1870,10 +1869,9 @@ var MotifEngine = (() => {
       if (Array.isArray(item.hotkeys) && item.hotkeys.length > 0) {
         const badge = document.createElement('div');
         badge.className = 'hotkey-badge';
-        badge.textContent = item.hotkeys.map((mapping) => {
-          const symbol = mapping.action === 'select' ? '\u21A6' : mapping.action === 'repeat' ? '\u21BB' : '\u25B6';
-          return \`\${midiNoteName(mapping.pitch)} \${symbol}\`;
-        }).join(' ');
+        badge.textContent = item.hotkeys
+          .map((mapping) => \`\${midiNoteName(mapping.pitch)} \${mapping.action === 'select' ? '\u21A6' : '\u25B6'}\`)
+          .join(' ');
         el.append(badge);
       }
       if (item.showId) {
@@ -1927,11 +1925,7 @@ var MotifEngine = (() => {
     for (const mapping of mappings) {
       const chip = document.createElement('button');
       chip.className = 'hotkey-chip';
-      const actionLabel = mapping.action === 'select'
-        ? 'Select'
-        : mapping.action === 'repeat'
-          ? 'Hold & Repeat'
-          : 'Trigger';
+      const actionLabel = mapping.action === 'select' ? 'Select' : 'Trigger';
       chip.title = \`Remove \${midiNoteName(mapping.pitch)} \xB7 \${actionLabel}\`;
       chip.textContent = \`\${midiNoteName(mapping.pitch)} \xB7 \${actionLabel}  \xD7\`;
       chip.addEventListener('click', () => send({ type:'unmap_trigger', pitch:mapping.pitch }));
@@ -2342,7 +2336,7 @@ var MotifEngine = (() => {
 </body>
 </html>
 `);
-      const absolutePath = joinMaxPath(output.foldername, "uttori-motif-library-8bc6fd09e8b5.html");
+      const absolutePath = joinMaxPath(output.foldername, "uttori-motif-library-ce085acf5373.html");
       output.close();
       output = void 0;
       const verification = new File(absolutePath, "read");
@@ -2546,12 +2540,11 @@ var MotifEngine = (() => {
             <select class="field" id="hotkey-action">
               <option value="trigger">Trigger Motif</option>
               <option value="select">Select Motif</option>
-              <option value="repeat">Hold &amp; Repeat</option>
             </select>
             <button class="btn" id="assign-hotkey-btn">Assign to Motif</button>
           </div>
           <label>Assigned</label><div class="wide" id="hotkey-list"></div>
-          <div class="help">Trigger Motif plays once. Select Motif makes it active for later trigger-zone notes. Hold &amp; Repeat loops the motif until the assigned key is released. Enter a note name such as C3, F\u266F2, or Bb4; click an assignment to remove it.</div>
+          <div class="help">Trigger Motif plays this motif using the device\u2019s current Trigger Mode. Select Motif makes it active for later trigger-zone notes. Enter a note name such as C3, F\u266F2, or Bb4; click an assignment to remove it.</div>
         </div>
       </div>
 
@@ -2797,10 +2790,9 @@ var MotifEngine = (() => {
       if (Array.isArray(item.hotkeys) && item.hotkeys.length > 0) {
         const badge = document.createElement('div');
         badge.className = 'hotkey-badge';
-        badge.textContent = item.hotkeys.map((mapping) => {
-          const symbol = mapping.action === 'select' ? '\u21A6' : mapping.action === 'repeat' ? '\u21BB' : '\u25B6';
-          return \`\${midiNoteName(mapping.pitch)} \${symbol}\`;
-        }).join(' ');
+        badge.textContent = item.hotkeys
+          .map((mapping) => \`\${midiNoteName(mapping.pitch)} \${mapping.action === 'select' ? '\u21A6' : '\u25B6'}\`)
+          .join(' ');
         el.append(badge);
       }
       if (item.showId) {
@@ -2854,11 +2846,7 @@ var MotifEngine = (() => {
     for (const mapping of mappings) {
       const chip = document.createElement('button');
       chip.className = 'hotkey-chip';
-      const actionLabel = mapping.action === 'select'
-        ? 'Select'
-        : mapping.action === 'repeat'
-          ? 'Hold & Repeat'
-          : 'Trigger';
+      const actionLabel = mapping.action === 'select' ? 'Select' : 'Trigger';
       chip.title = \`Remove \${midiNoteName(mapping.pitch)} \xB7 \${actionLabel}\`;
       chip.textContent = \`\${midiNoteName(mapping.pitch)} \xB7 \${actionLabel}  \xD7\`;
       chip.addEventListener('click', () => send({ type:'unmap_trigger', pitch:mapping.pitch }));
@@ -3317,9 +3305,12 @@ var MotifEngine = (() => {
   function shouldPassDry(isTrigger) {
     return passThroughPolicy === "all" || passThroughPolicy === "non-triggers" && !isTrigger;
   }
-  function triggerMotif(triggerPitch, triggerVelocity, channel, triggerOptions = {}) {
+  function motifIdForTrigger(triggerPitch) {
     const mapping = triggerMap.get(triggerPitch);
-    const motifId = triggerOptions.motifId ?? (mapping?.action === "trigger" ? mapping.motifId : currentMotifId);
+    return mapping?.action === "trigger" ? mapping.motifId : currentMotifId;
+  }
+  function triggerMotif(triggerPitch, triggerVelocity, channel, triggerOptions = {}) {
+    const motifId = triggerOptions.motifId ?? motifIdForTrigger(triggerPitch);
     const selected = resolveMotif(motifId);
     if (!selected) {
       emitError(`Unknown motif: ${motifId}`);
@@ -3358,11 +3349,12 @@ var MotifEngine = (() => {
     for (const pitch of [...heldRepeats.keys()]) stopHeldRepeat(pitch, emitFeedback);
     sustainedRepeatReleases.clear();
   }
-  function startHeldRepeat(triggerPitch, triggerVelocity, channel, mapping) {
+  function startHeldRepeat(triggerPitch, triggerVelocity, channel) {
     if (heldRepeats.has(triggerPitch)) return;
-    const motif2 = resolveMotif(mapping.motifId);
+    const motifId = motifIdForTrigger(triggerPitch);
+    const motif2 = resolveMotif(motifId);
     if (!motif2) {
-      emitError(`Unknown motif: ${mapping.motifId}`);
+      emitError(`Unknown motif: ${motifId}`);
       return;
     }
     const firstLaunchOffset = launchOffsetTicks();
@@ -3421,9 +3413,9 @@ var MotifEngine = (() => {
       }
       return;
     }
-    if (mapping?.action === "repeat" || heldRepeats.has(pitch)) {
+    if (triggerMode === "hold-repeat" || heldRepeats.has(pitch)) {
       if (velocity > 0) {
-        if (mapping?.action === "repeat") startHeldRepeat(pitch, velocity, channel, mapping);
+        if (triggerMode === "hold-repeat") startHeldRepeat(pitch, velocity, channel);
       } else if (sustainDown) {
         sustainedRepeatReleases.add(pitch);
       } else {
@@ -3520,12 +3512,14 @@ var MotifEngine = (() => {
     emitStatus("retrigger", retriggerMode);
   }
   function trigger_mode(mode) {
-    const valid = ["one-shot", "hold", "toggle", "latch", "release-tail"];
+    const valid = ["one-shot", "hold", "hold-repeat", "toggle", "latch", "release-tail"];
     if (!valid.includes(mode)) {
       emitError(`Unknown trigger mode: ${mode}`);
       return;
     }
-    triggerMode = mode;
+    const nextMode = mode;
+    if (triggerMode === "hold-repeat" && nextMode !== "hold-repeat") stopAllHeldRepeats();
+    triggerMode = nextMode;
     emitStatus("trigger-mode", triggerMode);
   }
   function launch_quantization(value) {
@@ -3575,7 +3569,7 @@ var MotifEngine = (() => {
       emitError(`Cannot map ${pitch}: unknown motif ${motifId}`);
       return;
     }
-    if (actionValue !== "trigger" && actionValue !== "select" && actionValue !== "repeat") {
+    if (actionValue !== "trigger" && actionValue !== "select") {
       emitError(`Cannot map ${pitch}: unknown hot-key action ${actionValue}`);
       return;
     }
@@ -3597,7 +3591,7 @@ var MotifEngine = (() => {
     emitStatus("unmapped", pitch);
   }
   function clear_trigger_map() {
-    stopAllHeldRepeats();
+    for (const pitch of triggerMap.keys()) stopHeldRepeat(pitch, false);
     triggerMap.clear();
     emitLibraryState();
     emitStatus("map-cleared");

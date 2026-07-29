@@ -856,30 +856,22 @@ describe('Max authoring runtime', () => {
     ), 'a later zone note must trigger the newly selected motif');
   });
 
-  it('hold-and-repeat hot keys loop at motif boundaries until note-off', async () => {
+  it('global hold-repeat mode loops trigger-zone notes at motif boundaries until note-off', async () => {
     const engine = await createEngine({ deferTasks: true });
     engine.dispatch('initialize');
-    engine.dispatch('map_trigger', 'G♯-1', 'chromatic-turn', 'repeat');
-
-    let lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    const chromatic = (lib['items'] as Array<{
-      id: string;
-      hotkeys: Array<{ pitch: number; action: string }>;
-    }>).find((item) => item.id === 'chromatic-turn');
-    assert.deepEqual(chromatic?.hotkeys, [{ pitch: 20, action: 'repeat' }]);
+    engine.dispatch('trigger_mode', 'hold-repeat');
 
     engine.outlets.length = 0;
-    engine.dispatch('note', 20, 96, 2);
+    engine.dispatch('note', 60, 96, 2);
     assert.equal(
       engine.outlets.filter((args) =>
-        args[0] === 'status' && args[1] === 'trigger' && args[2] === 'chromatic-turn',
+        args[0] === 'status' && args[1] === 'trigger' && args[2] === 'scale-turn',
       ).length,
       1,
     );
     assert.ok(engine.outlets.some((args) =>
       args[0] === 'status' && args[1] === 'repeat-started'
-      && args[2] === 'chromatic-turn' && args[3] === 20,
+      && args[2] === 'scale-turn' && args[3] === 60,
     ));
     assert.equal(
       engine.scheduledTaskDelays.at(-1),
@@ -887,23 +879,23 @@ describe('Max authoring runtime', () => {
       'the 3.5-beat motif must repeat at its 120 BPM boundary',
     );
 
-    engine.dispatch('note', 20, 80, 2);
+    engine.dispatch('note', 60, 80, 2);
     assert.equal(engine.scheduledTaskDelays.length, 1, 'duplicate note-ons must not add repeat tasks');
 
     assert.equal(engine.runScheduledTasks(1), 1);
     assert.equal(
       engine.outlets.filter((args) =>
-        args[0] === 'status' && args[1] === 'trigger' && args[2] === 'chromatic-turn',
+        args[0] === 'status' && args[1] === 'trigger' && args[2] === 'scale-turn',
       ).length,
       2,
       'the scheduled boundary must launch the next motif cycle',
     );
     assert.equal(engine.scheduledTaskDelays.at(-1), 1_750);
 
-    engine.dispatch('note', 20, 0, 2);
+    engine.dispatch('note', 60, 0, 2);
     assert.ok(engine.outlets.some((args) =>
       args[0] === 'status' && args[1] === 'repeat-stopped'
-      && args[2] === 'chromatic-turn' && args[3] === 20,
+      && args[2] === 'scale-turn' && args[3] === 60,
     ));
     engine.outlets.length = 0;
     engine.runScheduledTasks();
@@ -911,11 +903,21 @@ describe('Max authoring runtime', () => {
       !engine.outlets.some((args) => args[0] === 'status' && args[1] === 'trigger'),
       'a canceled task already queued by Max must not launch another cycle',
     );
+
+    engine.dispatch('note', 60, 96, 2);
+    engine.dispatch('trigger_mode', 'one-shot');
+    engine.outlets.length = 0;
+    engine.runScheduledTasks();
+    assert.ok(
+      !engine.outlets.some((args) => args[0] === 'status' && args[1] === 'trigger'),
+      'leaving hold-repeat in Settings must cancel its pending cycle',
+    );
   });
 
-  it('hold-and-repeat releases can be sustained and panic cancels pending cycles', async () => {
+  it('global hold-repeat applies to Trigger hot keys, sustain, and panic cleanup', async () => {
     const engine = await createEngine({ deferTasks: true });
-    engine.dispatch('map_trigger', 20, 'scale-turn', 'repeat');
+    engine.dispatch('map_trigger', 20, 'chromatic-turn', 'trigger');
+    engine.dispatch('trigger_mode', 'hold-repeat');
     engine.dispatch('note', 20, 100, 1);
     engine.dispatch('sustain', 127, 1);
     engine.dispatch('note', 20, 0, 1);
@@ -923,8 +925,10 @@ describe('Max authoring runtime', () => {
     engine.outlets.length = 0;
     assert.equal(engine.runScheduledTasks(1), 1);
     assert.ok(
-      engine.outlets.some((args) => args[0] === 'status' && args[1] === 'trigger'),
-      'sustain must defer stopping the held repeat',
+      engine.outlets.some((args) =>
+        args[0] === 'status' && args[1] === 'trigger' && args[2] === 'chromatic-turn',
+      ),
+      'sustain must defer stopping the Trigger hot key repeat',
     );
 
     engine.dispatch('sustain', 0, 1);
@@ -957,9 +961,11 @@ describe('Max authoring runtime', () => {
     engine.dispatch('map_trigger', Number.NaN, 'temporary');
     engine.dispatch('map_trigger', 12, 'missing');
     engine.dispatch('map_trigger', 12, 'temporary', 'invalid-action');
+    engine.dispatch('map_trigger', 13, 'temporary', 'repeat');
     assert.ok(engine.errors.some((message) => message.includes('invalid MIDI note')));
     assert.ok(engine.errors.some((message) => message.includes('unknown motif')));
     assert.ok(engine.errors.some((message) => message.includes('unknown hot-key action')));
+    assert.ok(engine.errors.some((message) => message.includes('unknown hot-key action repeat')));
 
     engine.dispatch('map_trigger', 12, 'temporary');
     folders[path] = [];
