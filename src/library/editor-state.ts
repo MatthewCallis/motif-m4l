@@ -122,10 +122,6 @@ export class MotifEditorState {
       const draft: Motif = {
         ...cloneMotif(source),
         id: targetId,
-        metadata: {
-          ...source.metadata,
-          tags: [...new Set([...(source.metadata?.tags ?? []), 'edited'])],
-        },
       };
       const errors = store.add(draft);
       if (errors.length > 0) return undefined;

@@ -14,6 +14,8 @@ describe('MotifEditorState', () => {
     assert.ok(draft);
     assert.notEqual(draft.id, source.id);
     assert.equal(draft.name, source.name);
+    assert.deepEqual(draft.metadata, source.metadata);
+    assert.notEqual(draft.metadata?.tags, source.metadata?.tags);
     assert.equal(editor.snapshot().created, true);
 
     store.update({ ...draft, name: 'Temporary' });

@@ -28,7 +28,7 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 - [x] Compact Presentation Mode interface with Motif/Settings tabs (475 × 169), theme-aware `live.*` controls, and Ableton Sans.
 - [x] Native `jsui` / MGraphics pitch-and-duration preview plus exact resulting MIDI note names above Live key/scale.
 - [x] Preview recalculation for Live scale changes, pitch mode, meter fit, motif selection, BPM multiplier, and trigger transposition.
-- [x] Selected-motif description, note count, bar length, source meter, tags, and suggested modes in a floating Library/Info window.
+- [x] Selected-motif description, note count, bar length, and source meter in a floating Library/Info window.
 - [x] Help annotations and hover hints for every interactive control.
 - [x] Content-addressed runtime filenames with stale-hash cleanup.
 - [x] Launch quantization, performance trigger modes, keyboard zone, sustain behavior, and pass-through policies.

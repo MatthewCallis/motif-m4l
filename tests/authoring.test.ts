@@ -330,7 +330,7 @@ describe('Max authoring runtime', () => {
     assert.deepEqual(engine.errors, [], 'valid transform toggles must not emit errors');
   });
 
-  it('begin_edit clones builtins and edit_motif updates metadata', async () => {
+  it('begin_edit clones builtins and edit_motif updates editable properties', async () => {
     const engine = await createEngine();
     engine.dispatch('initialize');
     engine.dispatch('motif', 'Chromatic Turn');
@@ -1169,7 +1169,7 @@ describe('Max authoring runtime', () => {
     assert.ok(engine.errors.some((message) => message.includes('duplicate motif id')));
   });
 
-  it('complete motif properties and advanced note fields can be edited and saved atomically', async () => {
+  it('editable motif properties and advanced note fields save while metadata stays untouched', async () => {
     const path = '/Motifs';
     const engine = await createEngine({ folders: { [path]: [] } });
     engine.dispatch('library_path', path);
@@ -1183,13 +1183,10 @@ describe('Max authoring runtime', () => {
       sourceMeter: { numerator: 3, denominator: 8 },
       defaultGate: 0.75,
       velocityCurve: { inputMin: 5, inputMax: 120, outputMin: 20, outputMax: 110, exponent: 1.25 },
+      // Legacy or hand-crafted clients cannot edit metadata through the Library protocol.
       metadata: {
-        author: 'Test Author',
-        source: 'https://example.test/source',
-        license: 'Test license',
-        tags: ['test', 'complete', 'test'],
-        suggestedModes: ['dorian', 'minor'],
-        pickupTicks: 240,
+        author: 'Ignored Author',
+        tags: ['ignored'],
       },
     };
     engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({ type: 'edit_motif', properties })));
@@ -1212,14 +1209,8 @@ describe('Max authoring runtime', () => {
     assert.deepEqual(selected['sourceMeter'], { numerator: 3, denominator: 8 });
     assert.equal(selected['defaultGate'], 0.75);
     assert.deepEqual(selected['velocityCurve'], properties.velocityCurve);
-    assert.deepEqual(selected['metadata'], {
-      author: 'Test Author',
-      source: 'https://example.test/source',
-      license: 'Test license',
-      tags: ['test', 'complete'],
-      suggestedModes: ['dorian', 'minor'],
-      pickupTicks: 240,
-    });
+    assert.ok(!('metadata' in selected));
+    assert.ok(!('tags' in selected));
     const notes = selected['notes'] as Array<Record<string, unknown>>;
     assert.equal(notes[0]?.['velocityOffset'], 7);
     assert.equal(notes[0]?.['velocityScale'], 0.5);
@@ -1233,11 +1224,11 @@ describe('Max authoring runtime', () => {
     const saved = JSON.parse(engine.files[`${path}/${draftId}.json`] ?? '{}') as Record<string, unknown>;
     assert.equal(saved['name'], 'Complete Motif');
     assert.deepEqual(saved['velocityCurve'], properties.velocityCurve);
-    assert.deepEqual((saved['metadata'] as Record<string, unknown>)['tags'], ['test', 'complete']);
+    assert.deepEqual(saved['metadata'], { tags: ['demo', 'chromatic'] });
     assert.equal(((saved['notes'] as Array<Record<string, unknown>>)[0])?.['legato'], true);
   });
 
-  it('optional motif properties can be cleared without leaving empty objects in saved JSON', async () => {
+  it('optional editable properties can be cleared while existing metadata is preserved', async () => {
     const path = '/Motifs';
     const filename = `${path}/user-full.json`;
     const original = {
@@ -1260,16 +1251,16 @@ describe('Max authoring runtime', () => {
       sourceMeter: { numerator: 4, denominator: 4 },
       defaultGate: null,
       velocityCurve: { inputMin: null, inputMax: null, outputMin: null, outputMax: null, exponent: null },
-      metadata: { author: '', source: '', license: '', tags: [], suggestedModes: [], pickupTicks: null },
     };
     engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({ type: 'save_motif', properties })));
 
     const saved = JSON.parse(engine.files[filename] ?? '{}') as Record<string, unknown>;
     assert.ok(!('defaultGate' in saved));
     assert.ok(!('velocityCurve' in saved));
-    assert.ok(!('metadata' in saved));
+    assert.deepEqual(saved['metadata'], original.metadata);
     const selected = lastLibState(engine.outlets)?.['selected'] as Record<string, unknown>;
     assert.equal(selected['defaultGate'], null);
+    assert.ok(!('metadata' in selected));
     assert.deepEqual(selected['velocityCurve'], {
       inputMin: null, inputMax: null, outputMin: null, outputMax: null, exponent: null,
     });
@@ -1403,7 +1394,7 @@ describe('Max authoring runtime', () => {
     assert.ok(engine.errors.some((message) => message.includes('No clip selected')));
   });
 
-  it('non-primitive metadata payloads are rejected without clearing fields', async () => {
+  it('non-primitive property payloads are rejected without clearing fields', async () => {
     const engine = await createEngine();
     engine.dispatch('motif', 'Chromatic Turn');
     engine.dispatch('begin_edit');

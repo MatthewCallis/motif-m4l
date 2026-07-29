@@ -3,13 +3,12 @@ import { describe, it } from 'node:test';
 import { MotifStore, uniqueMotifId } from '../src/library/store.js';
 
 describe('MotifStore', () => {
-  it('filter matches name, id, tags, and description', () => {
+  it('filter matches name, id, and description without indexing metadata', () => {
     const store = new MotifStore();
     const byName = store.filter('chromatic');
     assert.ok(byName.some((motif) => motif.id === 'chromatic-turn'));
 
-    const byTag = store.filter('chromatic');
-    assert.ok(byTag.length >= 1);
+    assert.equal(store.filter('demo').length, 0, 'metadata tags must not participate in search');
 
     assert.equal(store.filter('zzz-no-such-motif').length, 0);
     assert.ok(store.filter('').length >= store.filter('chromatic').length);
@@ -23,7 +22,8 @@ describe('MotifStore', () => {
     assert.ok(clone);
     assert.equal(clone.id, 'chromatic-turn-2');
     assert.equal(store.isBuiltin(clone.id), false);
-    assert.ok(clone.metadata?.tags?.includes('edited'));
+    assert.deepEqual(clone.metadata, store.get('chromatic-turn')?.metadata);
+    assert.notEqual(clone.metadata?.tags, store.get('chromatic-turn')?.metadata?.tags);
     assert.equal(clone.name, 'Chromatic Turn', 'duplicate display names are allowed; ids are the identity');
 
     const again = store.cloneAsUser('chromatic-turn');

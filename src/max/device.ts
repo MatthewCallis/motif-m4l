@@ -678,9 +678,6 @@ function emitLibraryState(): void {
       meterMode,
     );
     const sourceMeter = `${selected.sourceMeter.numerator}/${selected.sourceMeter.denominator}`;
-    const tags = selected.metadata?.tags?.join(' · ') ?? 'custom motif';
-    const suggested = selected.metadata?.suggestedModes?.join(', ');
-    const tagLine = suggested ? `${tags}  •  suggested: ${suggested}` : tags;
     const bars = `${formatNumber(preview.bars)} ${preview.bars === 1 ? 'bar' : 'bars'}`;
     const stats = `${preview.notes.length} notes  •  ${bars}  •  ${sourceMeter} source  •  ${preview.effectivePitchMode}`;
     selectedData = {
@@ -699,16 +696,7 @@ function emitLibraryState(): void {
         outputMax: selected.velocityCurve?.outputMax ?? null,
         exponent: selected.velocityCurve?.exponent ?? null,
       },
-      metadata: {
-        author: selected.metadata?.author ?? '',
-        source: selected.metadata?.source ?? '',
-        license: selected.metadata?.license ?? '',
-        tags: [...(selected.metadata?.tags ?? [])],
-        suggestedModes: [...(selected.metadata?.suggestedModes ?? [])],
-        pickupTicks: selected.metadata?.pickupTicks ?? null,
-      },
       stats,
-      tags: tagLine,
       isBuiltin: store.isBuiltin(selected.id),
       isPersisted: userLibraryFiles.has(selected.id),
       folder: motifBrowserFolder(selected.id),
@@ -2416,22 +2404,6 @@ function requiredText(value: unknown, field: string): string | undefined {
 }
 
 /**
- * Get an optional text value.
- * @param {unknown} value The value to check.
- * @param {string} field The field name.
- * @returns {string | undefined | false} The text value, or undefined when the value is not a string.
- */
-function optionalText(value: unknown, field: string): string | undefined | false {
-  if (value === null || value === undefined || value === '') return undefined;
-  if (!['string', 'number', 'boolean'].includes(typeof value)) {
-    emitError(`${field} must be text`);
-    return false;
-  }
-  const text = stringAtom(value).trim();
-  return text || undefined;
-}
-
-/**
  * Get an optional finite number value.
  * @param {unknown} value The value to check.
  * @param {string} field The field name.
@@ -2452,25 +2424,6 @@ function optionalFiniteNumber(
     return false;
   }
   return numeric;
-}
-
-/**
- * Get a string list value.
- * @param {unknown} value The value to check.
- * @param {string} field The field name.
- * @returns {string[] | undefined} The string list value, or undefined when the value is not a string list.
- */
-function stringList(value: unknown, field: string): string[] | undefined {
-  const values: unknown[] | undefined = Array.isArray(value)
-    ? value
-    : typeof value === 'string'
-      ? value.split(/[\n,]/)
-      : undefined;
-  if (!values || values.some((item) => typeof item !== 'string')) {
-    emitError(`${field} must be a list of text values`);
-    return undefined;
-  }
-  return [...new Set(values.map((item) => String(item).trim()).filter(Boolean))];
 }
 
 /**
@@ -2601,51 +2554,6 @@ function applyMotifProperties(value: unknown): boolean {
     }
   }
 
-  let metadata = editable.metadata;
-  if (hasOwn(value, 'metadata')) {
-    const input = value['metadata'];
-    if (input === null || input === undefined) {
-      metadata = undefined;
-    } else if (!isRecord(input)) {
-      emitError('metadata must be an object');
-      emitLibraryState();
-      return false;
-    } else {
-      const author = optionalText(input['author'], 'metadata.author');
-      const source = optionalText(input['source'], 'metadata.source');
-      const license = optionalText(input['license'], 'metadata.license');
-      if (author === false || source === false || license === false) {
-        emitLibraryState();
-        return false;
-      }
-      const tags = stringList(input['tags'] ?? [], 'metadata.tags');
-      const suggestedModes = stringList(input['suggestedModes'] ?? [], 'metadata.suggestedModes');
-      if (!tags || !suggestedModes) {
-        emitLibraryState();
-        return false;
-      }
-      const pickupTicks = optionalFiniteNumber(
-        input['pickupTicks'],
-        'metadata.pickupTicks',
-        (number) => number >= 0,
-        'zero or greater',
-      );
-      if (pickupTicks === false) {
-        emitLibraryState();
-        return false;
-      }
-      const nextMetadata = {
-        ...(author !== undefined ? { author } : {}),
-        ...(source !== undefined ? { source } : {}),
-        ...(license !== undefined ? { license } : {}),
-        ...(tags.length > 0 ? { tags } : {}),
-        ...(suggestedModes.length > 0 ? { suggestedModes } : {}),
-        ...(pickupTicks !== undefined ? { pickupTicks } : {}),
-      };
-      metadata = Object.keys(nextMetadata).length > 0 ? nextMetadata : undefined;
-    }
-  }
-
   const pitchConverted = pitchMode === editable.pitchMode
     ? editable
     : convertMotifPitchMode(editable, pitchMode, {
@@ -2656,7 +2564,6 @@ function applyMotifProperties(value: unknown): boolean {
   const {
     defaultGate: _defaultGate,
     velocityCurve: _velocityCurve,
-    metadata: _metadata,
     ...required
   } = pitchConverted;
   const candidate: Motif = {
@@ -2667,7 +2574,6 @@ function applyMotifProperties(value: unknown): boolean {
     sourceMeter,
     ...(defaultGate !== undefined ? { defaultGate } : {}),
     ...(velocityCurve !== undefined ? { velocityCurve } : {}),
-    ...(metadata !== undefined ? { metadata } : {}),
   };
 
   if (JSON.stringify(candidate) === JSON.stringify(editable)) return true;

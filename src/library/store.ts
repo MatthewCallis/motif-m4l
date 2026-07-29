@@ -20,8 +20,6 @@ function matchesQuery(motif: Motif, query: string): boolean {
     motif.id,
     motif.name,
     motif.description,
-    ...(motif.metadata?.tags ?? []),
-    ...(motif.metadata?.suggestedModes ?? []),
   ]
     .join(' ')
     .toLowerCase();
@@ -162,7 +160,7 @@ export class MotifStore {
   }
 
   /**
-   * Search id, name, description, tags, and suggested modes case-insensitively.
+   * Search id, name, and description case-insensitively.
    * @param {string} query The substring to search for.
    * @returns {Motif[]} The matching motifs in stable display order.
    */
@@ -182,15 +180,22 @@ export class MotifStore {
     if (!source) return undefined;
 
     const candidate = this.uniqueId(newId ?? uniqueMotifId(source.name, `${source.id}-copy`));
-    const tags = new Set([...(source.metadata?.tags ?? []), 'edited']);
     const clone: Motif = {
       ...source,
       id: candidate,
       notes: source.notes.map((note) => ({ ...note })),
-      metadata: {
-        ...source.metadata,
-        tags: [...tags],
-      },
+      ...(source.velocityCurve ? { velocityCurve: { ...source.velocityCurve } } : {}),
+      ...(source.metadata
+        ? {
+            metadata: {
+              ...source.metadata,
+              ...(source.metadata.tags ? { tags: [...source.metadata.tags] } : {}),
+              ...(source.metadata.suggestedModes
+                ? { suggestedModes: [...source.metadata.suggestedModes] }
+                : {}),
+            },
+          }
+        : {}),
     };
 
     this.#motifs.set(clone.id, clone);

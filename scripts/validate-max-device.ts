@@ -340,9 +340,13 @@ assert.doesNotThrow(() => new vm.Script(libraryScript, { filename: 'library.html
 assert.match(librarySource, /function createStore\(initialState\)/, 'library must have one explicit local state store');
 assert.match(librarySource, /type:'cancel_edit'/, 'library must expose cancel editing');
 assert.doesNotMatch(librarySource, /delete_motif|Delete motif|skipDeleteConfirmation/, 'library deletion UI must remain removed');
-for (const id of ['pitch-mode-edit', 'meter-numerator-edit', 'default-gate-edit', 'curve-exponent', 'author-edit', 'tags-edit']) {
+for (const id of ['pitch-mode-edit', 'meter-numerator-edit', 'default-gate-edit', 'curve-exponent']) {
   assert.match(librarySource, new RegExp(`id="${id}"`), `library must expose ${id}`);
 }
+for (const id of ['pickup-ticks-edit', 'author-edit', 'source-edit', 'license-edit', 'tags-edit', 'suggested-modes-edit']) {
+  assert.doesNotMatch(librarySource, new RegExp(`id="${id}"`), `library must not expose metadata field ${id}`);
+}
+assert.doesNotMatch(librarySource, /<div class="section-title">Metadata<\/div>/, 'library metadata section must be removed');
 assert.match(librarySource, /type:'edit_motif'/, 'library must submit complete motif properties');
 assert.match(librarySource, /velocityOffset/, 'library must expose advanced note velocity fields');
 assert.match(librarySource, /legato/, 'library must expose note articulation fields');

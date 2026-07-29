@@ -218,7 +218,6 @@
               <option>1</option><option>2</option><option>4</option><option>8</option><option>16</option><option>32</option>
             </select>
           </div>
-          <label for="pickup-ticks-edit">Pickup ticks</label><input class="field editable-property" id="pickup-ticks-edit" type="number" min="0" step="1" placeholder="0" disabled>
         </div>
       </div>
 
@@ -233,16 +232,6 @@
         </div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Metadata</div>
-        <div class="property-grid">
-          <label for="author-edit">Author</label><input class="field editable-property wide" id="author-edit" type="text" disabled>
-          <label for="source-edit">Source</label><input class="field editable-property wide" id="source-edit" type="text" disabled>
-          <label for="license-edit">License</label><textarea class="field editable-property wide" id="license-edit" disabled></textarea>
-          <label for="tags-edit">Tags</label><input class="field editable-property wide" id="tags-edit" type="text" placeholder="comma-separated" disabled>
-          <label for="suggested-modes-edit">Suggested modes</label><input class="field editable-property wide" id="suggested-modes-edit" type="text" placeholder="comma-separated" disabled>
-        </div>
-      </div>
     </div>
 
     <div class="panel hidden" id="notes-panel">
@@ -295,9 +284,8 @@
   /** Motif property controls that participate in dirty-state and edit-message handling. */
   const PROPERTY_INPUT_IDS = [
     'name-edit','description-edit','pitch-mode-edit','default-gate-edit','meter-numerator-edit',
-    'meter-denominator-edit','pickup-ticks-edit','curve-input-min','curve-input-max',
-    'curve-output-min','curve-output-max','curve-exponent','author-edit','source-edit',
-    'license-edit','tags-edit','suggested-modes-edit',
+    'meter-denominator-edit','curve-input-min','curve-input-max','curve-output-min',
+    'curve-output-max','curve-exponent',
   ];
   /** Whether the page is running inside Max's jweb bridge instead of a normal browser. */
   const isMax = typeof window.max !== 'undefined' && typeof window.max.outlet === 'function';
@@ -579,7 +567,6 @@
 
   function renderProperties(selected, editing) {
     const curve = selected?.velocityCurve ?? {};
-    const metadata = selected?.metadata ?? {};
     setValue('id-display', selected?.id ?? '', false);
     setValue('schema-display', selected ? `v${selected.schemaVersion}` : '', false);
     setValue('length-display', selected ? `${selected.length} ticks` : '', false);
@@ -587,17 +574,11 @@
     setValue('default-gate-edit', selected?.defaultGate, editing);
     setValue('meter-numerator-edit', selected?.sourceMeter?.numerator ?? '', editing);
     setValue('meter-denominator-edit', selected?.sourceMeter?.denominator ?? 4, editing);
-    setValue('pickup-ticks-edit', metadata.pickupTicks, editing);
     setValue('curve-input-min', curve.inputMin, editing);
     setValue('curve-input-max', curve.inputMax, editing);
     setValue('curve-output-min', curve.outputMin, editing);
     setValue('curve-output-max', curve.outputMax, editing);
     setValue('curve-exponent', curve.exponent, editing);
-    setValue('author-edit', metadata.author ?? '', editing);
-    setValue('source-edit', metadata.source ?? '', editing);
-    setValue('license-edit', metadata.license ?? '', editing);
-    setValue('tags-edit', Array.isArray(metadata.tags) ? metadata.tags.join(', ') : '', editing);
-    setValue('suggested-modes-edit', Array.isArray(metadata.suggestedModes) ? metadata.suggestedModes.join(', ') : '', editing);
   }
 
   function renderDetail(server, local) {
@@ -672,10 +653,6 @@
     return value === '' ? null : Number(value);
   }
 
-  function textList(id) {
-    return [...new Set(document.getElementById(id).value.split(/[\n,]/).map((value) => value.trim()).filter(Boolean))];
-  }
-
   function readProperties() {
     return {
       name:document.getElementById('name-edit').value,
@@ -690,13 +667,6 @@
         inputMin:optionalNumber('curve-input-min'), inputMax:optionalNumber('curve-input-max'),
         outputMin:optionalNumber('curve-output-min'), outputMax:optionalNumber('curve-output-max'),
         exponent:optionalNumber('curve-exponent'),
-      },
-      metadata:{
-        author:document.getElementById('author-edit').value,
-        source:document.getElementById('source-edit').value,
-        license:document.getElementById('license-edit').value,
-        tags:textList('tags-edit'), suggestedModes:textList('suggested-modes-edit'),
-        pickupTicks:optionalNumber('pickup-ticks-edit'),
       },
     };
   }
@@ -899,7 +869,6 @@
         schemaVersion:1, id:'chromatic-turn', name:'Chromatic Turn', description:'Fixed-interval phrase that ignores the selected scale.',
         pitchMode:'chromatic', sourceMeter:{ numerator:4, denominator:4 }, length:3360, defaultGate:.82,
         velocityCurve:{ inputMin:null, inputMax:null, outputMin:null, outputMax:null, exponent:null },
-        metadata:{ author:'', source:'', license:'', tags:['demo','chromatic'], suggestedModes:[], pickupTicks:null },
         stats:'7 notes • 0.88 bars • 4/4 source • chromatic', isBuiltin:true, isPersisted:false,
         notes:[
           { pitch:0, accidental:null, at:0, duration:480, gate:null, velocity:null, velocityOffset:null, velocityScale:null, legato:false, tie:false },

@@ -560,9 +560,13 @@ describe('Motif Max patch integration', () => {
         ];
       })()`) as unknown[];
     assert.deepEqual(Array.from(folderResults), [true, false, false, true, true, false]);
-    for (const field of ['pitch-mode-edit', 'meter-numerator-edit', 'default-gate-edit', 'curve-exponent', 'author-edit', 'tags-edit']) {
+    for (const field of ['pitch-mode-edit', 'meter-numerator-edit', 'default-gate-edit', 'curve-exponent']) {
       assert.ok(libraryHtml.includes(`id="${field}"`), `library must expose ${field}`);
     }
+    for (const field of ['pickup-ticks-edit', 'author-edit', 'source-edit', 'license-edit', 'tags-edit', 'suggested-modes-edit']) {
+      assert.ok(!libraryHtml.includes(`id="${field}"`), `library must not expose metadata field ${field}`);
+    }
+    assert.ok(!libraryHtml.includes('<div class="section-title">Metadata</div>'));
     for (const field of ['velocityOffset', 'velocityScale', 'legato', 'tie']) {
       assert.ok(libraryHtml.includes(field), `library must expose note field ${field}`);
     }
