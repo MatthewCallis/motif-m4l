@@ -7,6 +7,11 @@
 - Materialize the Library page into `Tempfolder:` at runtime and load it through jweb's documented `readfile` message, avoiding a separate frozen HTML dependency.
 - Reset the floating Library patcher before each Info-button open so repeated presses cannot leave jweb's onscreen renderer blank.
 - Use content-addressed engine and preview filenames, remove stale hashes automatically, and keep only the two exact runtime files referenced by `Motif.maxpat` in `max/`.
+- Minify both Max JavaScript runtimes in production, remove duplicate hashed `dist/` artifacts, and build only once during verification.
+- Keep the minified native preview ES5-compatible and line-bounded for Max's legacy `jsui` host, preventing parser errors from crashing Max's error reporter.
+- Make the engine own Invert/Reverse state and flip it from each `live.text` click event, so repeated clicks reliably restore the original motif without depending on Max's numeric toggle outlet.
+- Move Standard MIDI File conversion code out of the device source tree and into standalone authoring scripts.
+- Add a measured production optimization plan focused first on removing Library serialization from the MIDI trigger path.
 - Keep continuous Song state on native `live.path` / `live.observer`; use the documented `LiveAPI(callback?, path?)` and `get_notes_extended` only for on-demand clip import.
 - Tightened the Presentation UI to 475 × 169 and expanded generated-patch, runtime, stale-artifact, and documentation-contract validation.
 

@@ -14,7 +14,7 @@
  */
 
 import { createHash } from 'node:crypto';
-import { build } from 'esbuild';
+import { build, transform } from 'esbuild';
 import { mkdir, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { generateMaxPatch } from './generate-max-patch.js';
 import path from 'node:path';
@@ -49,22 +49,7 @@ export const BUILTIN_MOTIFS = ${JSON.stringify(motifs, null, 2)} as const satisf
  * @see https://docs.cycling74.com/apiref/js/jsthis/#messagename
  * @see https://docs.cycling74.com/apiref/js/jsthis/#arrayfromargs
  */
-const MAX_BRIDGE = `// Hand-written Max v8 bridge. Keep this at the top level and before the bundle.
-var inlets = 1;
-var outlets = 1;
-
-function anything() {
-  var message = messagename;
-  var args = arrayfromargs(arguments);
-
-  if (typeof MotifEngine === "undefined" || typeof MotifEngine.dispatch !== "function") {
-    error("Motif: engine dispatcher is unavailable for " + message + "\\n");
-    return;
-  }
-
-  return MotifEngine.dispatch(message, args);
-}
-`;
+const MAX_BRIDGE = 'var inlets=1;var outlets=1;function anything(){var message=messagename,args=arrayfromargs(arguments);if(typeof MotifEngine==="undefined"||typeof MotifEngine.dispatch!=="function"){error("Motif: engine dispatcher is unavailable for "+message+"\\n");return}return MotifEngine.dispatch(message,args)}';
 
 const HASH_LENGTH = 12;
 
@@ -102,41 +87,60 @@ async function removeStaleHashedArtifacts(
 
 await generateBuiltins();
 
-const [libraryHtml, preview] = await Promise.all([
+const [libraryHtml, previewSource] = await Promise.all([
   readFile('src/max/library.html', 'utf8'),
   readFile('src/max/motif-preview.js', 'utf8'),
 ]);
 const libraryDigest = createHash('sha256').update(libraryHtml).digest('hex').slice(0, 12);
 const libraryPageName = `uttori-motif-library-${libraryDigest}.html`;
-const buildResult = await build({
-  entryPoints: ['src/max/device.ts'],
-  bundle: true,
-  format: 'iife',
-  globalName: 'MotifEngine',
-  platform: 'neutral',
-  target: 'es2020',
-  write: false,
-  sourcemap: false,
-  legalComments: 'none',
-  define: {
-    __MOTIF_LIBRARY_HTML__: JSON.stringify(libraryHtml),
-    __MOTIF_LIBRARY_PAGE_NAME__: JSON.stringify(libraryPageName),
-  },
-});
+const [buildResult, previewResult] = await Promise.all([
+  build({
+    entryPoints: ['src/max/device.ts'],
+    bundle: true,
+    format: 'iife',
+    globalName: 'MotifEngine',
+    platform: 'neutral',
+    target: 'es2020',
+    write: false,
+    minify: true,
+    sourcemap: false,
+    legalComments: 'none',
+    define: {
+      __MOTIF_LIBRARY_HTML__: JSON.stringify(libraryHtml),
+      __MOTIF_LIBRARY_PAGE_NAME__: JSON.stringify(libraryPageName),
+    },
+  }),
+  transform(previewSource, {
+    loader: 'js',
+    // `jsui` runs in Max's legacy JavaScript host, not the `v8` object used by
+    // the TypeScript engine. ES2020 minification can introduce template
+    // literals and other syntax that the legacy host cannot safely parse.
+    target: 'es5',
+    minify: true,
+    // Max 9.1.5's jsui error reporter can overflow while reporting a parser
+    // error from one very long generated line. Keep production output minified
+    // while bounding each line so a future incompatibility fails safely.
+    lineLimit: 1_000,
+    sourcemap: false,
+    legalComments: 'none',
+  }),
+]);
 
 const engine = buildResult.outputFiles?.[0]?.text;
 if (engine === undefined) throw new Error('esbuild did not produce the Max engine bundle');
+const preview = previewResult.code;
 
 const output = `${MAX_BRIDGE}\n${engine}`;
 const engineFilename = hashedJavaScriptFilename('motif-device', output);
 const previewFilename = hashedJavaScriptFilename('motif-preview', preview);
 
-await mkdir('dist', { recursive: true });
-await mkdir('max', { recursive: true });
+await rm('dist', { recursive: true, force: true });
+await Promise.all([
+  mkdir('dist', { recursive: true }),
+  mkdir('max', { recursive: true }),
+]);
 
 await Promise.all([
-  removeStaleHashedArtifacts('dist', 'motif-device', engineFilename),
-  removeStaleHashedArtifacts('dist', 'motif-preview', previewFilename),
   removeStaleHashedArtifacts('max', 'motif-device', engineFilename),
   removeStaleHashedArtifacts('max', 'motif-preview', previewFilename),
   // Stable-name Max copies were used by earlier builds but are not patch
@@ -148,8 +152,6 @@ await Promise.all([
 ]);
 
 await writeFile('dist/motif-device.js', output);
-await writeFile(path.join('dist', engineFilename), output);
-await writeFile(path.join('dist', previewFilename), preview);
 await writeFile(path.join('max', engineFilename), output);
 await writeFile(path.join('max', previewFilename), preview);
 await generateMaxPatch({ engineFilename, previewFilename });

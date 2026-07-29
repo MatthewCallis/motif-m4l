@@ -353,17 +353,21 @@ describe('MaxPatchBuilder', () => {
       assert.equal(boxById(builder, customId).hidden, 1);
     });
 
-    it('adds live.text momentary buttons', () => {
+    it('adds momentary and toggle live.text buttons', () => {
       const builder = createBuilder();
       const defaultId = builder.addLiveTextButton('default-button', 'Run', [0, 0, 50, 20], HELP);
       const customId = builder.addLiveTextButton('custom-button', 'Stop', [0, 20, 50, 20], HELP, {
         fontsize: 12,
         hidden: 1,
+        mode: 1,
       });
-      assert.equal(boxById(builder, defaultId).outputmode, 1);
+      assert.equal(boxById(builder, defaultId).outputmode, 0);
+      assert.equal(boxById(builder, defaultId).mode, 0);
       assert.equal(boxById(builder, defaultId).fontsize, 10);
       assert.equal(boxById(builder, customId).fontsize, 12);
       assert.equal(boxById(builder, customId).hidden, 1);
+      assert.equal(boxById(builder, customId).mode, 1);
+      assert.equal(boxById(builder, customId).outputmode, 0);
     });
 
     it('adds patch-only comments', () => {

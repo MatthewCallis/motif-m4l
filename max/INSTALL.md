@@ -4,7 +4,7 @@
 2. Unlock the device patcher with **⌘E**.
 3. Delete every old object. This matters: stale gates, JavaScript objects, and patch cords can silently block MIDI.
 4. Open `Motif.maxpat`, unlock it, select all, copy, and paste into the device patcher.
-5. Run `npm run build:clean` and keep the generated `motif-device-<hash>.js` and `motif-preview-<hash>.js` files beside `Motif.maxpat` while copying it into the device. The patch already references the exact hashes, so do not manually replace or recompile old JavaScript dependencies. The build also bundles `library.html` inside the hashed engine; when Info opens, the engine writes a content-addressed copy to Max's temporary folder and gives its absolute path to `jweb readfile`.
+5. Run `npm run clean && npm run build` and keep the generated `motif-device-<hash>.js` and `motif-preview-<hash>.js` files beside `Motif.maxpat` while copying it into the device. The patch already references the exact hashes, so do not manually replace or recompile old JavaScript dependencies. The build also bundles `library.html` inside the hashed engine; when Info opens, the engine writes a content-addressed copy to Max's temporary folder and gives its absolute path to `jweb readfile`.
 6. Save the device in Max. The patch forces Presentation Mode on load.
 7. Resize the device to the complete 475 px presentation, then use **View → Set Device Width**.
 8. Remove and re-add the device in Live.

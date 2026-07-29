@@ -20,6 +20,7 @@ type Box = {
   hint?: string;
   hidden?: number;
   livemode?: number;
+  mode?: number;
   outputmode?: number;
   parameter_enable?: number;
   ignoreclick?: number;
@@ -87,8 +88,25 @@ describe('Motif Max patch integration', () => {
     assert.ok(engineFilename && previewFilename, 'runtime dependencies must use content-addressed filenames');
     const engineSource = await readFile(`max/${engineFilename}`, 'utf8');
     const previewSource = await readFile(`max/${previewFilename}`, 'utf8');
+    const previewCanonicalSource = await readFile('src/max/motif-preview.js', 'utf8');
+    const deviceCanonicalSource = await readFile('src/max/device.ts', 'utf8');
+    const libraryCanonicalSource = await readFile('src/max/library.html', 'utf8');
     assert.equal(engineSource, await readFile('dist/motif-device.js', 'utf8'));
-    assert.equal(previewSource, await readFile('src/max/motif-preview.js', 'utf8'));
+    assert.ok(previewSource.length < previewCanonicalSource.length, 'production preview must be minified');
+    assert.ok(
+      engineSource.length < deviceCanonicalSource.length + libraryCanonicalSource.length,
+      'production engine must be minified',
+    );
+    assert.doesNotThrow(() => new vm.Script(previewSource, { filename: previewFilename }));
+    assert.doesNotMatch(
+      previewSource,
+      /`|=>|\b(?:const|let)\b|catch\s*\{/,
+      'production preview must remain compatible with the legacy jsui JavaScript host',
+    );
+    assert.ok(
+      Math.max(...previewSource.split('\n').map((line) => line.length)) <= 1_100,
+      'production preview lines must stay below jsui error-reporting limits',
+    );
     assert.equal(
       engineFilename,
       `motif-device-${createHash('sha256').update(engineSource).digest('hex').slice(0, 12)}.js`,
@@ -140,7 +158,10 @@ describe('Motif Max patch integration', () => {
     assert.ok(texts.includes('route Ready'));
     assert.ok(texts.includes('t b b b b b b b b b'));
     assert.ok(texts.includes('route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page'));
-    assert.ok(texts.includes('route lib preview'), 'ui-route must handle library and preview state');
+    assert.ok(
+      texts.includes('route lib preview transforms'),
+      'ui-route must handle library, preview, and transform state',
+    );
     assert.ok(texts.includes('window size 640 460'));
     assert.ok(texts.includes('window flags float nogrow close zoom'));
     assert.ok(!texts.includes('window flags float grow close zoom'));
@@ -251,6 +272,42 @@ describe('Motif Max patch integration', () => {
     const pitchEnum = pitchMenu?.saved_attribute_attributes?.valueof?.parameter_enum;
     assert.ok(pitchEnum?.includes('motif'), 'Pitch Mode first item is motif');
     assert.ok(!pitchEnum?.includes('auto'), 'Pitch Mode auto was renamed to motif');
+    const invertButton = boxByVarname(boxes, 'invert-button');
+    const reverseButton = boxByVarname(boxes, 'reverse-button');
+    assert.equal(invertButton?.maxclass, 'live.text');
+    assert.equal(invertButton?.text, 'Invert');
+    assert.equal(invertButton?.mode, 1, 'Invert must visually latch on/off');
+    assert.equal(invertButton?.outputmode, 0, 'Invert must emit the new toggle state on mouse-down');
+    assert.equal(reverseButton?.maxclass, 'live.text');
+    assert.equal(reverseButton?.text, 'Reverse');
+    assert.equal(reverseButton?.mode, 1, 'Reverse must visually latch on/off');
+    assert.equal(reverseButton?.outputmode, 0, 'Reverse must emit the new toggle state on mouse-down');
+    const invertPrepend = boxByText(boxes, 'prepend invert_toggle');
+    const reversePrepend = boxByText(boxes, 'prepend reverse_toggle');
+    assert.ok(invertButton && invertPrepend && hasLine(lines, invertButton, 1, invertPrepend, 0));
+    assert.ok(invertPrepend && hasLine(lines, invertPrepend, 0, v8, 0));
+    assert.ok(reverseButton && reversePrepend && hasLine(lines, reverseButton, 1, reversePrepend, 0));
+    assert.ok(reversePrepend && hasLine(lines, reversePrepend, 0, v8, 0));
+    const transformDefaults = boxes
+      .filter(({ box }) => box.text === 'loadmess set 0')
+      .map(({ box }) => box);
+    assert.equal(transformDefaults.length, 2, 'both transform latches need silent startup defaults');
+    assert.ok(transformDefaults.some((box) => hasLine(lines, box, 0, invertButton, 0)));
+    assert.ok(transformDefaults.some((box) => hasLine(lines, box, 0, reverseButton, 0)));
+    const transformRoute = boxByText(boxes, 'route lib preview transforms');
+    const transformUnpackId = transformRoute
+      ? lines.find(({ patchline }) =>
+          patchline.source[0] === transformRoute.id && patchline.source[1] === 2)
+        ?.patchline.destination[0]
+      : undefined;
+    const transformUnpack = boxes.find(({ box }) => box.id === transformUnpackId)?.box;
+    const setPrepends = boxes.filter(({ box }) => box.text === 'prepend set').map(({ box }) => box);
+    assert.ok(transformRoute && transformUnpack);
+    assert.ok(hasLine(lines, transformRoute, 2, transformUnpack, 0));
+    assert.ok(setPrepends.some((box) =>
+      hasLine(lines, transformUnpack, 0, box, 0) && hasLine(lines, box, 0, invertButton, 0)));
+    assert.ok(setPrepends.some((box) =>
+      hasLine(lines, transformUnpack, 1, box, 0) && hasLine(lines, box, 0, reverseButton, 0)));
     const triggerEnum = boxByVarname(boxes, 'trigger-menu')
       ?.saved_attribute_attributes?.valueof?.parameter_enum;
     assert.ok(triggerEnum?.includes('hold-repeat'), 'Trigger Mode must expose global hold-repeat');
@@ -274,6 +331,8 @@ describe('Motif Max patch integration', () => {
       'page-tab',
       'motif-menu',
       'pitch-menu',
+      'invert-button',
+      'reverse-button',
       'tempo-mult-menu',
       'trigger-menu',
       'quant-menu',
@@ -620,10 +679,10 @@ describe('Motif Max patch integration', () => {
 
   it('compiled bundle uses one hand-written top-level Max dispatcher', async () => {
     const source = await readFile('dist/motif-device.js', 'utf8');
-    assert.match(source.slice(0, 600), /var inlets = 1;[\s\S]*var outlets = 1;[\s\S]*function anything\(\)/);
-    assert.match(source, /var message = messagename;/);
+    assert.match(source.slice(0, 600), /var inlets\s*=\s*1;[\s\S]*var outlets\s*=\s*1;[\s\S]*function anything\(\)/);
+    assert.match(source, /var message\s*=\s*messagename/);
     assert.match(source, /arrayfromargs\(arguments\)/);
-    assert.match(source, /MotifEngine\.dispatch\(message, args\)/);
+    assert.match(source, /MotifEngine\.dispatch\(message,\s*args\)/);
     assert.doesNotMatch(source.slice(0, source.indexOf('"use strict";')), /function song_context\(/);
     assert.doesNotMatch(source, /__motifHandlers/);
     assert.doesNotMatch(source, /function host(?:_|\()/);

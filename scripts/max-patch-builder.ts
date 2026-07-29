@@ -204,6 +204,10 @@ export interface MaxUiOptions {
   hidden?: MaxBoolean;
   ignoreclick?: MaxBoolean;
   fontsize?: number;
+  /** `live.text` interaction mode: 0 momentary, 1 toggle. */
+  mode?: MaxBoolean;
+  /** `live.text` toggle output timing: 0 mouse down, 1 mouse up. */
+  outputmode?: MaxBoolean;
 }
 
 /** Parameter metadata serialized under `saved_attribute_attributes.valueof`. */
@@ -706,13 +710,13 @@ export class MaxPatchBuilder {
   });
 
   /**
-   * Add a momentary `live.text` button that emits on mouse-up.
+   * Add a `live.text` button that is momentary by default and optionally toggles.
    *
    * @param {string} name The local scripting key and varname.
    * @param {string} text The button label.
    * @param {MaxRect} rect The patching and presentation rectangle.
    * @param {MaxHelpInfo} help The user-facing help metadata.
-   * @param {Pick<MaxUiOptions, 'hidden' | 'fontsize'>} options Optional font and visibility attributes.
+   * @param {Pick<MaxUiOptions, 'hidden' | 'fontsize' | 'mode' | 'outputmode'>} options Optional interaction, font, and visibility attributes.
    * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/live.text/
    */
@@ -721,13 +725,16 @@ export class MaxPatchBuilder {
     text: string,
     rect: MaxRect,
     help: MaxHelpInfo,
-    options: Pick<MaxUiOptions, 'hidden' | 'fontsize'> = {},
+    options: Pick<MaxUiOptions, 'hidden' | 'fontsize' | 'mode' | 'outputmode'> = {},
   ): string => this.addBox(name, 'live.text', rect, {
     appearance: 0,
     fontname: this.fontName,
     fontsize: options.fontsize ?? 10,
-    mode: 0,
-    outputmode: 1,
+    mode: options.mode ?? 0,
+    // Toggle controls must emit their newly latched value on mouse-down.
+    // Mouse-up mode reports the release interaction and can resend 1 instead
+    // of the off state, leaving runtime transforms stuck on.
+    outputmode: options.outputmode ?? 0,
     parameter_enable: 0,
     text,
     texton: text,

@@ -44,6 +44,7 @@ import {
   ticksToMilliseconds,
   ticksUntilNextBoundary,
 } from '../core/timing.js';
+import { transformMotif } from '../core/transform-motif.js';
 import {
   PPQ,
   type CompileOptions,
@@ -129,6 +130,28 @@ interface MotifHandlers {
    * @returns {void}
    */
   pitch_mode: (mode: string) => void;
+  /**
+   * Enable or disable non-destructive pitch-offset inversion.
+   * @param {string | number | boolean} value The toggle state.
+   * @returns {void}
+   */
+  invert: (value: string | number | boolean) => void;
+  /**
+   * Flip non-destructive pitch-offset inversion after a UI click.
+   * @returns {void}
+   */
+  invert_toggle: () => void;
+  /**
+   * Enable or disable non-destructive note-order reversal.
+   * @param {string | number | boolean} value The toggle state.
+   * @returns {void}
+   */
+  reverse: (value: string | number | boolean) => void;
+  /**
+   * Flip non-destructive note-order reversal after a UI click.
+   * @returns {void}
+   */
+  reverse_toggle: () => void;
   /**
    * Set the meter scaling mode.
    * @param {string} mode The `preserve` or `fit-bar` mode.
@@ -391,6 +414,8 @@ const MIN_REPEAT_DELAY_MS = 1;
 
 let currentMotifId = DEFAULT_MOTIF_ID;
 let pitchModeOverride: PitchMode | undefined;
+let invertOffsets = false;
+let reverseNotes = false;
 let meterMode: MeterMode = 'preserve';
 let retriggerMode: RetriggerMode = 'replace';
 let triggerMode: TriggerMode = 'one-shot';
@@ -534,6 +559,18 @@ function currentMotif(): Motif | undefined {
 }
 
 /**
+ * Apply the current non-destructive performance transforms to a motif.
+ * @param {Motif} motif The stored motif.
+ * @returns {Motif} A transient motif used only for playback and preview.
+ */
+function performanceMotif(motif: Motif): Motif {
+  return transformMotif(motif, {
+    invert: invertOffsets,
+    reverse: reverseNotes,
+  });
+}
+
+/**
  * Format a number as a string without trailing zeros.
  * @param {number} value The number to format.
  * @returns {string} The formatted number.
@@ -633,7 +670,13 @@ function emitLibraryState(): void {
         notes,
       };
     }
-    const preview = buildMotifPreview(selected, effectiveHost(), previewTriggerPitch, pitchModeOverride, meterMode);
+    const preview = buildMotifPreview(
+      performanceMotif(selected),
+      effectiveHost(),
+      previewTriggerPitch,
+      pitchModeOverride,
+      meterMode,
+    );
     const sourceMeter = `${selected.sourceMeter.numerator}/${selected.sourceMeter.denominator}`;
     const tags = selected.metadata?.tags?.join(' · ') ?? 'custom motif';
     const suggested = selected.metadata?.suggestedModes?.join(', ');
@@ -736,7 +779,13 @@ function emitLibraryAlert(title: string, message: string): void {
 function emitPreviewState(): void {
   const selected = currentMotif();
   if (!selected) return;
-  const preview = buildMotifPreview(selected, effectiveHost(), previewTriggerPitch, pitchModeOverride, meterMode);
+  const preview = buildMotifPreview(
+    performanceMotif(selected),
+    effectiveHost(),
+    previewTriggerPitch,
+    pitchModeOverride,
+    meterMode,
+  );
   const totalTicks = preview.notes.reduce(
     (max, n) => Math.max(max, n.atTicks + n.durationTicks),
     1,
@@ -941,6 +990,7 @@ function initialize(): void {
     emitMidiPassState();
   }
   listMotifs();
+  emitTransformUi();
 }
 
 /**
@@ -1168,7 +1218,7 @@ function triggerMotif(
   };
   if (pitchModeOverride !== undefined) options.pitchMode = pitchModeOverride;
 
-  for (const event of compileMotif(selected, effectiveHost(), options)) {
+  for (const event of compileMotif(performanceMotif(selected), effectiveHost(), options)) {
     emitScheduledEvent(event.pitch, event.velocity, event.channel, event.offsetMs);
   }
 
@@ -1416,6 +1466,65 @@ function pitch_mode(mode: string): void {
   }
   emitSelectedMotifUi();
   emitStatus('Pitch', mode);
+}
+
+/**
+ * Parse a Max toggle atom.
+ * @param {string | number | boolean} value The toggle atom.
+ * @returns {boolean} Whether the toggle is enabled.
+ */
+function toggleEnabled(value: string | number | boolean): boolean {
+  return value === true || value === 1 || value === '1' || value === 'true' || value === 'on';
+}
+
+/**
+ * Synchronize the visual transform latches with the engine-owned state.
+ * @returns {void}
+ */
+function emitTransformUi(): void {
+  emit('ui', 'transforms', invertOffsets ? 1 : 0, reverseNotes ? 1 : 0);
+}
+
+/**
+ * Handle the performance pitch-inversion toggle.
+ * @param {string | number | boolean} value The toggle state.
+ * @returns {void}
+ */
+function invert(value: string | number | boolean): void {
+  invertOffsets = toggleEnabled(value);
+  emitTransformUi();
+  emitSelectedMotifUi();
+  emitStatus('invert', invertOffsets ? 'on' : 'off');
+}
+
+/**
+ * Flip pitch inversion from a UI click event.
+ * The engine owns the state so Max `live.text` outlet quirks cannot leave it stuck.
+ * @returns {void}
+ */
+function invert_toggle(): void {
+  invert(!invertOffsets);
+}
+
+/**
+ * Handle the performance note-reversal toggle.
+ * @param {string | number | boolean} value The toggle state.
+ * @returns {void}
+ */
+function reverse(value: string | number | boolean): void {
+  reverseNotes = toggleEnabled(value);
+  emitTransformUi();
+  emitSelectedMotifUi();
+  emitStatus('reverse', reverseNotes ? 'on' : 'off');
+}
+
+/**
+ * Flip note reversal from a UI click event.
+ * The engine owns the state so every click deterministically restores/applies it.
+ * @returns {void}
+ */
+function reverse_toggle(): void {
+  reverse(!reverseNotes);
 }
 
 /**
@@ -3002,6 +3111,10 @@ const handlers: MotifHandlers = {
   sustain,
   motif,
   pitch_mode,
+  invert,
+  invert_toggle,
+  reverse,
+  reverse_toggle,
   meter_mode,
   retrigger,
   trigger_mode,

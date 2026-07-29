@@ -1,5 +1,5 @@
 /**
- * MIDI file ↔ Motif JSON conversion for authoring scripts and library import.
+ * MIDI file ↔ Motif JSON conversion shared by the standalone conversion CLIs.
  *
  * Import normalizes source PPQ to motif {@link PPQ} (960), then runs relative
  * analysis via `absoluteNotesToMotif`. Export compiles against a default major
@@ -7,10 +7,10 @@
  */
 
 import { parseMidi, writeMidi, type MidiData, type MidiEvent } from 'midi-file';
-import { absoluteNotesToMotif, type AbsoluteNotesImportOptions } from '../core/import-notes.js';
-import { compileMotif } from '../core/compile-motif.js';
-import { PPQ, type HostContext, type Motif, type PitchMode } from '../core/types.js';
-import { validateMotif } from '../library/validate.js';
+import { absoluteNotesToMotif, type AbsoluteNotesImportOptions } from '../src/core/import-notes.js';
+import { compileMotif } from '../src/core/compile-motif.js';
+import { PPQ, type HostContext, type Motif, type PitchMode } from '../src/core/types.js';
+import { validateMotif } from '../src/library/validate.js';
 
 /** Active note with its start time & velocity. */
 interface ActiveNote {

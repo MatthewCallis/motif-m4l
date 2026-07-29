@@ -243,6 +243,93 @@ describe('Max authoring runtime', () => {
     }
   });
 
+  it('invert and reverse change playback and preview without mutating stored motif notes', async () => {
+    const engine = await createEngine();
+    engine.dispatch('initialize');
+    assert.deepEqual(
+      [...engine.outlets].reverse().find((args) =>
+        args[0] === 'ui' && args[1] === 'transforms')?.slice(2),
+      [0, 0],
+      'initialize must synchronize both visual transform latches off',
+    );
+
+    engine.dispatch('invert_toggle');
+    assert.deepEqual(
+      [...engine.outlets].reverse().find((args) =>
+        args[0] === 'ui' && args[1] === 'transforms')?.slice(2),
+      [1, 0],
+      'first Invert click must latch the engine and UI on',
+    );
+    engine.outlets.length = 0;
+    engine.dispatch('note', 60, 100, 1);
+    assert.deepEqual(
+      engine.outlets
+        .filter((args) => args[0] === 'event' && Number(args[2]) > 0)
+        .map((args) => args[1]),
+      [60, 59, 57, 53, 55, 59, 60],
+      'Invert must mirror scale-degree offsets around the trigger pitch',
+    );
+    const invertedPreviewRaw = [...engine.outlets].reverse()
+      .find((args) => args[0] === 'ui' && args[1] === 'preview')?.[2];
+    const invertedPreview = JSON.parse(decodeURIComponent(String(invertedPreviewRaw))) as {
+      notes: Array<{ pitch: number }>;
+    };
+    assert.deepEqual(invertedPreview.notes.map(({ pitch }) => pitch), [60, 59, 57, 53, 55, 59, 60]);
+
+    engine.dispatch('invert_toggle');
+    engine.dispatch('reverse_toggle');
+    assert.deepEqual(
+      [...engine.outlets].reverse().find((args) =>
+        args[0] === 'ui' && args[1] === 'transforms')?.slice(2),
+      [0, 1],
+      'second Invert click and first Reverse click must synchronize their latch states',
+    );
+    engine.outlets.length = 0;
+    engine.dispatch('note', 60, 100, 1);
+    assert.deepEqual(
+      engine.outlets
+        .filter((args) => args[0] === 'event' && Number(args[2]) > 0)
+        .map((args) => args[1]),
+      [60, 62, 65, 67, 64, 62, 60],
+      'Reverse must play the stored note sequence backward',
+    );
+
+    const selected = lastLibState(engine.outlets)?.['selected'] as Record<string, unknown>;
+    assert.deepEqual(
+      (selected['notes'] as Array<Record<string, unknown>>).map((note) => note['pitch']),
+      [0, 1, 2, 4, 3, 1, 0],
+      'Library note data must remain in stored order with stored offsets',
+    );
+
+    engine.dispatch('reverse_toggle');
+    assert.deepEqual(
+      [...engine.outlets].reverse().find((args) =>
+        args[0] === 'ui' && args[1] === 'transforms')?.slice(2),
+      [0, 0],
+      'second Reverse click must synchronize both transform latches off',
+    );
+    engine.outlets.length = 0;
+    engine.dispatch('note', 60, 100, 1);
+    assert.deepEqual(
+      engine.outlets
+        .filter((args) => args[0] === 'event' && Number(args[2]) > 0)
+        .map((args) => args[1]),
+      [60, 62, 64, 67, 65, 62, 60],
+      'Disabling Reverse after disabling Invert must restore original playback',
+    );
+    const restoredPreviewRaw = [...engine.outlets].reverse()
+      .find((args) => args[0] === 'ui' && args[1] === 'preview')?.[2];
+    const restoredPreview = JSON.parse(decodeURIComponent(String(restoredPreviewRaw))) as {
+      notes: Array<{ pitch: number }>;
+    };
+    assert.deepEqual(
+      restoredPreview.notes.map(({ pitch }) => pitch),
+      [60, 62, 64, 67, 65, 62, 60],
+      'Disabling both transforms must restore the original preview',
+    );
+    assert.deepEqual(engine.errors, [], 'valid transform toggles must not emit errors');
+  });
+
   it('begin_edit clones builtins and edit_motif updates metadata', async () => {
     const engine = await createEngine();
     engine.dispatch('initialize');

@@ -23,7 +23,9 @@ npm run verify
 
 Every Max object, JavaScript runtime call, jweb bridge method, and Live Object Model call is inventoried against its official Cycling ’74 reference in [`MAX-DOCUMENTATION.md`](MAX-DOCUMENTATION.md). The verification suite fails if the generated patch introduces an undocumented surface.
 
-Use `npm run build:clean` to remove and recreate every generated runtime artifact. Handwritten Library and preview sources live under `src/max`; cleaning preserves `max/Motif.amxd` and `max/INSTALL.md`.
+Production performance work is tracked in [`OPTIMIZATION-PLAN.md`](OPTIMIZATION-PLAN.md), including the current artifact-size baseline, MIDI hot-path findings, and release gates.
+
+Use `npm run clean && npm run build` to remove and recreate every generated runtime artifact. A normal build already removes stale content-addressed runtimes. Handwritten Library and preview sources live under `src/max`; cleaning preserves `max/Motif.amxd` and `max/INSTALL.md`.
 
 Before distribution, freeze and save the device in Max, then run `npm run verify:release`. The release check inspects the packaged `.amxd` as well as the generated patch and refuses stale embedded hashes, retired handlers, or obsolete Live API calls.
 
@@ -37,13 +39,14 @@ motif-device-<content-hash>.js
 motif-preview-<content-hash>.js
 ```
 
-`npm run build` creates those content-addressed files and writes their exact names into `Motif.maxpat`. The `max/` output intentionally contains no stable-name JavaScript or standalone HTML copies: only the two files referenced by the generated patch belong beside it. Open an existing Max MIDI Effect using **Edit in Max**, replace every old patch object with the contents of `Motif.maxpat`, and save. Max sees new JavaScript content as a new dependency instead of reusing a frozen file with the same name. Freeze the device after confirming the engine says `Ready`, Live scale updates, the preview renders, and MIDI reaches the following instrument.
+`npm run build` minifies both JavaScript runtimes, creates content-addressed files, and writes their exact names into `Motif.maxpat`. The `max/` output intentionally contains no stable-name JavaScript or standalone HTML copies: only the two files referenced by the generated patch belong beside it. Open an existing Max MIDI Effect using **Edit in Max**, replace every old patch object with the contents of `Motif.maxpat`, and save. Max sees new JavaScript content as a new dependency instead of reusing a frozen file with the same name. Freeze the device after confirming the engine says `Ready`, Live scale updates, the preview renders, and MIDI reaches the following instrument.
 
 ## Host behavior
 
 - Tempo, Current Scale root/name/mode, Set meter, and transport state update directly from native Song observers.
 - Root and scale name are Song-driven, non-clickable `live.menu` displays; the device has no BPM readout.
-- Changing root, scale, pitch mode, meter mode, or motif recalculates the preview.
+- Changing root, scale, pitch mode, meter mode, motif, Invert, or Reverse recalculates the preview.
+- The latched Invert button mirrors relative pitch offsets around zero; Reverse mirrors note spans across the phrase length. Both affect playback and preview without modifying saved motif JSON.
 - Playing a trigger note moves the preview anchor to that note, so the displayed note names match the next phrase transposition.
 - Host displays continue to work independently of the TypeScript engine.
 

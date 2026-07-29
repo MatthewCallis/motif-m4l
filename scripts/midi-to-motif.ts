@@ -6,7 +6,7 @@
 
 import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { midiBytesToMotif } from '../src/tools/midi.js';
+import { midiBytesToMotif } from './midi-conversion.js';
 
 const [input, output, mode = 'chromatic'] = process.argv.slice(2);
 if (!input || !output || !['chromatic', 'scale', 'hybrid'].includes(mode)) {

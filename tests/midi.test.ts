@@ -3,7 +3,7 @@ import { readFile } from 'node:fs/promises';
 import { describe, it } from 'node:test';
 import { writeMidi } from 'midi-file';
 import { BUILTIN_MOTIFS } from '../src/generated/builtins.js';
-import { midiBytesToMotif, motifToMidiBytes } from '../src/tools/midi.js';
+import { midiBytesToMotif, motifToMidiBytes } from '../scripts/midi-conversion.js';
 
 describe('MIDI conversion', () => {
   it('exports and reimports a chromatic motif as relative MIDI', () => {

@@ -6,7 +6,7 @@
  */
 
 import { readFile, writeFile } from 'node:fs/promises';
-import { motifToMidiBytes } from '../src/tools/midi.js';
+import { motifToMidiBytes } from './midi-conversion.js';
 
 const [input, output, trigger = '60'] = process.argv.slice(2);
 if (!input || !output) {

@@ -307,13 +307,26 @@ assert.ok(
 
 const previewSource = await readFile('src/max/motif-preview.js', 'utf8');
 const hashedPreviewSource = await readFile(`max/${previewFilename}`, 'utf8');
-assert.equal(hashedPreviewSource, previewSource, 'hashed preview artifact differs from its canonical source');
+assert.ok(hashedPreviewSource.length < previewSource.length, 'hashed preview artifact must be minified');
 assert.equal(
   previewFilename,
-  `motif-preview-${createHash('sha256').update(previewSource).digest('hex').slice(0, 12)}.js`,
+  `motif-preview-${createHash('sha256').update(hashedPreviewSource).digest('hex').slice(0, 12)}.js`,
   'preview filename does not match its content hash',
 );
 assert.doesNotThrow(() => new vm.Script(previewSource, { filename: 'motif-preview.js' }), 'native preview JavaScript must parse');
+assert.doesNotThrow(
+  () => new vm.Script(hashedPreviewSource, { filename: previewFilename }),
+  'minified native preview JavaScript must parse',
+);
+assert.doesNotMatch(
+  hashedPreviewSource,
+  /`|=>|\b(?:const|let)\b|catch\s*\{/,
+  'minified native preview must remain compatible with the legacy jsui JavaScript host',
+);
+assert.ok(
+  Math.max(...hashedPreviewSource.split('\n').map((line) => line.length)) <= 1_100,
+  'minified native preview lines must stay below jsui error-reporting limits',
+);
 assert.match(previewSource, /mgraphics\.init\(\)/, 'native preview must initialize mgraphics');
 assert.match(previewSource, /function receiveData\(\)/, 'native preview must accept preview state');
 assert.match(previewSource, /outlet\(0, "preview_ready"\)/, 'native preview must request fresh state on load');
@@ -337,6 +350,11 @@ assert.match(librarySource, /legato/, 'library must expose note articulation fie
 const source = await readFile('dist/motif-device.js', 'utf8');
 const hashedSource = await readFile(`max/${engineFilename}`, 'utf8');
 assert.equal(hashedSource, source, 'hashed engine artifact differs from its canonical build output');
+const deviceSource = await readFile('src/max/device.ts', 'utf8');
+assert.ok(
+  source.length < deviceSource.length + librarySource.length,
+  'hashed engine artifact must be minified',
+);
 assert.equal(
   engineFilename,
   `motif-device-${createHash('sha256').update(source).digest('hex').slice(0, 12)}.js`,
@@ -346,12 +364,12 @@ assert.match(source, /uttori-motif-library-[a-f0-9]{12}\.html/, 'engine must use
 assert.ok(source.includes('<!DOCTYPE html>'), 'compiled engine must contain the build-injected library page');
 assert.match(
   source.slice(0, 600),
-  /var inlets = 1;[\s\S]*var outlets = 1;[\s\S]*function anything\(\)/,
+  /var inlets\s*=\s*1;[\s\S]*var outlets\s*=\s*1;[\s\S]*function anything\(\)/,
   'hand-written Max bridge must be the first code in the compiled file',
 );
-assert.match(source, /var message = messagename;/, 'bridge must use Max messagename');
+assert.match(source, /var message\s*=\s*messagename/, 'bridge must use Max messagename');
 assert.match(source, /arrayfromargs\(arguments\)/, 'bridge must normalize Max arguments');
-assert.match(source, /MotifEngine\.dispatch\(message, args\)/, 'bridge must use the single engine dispatcher');
+assert.match(source, /MotifEngine\.dispatch\(message,\s*args\)/, 'bridge must use the single engine dispatcher');
 assert.doesNotMatch(
   source.slice(0, source.indexOf('"use strict";')),
   /function song_context\(/,

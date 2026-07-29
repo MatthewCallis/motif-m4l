@@ -105,7 +105,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   //  y=4   [Motif|Settings] [motif] [BPM ×][mult] [Info] [Panic]
   //  y=28  MIDI preview
   //  y=132 notes
-  //  y=148 one row: Pitch [menu]  Scale [root][name]  (scale menus active↔Song.scale_mode)
+  //  y=148 one row: Pitch [menu][Invert][Reverse]  Scale [root][name]
 
   uiLiveTab(
     'page-tab',
@@ -173,13 +173,21 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     },
     motifHidden,
   );
-  uiLiveComment('scale-label', 'Scale', [148, 150, 44, 18], motifHidden);
+  uiButton('invert-button', 'Invert', [100, 150, 48, 18], {
+    name: 'Invert Motif Offsets',
+    description: 'Mirror relative pitch offsets around the trigger note without changing the stored motif.',
+  }, { mode: 1, ...motifHidden });
+  uiButton('reverse-button', 'Reverse', [152, 150, 52, 18], {
+    name: 'Reverse Motif Notes',
+    description: 'Play the motif backward by mirroring note timing without changing the stored motif.',
+  }, { mode: 1, ...motifHidden });
+  uiLiveComment('scale-label', 'Scale', [208, 150, 40, 18], motifHidden);
   // parameter_enable must stay 1 - live.menu loads parameter_enum from the Live parameter.
   // ignoreclick keeps them Song-driven; active 0/1 follows Song.scale_mode for Live’s disabled look.
   uiLiveMenu(
     'root-display',
     LIVE_ROOT_NAMES,
-    [196, 151, 40, 18],
+    [252, 151, 40, 18],
     'Live Scale Root',
     'Root',
     0,
@@ -192,7 +200,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   uiLiveMenu(
     'scale-name-display',
     LIVE_SCALE_NAMES,
-    [240, 151, 132, 18],
+    [296, 151, 177, 18],
     'Live Scale Name',
     'Scale',
     0,
@@ -251,6 +259,8 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     'motif-preview',
     'pitch-label',
     'pitch-menu',
+    'invert-button',
+    'reverse-button',
     'scale-label',
     'root-display',
     'scale-name-display',
@@ -436,7 +446,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   message('menu-clear', 'clear', COL.feedback, FB_Y + ROW * 2, 60);
   object('menu-append', 'prepend append', COL.feedback, FB_Y + ROW * 3, 120);
   object('menu-select', 'prepend setsymbol', COL.feedback, FB_Y + ROW * 4, 140);
-  object('ui-route', 'route lib preview', COL.feedback, FB_Y + ROW * 6, 220);
+  object('ui-route', 'route lib preview transforms', COL.feedback, FB_Y + ROW * 6, 260);
   // Library route → prepend receiveData → send to the subpatcher jweb.
   object('lib-data-prepend', 'prepend receiveData', COL.feedback, FB_Y + ROW * 7, 180);
   object('lib-data-send', 'send ---lib-data', COL.feedback, FB_Y + ROW * 8, 150);
@@ -453,6 +463,10 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   );
   object('preview-debug-page', 'prepend preview', COL.feedback + 500, FB_Y + ROW * 9, 130);
   object('preview-debug-prepend', 'prepend web_debug', COL.feedback + 660, FB_Y + ROW * 9, 150);
+  // Engine-owned transform state silently resets the visual `live.text` latches.
+  object('transform-unpack', 'unpack 0 0', COL.feedback + 480, FB_Y + ROW * 7, 100);
+  object('invert-set-prepend', 'prepend set', COL.feedback + 600, FB_Y + ROW * 7, 100);
+  object('reverse-set-prepend', 'prepend set', COL.feedback + 720, FB_Y + ROW * 7, 100);
 
   // ---------- Song observers ----------
   const OBS_Y = 1200;
@@ -676,6 +690,11 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect('lib-data-prepend', 0, 'lib-data-send', 0);
   connect('ui-route', 1, 'preview-data-prepend', 0);
   connect('preview-data-prepend', 0, 'motif-preview', 0);
+  connect('ui-route', 2, 'transform-unpack', 0);
+  connect('transform-unpack', 0, 'invert-set-prepend', 0);
+  connect('invert-set-prepend', 0, 'invert-button', 0);
+  connect('transform-unpack', 1, 'reverse-set-prepend', 0);
+  connect('reverse-set-prepend', 0, 'reverse-button', 0);
   connect('motif-preview', 0, 'preview-out-route', 0);
   connect('preview-out-route', 0, 'preview-ready-message', 0);
   connect('preview-ready-message', 0, 'v8', 0);
@@ -690,10 +709,12 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   patchComment('section-controls', '§ Controls → v8 - menus/tabs/numbers + loadmess defaults', COL.controls, CTL_Y - 40, 480);
   object('motif-prepend', 'prepend motif', COL.controls, CTL_Y, 110);
   object('pitch-prepend', 'prepend pitch_mode', COL.controls + 200, CTL_Y, 150);
-  object('tempo-mult-prepend', 'prepend tempo_multiplier', COL.controls + 440, CTL_Y, 180);
-  object('trigger-prepend', 'prepend trigger_mode', COL.controls + 720, CTL_Y, 160);
-  object('quant-prepend', 'prepend launch_quantization', COL.controls + 980, CTL_Y, 200);
-  object('pass-prepend', 'prepend pass_through', COL.controls + 1280, CTL_Y, 170);
+  object('invert-prepend', 'prepend invert_toggle', COL.controls + 400, CTL_Y, 150);
+  object('reverse-prepend', 'prepend reverse_toggle', COL.controls + 560, CTL_Y, 160);
+  object('tempo-mult-prepend', 'prepend tempo_multiplier', COL.controls + 740, CTL_Y, 180);
+  object('trigger-prepend', 'prepend trigger_mode', COL.controls + 1000, CTL_Y, 160);
+  object('quant-prepend', 'prepend launch_quantization', COL.controls + 1240, CTL_Y, 200);
+  object('pass-prepend', 'prepend pass_through', COL.controls + 1500, CTL_Y, 170);
   object('meter-prepend', 'prepend meter_mode', COL.controls, CTL_Y + ROW, 150);
   object('retrigger-prepend', 'prepend retrigger', COL.controls + 240, CTL_Y + ROW, 140);
   object('low-prepend', 'prepend trigger_low', COL.controls + 480, CTL_Y + ROW, 150);
@@ -704,6 +725,13 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect('motif-prepend', 0, 'v8', 0);
   connect('pitch-menu', 1, 'pitch-prepend', 0);
   connect('pitch-prepend', 0, 'v8', 0);
+  // `live.text`'s numeric toggle outlet is not reliable across repeated clicks.
+  // Its text outlet emits once per click, so use it as an event and let the
+  // engine own/flip the authoritative transform state.
+  connect('invert-button', 1, 'invert-prepend', 0);
+  connect('invert-prepend', 0, 'v8', 0);
+  connect('reverse-button', 1, 'reverse-prepend', 0);
+  connect('reverse-prepend', 0, 'v8', 0);
   connect('tempo-mult-menu', 1, 'tempo-mult-prepend', 0);
   connect('tempo-mult-prepend', 0, 'v8', 0);
   connect('trigger-menu', 1, 'trigger-prepend', 0);
@@ -724,17 +752,20 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect('panic-message', 0, 'v8', 0);
 
   const DEF_Y = CTL_Y + ROW * 3;
-  const defaults: Array<[string, number, number]> = [
+  const defaults: Array<[string, number | string, number]> = [
     ['pitch-default', 0, 0],
-    ['tempo-mult-default', 1, 1],
-    ['trigger-default', 0, 2],
-    ['quant-default', 0, 3],
-    ['pass-default', 1, 4],
-    ['meter-default', 0, 5],
-    ['retrigger-default', 0, 6],
-    ['low-default', 36, 7],
-    ['high-default', 84, 8],
-    ['page-default', 0, 9],
+    // `set 0` initializes the visual latch without emitting a click event.
+    ['invert-default', 'set 0', 1],
+    ['reverse-default', 'set 0', 2],
+    ['tempo-mult-default', 1, 3],
+    ['trigger-default', 0, 4],
+    ['quant-default', 0, 5],
+    ['pass-default', 1, 6],
+    ['meter-default', 0, 7],
+    ['retrigger-default', 0, 8],
+    ['low-default', 36, 9],
+    ['high-default', 84, 10],
+    ['page-default', 0, 11],
   ];
   for (const [name, value, index] of defaults) {
     object(name, `loadmess ${value}`, COL.controls + index * 160, DEF_Y, 90);
@@ -742,6 +773,8 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
 
   const defaultWires: Array<[string, string]> = [
     ['pitch-default', 'pitch-menu'],
+    ['invert-default', 'invert-button'],
+    ['reverse-default', 'reverse-button'],
     ['tempo-mult-default', 'tempo-mult-menu'],
     ['trigger-default', 'trigger-menu'],
     ['quant-default', 'quant-menu'],
