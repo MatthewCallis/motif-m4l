@@ -14,11 +14,15 @@ async function createEngine(options: {
   };
   files?: Record<string, string>;
   folders?: Record<string, string[]>;
+  deferTasks?: boolean;
 } = {}): Promise<{
   dispatch: (message: string, ...args: unknown[]) => void;
   outlets: OutletArgs[];
   errors: string[];
   files: Record<string, string>;
+  folderOpenPaths: string[];
+  scheduledTaskDelays: number[];
+  runScheduledTasks: (limit?: number) => number;
 }> {
   const source = await readFile('dist/motif-device.js', 'utf8');
   const outlets: OutletArgs[] = [];
@@ -39,6 +43,9 @@ async function createEngine(options: {
 
   const files = options.files ?? {};
   const folders = options.folders ?? {};
+  const folderOpenPaths: string[] = [];
+  const scheduledTasks: Array<() => void> = [];
+  const scheduledTaskDelays: number[] = [];
 
   class MockFile {
     isopen: boolean;
@@ -76,12 +83,27 @@ async function createEngine(options: {
     #index = 0;
 
     constructor(pathname: string) {
+      folderOpenPaths.push(pathname);
       const entries = folders[pathname];
       this.pathname = entries ? pathname : '';
       this.#entries = entries ?? [];
       this.count = this.#entries.length;
       this.end = this.#entries.length === 0;
       this.filename = this.#entries[0] ?? '';
+    }
+
+    get extension(): string | null {
+      const separator = this.filename.lastIndexOf('.');
+      return separator < 0 ? null : this.filename.slice(separator);
+    }
+
+    get filetype(): string | null {
+      if (!this.pathname || !this.filename) return null;
+      const separator = this.pathname.endsWith('/') ? '' : '/';
+      if (Object.prototype.hasOwnProperty.call(folders, `${this.pathname}${separator}${this.filename}`)) {
+        return 'fold';
+      }
+      return this.filename.toLowerCase().endsWith('.json') ? 'JSON' : null;
     }
 
     next(): void {
@@ -95,6 +117,33 @@ async function createEngine(options: {
     }
   }
 
+  class MockTask {
+    #cancelled = false;
+
+    constructor(
+      readonly callback: (...args: unknown[]) => void,
+      readonly context?: object,
+      readonly args: unknown[] = [],
+    ) {}
+
+    cancel(): void {
+      this.#cancelled = true;
+    }
+
+    freepeer(): void {
+      this.#cancelled = true;
+    }
+
+    schedule(delay = 0): void {
+      scheduledTaskDelays.push(delay);
+      const execute = () => {
+        if (!this.#cancelled) this.callback.apply(this.context, this.args);
+      };
+      if (options.deferTasks) scheduledTasks.push(execute);
+      else execute();
+    }
+  }
+
   const context = vm.createContext({
     outlet: (_index: number, ...values: unknown[]) => {
       outlets.push(values);
@@ -105,6 +154,7 @@ async function createEngine(options: {
     messagename: '',
     File: MockFile,
     Folder: MockFolder,
+    Task: MockTask,
     LiveAPI,
     console,
   });
@@ -120,6 +170,16 @@ async function createEngine(options: {
     outlets,
     errors,
     files,
+    folderOpenPaths,
+    scheduledTaskDelays,
+    runScheduledTasks(limit = Number.POSITIVE_INFINITY) {
+      let count = 0;
+      while (scheduledTasks.length > 0 && count < limit) {
+        scheduledTasks.shift()?.();
+        count += 1;
+      }
+      return count;
+    },
   };
 }
 
@@ -129,9 +189,12 @@ async function createEngine(options: {
  * @returns {Record<string, unknown> | undefined} The decoded state, when emitted.
  */
 function lastLibState(outlets: OutletArgs[]): Record<string, unknown> | undefined {
-  const last = [...outlets].reverse().find((args) => args[0] === 'ui' && args[1] === 'lib');
-  if (!last || typeof last[2] !== 'string') return undefined;
-  return JSON.parse(decodeURIComponent(last[2])) as Record<string, unknown>;
+  for (const args of [...outlets].reverse()) {
+    if (args[0] !== 'ui' || args[1] !== 'lib' || typeof args[2] !== 'string') continue;
+    const payload = JSON.parse(decodeURIComponent(args[2])) as Record<string, unknown>;
+    if (payload['kind'] !== 'note-chunk') return payload;
+  }
+  return undefined;
 }
 
 describe('Max authoring runtime', () => {
@@ -312,6 +375,103 @@ describe('Max authoring runtime', () => {
     assert.equal(status[3], 2);
   });
 
+  it('rejects oversized MIDI clips with an actionable Library warning before creating a large payload', async () => {
+    class MockLiveAPI {
+      id: number;
+      constructor(_callback?: (args: unknown[]) => void, path?: string) {
+        this.id = path?.includes('detail_clip') ? 88 : 0;
+      }
+      get(property: string): number {
+        return property === 'is_midi_clip' ? 1 : 0;
+      }
+      getstring(property: string): string {
+        return property === 'name' ? 'Oversized Clip' : '';
+      }
+      call(method: string): unknown {
+        if (method !== 'get_notes_extended') return [];
+        return JSON.stringify({
+          notes: Array.from({ length: 513 }, (_, index) => ({
+            pitch: 60 + (index % 12),
+            start_time: index * 0.25,
+            duration: 0.25,
+            velocity: 100,
+            mute: 0,
+          })),
+        });
+      }
+    }
+
+    const engine = await createEngine({ liveApi: MockLiveAPI });
+    engine.dispatch('initialize');
+    engine.outlets.length = 0;
+    engine.dispatch('import_clip');
+
+    assert.ok(!engine.outlets.some((args) =>
+      args[0] === 'status' && args[1] === 'imported-clip',
+    ));
+    const lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    assert.deepEqual(lib['alert'], {
+      id: 1,
+      title: 'MIDI file is too long',
+      message: 'The selected MIDI clip contains 513 notes. Motif can import up to 512 editable notes. Shorten the clip or split it into smaller phrases, then import it again.',
+    });
+    assert.equal((lib['selected'] as Record<string, unknown>)['id'], 'scale-turn');
+    assert.ok(engine.errors.some((message) =>
+      message.includes('MIDI clip contains 513 notes') && message.includes('up to 512'),
+    ));
+  });
+
+  it('imports exactly 512 notes using bounded chunks for one scrollable Library table', async () => {
+    class MockLiveAPI {
+      id: number;
+      constructor(_callback?: (args: unknown[]) => void, path?: string) {
+        this.id = path?.includes('detail_clip') ? 89 : 0;
+      }
+      get(property: string): number {
+        return property === 'is_midi_clip' ? 1 : 0;
+      }
+      getstring(property: string): string {
+        return property === 'name' ? 'Full Length Clip' : '';
+      }
+      call(method: string): unknown {
+        if (method !== 'get_notes_extended') return [];
+        return JSON.stringify({
+          notes: Array.from({ length: 512 }, (_, index) => ({
+            pitch: 60 + (index % 12),
+            start_time: index * 0.25,
+            duration: 0.25,
+            velocity: 100,
+            mute: 0,
+          })),
+        });
+      }
+    }
+
+    const engine = await createEngine({ liveApi: MockLiveAPI });
+    engine.dispatch('import_clip');
+
+    assert.ok(engine.outlets.some((args) =>
+      args[0] === 'status' && args[1] === 'imported-clip' && args[3] === 512,
+    ));
+    const selected = lastLibState(engine.outlets)?.['selected'] as Record<string, unknown>;
+    assert.equal(selected['noteCount'], 512);
+    assert.equal(selected['noteLimit'], 512);
+    assert.equal(selected['notesLoading'], true);
+    assert.deepEqual(selected['notes'], []);
+
+    const chunks = engine.outlets
+      .filter((args) => args[0] === 'ui' && args[1] === 'lib' && typeof args[2] === 'string')
+      .map((args) => JSON.parse(decodeURIComponent(String(args[2]))) as Record<string, unknown>)
+      .filter((payload) => payload['kind'] === 'note-chunk');
+    assert.equal(chunks.length, 16);
+    assert.ok(chunks.every((chunk) => (chunk['notes'] as unknown[]).length <= 32));
+    assert.equal(
+      chunks.reduce((count, chunk) => count + (chunk['notes'] as unknown[]).length, 0),
+      512,
+    );
+  });
+
   function userMotif(id: string, name: string, pitch = 0): Record<string, unknown> {
     return {
       schemaVersion: 1,
@@ -411,6 +571,406 @@ describe('Max authoring runtime', () => {
     assert.ok(items.some((item) => item.id === 'user-alpha'));
     assert.ok(items.some((item) => item.id === 'user-beta'));
     assert.ok(items.filter((item) => item.name === 'Shared Name').every((item) => item.showId));
+  });
+
+  it('sends ordinary note lists directly for the single scrollable Library table', async () => {
+    const path = '/Motifs';
+    const notes = Array.from({ length: 24 }, (_, index) => ({
+      at: index * 120,
+      duration: 120,
+      pitch: index % 12,
+    }));
+    const motif = {
+      ...userMotif('large-playback-motif', 'Large Playback Motif'),
+      length: notes.length * 120,
+      notes,
+    };
+    const engine = await createEngine({
+      files: { [`${path}/large.json`]: JSON.stringify(motif) },
+      folders: { [path]: ['large.json'] },
+    });
+    engine.dispatch('library_path', path);
+    engine.dispatch('select_browser', 'large-playback-motif');
+
+    const lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    const selected = lib['selected'] as Record<string, unknown>;
+    assert.equal(selected['noteCount'], 24);
+    assert.equal(selected['noteLimit'], 512);
+    assert.equal(selected['notesLoading'], false);
+    assert.equal((selected['notes'] as unknown[]).length, 24);
+    assert.match(String(selected['stats']), /^24 notes/);
+    assert.equal(((selected['notes'] as Array<Record<string, unknown>>)[16])?.['pitch'], 4);
+  });
+
+  it('recursively loads, groups, and searches motifs in sub-directories', async () => {
+    const path = '/Users/test/Motif Library';
+    const files = {
+      [`${path}/loose.json`]: JSON.stringify(userMotif('loose', 'Loose Motif')),
+      [`${path}/Bass/bass.json`]: JSON.stringify(userMotif('bass-line', 'Bass Line')),
+      [`${path}/Bass/Fills/fill.JSON`]: JSON.stringify(userMotif('bass-fill', 'Turnaround')),
+      [`${path}/Bass/notes.txt`]: 'not a motif',
+    };
+    const folders = {
+      [path]: ['loose.json', 'Bass', 'Empty'],
+      [`${path}/Bass`]: ['bass.json', 'Fills', 'notes.txt'],
+      [`${path}/Bass/Fills`]: ['fill.JSON'],
+      [`${path}/Empty`]: [],
+    };
+    const engine = await createEngine({ files, folders });
+
+    engine.dispatch('library_path', path);
+    let lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    const items = lib['items'] as Array<{ id: string; folder: string }>;
+    assert.equal(items.find((item) => item.id === 'loose')?.folder, 'Library');
+    assert.equal(items.find((item) => item.id === 'bass-line')?.folder, 'Bass');
+    assert.equal(items.find((item) => item.id === 'bass-fill')?.folder, 'Bass/Fills');
+    assert.equal(items.find((item) => item.id === 'chromatic-turn')?.folder, 'Built-ins');
+    assert.ok(!engine.errors.some((message) => message.includes('notes.txt')));
+    assert.deepEqual(
+      engine.folderOpenPaths,
+      [path, `${path}/Bass`, `${path}/Empty`, `${path}/Bass/Fills`],
+      'each directory must open once and files must never be probed as Folder objects',
+    );
+
+    engine.dispatch('filter_motifs', 'bass/fills');
+    lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    assert.deepEqual(
+      (lib['items'] as Array<{ id: string }>).map((item) => item.id),
+      ['bass-fill'],
+      'relative folder names must participate in search',
+    );
+  });
+
+  it('scans large libraries in bounded Task batches without replacing the active library early', async () => {
+    const path = '/Large Library';
+    const filenames = Array.from({ length: 100 }, (_, index) => `motif-${index}.json`);
+    const files = Object.fromEntries(filenames.map((filename, index) => [
+      `${path}/${filename}`,
+      JSON.stringify(userMotif(`large-${index}`, `Large ${index}`)),
+    ]));
+    const engine = await createEngine({
+      files,
+      folders: { [path]: filenames },
+      deferTasks: true,
+    });
+
+    engine.dispatch('library_path', path);
+    let lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    assert.equal(lib['libraryScanning'], true);
+    assert.equal(lib['libraryLoaded'], false);
+    assert.ok(
+      (lib['items'] as Array<{ id: string }>).some((item) => item.id === 'scale-turn'),
+      'the active library must remain available while the replacement scan is pending',
+    );
+    assert.equal(
+      (lib['items'] as Array<{ id: string }>).some((item) => item.id === 'large-0'),
+      false,
+    );
+
+    assert.equal(engine.runScheduledTasks(1), 1);
+    lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    assert.equal(lib['libraryScanning'], true, 'one batch must not synchronously consume 100 files');
+
+    engine.dispatch('begin_edit');
+    lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    assert.equal((lib['editing'] as Record<string, unknown>)['active'], false);
+    assert.ok(engine.errors.some((message) => message.includes('scan to finish')));
+
+    engine.dispatch('filter_motifs', 'scale');
+    lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    assert.equal(lib['libraryScanning'], true, 'the engine must remain responsive between batches');
+
+    assert.ok(engine.runScheduledTasks() >= 1);
+    lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    assert.equal(lib['libraryScanning'], false);
+    assert.equal(lib['libraryLoaded'], true);
+    assert.equal(
+      (lib['items'] as Array<{ id: string }>).filter((item) => item.id.startsWith('large-')).length,
+      0,
+      'the active search remains applied after the scan commits',
+    );
+    engine.dispatch('filter_motifs');
+    lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    assert.equal(
+      (lib['items'] as Array<{ id: string }>).filter((item) => item.id.startsWith('large-')).length,
+      100,
+    );
+    assert.deepEqual(engine.folderOpenPaths, [path], 'flat-library files must not be opened as folders');
+  });
+
+  it('saves an edited motif back to its original sub-directory', async () => {
+    const path = '/Motifs';
+    const nestedFilename = `${path}/Leads/Arps/nested.json`;
+    const files = {
+      [nestedFilename]: JSON.stringify(userMotif('nested-motif', 'Nested Motif')),
+    };
+    const engine = await createEngine({
+      files,
+      folders: {
+        [path]: ['Leads'],
+        [`${path}/Leads`]: ['Arps'],
+        [`${path}/Leads/Arps`]: ['nested.json'],
+      },
+    });
+    engine.dispatch('library_path', path);
+    engine.dispatch('select_browser', 'nested-motif');
+    engine.dispatch('begin_edit');
+    engine.dispatch('save_motif', { name: 'Nested Motif Updated' });
+
+    assert.equal(
+      (JSON.parse(engine.files[nestedFilename] ?? '{}') as Record<string, unknown>)['name'],
+      'Nested Motif Updated',
+    );
+    assert.equal(engine.files[`${path}/nested-motif.json`], undefined);
+    const selected = lastLibState(engine.outlets)?.['selected'] as Record<string, unknown>;
+    assert.equal(selected['folder'], 'Leads/Arps');
+  });
+
+  it('reports duplicate motif ids with their relative sub-directory paths', async () => {
+    const path = '/Motifs';
+    const engine = await createEngine({
+      files: {
+        [`${path}/A/first.json`]: JSON.stringify(userMotif('duplicate-nested', 'First')),
+        [`${path}/B/second.json`]: JSON.stringify(userMotif('duplicate-nested', 'Second')),
+      },
+      folders: {
+        [path]: ['A', 'B'],
+        [`${path}/A`]: ['first.json'],
+        [`${path}/B`]: ['second.json'],
+      },
+    });
+    engine.dispatch('library_path', path);
+
+    const items = lastLibState(engine.outlets)?.['items'] as Array<{ id: string }>;
+    assert.equal(items.filter((item) => item.id === 'duplicate-nested').length, 1);
+    assert.ok(engine.errors.some((message) =>
+      message.includes('B/second.json') && message.includes('duplicate motif id'),
+    ));
+  });
+
+  it('assigns, reassigns, and removes MIDI hot keys through library actions', async () => {
+    const engine = await createEngine();
+    engine.dispatch('initialize');
+    engine.outlets.length = 0;
+
+    engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({
+      type: 'map_trigger', pitch: 20, motifId: 'chromatic-turn',
+    })));
+    let lib = lastLibState(engine.outlets);
+    let items = lib?.['items'] as Array<{
+      id: string;
+      hotkeys: Array<{ pitch: number; action: string }>;
+    }>;
+    assert.deepEqual(
+      items.find((item) => item.id === 'chromatic-turn')?.hotkeys,
+      [{ pitch: 20, action: 'trigger' }],
+    );
+
+    engine.outlets.length = 0;
+    engine.dispatch('note', 20, 100, 1);
+    assert.ok(engine.outlets.some((args) =>
+      args[0] === 'status' && args[1] === 'trigger' && args[2] === 'chromatic-turn' && args[3] === 20,
+    ), 'a mapped note outside the trigger zone must play its assigned motif');
+
+    engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({
+      type: 'map_trigger', pitch: 20, motifId: 'scale-turn',
+    })));
+    lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    items = lib?.['items'] as Array<{
+      id: string;
+      hotkeys: Array<{ pitch: number; action: string }>;
+    }>;
+    assert.deepEqual(items.find((item) => item.id === 'chromatic-turn')?.hotkeys, []);
+    assert.deepEqual(
+      items.find((item) => item.id === 'scale-turn')?.hotkeys,
+      [{ pitch: 20, action: 'trigger' }],
+    );
+    assert.deepEqual(
+      (lib['selected'] as Record<string, unknown>)['hotkeys'],
+      [{ pitch: 20, action: 'trigger' }],
+    );
+
+    engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({
+      type: 'unmap_trigger', pitch: 20,
+    })));
+    lib = lastLibState(engine.outlets);
+    items = lib?.['items'] as Array<{
+      id: string;
+      hotkeys: Array<{ pitch: number; action: string }>;
+    }>;
+    assert.deepEqual(items.find((item) => item.id === 'scale-turn')?.hotkeys, []);
+
+    engine.outlets.length = 0;
+    engine.dispatch('note', 20, 100, 1);
+    assert.ok(!engine.outlets.some((args) => args[0] === 'status' && args[1] === 'trigger'));
+    assert.ok(engine.outlets.some((args) =>
+      args[0] === 'event' && args[1] === 20 && args[2] === 100,
+    ), 'an unmapped note outside the trigger zone must return to dry pass-through');
+  });
+
+  it('select-mode MIDI hot keys change the motif used by later trigger notes without playing immediately', async () => {
+    const engine = await createEngine();
+    engine.dispatch('initialize');
+    engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({
+      type: 'map_trigger',
+      pitch: 'G♯-1',
+      motifId: 'chromatic-turn',
+      action: 'select',
+    })));
+
+    let lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    const chromatic = (lib['items'] as Array<{
+      id: string;
+      hotkeys: Array<{ pitch: number; action: string }>;
+    }>).find((item) => item.id === 'chromatic-turn');
+    assert.deepEqual(chromatic?.hotkeys, [{ pitch: 20, action: 'select' }]);
+    assert.equal((lib['selected'] as Record<string, unknown>)['id'], 'scale-turn');
+
+    engine.outlets.length = 0;
+    engine.dispatch('note', 20, 100, 1);
+    lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    assert.equal((lib['selected'] as Record<string, unknown>)['id'], 'chromatic-turn');
+    assert.ok(engine.outlets.some((args) =>
+      args[0] === 'status' && args[1] === 'selected'
+      && args[2] === 'chromatic-turn' && args[3] === 20,
+    ));
+    assert.ok(!engine.outlets.some((args) => args[0] === 'status' && args[1] === 'trigger'));
+    assert.ok(!engine.outlets.some((args) => args[0] === 'event'), 'selection must not play a phrase');
+
+    engine.outlets.length = 0;
+    engine.dispatch('note', 60, 100, 1);
+    assert.ok(engine.outlets.some((args) =>
+      args[0] === 'status' && args[1] === 'trigger' && args[2] === 'chromatic-turn',
+    ), 'a later zone note must trigger the newly selected motif');
+  });
+
+  it('hold-and-repeat hot keys loop at motif boundaries until note-off', async () => {
+    const engine = await createEngine({ deferTasks: true });
+    engine.dispatch('initialize');
+    engine.dispatch('map_trigger', 'G♯-1', 'chromatic-turn', 'repeat');
+
+    let lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    const chromatic = (lib['items'] as Array<{
+      id: string;
+      hotkeys: Array<{ pitch: number; action: string }>;
+    }>).find((item) => item.id === 'chromatic-turn');
+    assert.deepEqual(chromatic?.hotkeys, [{ pitch: 20, action: 'repeat' }]);
+
+    engine.outlets.length = 0;
+    engine.dispatch('note', 20, 96, 2);
+    assert.equal(
+      engine.outlets.filter((args) =>
+        args[0] === 'status' && args[1] === 'trigger' && args[2] === 'chromatic-turn',
+      ).length,
+      1,
+    );
+    assert.ok(engine.outlets.some((args) =>
+      args[0] === 'status' && args[1] === 'repeat-started'
+      && args[2] === 'chromatic-turn' && args[3] === 20,
+    ));
+    assert.equal(
+      engine.scheduledTaskDelays.at(-1),
+      1_750,
+      'the 3.5-beat motif must repeat at its 120 BPM boundary',
+    );
+
+    engine.dispatch('note', 20, 80, 2);
+    assert.equal(engine.scheduledTaskDelays.length, 1, 'duplicate note-ons must not add repeat tasks');
+
+    assert.equal(engine.runScheduledTasks(1), 1);
+    assert.equal(
+      engine.outlets.filter((args) =>
+        args[0] === 'status' && args[1] === 'trigger' && args[2] === 'chromatic-turn',
+      ).length,
+      2,
+      'the scheduled boundary must launch the next motif cycle',
+    );
+    assert.equal(engine.scheduledTaskDelays.at(-1), 1_750);
+
+    engine.dispatch('note', 20, 0, 2);
+    assert.ok(engine.outlets.some((args) =>
+      args[0] === 'status' && args[1] === 'repeat-stopped'
+      && args[2] === 'chromatic-turn' && args[3] === 20,
+    ));
+    engine.outlets.length = 0;
+    engine.runScheduledTasks();
+    assert.ok(
+      !engine.outlets.some((args) => args[0] === 'status' && args[1] === 'trigger'),
+      'a canceled task already queued by Max must not launch another cycle',
+    );
+  });
+
+  it('hold-and-repeat releases can be sustained and panic cancels pending cycles', async () => {
+    const engine = await createEngine({ deferTasks: true });
+    engine.dispatch('map_trigger', 20, 'scale-turn', 'repeat');
+    engine.dispatch('note', 20, 100, 1);
+    engine.dispatch('sustain', 127, 1);
+    engine.dispatch('note', 20, 0, 1);
+
+    engine.outlets.length = 0;
+    assert.equal(engine.runScheduledTasks(1), 1);
+    assert.ok(
+      engine.outlets.some((args) => args[0] === 'status' && args[1] === 'trigger'),
+      'sustain must defer stopping the held repeat',
+    );
+
+    engine.dispatch('sustain', 0, 1);
+    assert.ok(
+      engine.outlets.some((args) => args[0] === 'status' && args[1] === 'repeat-stopped'),
+    );
+    engine.outlets.length = 0;
+    engine.runScheduledTasks();
+    assert.ok(!engine.outlets.some((args) => args[0] === 'status' && args[1] === 'trigger'));
+
+    engine.dispatch('note', 20, 100, 1);
+    engine.dispatch('panic');
+    engine.outlets.length = 0;
+    engine.runScheduledTasks();
+    assert.ok(
+      !engine.outlets.some((args) => args[0] === 'status' && args[1] === 'trigger'),
+      'panic must cancel every pending repeat task',
+    );
+  });
+
+  it('rejects invalid hot-key assignments and prunes mappings for removed library motifs', async () => {
+    const path = '/Motifs';
+    const filename = `${path}/temporary.json`;
+    const folders = { [path]: ['temporary.json'] };
+    const engine = await createEngine({
+      files: { [filename]: JSON.stringify(userMotif('temporary', 'Temporary')) },
+      folders,
+    });
+    engine.dispatch('library_path', path);
+    engine.dispatch('map_trigger', Number.NaN, 'temporary');
+    engine.dispatch('map_trigger', 12, 'missing');
+    engine.dispatch('map_trigger', 12, 'temporary', 'invalid-action');
+    assert.ok(engine.errors.some((message) => message.includes('invalid MIDI note')));
+    assert.ok(engine.errors.some((message) => message.includes('unknown motif')));
+    assert.ok(engine.errors.some((message) => message.includes('unknown hot-key action')));
+
+    engine.dispatch('map_trigger', 12, 'temporary');
+    folders[path] = [];
+    engine.dispatch('refresh_library');
+
+    const lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    assert.ok(!(lib['items'] as Array<{ id: string }>).some((item) => item.id === 'temporary'));
+    engine.outlets.length = 0;
+    engine.dispatch('note', 12, 100, 1);
+    assert.ok(!engine.outlets.some((args) => args[0] === 'status' && args[1] === 'trigger'));
   });
 
   it('same-name saved motifs remain independently selectable by stable id', async () => {

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { buildMotifPreview, midiNoteName } from '../src/core/preview.js';
+import { buildMotifPreview, midiNoteName, parseMidiNoteName } from '../src/core/preview.js';
 import type { HostContext } from '../src/core/types.js';
 import { BUILTIN_MOTIFS } from '../src/generated/builtins.js';
 
@@ -24,6 +24,20 @@ describe('motif preview', () => {
     assert.equal(midiNoteName(60), 'C3');
     assert.equal(midiNoteName(58), 'A♯2');
     assert.equal(midiNoteName(0), 'C-2');
+  });
+
+  it('parses Ableton-style MIDI note names with sharps and flats', () => {
+    assert.equal(parseMidiNoteName('C3'), 60);
+    assert.equal(parseMidiNoteName(' c-2 '), 0);
+    assert.equal(parseMidiNoteName('F♯2'), 54);
+    assert.equal(parseMidiNoteName('F#2'), 54);
+    assert.equal(parseMidiNoteName('Bb4'), 82);
+    assert.equal(parseMidiNoteName('B♭4'), 82);
+    assert.equal(parseMidiNoteName('G8'), 127);
+    assert.equal(parseMidiNoteName('Cb-2'), undefined);
+    assert.equal(parseMidiNoteName('G#8'), undefined);
+    assert.equal(parseMidiNoteName('60'), undefined);
+    assert.equal(parseMidiNoteName('H3'), undefined);
   });
 
   it('previews the Chromatic Turn contour from C3', () => {

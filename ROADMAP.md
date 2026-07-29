@@ -53,7 +53,7 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 
 ## 0.6 - Trigger Modes
 
-- [ ] UI for assigning specific motifs to individual trigger notes
+- [x] UI for assigning specific motifs to individual trigger notes.
 
 ## 1.0 - Productized device
 

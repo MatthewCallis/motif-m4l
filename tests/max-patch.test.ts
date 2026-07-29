@@ -427,6 +427,10 @@ describe('Motif Max patch integration', () => {
     assert.ok(!libraryHtml.includes('window.receiveData = receiveData'), 'library must not rely on an unbound global function');
     assert.ok(!libraryHtml.includes("outlet.toString().includes('console.log')"), 'library must not infer Max from source text');
     assert.ok(libraryHtml.includes('No library state received within 2 seconds'), 'library must report missing state');
+    assert.ok(libraryHtml.includes("title:'MIDI file is too long'"), 'oversized payloads must show a user warning');
+    assert.ok(libraryHtml.includes('detail === payloadErrorSignature'), 'repeated payload errors must be deduplicated');
+    assert.ok(libraryHtml.includes("confirmLabel:'OK'"), 'user warnings must be dismissible');
+    assert.ok(!libraryHtml.includes('debug(\'error\', `Bad library payload:'), 'raw JSON parse errors must not be shown');
     assert.ok(
       libraryHtml.includes("window.max.outlet('lib_action', encodeURIComponent(JSON.stringify(action)))"),
       'library actions must use an explicit selector',
@@ -436,11 +440,66 @@ describe('Motif Max patch integration', () => {
     assert.ok(!libraryHtml.includes('delete_motif'), 'library deletion must remain removed');
     assert.ok(!libraryHtml.includes('skipDeleteConfirmation'), 'removed delete preference must not remain');
     assert.ok(libraryHtml.includes("type:'select_browser', id:item.id"), 'browser selection must use stable ids');
+    assert.ok(libraryHtml.includes("className = 'browser-folder'"), 'library must render relative folder groups');
+    assert.ok(libraryHtml.includes('collapsedFolders:new Set()'), 'library folders must retain local collapsed state');
+    assert.ok(libraryHtml.includes("heading.setAttribute('aria-expanded'"), 'folder headings must be accessible expanders');
+    assert.ok(libraryHtml.includes('if (folderCollapsed) continue'), 'collapsed folders must hide their motifs');
+    assert.ok(libraryHtml.includes('isFolderCollapsed(folder, server.query'), 'search must reveal matches in collapsed folders');
+    assert.ok(libraryHtml.includes('item.folder'), 'library browser items must carry folder metadata');
+    assert.ok(libraryHtml.includes('server?.libraryScanning'), 'library must display asynchronous scan progress');
+    assert.ok(libraryHtml.includes('id="hotkey-input"'), 'library must expose a MIDI hot-key input');
+    assert.ok(libraryHtml.includes('id="hotkey-input" type="text"'), 'MIDI hot-key input must use note names');
+    assert.ok(libraryHtml.includes('id="hotkey-action"'), 'MIDI hot keys must choose their behavior');
+    assert.ok(libraryHtml.includes('<option value="trigger">Trigger Motif</option>'));
+    assert.ok(libraryHtml.includes('<option value="select">Select Motif</option>'));
+    assert.ok(libraryHtml.includes('<option value="repeat">Hold &amp; Repeat</option>'));
+    assert.ok(libraryHtml.includes("mapping.action === 'repeat' ? '↻'"));
+    assert.ok(libraryHtml.includes("? 'Hold & Repeat'"));
+    assert.ok(libraryHtml.includes('function parseMidiNoteName(noteName)'), 'library must parse MIDI note names');
+    assert.ok(!libraryHtml.includes('`${midiNoteName(pitch)} · ${pitch}'), 'assignments must not display MIDI numbers');
+    assert.ok(libraryHtml.includes("type:'map_trigger'"), 'library must assign MIDI hot keys');
+    assert.ok(libraryHtml.includes("action:document.getElementById('hotkey-action').value"));
+    assert.ok(libraryHtml.includes("type:'unmap_trigger'"), 'library must remove MIDI hot keys');
     assert.ok(libraryHtml.includes('Save changes and exit editing'), 'Save must document that it exits edit mode');
     assert.ok(libraryHtml.includes("type:'edit_motif', properties:readProperties()"), 'library must submit complete motif properties');
+    assert.ok(libraryHtml.includes('const MAX_MOTIF_NOTES = 512'), 'Library must expose the 512-note motif limit');
+    assert.ok(libraryHtml.includes('#notes-panel { overflow:auto; }'), 'the complete note table must scroll');
+    assert.ok(!libraryHtml.includes('note-page-prev'), 'the note table must not expose pagination');
+    assert.ok(!libraryHtml.includes('set_note_page'), 'the note table must not maintain page state');
+    assert.ok(libraryHtml.includes('function receiveNoteChunk(payload)'), 'bounded note transport must be assembled internally');
+    assert.ok(libraryHtml.includes("payload?.kind === 'note-chunk'"));
+    assert.ok(libraryHtml.includes('notes.forEach((note, index) => {'), 'all assembled notes must render into one table');
+    assert.ok(libraryHtml.includes("type:'edit_note_at', index"), 'scrolling-table edits must use absolute row indices');
     assert.ok(libraryHtml.includes('id="import-mode"'), 'library must expose the import pitch mode');
     assert.ok(libraryHtml.includes('<option value="chromatic">Exact / Chromatic</option>'), 'exact chromatic import must be the default');
     assert.ok(libraryHtml.includes("type:'import_clip', pitchMode:"), 'library must send the selected import mode');
+    const noteHelpersStart = libraryHtml.indexOf('  function midiNoteName');
+    const noteHelpersEnd = libraryHtml.indexOf('  function renderHotkeys');
+    assert.ok(noteHelpersStart >= 0 && noteHelpersEnd > noteHelpersStart);
+    const noteHelpers = libraryHtml.slice(noteHelpersStart, noteHelpersEnd);
+    const noteResults = vm.runInNewContext(`${noteHelpers}
+      [midiNoteName(60), parseMidiNoteName('C3'), parseMidiNoteName('F♯2'),
+       parseMidiNoteName('Bb4'), parseMidiNoteName('60'), parseMidiNoteName('G#8')]`) as unknown[];
+    assert.deepEqual(Array.from(noteResults), ['C3', 60, 54, 82, null, null]);
+    const folderHelpersStart = libraryHtml.indexOf('  function isFolderCollapsed');
+    const folderHelpersEnd = libraryHtml.indexOf('  function renderBrowser');
+    assert.ok(folderHelpersStart >= 0 && folderHelpersEnd > folderHelpersStart);
+    const folderHelpers = libraryHtml.slice(folderHelpersStart, folderHelpersEnd);
+    const folderResults = vm.runInNewContext(`${folderHelpers}
+      (() => {
+        const collapsed = new Set(['Bass']);
+        const expanded = toggleCollapsedFolder('Bass', collapsed);
+        const added = toggleCollapsedFolder('Leads', collapsed);
+        return [
+          isFolderCollapsed('Bass', '', collapsed),
+          isFolderCollapsed('Bass', 'fill', collapsed),
+          expanded.has('Bass'),
+          added.has('Bass'),
+          added.has('Leads'),
+          collapsed.has('Leads'),
+        ];
+      })()`) as unknown[];
+    assert.deepEqual(Array.from(folderResults), [true, false, false, true, true, false]);
     for (const field of ['pitch-mode-edit', 'meter-numerator-edit', 'default-gate-edit', 'curve-exponent', 'author-edit', 'tags-edit']) {
       assert.ok(libraryHtml.includes(`id="${field}"`), `library must expose ${field}`);
     }

@@ -55,6 +55,7 @@ This is the production Max surface used by Motif. Every generated object, Max Ja
 | `error` | [error](https://docs.cycling74.com/apiref/js/error/) |
 | `File` constructor, properties, `readstring`, `writestring`, `close` | [File](https://docs.cycling74.com/apiref/js/file/) |
 | `Folder` constructor, properties, `next`, `close` | [Folder](https://docs.cycling74.com/apiref/js/folder/) |
+| `Task` constructor, `schedule`, `cancel`, `freepeer` | [Task](https://docs.cycling74.com/apiref/js/task/) |
 | `box.rect` | [Maxobj.rect](https://docs.cycling74.com/apiref/js/maxobj/#rect) |
 | `mgraphics` properties and drawing methods | [MGraphics](https://docs.cycling74.com/apiref/js/mgraphics/) |
 

@@ -41,6 +41,37 @@ export function midiNoteName(pitchValue: number): string {
 }
 
 /**
+ * Parse a MIDI note name using Ableton Live's octave labeling (C3 = MIDI 60).
+ * ASCII/Unicode sharps and flats are accepted case-insensitively.
+ * @param {string} value The note name to parse.
+ * @returns {number | undefined} The MIDI pitch, or undefined when invalid/out of range.
+ */
+export function parseMidiNoteName(value: string): number | undefined {
+  const match = value.trim().match(/^([A-Ga-g])([#♯b♭]?)(-2|-1|[0-8])$/);
+  if (!match) return undefined;
+
+  const pitchClasses: Record<string, number> = {
+    C: 0,
+    D: 2,
+    E: 4,
+    F: 5,
+    G: 7,
+    A: 9,
+    B: 11,
+  };
+  const letter = match[1]?.toUpperCase() ?? '';
+  const accidental = match[2];
+  const octave = Number(match[3]);
+  const offset = accidental === '#' || accidental === '♯'
+    ? 1
+    : accidental === 'b' || accidental === '♭'
+      ? -1
+      : 0;
+  const pitch = (octave + 2) * 12 + (pitchClasses[letter] ?? 0) + offset;
+  return pitch >= 0 && pitch <= 127 ? pitch : undefined;
+}
+
+/**
  * Build a compact pitch contour for the selected motif under current host settings.
  * Caps note count for rendering; ranges expand by ±1 when all pitches match.
  * @param {Motif} motif The motif to preview.

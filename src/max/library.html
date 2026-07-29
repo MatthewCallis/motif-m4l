@@ -27,12 +27,16 @@
     #search { flex:1; min-width:0; background:var(--input); border:1px solid var(--border); color:var(--text); padding:3px 6px; outline:none; }
     #clear-search { background:none; border:0; color:var(--muted); cursor:pointer; font-size:13px; padding:0 2px; }
     #browser-list { flex:1; overflow-y:auto; border-top:1px solid var(--border); }
-    .browser-item { padding:5px 8px; cursor:pointer; border-bottom:1px solid transparent; }
+    .browser-folder { position:sticky; top:0; z-index:1; width:100%; padding:4px 8px 3px; background:var(--surface2); border:0; border-bottom:1px solid var(--border); color:var(--muted); cursor:pointer; font-size:9px; font-weight:600; text-align:left; text-transform:uppercase; letter-spacing:.05em; }
+    .browser-folder:hover { background:var(--btn); color:var(--text); }
+    .browser-item { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 5px; padding:5px 8px; cursor:pointer; border-bottom:1px solid transparent; }
     .browser-item:hover { background:var(--btn); }
     .browser-item.selected { background:var(--accent); color:#000; }
     .browser-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .browser-id { margin-top:1px; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .browser-id { grid-column:1 / -1; margin-top:1px; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hotkey-badge { align-self:center; color:var(--accent); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; }
     .browser-item.selected .browser-id { color:rgba(0,0,0,.62); }
+    .browser-item.selected .hotkey-badge { color:#000; }
     #empty-list { padding:12px 8px; color:var(--muted); text-align:center; }
     #browser-actions { border-top:1px solid var(--border); display:flex; gap:4px; padding:5px; }
     #library-path { padding:0 6px 5px; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -66,6 +70,12 @@
     .property-grid textarea { min-height:38px; resize:vertical; }
     .identity { font:9px ui-monospace,SFMono-Regular,Menlo,monospace; }
     .help { grid-column:2 / 5; color:var(--muted); font-size:9px; line-height:1.25; }
+    #hotkey-controls { display:flex; gap:4px; }
+    #hotkey-input { width:72px; }
+    #hotkey-action { width:112px; }
+    #hotkey-list { display:flex; flex-wrap:wrap; gap:4px; }
+    .hotkey-chip { background:var(--btn); border:1px solid var(--border); color:var(--text); cursor:pointer; padding:2px 5px; }
+    .hotkey-chip:hover { background:var(--danger); border-color:var(--danger); color:#fff; }
     #notes-panel { overflow:auto; }
     #note-table { min-width:780px; display:flex; flex-direction:column; min-height:100%; }
     #note-header, .note-row { display:grid; grid-template-columns:28px 48px 38px 48px 54px 44px 48px 50px 50px 42px 42px 26px; }
@@ -177,6 +187,24 @@
       </div>
 
       <div class="section">
+        <div class="section-title">MIDI Hot Keys</div>
+        <div class="property-grid">
+          <label for="hotkey-input">Trigger note</label>
+          <div class="wide" id="hotkey-controls">
+            <input class="field identity" id="hotkey-input" type="text" value="C1" placeholder="C3" autocomplete="off" spellcheck="false">
+            <select class="field" id="hotkey-action">
+              <option value="trigger">Trigger Motif</option>
+              <option value="select">Select Motif</option>
+              <option value="repeat">Hold &amp; Repeat</option>
+            </select>
+            <button class="btn" id="assign-hotkey-btn">Assign to Motif</button>
+          </div>
+          <label>Assigned</label><div class="wide" id="hotkey-list"></div>
+          <div class="help">Trigger Motif plays once. Select Motif makes it active for later trigger-zone notes. Hold &amp; Repeat loops the motif until the assigned key is released. Enter a note name such as C3, F♯2, or Bb4; click an assignment to remove it.</div>
+        </div>
+      </div>
+
+      <div class="section">
         <div class="section-title">Pitch &amp; Timing</div>
         <div class="property-grid">
           <label for="pitch-mode-edit">Pitch mode</label>
@@ -248,8 +276,11 @@
 </div>
 
 <script>
+  /** Diagnostic source label forwarded to the Max console. */
   const PAGE = 'library';
-  const MAX_NOTE_ROWS = 16;
+  /** Maximum number of notes allowed in one motif or Live clip import. */
+  const MAX_MOTIF_NOTES = 512;
+  /** Editable note schema used to generate rows and coerce outgoing field values. */
   const NOTE_FIELDS = [
     { name:'pitch', type:'number', required:true, step:'1' },
     { name:'accidental', type:'number', step:'1' },
@@ -262,12 +293,14 @@
     { name:'legato', type:'checkbox' },
     { name:'tie', type:'checkbox' },
   ];
+  /** Motif property controls that participate in dirty-state and edit-message handling. */
   const PROPERTY_INPUT_IDS = [
     'name-edit','description-edit','pitch-mode-edit','default-gate-edit','meter-numerator-edit',
     'meter-denominator-edit','pickup-ticks-edit','curve-input-min','curve-input-max',
     'curve-output-min','curve-output-max','curve-exponent','author-edit','source-edit',
     'license-edit','tags-edit','suggested-modes-edit',
   ];
+  /** Whether the page is running inside Max's jweb bridge instead of a normal browser. */
   const isMax = typeof window.max !== 'undefined' && typeof window.max.outlet === 'function';
 
   if (!isMax) {
@@ -295,9 +328,17 @@
     };
   }
 
-  const store = createStore({ server:null, modal:null, formDirty:false, activePanel:'properties' });
+  const store = createStore({
+    server:null,
+    modal:null,
+    formDirty:false,
+    activePanel:'properties',
+    collapsedFolders:new Set(),
+  });
   const debugEntries = [];
   let stateDeadline = null;
+  let payloadErrorSignature = '';
+  let pendingNoteTransfer = null;
   const debugIndicator = document.getElementById('debug-indicator');
   const debugSummary = document.getElementById('debug-summary');
   const debugPanel = document.getElementById('debug-panel');
@@ -350,6 +391,18 @@
     document.getElementById('modal-title').textContent = modal.title;
     document.getElementById('modal-message').textContent = modal.message;
     document.getElementById('modal-confirm').textContent = modal.confirmLabel ?? 'Continue';
+    document.getElementById('modal-cancel').classList.toggle('hidden', Boolean(modal.dismissOnly));
+  }
+
+  function isFolderCollapsed(folder, query, collapsedFolders) {
+    return !query && collapsedFolders.has(folder);
+  }
+
+  function toggleCollapsedFolder(folder, collapsedFolders) {
+    const next = new Set(collapsedFolders);
+    if (next.has(folder)) next.delete(folder);
+    else next.add(folder);
+    return next;
   }
 
   function renderBrowser(server) {
@@ -362,13 +415,43 @@
       list.append(empty);
       return;
     }
+    let currentFolder = null;
+    let folderCollapsed = false;
+    const collapsedFolders = store.getState().collapsedFolders;
     for (const item of server.items) {
+      const folder = item.folder || 'Library';
+      if (folder !== currentFolder) {
+        currentFolder = folder;
+        folderCollapsed = isFolderCollapsed(folder, server.query, collapsedFolders);
+        const heading = document.createElement('button');
+        heading.type = 'button';
+        heading.className = 'browser-folder';
+        heading.textContent = `${folderCollapsed ? '▸' : '▾'} ${folder}`;
+        heading.setAttribute('aria-expanded', String(!folderCollapsed));
+        heading.title = `${folderCollapsed ? 'Expand' : 'Collapse'} ${folder}`;
+        heading.addEventListener('click', () => {
+          store.setState({
+            collapsedFolders:toggleCollapsedFolder(folder, store.getState().collapsedFolders),
+          });
+        });
+        list.append(heading);
+      }
+      if (folderCollapsed) continue;
       const el = document.createElement('div');
       el.className = `browser-item${server.selected?.id === item.id ? ' selected' : ''}`;
       const name = document.createElement('div');
       name.className = 'browser-name';
       name.textContent = item.name;
       el.append(name);
+      if (Array.isArray(item.hotkeys) && item.hotkeys.length > 0) {
+        const badge = document.createElement('div');
+        badge.className = 'hotkey-badge';
+        badge.textContent = item.hotkeys.map((mapping) => {
+          const symbol = mapping.action === 'select' ? '↦' : mapping.action === 'repeat' ? '↻' : '▶';
+          return `${midiNoteName(mapping.pitch)} ${symbol}`;
+        }).join(' ');
+        el.append(badge);
+      }
       if (item.showId) {
         const id = document.createElement('div');
         id.className = 'browser-id';
@@ -384,11 +467,62 @@
     }
   }
 
-  function buildNoteRows() {
+  function midiNoteName(pitch) {
+    const names = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
+    const value = Math.max(0, Math.min(127, Math.round(Number(pitch))));
+    return `${names[value % 12]}${Math.floor(value / 12) - 2}`;
+  }
+
+  function parseMidiNoteName(noteName) {
+    const match = String(noteName).trim().match(/^([A-Ga-g])([#♯b♭]?)(-2|-1|[0-8])$/);
+    if (!match) return null;
+    const pitchClasses = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+    const accidental = match[2] === '#' || match[2] === '♯' ? 1 : match[2] === 'b' || match[2] === '♭' ? -1 : 0;
+    const pitch = (Number(match[3]) + 2) * 12 + pitchClasses[match[1].toUpperCase()] + accidental;
+    return pitch >= 0 && pitch <= 127 ? pitch : null;
+  }
+
+  function renderHotkeys(selected) {
+    const input = document.getElementById('hotkey-input');
+    const action = document.getElementById('hotkey-action');
+    const assign = document.getElementById('assign-hotkey-btn');
+    const list = document.getElementById('hotkey-list');
+    const mappings = Array.isArray(selected?.hotkeys) ? selected.hotkeys : [];
+    input.disabled = !selected;
+    action.disabled = !selected;
+    assign.disabled = !selected;
+    list.innerHTML = '';
+    if (!selected) return;
+    if (mappings.length === 0) {
+      const empty = document.createElement('span');
+      empty.className = 'help';
+      empty.textContent = 'None';
+      list.append(empty);
+      return;
+    }
+    for (const mapping of mappings) {
+      const chip = document.createElement('button');
+      chip.className = 'hotkey-chip';
+      const actionLabel = mapping.action === 'select'
+        ? 'Select'
+        : mapping.action === 'repeat'
+          ? 'Hold & Repeat'
+          : 'Trigger';
+      chip.title = `Remove ${midiNoteName(mapping.pitch)} · ${actionLabel}`;
+      chip.textContent = `${midiNoteName(mapping.pitch)} · ${actionLabel}  ×`;
+      chip.addEventListener('click', () => send({ type:'unmap_trigger', pitch:mapping.pitch }));
+      list.append(chip);
+    }
+  }
+
+  function renderNoteRows(server, editing) {
+    const notes = server?.selected?.notes ?? [];
+    const noteCount = Number(server?.selected?.noteCount ?? notes.length);
     const container = document.getElementById('note-rows');
-    for (let index = 0; index < MAX_NOTE_ROWS; index += 1) {
+    container.innerHTML = '';
+    notes.forEach((note, index) => {
       const row = document.createElement('div');
-      row.className = 'note-row hidden';
+      row.className = 'note-row';
       const label = document.createElement('span');
       label.textContent = String(index + 1);
       row.append(label);
@@ -398,15 +532,22 @@
           cell.className = 'check-cell';
           const input = document.createElement('input');
           input.type = 'checkbox';
-          input.dataset.field = field.name;
-          input.addEventListener('change', () => send({ type:'edit_note_at', index, field:field.name, value:input.checked }));
+          input.checked = Boolean(note[field.name]);
+          input.disabled = !editing;
+          input.addEventListener('change', () => send({
+            type:'edit_note_at',
+            index,
+            field:field.name,
+            value:input.checked,
+          }));
           cell.append(input);
           row.append(cell);
           continue;
         }
         const input = document.createElement('input');
         input.type = 'number';
-        input.dataset.field = field.name;
+        input.value = note[field.name] == null ? '' : String(note[field.name]);
+        input.disabled = !editing;
         if (field.min !== undefined) input.min = field.min;
         if (field.max !== undefined) input.max = field.max;
         if (field.step !== undefined) input.step = field.step;
@@ -421,25 +562,10 @@
       remove.className = 'remove-btn';
       remove.textContent = '✕';
       remove.title = 'Remove note';
+      remove.disabled = !editing || noteCount <= 1;
       remove.addEventListener('click', () => send({ type:'remove_note', index }));
       row.append(remove);
       container.append(row);
-    }
-  }
-
-  function renderNoteRows(server, editing) {
-    const notes = server?.selected?.notes ?? [];
-    document.querySelectorAll('.note-row').forEach((row, index) => {
-      const note = notes[index];
-      row.classList.toggle('hidden', !note);
-      if (!note) return;
-      for (const field of NOTE_FIELDS) {
-        const input = row.querySelector(`[data-field="${field.name}"]`);
-        input.disabled = !editing;
-        if (field.type === 'checkbox') input.checked = Boolean(note[field.name]);
-        else if (document.activeElement !== input) input.value = note[field.name] == null ? '' : String(note[field.name]);
-      }
-      row.querySelector('.remove-btn').disabled = !editing || notes.length <= 1;
     });
   }
 
@@ -495,6 +621,7 @@
       document.getElementById('edit-state').textContent = '';
       edit.disabled = true; cancel.classList.add('hidden'); save.disabled = true; add.disabled = true;
       renderNoteRows(server, false);
+      renderHotkeys(null);
       return;
     }
 
@@ -509,13 +636,17 @@
         ? 'Built-in · Edit creates a user copy'
         : `${selected.isPersisted ? 'Saved' : 'Not yet saved'} · ${selected.id}`;
     edit.classList.toggle('hidden', editing);
-    edit.disabled = false;
+    edit.disabled = Boolean(server.libraryScanning);
     cancel.classList.toggle('hidden', !editing);
     cancel.disabled = false;
     save.disabled = !editing || !server.libraryLoaded;
     save.title = server.libraryLoaded ? 'Save changes and exit editing' : 'Choose a valid library folder before saving';
-    add.disabled = !editing || selected.notes.length >= MAX_NOTE_ROWS;
+    add.disabled = !editing
+      || Boolean(selected.notesLoading)
+      || selected.noteCount >= (selected.noteLimit ?? MAX_MOTIF_NOTES);
     renderNoteRows(server, editing);
+    renderHotkeys(selected);
+    document.getElementById('import-clip-btn').disabled = Boolean(server.libraryScanning);
   }
 
   function renderPanels(activePanel) {
@@ -533,9 +664,13 @@
     const search = document.getElementById('search');
     if (server && document.activeElement !== search) search.value = server.query ?? '';
     const path = document.getElementById('library-path');
-    path.textContent = server?.libraryPath ? `${server.libraryLoaded ? '' : 'Unavailable · '}${server.libraryPath}` : 'Built-ins only';
+    path.textContent = server?.libraryPath
+      ? `${server.libraryScanning ? 'Scanning · ' : server.libraryLoaded ? '' : 'Unavailable · '}${server.libraryPath}`
+      : 'Built-ins only';
     path.title = server?.libraryPath || 'No user library selected';
-    document.getElementById('refresh-btn').disabled = !server?.libraryPath;
+    const refresh = document.getElementById('refresh-btn');
+    refresh.disabled = !server?.libraryPath || Boolean(server?.libraryScanning);
+    refresh.textContent = server?.libraryScanning ? 'Scanning…' : 'Refresh';
   }
 
   function optionalNumber(id) {
@@ -585,26 +720,105 @@
       items:value.items.filter((item) => item && typeof item.id === 'string' && typeof item.name === 'string'),
       selectedIndex:Number.isInteger(value.selectedIndex) ? value.selectedIndex : -1,
       libraryPath:typeof value.libraryPath === 'string' ? value.libraryPath : '',
+      libraryScanning:Boolean(value.libraryScanning),
     };
+  }
+
+  function receiveNoteChunk(payload) {
+    const current = store.getState();
+    const selected = current.server?.selected;
+    const transferId = Number(payload.transferId);
+    const offset = Number(payload.offset);
+    const total = Number(payload.total);
+    if (
+      !selected
+      || selected.id !== payload.motifId
+      || selected.noteTransferId !== transferId
+      || !Number.isInteger(offset)
+      || !Number.isInteger(total)
+      || total < 0
+      || total > MAX_MOTIF_NOTES
+      || !Array.isArray(payload.notes)
+    ) return;
+
+    if (
+      !pendingNoteTransfer
+      || pendingNoteTransfer.id !== transferId
+      || pendingNoteTransfer.motifId !== payload.motifId
+    ) {
+      pendingNoteTransfer = {
+        id:transferId,
+        motifId:payload.motifId,
+        total,
+        notes:new Array(total),
+        received:new Set(),
+      };
+    }
+
+    payload.notes.forEach((note, index) => {
+      const noteIndex = offset + index;
+      if (noteIndex < 0 || noteIndex >= total || !note) return;
+      pendingNoteTransfer.notes[noteIndex] = note;
+      pendingNoteTransfer.received.add(noteIndex);
+    });
+    if (pendingNoteTransfer.received.size !== total) return;
+
+    const notes = pendingNoteTransfer.notes;
+    pendingNoteTransfer = null;
+    store.setState({
+      server:{
+        ...current.server,
+        selected:{ ...selected, notes, notesLoading:false },
+      },
+    });
   }
 
   function receiveData(...values) {
     const encoded = values[values.length - 1];
     try {
-      const server = normalizeServerState(JSON.parse(decodeURIComponent(String(encoded))));
+      const payload = JSON.parse(decodeURIComponent(String(encoded)));
+      if (payload?.kind === 'note-chunk') {
+        receiveNoteChunk(payload);
+        payloadErrorSignature = '';
+        return;
+      }
+      const server = normalizeServerState(payload);
       const previous = store.getState();
       const selectedChanged = previous.server?.selected?.id !== server.selected?.id;
       const editingEnded = previous.server?.editing?.active && !server.editing.active;
+      pendingNoteTransfer = null;
       store.setState({ server, formDirty:selectedChanged || editingEnded ? false : previous.formDirty });
+      if (server.alert?.id && server.alert.id !== previous.server?.alert?.id) {
+        openModal({
+          title:server.alert.title || 'Import warning',
+          message:server.alert.message || 'The MIDI clip could not be imported.',
+          confirmLabel:'OK',
+          dismissOnly:true,
+        });
+      }
+      payloadErrorSignature = '';
       if (stateDeadline !== null) { clearTimeout(stateDeadline); stateDeadline = null; }
       debug('ok', `State: ${server.items.length} motifs${server.libraryPath ? ` · ${server.libraryPath}` : ''}`);
     } catch (reason) {
-      debug('error', `Bad library payload: ${errorText(reason)}`);
+      const detail = errorText(reason);
+      if (detail === payloadErrorSignature) return;
+      payloadErrorSignature = detail;
+      if (/Unterminated string|Unexpected end of JSON|unterminated/i.test(detail)) {
+        const message = 'The selected MIDI clip contains more note data than the Library can display. Shorten the clip or split it into smaller phrases, then import it again.';
+        debug('error', `MIDI file is too long: ${message}`);
+        openModal({
+          title:'MIDI file is too long',
+          message,
+          confirmLabel:'OK',
+          dismissOnly:true,
+        });
+      } else {
+        debug('error', `Library data could not be displayed: ${detail}`);
+      }
     }
   }
 
   store.subscribe(render);
-  buildNoteRows();
   render(store.getState());
 
   document.querySelectorAll('.panel-tab').forEach((tab) => tab.addEventListener('click', () => store.setState({ activePanel:tab.dataset.panel })));
@@ -628,6 +842,28 @@
   ));
   document.getElementById('save-motif-btn').addEventListener('click', () => send({ type:'save_motif', properties:readProperties() }));
   document.getElementById('add-note-btn').addEventListener('click', () => send({ type:'add_note' }));
+  document.getElementById('assign-hotkey-btn').addEventListener('click', () => {
+    const selected = store.getState().server?.selected;
+    const input = document.getElementById('hotkey-input');
+    const pitch = parseMidiNoteName(input.value);
+    if (!selected || pitch === null) {
+      debug('error', 'Hot key must be a note name from C-2 through G8, such as C3');
+      return;
+    }
+    input.value = midiNoteName(pitch);
+    send({
+      type:'map_trigger',
+      pitch,
+      motifId:selected.id,
+      action:document.getElementById('hotkey-action').value,
+    });
+  });
+  document.getElementById('hotkey-input').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      document.getElementById('assign-hotkey-btn').click();
+    }
+  });
 
   for (const id of PROPERTY_INPUT_IDS) {
     const input = document.getElementById(id);
@@ -658,7 +894,7 @@
     }
   } else {
     receiveData(encodeURIComponent(JSON.stringify({
-      query:'', libraryPath:'/Users/example/Motifs', libraryLoaded:true,
+      query:'', libraryPath:'/Users/example/Motifs', libraryLoaded:true, libraryScanning:false, scanProgress:null,
       editing:{ active:false, dirty:false, created:false, sourceId:null, targetId:null },
       items:[
         { id:'chromatic-turn', name:'Chromatic Turn', showId:false },

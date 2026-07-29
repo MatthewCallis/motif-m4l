@@ -8,7 +8,7 @@ A scale-aware MIDI phrase trigger written in TypeScript. Ableton Live Song state
 - Fail-open native MIDI routing: raw MIDI passes while the engine starts, then `midiselect` extracts notes while preserving unrelated MIDI bytes.
 - Compact 475 × 169 Presentation Mode UI with Motif/Settings tabs, Ableton Sans, and Live theme colors.
 - Native `jsui` phrase contour preview plus exact note names beside the current root/scale, with a device-local BPM multiplier.
-- Floating Library window: searchable browser, Live clip import, per-note editor, Save, plus description/stats/tags and library Choose/Refresh.
+- Floating Library window: recursively grouped/searchable folders, MIDI hot-key assignments, Live clip import, per-note editor, Save, plus description/stats/tags and library Choose/Refresh.
 - Clue-window annotations and locked-patcher hints on every interactive control.
 - Content-addressed runtime filenames so Max cannot silently reuse an older frozen JavaScript dependency.
 
@@ -53,6 +53,17 @@ motif-preview-<content-hash>.js
 - After `Ready`, `midiselect @ch all @note all` extracts notes for motif processing.
 - The eighth `midiselect` outlet passes controllers, bend, pressure, program changes, and other unselected raw MIDI directly to `midiout`.
 - The default `non-triggers` policy consumes notes inside the trigger zone and passes notes outside it.
+- Library MIDI hot keys map individual trigger notes to specific motifs. A mapped note remains a trigger even when it is outside the global trigger zone.
+
+## User library
+
+- Choose a root library folder from the floating Library window. Every `.json` motif beneath it is discovered recursively in bounded background batches so large folder trees do not lock the Max UI.
+- Relative folders are shown as browser groups and are searchable (for example, searching `Bass/Fills` finds motifs in that folder).
+- Folder groups can be collapsed to keep large libraries compact; active searches temporarily expand matching groups.
+- Editing an existing motif saves it back to its original subfolder. New motifs are saved at the chosen library root.
+- Motif ids must remain unique across the entire folder tree; duplicate ids are skipped with an error naming the conflicting relative path.
+- MIDI hot keys are entered and displayed as Ableton-style note names such as `C3`, `F♯2`, or `Bb4` rather than raw MIDI numbers. Each mapping can trigger its motif once, select it for subsequent trigger-zone notes, or use Hold & Repeat to loop it at motif-length boundaries until the assigned key is released.
+- Motifs and Live clip imports support up to 512 editable notes. The Notes panel is one scrollable table; large note lists are transported to jweb in bounded internal chunks and assembled before rendering so they remain editable without exceeding Max’s message capacity. Longer clips receive an actionable warning to shorten or split the phrase.
 
 ## Max JavaScript message boundary
 

@@ -339,6 +339,25 @@ var MotifEngine = (() => {
     const octave = Math.floor(pitch / 12) - 2;
     return `${names[pitch % 12] ?? "C"}${octave}`;
   }
+  function parseMidiNoteName(value) {
+    const match = value.trim().match(/^([A-Ga-g])([#♯b♭]?)(-2|-1|[0-8])$/);
+    if (!match) return void 0;
+    const pitchClasses = {
+      C: 0,
+      D: 2,
+      E: 4,
+      F: 5,
+      G: 7,
+      A: 9,
+      B: 11
+    };
+    const letter = match[1]?.toUpperCase() ?? "";
+    const accidental = match[2];
+    const octave = Number(match[3]);
+    const offset = accidental === "#" || accidental === "\u266F" ? 1 : accidental === "b" || accidental === "\u266D" ? -1 : 0;
+    const pitch = (octave + 2) * 12 + (pitchClasses[letter] ?? 0) + offset;
+    return pitch >= 0 && pitch <= 127 ? pitch : void 0;
+  }
   function buildMotifPreview(motif2, host, triggerPitch, pitchModeOverride2, meterMode2, maxNotes = 64) {
     const effectivePitchMode = pitchModeOverride2 ?? motif2.pitchMode;
     const sourceBarTicks = barLengthTicks(motif2.sourceMeter);
@@ -1002,6 +1021,9 @@ var MotifEngine = (() => {
   var activeTriggers = /* @__PURE__ */ new Set();
   var sustainedReleases = /* @__PURE__ */ new Set();
   var DEFAULT_MOTIF_ID = "scale-turn";
+  var LIBRARY_SCAN_BATCH_SIZE = 32;
+  var MAX_LIBRARY_DEPTH = 32;
+  var MIN_REPEAT_DELAY_MS = 1;
   var currentMotifId = DEFAULT_MOTIF_ID;
   var pitchModeOverride;
   var meterMode = "preserve";
@@ -1020,6 +1042,13 @@ var MotifEngine = (() => {
   var previewWasTriggered = false;
   var tempoMultiplier = 1;
   var browserQuery = "";
+  var libraryScanning = false;
+  var libraryScanGeneration = 0;
+  var libraryScanState;
+  var libraryScanTask;
+  var libraryAlert;
+  var libraryAlertCounter = 0;
+  var libraryNoteTransferCounter = 0;
   var TEMPO_MULTIPLIERS = [0.5, 1, 1.5, 2];
   var NOTE_EDIT_FIELDS = [
     "pitch",
@@ -1033,7 +1062,8 @@ var MotifEngine = (() => {
     "legato",
     "tie"
   ];
-  var MAX_NOTE_ROWS = 16;
+  var MAX_MOTIF_NOTES = 512;
+  var LIBRARY_NOTE_CHUNK_SIZE = 32;
   var hostContext = {
     tempo: 120,
     rootNote: 0,
@@ -1044,6 +1074,8 @@ var MotifEngine = (() => {
     isPlaying: false,
     currentSongTime: 0
   };
+  var heldRepeats = /* @__PURE__ */ new Map();
+  var sustainedRepeatReleases = /* @__PURE__ */ new Set();
   function effectiveHost() {
     return {
       ...hostContext,
@@ -1086,14 +1118,59 @@ var MotifEngine = (() => {
   function formatNumber(value) {
     return Number.isInteger(value) ? String(value) : value.toFixed(1).replace(/\.0$/, "");
   }
+  function motifBrowserFolder(id) {
+    if (store.isBuiltin(id)) return "Built-ins";
+    const filename = userLibraryFiles.get(id);
+    if (!filename || !userLibraryPath) return "Library";
+    const root = userLibraryPath.replace(/\\/g, "/").replace(/\/+$/, "");
+    const normalized = filename.replace(/\\/g, "/");
+    const prefix = `${root}/`;
+    if (!normalized.toLowerCase().startsWith(prefix.toLowerCase())) return "Library";
+    const relative = normalized.slice(prefix.length);
+    const separator = relative.lastIndexOf("/");
+    return separator < 0 ? "Library" : relative.slice(0, separator);
+  }
+  function motifHotkeys(id) {
+    return [...triggerMap].filter(([, mapping]) => mapping.motifId === id).map(([pitch, mapping]) => ({ pitch, action: mapping.action })).sort((left, right) => left.pitch - right.pitch);
+  }
+  function libraryNoteData(note2) {
+    return {
+      pitch: note2.pitch,
+      accidental: note2.accidental ?? null,
+      at: note2.at,
+      duration: note2.duration,
+      gate: note2.gate ?? null,
+      velocity: note2.velocity ?? null,
+      velocityOffset: note2.velocityOffset ?? null,
+      velocityScale: note2.velocityScale ?? null,
+      legato: note2.legato ?? false,
+      tie: note2.tie ?? false
+    };
+  }
   function emitLibraryState() {
-    const items = store.filter(browserQuery);
+    const normalizedQuery = browserQuery.trim().toLowerCase();
+    const matchedIds = new Set(store.filter(browserQuery).map((item) => item.id));
+    const items = store.list().filter(
+      (item) => !normalizedQuery || matchedIds.has(item.id) || motifBrowserFolder(item.id).toLowerCase().includes(normalizedQuery)
+    ).sort(
+      (left, right) => motifBrowserFolder(left.id).localeCompare(motifBrowserFolder(right.id)) || left.name.localeCompare(right.name) || left.id.localeCompare(right.id)
+    );
     const selected = currentMotif();
     const selectedIndex = selected ? items.findIndex((item) => item.id === selected.id) : -1;
     const nameCounts = /* @__PURE__ */ new Map();
     for (const item of items) nameCounts.set(item.name, (nameCounts.get(item.name) ?? 0) + 1);
     let selectedData = null;
+    let noteTransfer;
     if (selected) {
+      const notes = selected.notes.map(libraryNoteData);
+      if (notes.length > LIBRARY_NOTE_CHUNK_SIZE) {
+        libraryNoteTransferCounter += 1;
+        noteTransfer = {
+          id: libraryNoteTransferCounter,
+          motifId: selected.id,
+          notes
+        };
+      }
       const preview = buildMotifPreview(selected, effectiveHost(), previewTriggerPitch, pitchModeOverride, meterMode);
       const sourceMeter = `${selected.sourceMeter.numerator}/${selected.sourceMeter.denominator}`;
       const tags = selected.metadata?.tags?.join(" \xB7 ") ?? "custom motif";
@@ -1129,18 +1206,13 @@ var MotifEngine = (() => {
         tags: tagLine,
         isBuiltin: store.isBuiltin(selected.id),
         isPersisted: userLibraryFiles.has(selected.id),
-        notes: selected.notes.map((n) => ({
-          pitch: n.pitch,
-          accidental: n.accidental ?? null,
-          at: n.at,
-          duration: n.duration,
-          gate: n.gate ?? null,
-          velocity: n.velocity ?? null,
-          velocityOffset: n.velocityOffset ?? null,
-          velocityScale: n.velocityScale ?? null,
-          legato: n.legato ?? false,
-          tie: n.tie ?? false
-        }))
+        folder: motifBrowserFolder(selected.id),
+        hotkeys: motifHotkeys(selected.id),
+        noteCount: selected.notes.length,
+        noteLimit: MAX_MOTIF_NOTES,
+        noteTransferId: noteTransfer?.id ?? null,
+        notesLoading: Boolean(noteTransfer),
+        notes: noteTransfer ? [] : notes
       };
     }
     const state = {
@@ -1148,15 +1220,41 @@ var MotifEngine = (() => {
       items: items.map((item) => ({
         id: item.id,
         name: item.name,
-        showId: (nameCounts.get(item.name) ?? 0) > 1
+        showId: (nameCounts.get(item.name) ?? 0) > 1,
+        folder: motifBrowserFolder(item.id),
+        hotkeys: motifHotkeys(item.id)
       })),
       selectedIndex,
       selected: selectedData,
       editing: editor.snapshot(),
       libraryPath: userLibraryPath,
-      libraryLoaded: userLibraryLoaded
+      libraryLoaded: userLibraryLoaded,
+      libraryScanning,
+      alert: libraryAlert ?? null,
+      scanProgress: libraryScanState ? {
+        processedEntries: libraryScanState.processedEntries,
+        loadedMotifs: libraryScanState.loadedMotifs
+      } : null
     };
     emit("ui", "lib", encodeURIComponent(JSON.stringify(state)));
+    if (noteTransfer) {
+      for (let offset = 0; offset < noteTransfer.notes.length; offset += LIBRARY_NOTE_CHUNK_SIZE) {
+        emit("ui", "lib", encodeURIComponent(JSON.stringify({
+          kind: "note-chunk",
+          transferId: noteTransfer.id,
+          motifId: noteTransfer.motifId,
+          offset,
+          total: noteTransfer.notes.length,
+          notes: noteTransfer.notes.slice(offset, offset + LIBRARY_NOTE_CHUNK_SIZE)
+        })));
+      }
+    }
+  }
+  function emitLibraryAlert(title, message) {
+    libraryAlertCounter += 1;
+    libraryAlert = { id: libraryAlertCounter, title, message };
+    emitError(message);
+    emitLibraryState();
   }
   function emitPreviewState() {
     const selected = currentMotif();
@@ -1257,7 +1355,10 @@ var MotifEngine = (() => {
       case "is_playing": {
         const wasPlaying = hostContext.isPlaying;
         hostContext.isPlaying = (numeric[0] ?? 0) !== 0;
-        if (wasPlaying && !hostContext.isPlaying) clearScheduledNotes();
+        if (wasPlaying && !hostContext.isPlaying) {
+          stopAllHeldRepeats();
+          clearScheduledNotes();
+        }
         break;
       }
       case "current_song_time": {
@@ -1314,7 +1415,7 @@ var MotifEngine = (() => {
     }
   }
   function library_prepare() {
-    const temporaryPath = `Tempfolder:/${"uttori-motif-library-54a944d70130.html"}`;
+    const temporaryPath = `Tempfolder:/${"uttori-motif-library-8bc6fd09e8b5.html"}`;
     let output;
     try {
       output = new File(temporaryPath, "write");
@@ -1350,12 +1451,16 @@ var MotifEngine = (() => {
     #search { flex:1; min-width:0; background:var(--input); border:1px solid var(--border); color:var(--text); padding:3px 6px; outline:none; }
     #clear-search { background:none; border:0; color:var(--muted); cursor:pointer; font-size:13px; padding:0 2px; }
     #browser-list { flex:1; overflow-y:auto; border-top:1px solid var(--border); }
-    .browser-item { padding:5px 8px; cursor:pointer; border-bottom:1px solid transparent; }
+    .browser-folder { position:sticky; top:0; z-index:1; width:100%; padding:4px 8px 3px; background:var(--surface2); border:0; border-bottom:1px solid var(--border); color:var(--muted); cursor:pointer; font-size:9px; font-weight:600; text-align:left; text-transform:uppercase; letter-spacing:.05em; }
+    .browser-folder:hover { background:var(--btn); color:var(--text); }
+    .browser-item { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 5px; padding:5px 8px; cursor:pointer; border-bottom:1px solid transparent; }
     .browser-item:hover { background:var(--btn); }
     .browser-item.selected { background:var(--accent); color:#000; }
     .browser-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .browser-id { margin-top:1px; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .browser-id { grid-column:1 / -1; margin-top:1px; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hotkey-badge { align-self:center; color:var(--accent); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; }
     .browser-item.selected .browser-id { color:rgba(0,0,0,.62); }
+    .browser-item.selected .hotkey-badge { color:#000; }
     #empty-list { padding:12px 8px; color:var(--muted); text-align:center; }
     #browser-actions { border-top:1px solid var(--border); display:flex; gap:4px; padding:5px; }
     #library-path { padding:0 6px 5px; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -1389,6 +1494,12 @@ var MotifEngine = (() => {
     .property-grid textarea { min-height:38px; resize:vertical; }
     .identity { font:9px ui-monospace,SFMono-Regular,Menlo,monospace; }
     .help { grid-column:2 / 5; color:var(--muted); font-size:9px; line-height:1.25; }
+    #hotkey-controls { display:flex; gap:4px; }
+    #hotkey-input { width:72px; }
+    #hotkey-action { width:112px; }
+    #hotkey-list { display:flex; flex-wrap:wrap; gap:4px; }
+    .hotkey-chip { background:var(--btn); border:1px solid var(--border); color:var(--text); cursor:pointer; padding:2px 5px; }
+    .hotkey-chip:hover { background:var(--danger); border-color:var(--danger); color:#fff; }
     #notes-panel { overflow:auto; }
     #note-table { min-width:780px; display:flex; flex-direction:column; min-height:100%; }
     #note-header, .note-row { display:grid; grid-template-columns:28px 48px 38px 48px 54px 44px 48px 50px 50px 42px 42px 26px; }
@@ -1500,6 +1611,24 @@ var MotifEngine = (() => {
       </div>
 
       <div class="section">
+        <div class="section-title">MIDI Hot Keys</div>
+        <div class="property-grid">
+          <label for="hotkey-input">Trigger note</label>
+          <div class="wide" id="hotkey-controls">
+            <input class="field identity" id="hotkey-input" type="text" value="C1" placeholder="C3" autocomplete="off" spellcheck="false">
+            <select class="field" id="hotkey-action">
+              <option value="trigger">Trigger Motif</option>
+              <option value="select">Select Motif</option>
+              <option value="repeat">Hold &amp; Repeat</option>
+            </select>
+            <button class="btn" id="assign-hotkey-btn">Assign to Motif</button>
+          </div>
+          <label>Assigned</label><div class="wide" id="hotkey-list"></div>
+          <div class="help">Trigger Motif plays once. Select Motif makes it active for later trigger-zone notes. Hold &amp; Repeat loops the motif until the assigned key is released. Enter a note name such as C3, F\u266F2, or Bb4; click an assignment to remove it.</div>
+        </div>
+      </div>
+
+      <div class="section">
         <div class="section-title">Pitch &amp; Timing</div>
         <div class="property-grid">
           <label for="pitch-mode-edit">Pitch mode</label>
@@ -1571,8 +1700,11 @@ var MotifEngine = (() => {
 </div>
 
 <script>
+  /** Diagnostic source label forwarded to the Max console. */
   const PAGE = 'library';
-  const MAX_NOTE_ROWS = 16;
+  /** Maximum number of notes allowed in one motif or Live clip import. */
+  const MAX_MOTIF_NOTES = 512;
+  /** Editable note schema used to generate rows and coerce outgoing field values. */
   const NOTE_FIELDS = [
     { name:'pitch', type:'number', required:true, step:'1' },
     { name:'accidental', type:'number', step:'1' },
@@ -1585,12 +1717,14 @@ var MotifEngine = (() => {
     { name:'legato', type:'checkbox' },
     { name:'tie', type:'checkbox' },
   ];
+  /** Motif property controls that participate in dirty-state and edit-message handling. */
   const PROPERTY_INPUT_IDS = [
     'name-edit','description-edit','pitch-mode-edit','default-gate-edit','meter-numerator-edit',
     'meter-denominator-edit','pickup-ticks-edit','curve-input-min','curve-input-max',
     'curve-output-min','curve-output-max','curve-exponent','author-edit','source-edit',
     'license-edit','tags-edit','suggested-modes-edit',
   ];
+  /** Whether the page is running inside Max's jweb bridge instead of a normal browser. */
   const isMax = typeof window.max !== 'undefined' && typeof window.max.outlet === 'function';
 
   if (!isMax) {
@@ -1618,9 +1752,17 @@ var MotifEngine = (() => {
     };
   }
 
-  const store = createStore({ server:null, modal:null, formDirty:false, activePanel:'properties' });
+  const store = createStore({
+    server:null,
+    modal:null,
+    formDirty:false,
+    activePanel:'properties',
+    collapsedFolders:new Set(),
+  });
   const debugEntries = [];
   let stateDeadline = null;
+  let payloadErrorSignature = '';
+  let pendingNoteTransfer = null;
   const debugIndicator = document.getElementById('debug-indicator');
   const debugSummary = document.getElementById('debug-summary');
   const debugPanel = document.getElementById('debug-panel');
@@ -1673,6 +1815,18 @@ var MotifEngine = (() => {
     document.getElementById('modal-title').textContent = modal.title;
     document.getElementById('modal-message').textContent = modal.message;
     document.getElementById('modal-confirm').textContent = modal.confirmLabel ?? 'Continue';
+    document.getElementById('modal-cancel').classList.toggle('hidden', Boolean(modal.dismissOnly));
+  }
+
+  function isFolderCollapsed(folder, query, collapsedFolders) {
+    return !query && collapsedFolders.has(folder);
+  }
+
+  function toggleCollapsedFolder(folder, collapsedFolders) {
+    const next = new Set(collapsedFolders);
+    if (next.has(folder)) next.delete(folder);
+    else next.add(folder);
+    return next;
   }
 
   function renderBrowser(server) {
@@ -1685,13 +1839,43 @@ var MotifEngine = (() => {
       list.append(empty);
       return;
     }
+    let currentFolder = null;
+    let folderCollapsed = false;
+    const collapsedFolders = store.getState().collapsedFolders;
     for (const item of server.items) {
+      const folder = item.folder || 'Library';
+      if (folder !== currentFolder) {
+        currentFolder = folder;
+        folderCollapsed = isFolderCollapsed(folder, server.query, collapsedFolders);
+        const heading = document.createElement('button');
+        heading.type = 'button';
+        heading.className = 'browser-folder';
+        heading.textContent = \`\${folderCollapsed ? '\u25B8' : '\u25BE'} \${folder}\`;
+        heading.setAttribute('aria-expanded', String(!folderCollapsed));
+        heading.title = \`\${folderCollapsed ? 'Expand' : 'Collapse'} \${folder}\`;
+        heading.addEventListener('click', () => {
+          store.setState({
+            collapsedFolders:toggleCollapsedFolder(folder, store.getState().collapsedFolders),
+          });
+        });
+        list.append(heading);
+      }
+      if (folderCollapsed) continue;
       const el = document.createElement('div');
       el.className = \`browser-item\${server.selected?.id === item.id ? ' selected' : ''}\`;
       const name = document.createElement('div');
       name.className = 'browser-name';
       name.textContent = item.name;
       el.append(name);
+      if (Array.isArray(item.hotkeys) && item.hotkeys.length > 0) {
+        const badge = document.createElement('div');
+        badge.className = 'hotkey-badge';
+        badge.textContent = item.hotkeys.map((mapping) => {
+          const symbol = mapping.action === 'select' ? '\u21A6' : mapping.action === 'repeat' ? '\u21BB' : '\u25B6';
+          return \`\${midiNoteName(mapping.pitch)} \${symbol}\`;
+        }).join(' ');
+        el.append(badge);
+      }
       if (item.showId) {
         const id = document.createElement('div');
         id.className = 'browser-id';
@@ -1707,11 +1891,62 @@ var MotifEngine = (() => {
     }
   }
 
-  function buildNoteRows() {
+  function midiNoteName(pitch) {
+    const names = ['C','C\u266F','D','D\u266F','E','F','F\u266F','G','G\u266F','A','A\u266F','B'];
+    const value = Math.max(0, Math.min(127, Math.round(Number(pitch))));
+    return \`\${names[value % 12]}\${Math.floor(value / 12) - 2}\`;
+  }
+
+  function parseMidiNoteName(noteName) {
+    const match = String(noteName).trim().match(/^([A-Ga-g])([#\u266Fb\u266D]?)(-2|-1|[0-8])$/);
+    if (!match) return null;
+    const pitchClasses = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+    const accidental = match[2] === '#' || match[2] === '\u266F' ? 1 : match[2] === 'b' || match[2] === '\u266D' ? -1 : 0;
+    const pitch = (Number(match[3]) + 2) * 12 + pitchClasses[match[1].toUpperCase()] + accidental;
+    return pitch >= 0 && pitch <= 127 ? pitch : null;
+  }
+
+  function renderHotkeys(selected) {
+    const input = document.getElementById('hotkey-input');
+    const action = document.getElementById('hotkey-action');
+    const assign = document.getElementById('assign-hotkey-btn');
+    const list = document.getElementById('hotkey-list');
+    const mappings = Array.isArray(selected?.hotkeys) ? selected.hotkeys : [];
+    input.disabled = !selected;
+    action.disabled = !selected;
+    assign.disabled = !selected;
+    list.innerHTML = '';
+    if (!selected) return;
+    if (mappings.length === 0) {
+      const empty = document.createElement('span');
+      empty.className = 'help';
+      empty.textContent = 'None';
+      list.append(empty);
+      return;
+    }
+    for (const mapping of mappings) {
+      const chip = document.createElement('button');
+      chip.className = 'hotkey-chip';
+      const actionLabel = mapping.action === 'select'
+        ? 'Select'
+        : mapping.action === 'repeat'
+          ? 'Hold & Repeat'
+          : 'Trigger';
+      chip.title = \`Remove \${midiNoteName(mapping.pitch)} \xB7 \${actionLabel}\`;
+      chip.textContent = \`\${midiNoteName(mapping.pitch)} \xB7 \${actionLabel}  \xD7\`;
+      chip.addEventListener('click', () => send({ type:'unmap_trigger', pitch:mapping.pitch }));
+      list.append(chip);
+    }
+  }
+
+  function renderNoteRows(server, editing) {
+    const notes = server?.selected?.notes ?? [];
+    const noteCount = Number(server?.selected?.noteCount ?? notes.length);
     const container = document.getElementById('note-rows');
-    for (let index = 0; index < MAX_NOTE_ROWS; index += 1) {
+    container.innerHTML = '';
+    notes.forEach((note, index) => {
       const row = document.createElement('div');
-      row.className = 'note-row hidden';
+      row.className = 'note-row';
       const label = document.createElement('span');
       label.textContent = String(index + 1);
       row.append(label);
@@ -1721,15 +1956,22 @@ var MotifEngine = (() => {
           cell.className = 'check-cell';
           const input = document.createElement('input');
           input.type = 'checkbox';
-          input.dataset.field = field.name;
-          input.addEventListener('change', () => send({ type:'edit_note_at', index, field:field.name, value:input.checked }));
+          input.checked = Boolean(note[field.name]);
+          input.disabled = !editing;
+          input.addEventListener('change', () => send({
+            type:'edit_note_at',
+            index,
+            field:field.name,
+            value:input.checked,
+          }));
           cell.append(input);
           row.append(cell);
           continue;
         }
         const input = document.createElement('input');
         input.type = 'number';
-        input.dataset.field = field.name;
+        input.value = note[field.name] == null ? '' : String(note[field.name]);
+        input.disabled = !editing;
         if (field.min !== undefined) input.min = field.min;
         if (field.max !== undefined) input.max = field.max;
         if (field.step !== undefined) input.step = field.step;
@@ -1744,25 +1986,10 @@ var MotifEngine = (() => {
       remove.className = 'remove-btn';
       remove.textContent = '\u2715';
       remove.title = 'Remove note';
+      remove.disabled = !editing || noteCount <= 1;
       remove.addEventListener('click', () => send({ type:'remove_note', index }));
       row.append(remove);
       container.append(row);
-    }
-  }
-
-  function renderNoteRows(server, editing) {
-    const notes = server?.selected?.notes ?? [];
-    document.querySelectorAll('.note-row').forEach((row, index) => {
-      const note = notes[index];
-      row.classList.toggle('hidden', !note);
-      if (!note) return;
-      for (const field of NOTE_FIELDS) {
-        const input = row.querySelector(\`[data-field="\${field.name}"]\`);
-        input.disabled = !editing;
-        if (field.type === 'checkbox') input.checked = Boolean(note[field.name]);
-        else if (document.activeElement !== input) input.value = note[field.name] == null ? '' : String(note[field.name]);
-      }
-      row.querySelector('.remove-btn').disabled = !editing || notes.length <= 1;
     });
   }
 
@@ -1818,6 +2045,7 @@ var MotifEngine = (() => {
       document.getElementById('edit-state').textContent = '';
       edit.disabled = true; cancel.classList.add('hidden'); save.disabled = true; add.disabled = true;
       renderNoteRows(server, false);
+      renderHotkeys(null);
       return;
     }
 
@@ -1832,13 +2060,17 @@ var MotifEngine = (() => {
         ? 'Built-in \xB7 Edit creates a user copy'
         : \`\${selected.isPersisted ? 'Saved' : 'Not yet saved'} \xB7 \${selected.id}\`;
     edit.classList.toggle('hidden', editing);
-    edit.disabled = false;
+    edit.disabled = Boolean(server.libraryScanning);
     cancel.classList.toggle('hidden', !editing);
     cancel.disabled = false;
     save.disabled = !editing || !server.libraryLoaded;
     save.title = server.libraryLoaded ? 'Save changes and exit editing' : 'Choose a valid library folder before saving';
-    add.disabled = !editing || selected.notes.length >= MAX_NOTE_ROWS;
+    add.disabled = !editing
+      || Boolean(selected.notesLoading)
+      || selected.noteCount >= (selected.noteLimit ?? MAX_MOTIF_NOTES);
     renderNoteRows(server, editing);
+    renderHotkeys(selected);
+    document.getElementById('import-clip-btn').disabled = Boolean(server.libraryScanning);
   }
 
   function renderPanels(activePanel) {
@@ -1856,9 +2088,13 @@ var MotifEngine = (() => {
     const search = document.getElementById('search');
     if (server && document.activeElement !== search) search.value = server.query ?? '';
     const path = document.getElementById('library-path');
-    path.textContent = server?.libraryPath ? \`\${server.libraryLoaded ? '' : 'Unavailable \xB7 '}\${server.libraryPath}\` : 'Built-ins only';
+    path.textContent = server?.libraryPath
+      ? \`\${server.libraryScanning ? 'Scanning \xB7 ' : server.libraryLoaded ? '' : 'Unavailable \xB7 '}\${server.libraryPath}\`
+      : 'Built-ins only';
     path.title = server?.libraryPath || 'No user library selected';
-    document.getElementById('refresh-btn').disabled = !server?.libraryPath;
+    const refresh = document.getElementById('refresh-btn');
+    refresh.disabled = !server?.libraryPath || Boolean(server?.libraryScanning);
+    refresh.textContent = server?.libraryScanning ? 'Scanning\u2026' : 'Refresh';
   }
 
   function optionalNumber(id) {
@@ -1908,26 +2144,105 @@ var MotifEngine = (() => {
       items:value.items.filter((item) => item && typeof item.id === 'string' && typeof item.name === 'string'),
       selectedIndex:Number.isInteger(value.selectedIndex) ? value.selectedIndex : -1,
       libraryPath:typeof value.libraryPath === 'string' ? value.libraryPath : '',
+      libraryScanning:Boolean(value.libraryScanning),
     };
+  }
+
+  function receiveNoteChunk(payload) {
+    const current = store.getState();
+    const selected = current.server?.selected;
+    const transferId = Number(payload.transferId);
+    const offset = Number(payload.offset);
+    const total = Number(payload.total);
+    if (
+      !selected
+      || selected.id !== payload.motifId
+      || selected.noteTransferId !== transferId
+      || !Number.isInteger(offset)
+      || !Number.isInteger(total)
+      || total < 0
+      || total > MAX_MOTIF_NOTES
+      || !Array.isArray(payload.notes)
+    ) return;
+
+    if (
+      !pendingNoteTransfer
+      || pendingNoteTransfer.id !== transferId
+      || pendingNoteTransfer.motifId !== payload.motifId
+    ) {
+      pendingNoteTransfer = {
+        id:transferId,
+        motifId:payload.motifId,
+        total,
+        notes:new Array(total),
+        received:new Set(),
+      };
+    }
+
+    payload.notes.forEach((note, index) => {
+      const noteIndex = offset + index;
+      if (noteIndex < 0 || noteIndex >= total || !note) return;
+      pendingNoteTransfer.notes[noteIndex] = note;
+      pendingNoteTransfer.received.add(noteIndex);
+    });
+    if (pendingNoteTransfer.received.size !== total) return;
+
+    const notes = pendingNoteTransfer.notes;
+    pendingNoteTransfer = null;
+    store.setState({
+      server:{
+        ...current.server,
+        selected:{ ...selected, notes, notesLoading:false },
+      },
+    });
   }
 
   function receiveData(...values) {
     const encoded = values[values.length - 1];
     try {
-      const server = normalizeServerState(JSON.parse(decodeURIComponent(String(encoded))));
+      const payload = JSON.parse(decodeURIComponent(String(encoded)));
+      if (payload?.kind === 'note-chunk') {
+        receiveNoteChunk(payload);
+        payloadErrorSignature = '';
+        return;
+      }
+      const server = normalizeServerState(payload);
       const previous = store.getState();
       const selectedChanged = previous.server?.selected?.id !== server.selected?.id;
       const editingEnded = previous.server?.editing?.active && !server.editing.active;
+      pendingNoteTransfer = null;
       store.setState({ server, formDirty:selectedChanged || editingEnded ? false : previous.formDirty });
+      if (server.alert?.id && server.alert.id !== previous.server?.alert?.id) {
+        openModal({
+          title:server.alert.title || 'Import warning',
+          message:server.alert.message || 'The MIDI clip could not be imported.',
+          confirmLabel:'OK',
+          dismissOnly:true,
+        });
+      }
+      payloadErrorSignature = '';
       if (stateDeadline !== null) { clearTimeout(stateDeadline); stateDeadline = null; }
       debug('ok', \`State: \${server.items.length} motifs\${server.libraryPath ? \` \xB7 \${server.libraryPath}\` : ''}\`);
     } catch (reason) {
-      debug('error', \`Bad library payload: \${errorText(reason)}\`);
+      const detail = errorText(reason);
+      if (detail === payloadErrorSignature) return;
+      payloadErrorSignature = detail;
+      if (/Unterminated string|Unexpected end of JSON|unterminated/i.test(detail)) {
+        const message = 'The selected MIDI clip contains more note data than the Library can display. Shorten the clip or split it into smaller phrases, then import it again.';
+        debug('error', \`MIDI file is too long: \${message}\`);
+        openModal({
+          title:'MIDI file is too long',
+          message,
+          confirmLabel:'OK',
+          dismissOnly:true,
+        });
+      } else {
+        debug('error', \`Library data could not be displayed: \${detail}\`);
+      }
     }
   }
 
   store.subscribe(render);
-  buildNoteRows();
   render(store.getState());
 
   document.querySelectorAll('.panel-tab').forEach((tab) => tab.addEventListener('click', () => store.setState({ activePanel:tab.dataset.panel })));
@@ -1951,6 +2266,28 @@ var MotifEngine = (() => {
   ));
   document.getElementById('save-motif-btn').addEventListener('click', () => send({ type:'save_motif', properties:readProperties() }));
   document.getElementById('add-note-btn').addEventListener('click', () => send({ type:'add_note' }));
+  document.getElementById('assign-hotkey-btn').addEventListener('click', () => {
+    const selected = store.getState().server?.selected;
+    const input = document.getElementById('hotkey-input');
+    const pitch = parseMidiNoteName(input.value);
+    if (!selected || pitch === null) {
+      debug('error', 'Hot key must be a note name from C-2 through G8, such as C3');
+      return;
+    }
+    input.value = midiNoteName(pitch);
+    send({
+      type:'map_trigger',
+      pitch,
+      motifId:selected.id,
+      action:document.getElementById('hotkey-action').value,
+    });
+  });
+  document.getElementById('hotkey-input').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      document.getElementById('assign-hotkey-btn').click();
+    }
+  });
 
   for (const id of PROPERTY_INPUT_IDS) {
     const input = document.getElementById(id);
@@ -1981,7 +2318,7 @@ var MotifEngine = (() => {
     }
   } else {
     receiveData(encodeURIComponent(JSON.stringify({
-      query:'', libraryPath:'/Users/example/Motifs', libraryLoaded:true,
+      query:'', libraryPath:'/Users/example/Motifs', libraryLoaded:true, libraryScanning:false, scanProgress:null,
       editing:{ active:false, dirty:false, created:false, sourceId:null, targetId:null },
       items:[
         { id:'chromatic-turn', name:'Chromatic Turn', showId:false },
@@ -2005,7 +2342,7 @@ var MotifEngine = (() => {
 </body>
 </html>
 `);
-      const absolutePath = joinMaxPath(output.foldername, "uttori-motif-library-54a944d70130.html");
+      const absolutePath = joinMaxPath(output.foldername, "uttori-motif-library-8bc6fd09e8b5.html");
       output.close();
       output = void 0;
       const verification = new File(absolutePath, "read");
@@ -2041,12 +2378,16 @@ var MotifEngine = (() => {
     #search { flex:1; min-width:0; background:var(--input); border:1px solid var(--border); color:var(--text); padding:3px 6px; outline:none; }
     #clear-search { background:none; border:0; color:var(--muted); cursor:pointer; font-size:13px; padding:0 2px; }
     #browser-list { flex:1; overflow-y:auto; border-top:1px solid var(--border); }
-    .browser-item { padding:5px 8px; cursor:pointer; border-bottom:1px solid transparent; }
+    .browser-folder { position:sticky; top:0; z-index:1; width:100%; padding:4px 8px 3px; background:var(--surface2); border:0; border-bottom:1px solid var(--border); color:var(--muted); cursor:pointer; font-size:9px; font-weight:600; text-align:left; text-transform:uppercase; letter-spacing:.05em; }
+    .browser-folder:hover { background:var(--btn); color:var(--text); }
+    .browser-item { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:2px 5px; padding:5px 8px; cursor:pointer; border-bottom:1px solid transparent; }
     .browser-item:hover { background:var(--btn); }
     .browser-item.selected { background:var(--accent); color:#000; }
     .browser-name { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-    .browser-id { margin-top:1px; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .browser-id { grid-column:1 / -1; margin-top:1px; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .hotkey-badge { align-self:center; color:var(--accent); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; }
     .browser-item.selected .browser-id { color:rgba(0,0,0,.62); }
+    .browser-item.selected .hotkey-badge { color:#000; }
     #empty-list { padding:12px 8px; color:var(--muted); text-align:center; }
     #browser-actions { border-top:1px solid var(--border); display:flex; gap:4px; padding:5px; }
     #library-path { padding:0 6px 5px; color:var(--muted); font:9px ui-monospace,SFMono-Regular,Menlo,monospace; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
@@ -2080,6 +2421,12 @@ var MotifEngine = (() => {
     .property-grid textarea { min-height:38px; resize:vertical; }
     .identity { font:9px ui-monospace,SFMono-Regular,Menlo,monospace; }
     .help { grid-column:2 / 5; color:var(--muted); font-size:9px; line-height:1.25; }
+    #hotkey-controls { display:flex; gap:4px; }
+    #hotkey-input { width:72px; }
+    #hotkey-action { width:112px; }
+    #hotkey-list { display:flex; flex-wrap:wrap; gap:4px; }
+    .hotkey-chip { background:var(--btn); border:1px solid var(--border); color:var(--text); cursor:pointer; padding:2px 5px; }
+    .hotkey-chip:hover { background:var(--danger); border-color:var(--danger); color:#fff; }
     #notes-panel { overflow:auto; }
     #note-table { min-width:780px; display:flex; flex-direction:column; min-height:100%; }
     #note-header, .note-row { display:grid; grid-template-columns:28px 48px 38px 48px 54px 44px 48px 50px 50px 42px 42px 26px; }
@@ -2191,6 +2538,24 @@ var MotifEngine = (() => {
       </div>
 
       <div class="section">
+        <div class="section-title">MIDI Hot Keys</div>
+        <div class="property-grid">
+          <label for="hotkey-input">Trigger note</label>
+          <div class="wide" id="hotkey-controls">
+            <input class="field identity" id="hotkey-input" type="text" value="C1" placeholder="C3" autocomplete="off" spellcheck="false">
+            <select class="field" id="hotkey-action">
+              <option value="trigger">Trigger Motif</option>
+              <option value="select">Select Motif</option>
+              <option value="repeat">Hold &amp; Repeat</option>
+            </select>
+            <button class="btn" id="assign-hotkey-btn">Assign to Motif</button>
+          </div>
+          <label>Assigned</label><div class="wide" id="hotkey-list"></div>
+          <div class="help">Trigger Motif plays once. Select Motif makes it active for later trigger-zone notes. Hold &amp; Repeat loops the motif until the assigned key is released. Enter a note name such as C3, F\u266F2, or Bb4; click an assignment to remove it.</div>
+        </div>
+      </div>
+
+      <div class="section">
         <div class="section-title">Pitch &amp; Timing</div>
         <div class="property-grid">
           <label for="pitch-mode-edit">Pitch mode</label>
@@ -2262,8 +2627,11 @@ var MotifEngine = (() => {
 </div>
 
 <script>
+  /** Diagnostic source label forwarded to the Max console. */
   const PAGE = 'library';
-  const MAX_NOTE_ROWS = 16;
+  /** Maximum number of notes allowed in one motif or Live clip import. */
+  const MAX_MOTIF_NOTES = 512;
+  /** Editable note schema used to generate rows and coerce outgoing field values. */
   const NOTE_FIELDS = [
     { name:'pitch', type:'number', required:true, step:'1' },
     { name:'accidental', type:'number', step:'1' },
@@ -2276,12 +2644,14 @@ var MotifEngine = (() => {
     { name:'legato', type:'checkbox' },
     { name:'tie', type:'checkbox' },
   ];
+  /** Motif property controls that participate in dirty-state and edit-message handling. */
   const PROPERTY_INPUT_IDS = [
     'name-edit','description-edit','pitch-mode-edit','default-gate-edit','meter-numerator-edit',
     'meter-denominator-edit','pickup-ticks-edit','curve-input-min','curve-input-max',
     'curve-output-min','curve-output-max','curve-exponent','author-edit','source-edit',
     'license-edit','tags-edit','suggested-modes-edit',
   ];
+  /** Whether the page is running inside Max's jweb bridge instead of a normal browser. */
   const isMax = typeof window.max !== 'undefined' && typeof window.max.outlet === 'function';
 
   if (!isMax) {
@@ -2309,9 +2679,17 @@ var MotifEngine = (() => {
     };
   }
 
-  const store = createStore({ server:null, modal:null, formDirty:false, activePanel:'properties' });
+  const store = createStore({
+    server:null,
+    modal:null,
+    formDirty:false,
+    activePanel:'properties',
+    collapsedFolders:new Set(),
+  });
   const debugEntries = [];
   let stateDeadline = null;
+  let payloadErrorSignature = '';
+  let pendingNoteTransfer = null;
   const debugIndicator = document.getElementById('debug-indicator');
   const debugSummary = document.getElementById('debug-summary');
   const debugPanel = document.getElementById('debug-panel');
@@ -2364,6 +2742,18 @@ var MotifEngine = (() => {
     document.getElementById('modal-title').textContent = modal.title;
     document.getElementById('modal-message').textContent = modal.message;
     document.getElementById('modal-confirm').textContent = modal.confirmLabel ?? 'Continue';
+    document.getElementById('modal-cancel').classList.toggle('hidden', Boolean(modal.dismissOnly));
+  }
+
+  function isFolderCollapsed(folder, query, collapsedFolders) {
+    return !query && collapsedFolders.has(folder);
+  }
+
+  function toggleCollapsedFolder(folder, collapsedFolders) {
+    const next = new Set(collapsedFolders);
+    if (next.has(folder)) next.delete(folder);
+    else next.add(folder);
+    return next;
   }
 
   function renderBrowser(server) {
@@ -2376,13 +2766,43 @@ var MotifEngine = (() => {
       list.append(empty);
       return;
     }
+    let currentFolder = null;
+    let folderCollapsed = false;
+    const collapsedFolders = store.getState().collapsedFolders;
     for (const item of server.items) {
+      const folder = item.folder || 'Library';
+      if (folder !== currentFolder) {
+        currentFolder = folder;
+        folderCollapsed = isFolderCollapsed(folder, server.query, collapsedFolders);
+        const heading = document.createElement('button');
+        heading.type = 'button';
+        heading.className = 'browser-folder';
+        heading.textContent = \`\${folderCollapsed ? '\u25B8' : '\u25BE'} \${folder}\`;
+        heading.setAttribute('aria-expanded', String(!folderCollapsed));
+        heading.title = \`\${folderCollapsed ? 'Expand' : 'Collapse'} \${folder}\`;
+        heading.addEventListener('click', () => {
+          store.setState({
+            collapsedFolders:toggleCollapsedFolder(folder, store.getState().collapsedFolders),
+          });
+        });
+        list.append(heading);
+      }
+      if (folderCollapsed) continue;
       const el = document.createElement('div');
       el.className = \`browser-item\${server.selected?.id === item.id ? ' selected' : ''}\`;
       const name = document.createElement('div');
       name.className = 'browser-name';
       name.textContent = item.name;
       el.append(name);
+      if (Array.isArray(item.hotkeys) && item.hotkeys.length > 0) {
+        const badge = document.createElement('div');
+        badge.className = 'hotkey-badge';
+        badge.textContent = item.hotkeys.map((mapping) => {
+          const symbol = mapping.action === 'select' ? '\u21A6' : mapping.action === 'repeat' ? '\u21BB' : '\u25B6';
+          return \`\${midiNoteName(mapping.pitch)} \${symbol}\`;
+        }).join(' ');
+        el.append(badge);
+      }
       if (item.showId) {
         const id = document.createElement('div');
         id.className = 'browser-id';
@@ -2398,11 +2818,62 @@ var MotifEngine = (() => {
     }
   }
 
-  function buildNoteRows() {
+  function midiNoteName(pitch) {
+    const names = ['C','C\u266F','D','D\u266F','E','F','F\u266F','G','G\u266F','A','A\u266F','B'];
+    const value = Math.max(0, Math.min(127, Math.round(Number(pitch))));
+    return \`\${names[value % 12]}\${Math.floor(value / 12) - 2}\`;
+  }
+
+  function parseMidiNoteName(noteName) {
+    const match = String(noteName).trim().match(/^([A-Ga-g])([#\u266Fb\u266D]?)(-2|-1|[0-8])$/);
+    if (!match) return null;
+    const pitchClasses = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
+    const accidental = match[2] === '#' || match[2] === '\u266F' ? 1 : match[2] === 'b' || match[2] === '\u266D' ? -1 : 0;
+    const pitch = (Number(match[3]) + 2) * 12 + pitchClasses[match[1].toUpperCase()] + accidental;
+    return pitch >= 0 && pitch <= 127 ? pitch : null;
+  }
+
+  function renderHotkeys(selected) {
+    const input = document.getElementById('hotkey-input');
+    const action = document.getElementById('hotkey-action');
+    const assign = document.getElementById('assign-hotkey-btn');
+    const list = document.getElementById('hotkey-list');
+    const mappings = Array.isArray(selected?.hotkeys) ? selected.hotkeys : [];
+    input.disabled = !selected;
+    action.disabled = !selected;
+    assign.disabled = !selected;
+    list.innerHTML = '';
+    if (!selected) return;
+    if (mappings.length === 0) {
+      const empty = document.createElement('span');
+      empty.className = 'help';
+      empty.textContent = 'None';
+      list.append(empty);
+      return;
+    }
+    for (const mapping of mappings) {
+      const chip = document.createElement('button');
+      chip.className = 'hotkey-chip';
+      const actionLabel = mapping.action === 'select'
+        ? 'Select'
+        : mapping.action === 'repeat'
+          ? 'Hold & Repeat'
+          : 'Trigger';
+      chip.title = \`Remove \${midiNoteName(mapping.pitch)} \xB7 \${actionLabel}\`;
+      chip.textContent = \`\${midiNoteName(mapping.pitch)} \xB7 \${actionLabel}  \xD7\`;
+      chip.addEventListener('click', () => send({ type:'unmap_trigger', pitch:mapping.pitch }));
+      list.append(chip);
+    }
+  }
+
+  function renderNoteRows(server, editing) {
+    const notes = server?.selected?.notes ?? [];
+    const noteCount = Number(server?.selected?.noteCount ?? notes.length);
     const container = document.getElementById('note-rows');
-    for (let index = 0; index < MAX_NOTE_ROWS; index += 1) {
+    container.innerHTML = '';
+    notes.forEach((note, index) => {
       const row = document.createElement('div');
-      row.className = 'note-row hidden';
+      row.className = 'note-row';
       const label = document.createElement('span');
       label.textContent = String(index + 1);
       row.append(label);
@@ -2412,15 +2883,22 @@ var MotifEngine = (() => {
           cell.className = 'check-cell';
           const input = document.createElement('input');
           input.type = 'checkbox';
-          input.dataset.field = field.name;
-          input.addEventListener('change', () => send({ type:'edit_note_at', index, field:field.name, value:input.checked }));
+          input.checked = Boolean(note[field.name]);
+          input.disabled = !editing;
+          input.addEventListener('change', () => send({
+            type:'edit_note_at',
+            index,
+            field:field.name,
+            value:input.checked,
+          }));
           cell.append(input);
           row.append(cell);
           continue;
         }
         const input = document.createElement('input');
         input.type = 'number';
-        input.dataset.field = field.name;
+        input.value = note[field.name] == null ? '' : String(note[field.name]);
+        input.disabled = !editing;
         if (field.min !== undefined) input.min = field.min;
         if (field.max !== undefined) input.max = field.max;
         if (field.step !== undefined) input.step = field.step;
@@ -2435,25 +2913,10 @@ var MotifEngine = (() => {
       remove.className = 'remove-btn';
       remove.textContent = '\u2715';
       remove.title = 'Remove note';
+      remove.disabled = !editing || noteCount <= 1;
       remove.addEventListener('click', () => send({ type:'remove_note', index }));
       row.append(remove);
       container.append(row);
-    }
-  }
-
-  function renderNoteRows(server, editing) {
-    const notes = server?.selected?.notes ?? [];
-    document.querySelectorAll('.note-row').forEach((row, index) => {
-      const note = notes[index];
-      row.classList.toggle('hidden', !note);
-      if (!note) return;
-      for (const field of NOTE_FIELDS) {
-        const input = row.querySelector(\`[data-field="\${field.name}"]\`);
-        input.disabled = !editing;
-        if (field.type === 'checkbox') input.checked = Boolean(note[field.name]);
-        else if (document.activeElement !== input) input.value = note[field.name] == null ? '' : String(note[field.name]);
-      }
-      row.querySelector('.remove-btn').disabled = !editing || notes.length <= 1;
     });
   }
 
@@ -2509,6 +2972,7 @@ var MotifEngine = (() => {
       document.getElementById('edit-state').textContent = '';
       edit.disabled = true; cancel.classList.add('hidden'); save.disabled = true; add.disabled = true;
       renderNoteRows(server, false);
+      renderHotkeys(null);
       return;
     }
 
@@ -2523,13 +2987,17 @@ var MotifEngine = (() => {
         ? 'Built-in \xB7 Edit creates a user copy'
         : \`\${selected.isPersisted ? 'Saved' : 'Not yet saved'} \xB7 \${selected.id}\`;
     edit.classList.toggle('hidden', editing);
-    edit.disabled = false;
+    edit.disabled = Boolean(server.libraryScanning);
     cancel.classList.toggle('hidden', !editing);
     cancel.disabled = false;
     save.disabled = !editing || !server.libraryLoaded;
     save.title = server.libraryLoaded ? 'Save changes and exit editing' : 'Choose a valid library folder before saving';
-    add.disabled = !editing || selected.notes.length >= MAX_NOTE_ROWS;
+    add.disabled = !editing
+      || Boolean(selected.notesLoading)
+      || selected.noteCount >= (selected.noteLimit ?? MAX_MOTIF_NOTES);
     renderNoteRows(server, editing);
+    renderHotkeys(selected);
+    document.getElementById('import-clip-btn').disabled = Boolean(server.libraryScanning);
   }
 
   function renderPanels(activePanel) {
@@ -2547,9 +3015,13 @@ var MotifEngine = (() => {
     const search = document.getElementById('search');
     if (server && document.activeElement !== search) search.value = server.query ?? '';
     const path = document.getElementById('library-path');
-    path.textContent = server?.libraryPath ? \`\${server.libraryLoaded ? '' : 'Unavailable \xB7 '}\${server.libraryPath}\` : 'Built-ins only';
+    path.textContent = server?.libraryPath
+      ? \`\${server.libraryScanning ? 'Scanning \xB7 ' : server.libraryLoaded ? '' : 'Unavailable \xB7 '}\${server.libraryPath}\`
+      : 'Built-ins only';
     path.title = server?.libraryPath || 'No user library selected';
-    document.getElementById('refresh-btn').disabled = !server?.libraryPath;
+    const refresh = document.getElementById('refresh-btn');
+    refresh.disabled = !server?.libraryPath || Boolean(server?.libraryScanning);
+    refresh.textContent = server?.libraryScanning ? 'Scanning\u2026' : 'Refresh';
   }
 
   function optionalNumber(id) {
@@ -2599,26 +3071,105 @@ var MotifEngine = (() => {
       items:value.items.filter((item) => item && typeof item.id === 'string' && typeof item.name === 'string'),
       selectedIndex:Number.isInteger(value.selectedIndex) ? value.selectedIndex : -1,
       libraryPath:typeof value.libraryPath === 'string' ? value.libraryPath : '',
+      libraryScanning:Boolean(value.libraryScanning),
     };
+  }
+
+  function receiveNoteChunk(payload) {
+    const current = store.getState();
+    const selected = current.server?.selected;
+    const transferId = Number(payload.transferId);
+    const offset = Number(payload.offset);
+    const total = Number(payload.total);
+    if (
+      !selected
+      || selected.id !== payload.motifId
+      || selected.noteTransferId !== transferId
+      || !Number.isInteger(offset)
+      || !Number.isInteger(total)
+      || total < 0
+      || total > MAX_MOTIF_NOTES
+      || !Array.isArray(payload.notes)
+    ) return;
+
+    if (
+      !pendingNoteTransfer
+      || pendingNoteTransfer.id !== transferId
+      || pendingNoteTransfer.motifId !== payload.motifId
+    ) {
+      pendingNoteTransfer = {
+        id:transferId,
+        motifId:payload.motifId,
+        total,
+        notes:new Array(total),
+        received:new Set(),
+      };
+    }
+
+    payload.notes.forEach((note, index) => {
+      const noteIndex = offset + index;
+      if (noteIndex < 0 || noteIndex >= total || !note) return;
+      pendingNoteTransfer.notes[noteIndex] = note;
+      pendingNoteTransfer.received.add(noteIndex);
+    });
+    if (pendingNoteTransfer.received.size !== total) return;
+
+    const notes = pendingNoteTransfer.notes;
+    pendingNoteTransfer = null;
+    store.setState({
+      server:{
+        ...current.server,
+        selected:{ ...selected, notes, notesLoading:false },
+      },
+    });
   }
 
   function receiveData(...values) {
     const encoded = values[values.length - 1];
     try {
-      const server = normalizeServerState(JSON.parse(decodeURIComponent(String(encoded))));
+      const payload = JSON.parse(decodeURIComponent(String(encoded)));
+      if (payload?.kind === 'note-chunk') {
+        receiveNoteChunk(payload);
+        payloadErrorSignature = '';
+        return;
+      }
+      const server = normalizeServerState(payload);
       const previous = store.getState();
       const selectedChanged = previous.server?.selected?.id !== server.selected?.id;
       const editingEnded = previous.server?.editing?.active && !server.editing.active;
+      pendingNoteTransfer = null;
       store.setState({ server, formDirty:selectedChanged || editingEnded ? false : previous.formDirty });
+      if (server.alert?.id && server.alert.id !== previous.server?.alert?.id) {
+        openModal({
+          title:server.alert.title || 'Import warning',
+          message:server.alert.message || 'The MIDI clip could not be imported.',
+          confirmLabel:'OK',
+          dismissOnly:true,
+        });
+      }
+      payloadErrorSignature = '';
       if (stateDeadline !== null) { clearTimeout(stateDeadline); stateDeadline = null; }
       debug('ok', \`State: \${server.items.length} motifs\${server.libraryPath ? \` \xB7 \${server.libraryPath}\` : ''}\`);
     } catch (reason) {
-      debug('error', \`Bad library payload: \${errorText(reason)}\`);
+      const detail = errorText(reason);
+      if (detail === payloadErrorSignature) return;
+      payloadErrorSignature = detail;
+      if (/Unterminated string|Unexpected end of JSON|unterminated/i.test(detail)) {
+        const message = 'The selected MIDI clip contains more note data than the Library can display. Shorten the clip or split it into smaller phrases, then import it again.';
+        debug('error', \`MIDI file is too long: \${message}\`);
+        openModal({
+          title:'MIDI file is too long',
+          message,
+          confirmLabel:'OK',
+          dismissOnly:true,
+        });
+      } else {
+        debug('error', \`Library data could not be displayed: \${detail}\`);
+      }
     }
   }
 
   store.subscribe(render);
-  buildNoteRows();
   render(store.getState());
 
   document.querySelectorAll('.panel-tab').forEach((tab) => tab.addEventListener('click', () => store.setState({ activePanel:tab.dataset.panel })));
@@ -2642,6 +3193,28 @@ var MotifEngine = (() => {
   ));
   document.getElementById('save-motif-btn').addEventListener('click', () => send({ type:'save_motif', properties:readProperties() }));
   document.getElementById('add-note-btn').addEventListener('click', () => send({ type:'add_note' }));
+  document.getElementById('assign-hotkey-btn').addEventListener('click', () => {
+    const selected = store.getState().server?.selected;
+    const input = document.getElementById('hotkey-input');
+    const pitch = parseMidiNoteName(input.value);
+    if (!selected || pitch === null) {
+      debug('error', 'Hot key must be a note name from C-2 through G8, such as C3');
+      return;
+    }
+    input.value = midiNoteName(pitch);
+    send({
+      type:'map_trigger',
+      pitch,
+      motifId:selected.id,
+      action:document.getElementById('hotkey-action').value,
+    });
+  });
+  document.getElementById('hotkey-input').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') {
+      event.preventDefault();
+      document.getElementById('assign-hotkey-btn').click();
+    }
+  });
 
   for (const id of PROPERTY_INPUT_IDS) {
     const input = document.getElementById(id);
@@ -2672,7 +3245,7 @@ var MotifEngine = (() => {
     }
   } else {
     receiveData(encodeURIComponent(JSON.stringify({
-      query:'', libraryPath:'/Users/example/Motifs', libraryLoaded:true,
+      query:'', libraryPath:'/Users/example/Motifs', libraryLoaded:true, libraryScanning:false, scanProgress:null,
       editing:{ active:false, dirty:false, created:false, sourceId:null, targetId:null },
       items:[
         { id:'chromatic-turn', name:'Chromatic Turn', showId:false },
@@ -2723,6 +3296,18 @@ var MotifEngine = (() => {
     const grid = quantizationTicks(launchQuantization, hostContext.timeSignature);
     return ticksUntilNextBoundary(Math.max(0, hostContext.currentSongTime * PPQ), grid);
   }
+  function effectiveMotifLengthTicks(motif2) {
+    if (meterMode === "preserve") return motif2.length;
+    const targetBar = barLengthTicks(hostContext.timeSignature);
+    const sourceBar = barLengthTicks(motif2.sourceMeter);
+    return motif2.length * (targetBar / sourceBar);
+  }
+  function motifRepeatDelayMilliseconds(motif2) {
+    return Math.max(
+      MIN_REPEAT_DELAY_MS,
+      ticksToMilliseconds(effectiveMotifLengthTicks(motif2), effectiveHost().tempo)
+    );
+  }
   function emitScheduledEvent(pitch, velocity, channel, delayMilliseconds) {
     emit("event", pitch, velocity, channel, Math.max(0, delayMilliseconds));
   }
@@ -2732,8 +3317,9 @@ var MotifEngine = (() => {
   function shouldPassDry(isTrigger) {
     return passThroughPolicy === "all" || passThroughPolicy === "non-triggers" && !isTrigger;
   }
-  function triggerMotif(triggerPitch, triggerVelocity, channel) {
-    const motifId = triggerMap.get(triggerPitch) ?? currentMotifId;
+  function triggerMotif(triggerPitch, triggerVelocity, channel, triggerOptions = {}) {
+    const mapping = triggerMap.get(triggerPitch);
+    const motifId = triggerOptions.motifId ?? (mapping?.action === "trigger" ? mapping.motifId : currentMotifId);
     const selected = resolveMotif(motifId);
     if (!selected) {
       emitError(`Unknown motif: ${motifId}`);
@@ -2749,7 +3335,7 @@ var MotifEngine = (() => {
       meterMode,
       triggerPitch: Math.round(triggerPitch),
       triggerVelocity: Math.round(triggerVelocity),
-      launchOffsetTicks: launchOffsetTicks(),
+      launchOffsetTicks: triggerOptions.launchOffsetTicks ?? launchOffsetTicks(),
       instanceId
     };
     if (pitchModeOverride !== void 0) options.pitchMode = pitchModeOverride;
@@ -2758,6 +3344,60 @@ var MotifEngine = (() => {
     }
     emitStatus("trigger", motifId, triggerPitch, instanceId);
     return instanceId;
+  }
+  function stopHeldRepeat(triggerPitch, emitFeedback = true) {
+    const repeat = heldRepeats.get(triggerPitch);
+    if (!repeat) return;
+    repeat.task.cancel();
+    repeat.task.freepeer();
+    heldRepeats.delete(triggerPitch);
+    sustainedRepeatReleases.delete(triggerPitch);
+    if (emitFeedback) emitStatus("repeat-stopped", repeat.motifId, triggerPitch);
+  }
+  function stopAllHeldRepeats(emitFeedback = false) {
+    for (const pitch of [...heldRepeats.keys()]) stopHeldRepeat(pitch, emitFeedback);
+    sustainedRepeatReleases.clear();
+  }
+  function startHeldRepeat(triggerPitch, triggerVelocity, channel, mapping) {
+    if (heldRepeats.has(triggerPitch)) return;
+    const motif2 = resolveMotif(mapping.motifId);
+    if (!motif2) {
+      emitError(`Unknown motif: ${mapping.motifId}`);
+      return;
+    }
+    const firstLaunchOffset = launchOffsetTicks();
+    const instanceId = triggerMotif(triggerPitch, triggerVelocity, channel, {
+      motifId: motif2.id,
+      launchOffsetTicks: firstLaunchOffset
+    });
+    if (instanceId === void 0) return;
+    let repeat;
+    const task = new Task(() => {
+      if (heldRepeats.get(triggerPitch) !== repeat) return;
+      const repeatedMotif = resolveMotif(repeat.motifId);
+      if (!repeatedMotif) {
+        stopHeldRepeat(triggerPitch);
+        return;
+      }
+      const repeatedInstance = triggerMotif(
+        triggerPitch,
+        repeat.velocity,
+        repeat.channel,
+        { motifId: repeat.motifId, launchOffsetTicks: 0 }
+      );
+      if (repeatedInstance === void 0 || heldRepeats.get(triggerPitch) !== repeat) return;
+      repeat.task.schedule(motifRepeatDelayMilliseconds(repeatedMotif));
+    });
+    repeat = {
+      motifId: motif2.id,
+      velocity: triggerVelocity,
+      channel,
+      task
+    };
+    heldRepeats.set(triggerPitch, repeat);
+    const firstDelay = ticksToMilliseconds(firstLaunchOffset, effectiveHost().tempo) + motifRepeatDelayMilliseconds(motif2);
+    task.schedule(Math.max(MIN_REPEAT_DELAY_MS, firstDelay));
+    emitStatus("repeat-started", motif2.id, triggerPitch);
   }
   function cancelTrigger(triggerPitch) {
     if (!activeTriggers.has(triggerPitch)) return;
@@ -2768,9 +3408,29 @@ var MotifEngine = (() => {
     const pitch = Math.round(clamp(pitchValue, 0, 127));
     const velocity = Math.round(clamp(velocityValue, 0, 127));
     const channel = Math.round(clamp(channelValue, 1, 16));
-    const isTrigger = triggerMap.has(pitch) || pitch >= triggerLow && pitch <= triggerHigh;
+    const mapping = triggerMap.get(pitch);
+    const isTrigger = Boolean(mapping) || heldRepeats.has(pitch) || pitch >= triggerLow && pitch <= triggerHigh;
     if (shouldPassDry(isTrigger)) emitDirectNote(pitch, velocity, channel);
     if (!isTrigger) return;
+    if (mapping?.action === "select") {
+      if (velocity > 0) {
+        select_browser(mapping.motifId);
+        if (currentMotifId === mapping.motifId) {
+          emitStatus("selected", mapping.motifId, pitch);
+        }
+      }
+      return;
+    }
+    if (mapping?.action === "repeat" || heldRepeats.has(pitch)) {
+      if (velocity > 0) {
+        if (mapping?.action === "repeat") startHeldRepeat(pitch, velocity, channel, mapping);
+      } else if (sustainDown) {
+        sustainedRepeatReleases.add(pitch);
+      } else {
+        stopHeldRepeat(pitch);
+      }
+      return;
+    }
     if (velocity > 0) {
       if (triggerMode === "toggle" && activeTriggers.has(pitch)) {
         cancelTrigger(pitch);
@@ -2794,6 +3454,8 @@ var MotifEngine = (() => {
     const wasDown = sustainDown;
     sustainDown = value >= 64;
     if (wasDown && !sustainDown) {
+      for (const pitch of [...sustainedRepeatReleases]) stopHeldRepeat(pitch);
+      sustainedRepeatReleases.clear();
       if (sustainedReleases.size > 0) clearScheduledNotes();
       sustainedReleases.clear();
     }
@@ -2893,24 +3555,60 @@ var MotifEngine = (() => {
     triggerHigh = Math.max(triggerLow, Math.round(clamp(value, 0, 127)));
     emitStatus("trigger-zone", triggerLow, triggerHigh);
   }
-  function map_trigger(pitchValue, motifId) {
-    const pitch = Math.round(clamp(pitchValue, 0, 127));
+  function triggerPitchValue(value) {
+    if (typeof value === "string") {
+      const named = parseMidiNoteName(value);
+      if (named !== void 0) return named;
+      const numeric = Number(value);
+      return Number.isFinite(numeric) ? Math.round(clamp(numeric, 0, 127)) : void 0;
+    }
+    return Number.isFinite(value) ? Math.round(clamp(value, 0, 127)) : void 0;
+  }
+  function map_trigger(pitchValue, motifId, actionValue = "trigger") {
+    const pitch = triggerPitchValue(pitchValue);
+    if (pitch === void 0) {
+      emitError(`Cannot map invalid MIDI note: ${String(pitchValue)}`);
+      return;
+    }
     const selected = resolveMotif(motifId);
     if (!selected) {
       emitError(`Cannot map ${pitch}: unknown motif ${motifId}`);
       return;
     }
-    triggerMap.set(pitch, selected.id);
-    emitStatus("mapped", pitch, motifId);
+    if (actionValue !== "trigger" && actionValue !== "select" && actionValue !== "repeat") {
+      emitError(`Cannot map ${pitch}: unknown hot-key action ${actionValue}`);
+      return;
+    }
+    const action = actionValue;
+    stopHeldRepeat(pitch, false);
+    triggerMap.set(pitch, { motifId: selected.id, action });
+    emitLibraryState();
+    emitStatus("mapped", pitch, selected.id, action);
   }
   function unmap_trigger(pitchValue) {
-    const pitch = Math.round(clamp(pitchValue, 0, 127));
+    const pitch = triggerPitchValue(pitchValue);
+    if (pitch === void 0) {
+      emitError(`Cannot unmap invalid MIDI note: ${String(pitchValue)}`);
+      return;
+    }
+    stopHeldRepeat(pitch, false);
     triggerMap.delete(pitch);
+    emitLibraryState();
     emitStatus("unmapped", pitch);
   }
   function clear_trigger_map() {
+    stopAllHeldRepeats();
     triggerMap.clear();
+    emitLibraryState();
     emitStatus("map-cleared");
+  }
+  function pruneTriggerMap() {
+    for (const [pitch, mapping] of triggerMap) {
+      if (!store.has(mapping.motifId)) {
+        stopHeldRepeat(pitch, false);
+        triggerMap.delete(pitch);
+      }
+    }
   }
   function readJsonFile(filename) {
     const file = new File(filename, "read");
@@ -2960,45 +3658,160 @@ var MotifEngine = (() => {
     }
     return candidate;
   }
-  function loadUserLibrary() {
-    store.resetToBuiltins();
-    userLibraryFiles.clear();
-    occupiedLibraryPaths.clear();
-    userLibraryLoaded = false;
-    if (!userLibraryPath) return false;
-    const folder = new Folder(userLibraryPath);
-    if (!folder.pathname) {
-      folder.close();
-      emitError(`Library folder not found: ${userLibraryPath}`);
-      return false;
-    }
-    while (!folder.end) {
-      const filename = folder.filename;
-      if (filename.toLowerCase().endsWith(".json")) {
-        const separator = folder.pathname.endsWith("/") || folder.pathname.endsWith(":") ? "" : "/";
-        const fullPath = `${folder.pathname}${separator}${filename}`;
-        reserveLibraryPath(fullPath);
-        try {
-          const result = validateMotif(readJsonFile(fullPath));
-          if (!result.valid || !result.motif) {
-            emitError(`${filename}: ${result.errors.join("; ")}`);
-          } else if (store.isBuiltin(result.motif.id)) {
-            emitError(`${filename}: id \u201C${result.motif.id}\u201D conflicts with a built-in and was skipped`);
-          } else if (userLibraryFiles.has(result.motif.id)) {
-            emitError(`${filename}: duplicate motif id \u201C${result.motif.id}\u201D was skipped`);
-          } else {
-            const errors = store.add(result.motif);
-            if (errors.length > 0) emitError(`${filename}: ${errors.join("; ")}`);
-            else userLibraryFiles.set(result.motif.id, fullPath);
-          }
-        } catch (reason) {
-          emitError(`${filename}: ${reason instanceof Error ? reason.message : String(reason)}`);
+  function loadUserMotifFile(fullPath, displayPath, scan) {
+    scan.candidateOccupiedPaths.add(canonicalLibraryPath(fullPath));
+    try {
+      const result = validateMotif(readJsonFile(fullPath));
+      if (!result.valid || !result.motif) {
+        emitError(`${displayPath}: ${result.errors.join("; ")}`);
+      } else if (scan.candidateStore.isBuiltin(result.motif.id)) {
+        emitError(`${displayPath}: id \u201C${result.motif.id}\u201D conflicts with a built-in and was skipped`);
+      } else if (scan.candidateFiles.has(result.motif.id)) {
+        emitError(`${displayPath}: duplicate motif id \u201C${result.motif.id}\u201D was skipped`);
+      } else {
+        const errors = scan.candidateStore.add(result.motif);
+        if (errors.length > 0) emitError(`${displayPath}: ${errors.join("; ")}`);
+        else {
+          scan.candidateFiles.set(result.motif.id, fullPath);
+          scan.loadedMotifs += 1;
         }
       }
-      folder.next();
+    } catch (reason) {
+      emitError(`${displayPath}: ${reason instanceof Error ? reason.message : String(reason)}`);
     }
-    folder.close();
+  }
+  function cancelLibraryScan() {
+    libraryScanGeneration += 1;
+    if (libraryScanTask) {
+      libraryScanTask.cancel();
+      libraryScanTask.freepeer();
+      libraryScanTask = void 0;
+    }
+    if (libraryScanState?.current) {
+      libraryScanState.current.folder.close();
+    }
+    libraryScanState = void 0;
+    libraryScanning = false;
+  }
+  function finishLibraryScan(scan) {
+    if (scan.generation !== libraryScanGeneration || libraryScanState !== scan) return;
+    store.resetToBuiltins();
+    for (const motif2 of scan.candidateStore.list()) {
+      if (!scan.candidateStore.isBuiltin(motif2.id)) store.add(motif2);
+    }
+    userLibraryFiles.clear();
+    for (const [id, filename] of scan.candidateFiles) userLibraryFiles.set(id, filename);
+    occupiedLibraryPaths.clear();
+    for (const filename of scan.candidateOccupiedPaths) occupiedLibraryPaths.add(filename);
+    libraryScanState = void 0;
+    libraryScanning = false;
     userLibraryLoaded = true;
+    if (libraryScanTask) {
+      libraryScanTask.cancel();
+      libraryScanTask.freepeer();
+      libraryScanTask = void 0;
+    }
+    pruneTriggerMap();
+    ensureCurrentMotifId();
+    listMotifs();
+    if (scan.completionStatus === "library") {
+      emitStatus("library", userLibraryPath);
+    } else {
+      emitStatus("library-refreshed", store.list().length);
+    }
+  }
+  function processLibraryScanBatch() {
+    const scan = libraryScanState;
+    if (!scan || scan.generation !== libraryScanGeneration) return;
+    let operations = 0;
+    while (operations < LIBRARY_SCAN_BATCH_SIZE) {
+      if (!scan.current) {
+        const next = scan.pending.shift();
+        if (!next) {
+          finishLibraryScan(scan);
+          return;
+        }
+        const canonical = canonicalLibraryPath(next.pathname).replace(/\/+$/, "");
+        if (scan.visited.has(canonical)) continue;
+        scan.visited.add(canonical);
+        const folder = new Folder(next.pathname);
+        operations += 1;
+        if (!folder.pathname) {
+          folder.close();
+          continue;
+        }
+        scan.current = { ...next, folder };
+      }
+      const active = scan.current;
+      if (active.folder.end) {
+        active.folder.close();
+        scan.current = void 0;
+        continue;
+      }
+      const filename = active.folder.filename;
+      const filetype = active.folder.filetype;
+      if (filename && filename !== "." && filename !== "..") {
+        const fullPath = joinMaxPath(active.folder.pathname, filename);
+        const displayPath = active.relativePath ? `${active.relativePath}/${filename}` : filename;
+        if (filetype === "fold") {
+          if (active.depth < MAX_LIBRARY_DEPTH) {
+            scan.pending.push({
+              pathname: fullPath,
+              relativePath: displayPath,
+              depth: active.depth + 1
+            });
+          } else {
+            emitError(`${displayPath}: maximum library folder depth exceeded`);
+          }
+        } else if (filename.toLowerCase().endsWith(".json")) {
+          loadUserMotifFile(fullPath, displayPath, scan);
+        }
+        scan.processedEntries += 1;
+      }
+      active.folder.next();
+      operations += 1;
+    }
+    if (libraryScanTask && scan.generation === libraryScanGeneration) {
+      libraryScanTask.schedule(0);
+    }
+  }
+  function loadUserLibrary(completionStatus) {
+    cancelLibraryScan();
+    userLibraryLoaded = false;
+    if (!userLibraryPath) return false;
+    const root = new Folder(userLibraryPath);
+    if (!root.pathname) {
+      root.close();
+      store.resetToBuiltins();
+      userLibraryFiles.clear();
+      occupiedLibraryPaths.clear();
+      emitError(`Library folder not found: ${userLibraryPath}`);
+      pruneTriggerMap();
+      ensureCurrentMotifId();
+      listMotifs();
+      emitStatus("library-unavailable", userLibraryPath);
+      return false;
+    }
+    libraryScanGeneration += 1;
+    libraryScanning = true;
+    libraryScanState = {
+      generation: libraryScanGeneration,
+      completionStatus,
+      pending: [],
+      current: { pathname: userLibraryPath, relativePath: "", depth: 0, folder: root },
+      visited: /* @__PURE__ */ new Set([
+        canonicalLibraryPath(userLibraryPath).replace(/\/+$/, "")
+      ]),
+      candidateStore: new MotifStore(),
+      candidateFiles: /* @__PURE__ */ new Map(),
+      candidateOccupiedPaths: /* @__PURE__ */ new Set(),
+      processedEntries: 0,
+      loadedMotifs: 0
+    };
+    emitLibraryState();
+    emitStatus("library-scanning", userLibraryPath);
+    libraryScanTask = new Task(processLibraryScanBatch);
+    libraryScanTask.schedule(0);
     return true;
   }
   function pathFromAtoms(values) {
@@ -3015,16 +3828,13 @@ var MotifEngine = (() => {
       emitLibraryState();
       return;
     }
-    if (nextPath === userLibraryPath && userLibraryLoaded) {
+    if (nextPath === userLibraryPath && (userLibraryLoaded || libraryScanning)) {
       emitLibraryState();
       return;
     }
     editor.abandon();
     userLibraryPath = nextPath;
-    const loaded = loadUserLibrary();
-    if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
-    listMotifs();
-    emitStatus(loaded ? "library" : "library-unavailable", userLibraryPath);
+    loadUserLibrary("library");
   }
   function refresh_library(discardChanges) {
     if (editor.isDirty() && !discardAllowed(discardChanges)) {
@@ -3033,10 +3843,7 @@ var MotifEngine = (() => {
       return;
     }
     editor.abandon();
-    const loaded = loadUserLibrary();
-    if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
-    listMotifs();
-    emitStatus(loaded ? "library-refreshed" : "library-unavailable", store.list().length);
+    loadUserLibrary("library-refreshed");
   }
   function tempo_multiplier(value) {
     const parsed = typeof value === "number" ? value : Number(String(value).replace(/x$/i, ""));
@@ -3145,6 +3952,11 @@ var MotifEngine = (() => {
     return parseClipNotesExtended(payload);
   }
   function import_clip(pitchModeValue = "chromatic") {
+    if (libraryScanning) {
+      emitError("Wait for the library scan to finish before importing a clip");
+      emitLibraryState();
+      return;
+    }
     if (editor.isDirty()) {
       emitError("Save or cancel the current edits before importing a clip");
       emitLibraryState();
@@ -3169,6 +3981,13 @@ var MotifEngine = (() => {
     }
     if (absoluteNotes.length === 0) {
       emitError("Selected clip has no notes");
+      return;
+    }
+    if (absoluteNotes.length > MAX_MOTIF_NOTES) {
+      emitLibraryAlert(
+        "MIDI file is too long",
+        `The selected MIDI clip contains ${absoluteNotes.length} notes. Motif can import up to ${MAX_MOTIF_NOTES} editable notes. Shorten the clip or split it into smaller phrases, then import it again.`
+      );
       return;
     }
     const clipNameRaw = clip.getstring("name");
@@ -3507,6 +4326,11 @@ var MotifEngine = (() => {
     return selected;
   }
   function begin_edit() {
+    if (libraryScanning) {
+      emitError("Wait for the library scan to finish before editing a motif");
+      emitLibraryState();
+      return;
+    }
     if (editor.isEditing(currentMotifId)) {
       emitLibraryState();
       return;
@@ -3529,6 +4353,7 @@ var MotifEngine = (() => {
       return;
     }
     currentMotifId = store.has(restoredId) ? restoredId : store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
+    pruneTriggerMap();
     listMotifs();
     emitStatus("editing-cancelled", currentMotifId);
   }
@@ -3663,8 +4488,8 @@ var MotifEngine = (() => {
   function add_note() {
     const editable = editableMotif();
     if (!editable) return;
-    if (editable.notes.length >= MAX_NOTE_ROWS) {
-      emitError(`Maximum ${MAX_NOTE_ROWS} notes per motif`);
+    if (editable.notes.length >= MAX_MOTIF_NOTES) {
+      emitError(`Maximum ${MAX_MOTIF_NOTES} notes per motif`);
       return;
     }
     const lastAt = editable.notes.at(-1)?.at ?? 0;
@@ -3726,6 +4551,21 @@ var MotifEngine = (() => {
       case "refresh_library":
         refresh_library(action["discardChanges"]);
         break;
+      case "map_trigger":
+        map_trigger(
+          typeof action["pitch"] === "number" ? action["pitch"] : stringAtom(action["pitch"]),
+          stringAtom(action["motifId"]),
+          stringAtom(action["action"], "trigger")
+        );
+        break;
+      case "unmap_trigger":
+        unmap_trigger(
+          typeof action["pitch"] === "number" ? action["pitch"] : stringAtom(action["pitch"])
+        );
+        break;
+      case "clear_trigger_map":
+        clear_trigger_map();
+        break;
       case "begin_edit":
         begin_edit();
         break;
@@ -3749,6 +4589,7 @@ var MotifEngine = (() => {
     }
   }
   function panic() {
+    stopAllHeldRepeats();
     clearScheduledNotes();
     emitStatus("panic");
   }

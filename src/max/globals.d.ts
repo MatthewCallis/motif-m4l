@@ -52,11 +52,22 @@ declare function error(...values: unknown[]): void;
  */
 declare class Folder {
   constructor(pathname: string);
+  readonly count: number;
   readonly end: boolean;
+  readonly extension: string | null;
   readonly pathname: string;
   readonly filename: string;
+  readonly filetype: string | null;
   next(): void;
   close(): void;
+}
+
+/** Schedule non-time-critical work on Max's low-priority thread. */
+declare class Task {
+  constructor(callback: (...args: unknown[]) => void, context?: object, args?: unknown[]);
+  cancel(): void;
+  freepeer(): void;
+  schedule(delay?: number): void;
 }
 
 /**

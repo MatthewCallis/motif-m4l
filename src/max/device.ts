@@ -37,8 +37,13 @@ import {
 } from '../core/import-notes.js';
 import { compileMotif } from '../core/compile-motif.js';
 import { clamp } from '../core/math.js';
-import { buildMotifPreview } from '../core/preview.js';
-import { quantizationTicks, ticksUntilNextBoundary } from '../core/timing.js';
+import { buildMotifPreview, parseMidiNoteName } from '../core/preview.js';
+import {
+  barLengthTicks,
+  quantizationTicks,
+  ticksToMilliseconds,
+  ticksUntilNextBoundary,
+} from '../core/timing.js';
 import {
   PPQ,
   type CompileOptions,
@@ -168,12 +173,19 @@ interface MotifHandlers {
   trigger_high: (value: number) => void;
   /**
    * Map a MIDI pitch to a motif id.
-   * @param {number} pitch The MIDI note number to map.
+   * @param {number | string} pitch The MIDI note number or Ableton-style note name to map.
    * @param {string} motifId The target motif id.
+   * @param {string | undefined} action The `trigger`, `select`, or `repeat` behavior.
    * @returns {void}
    */
-  map_trigger: (pitch: number, motifId: string) => void;
-  unmap_trigger: (pitch: number) => void;
+  map_trigger: (pitch: number | string, motifId: string, action?: string) => void;
+  /**
+   * Remove the assignment for one MIDI pitch.
+   * @param {number | string} pitch The MIDI note number or Ableton-style note name.
+   * @returns {void}
+   */
+  unmap_trigger: (pitch: number | string) => void;
+  /** Remove every MIDI hot-key assignment. */
   clear_trigger_map: () => void;
   /**
    * Set the user library folder and reload its JSON files.
@@ -253,15 +265,130 @@ interface MotifHandlers {
   song_context: (property: string, ...values: unknown[]) => void;
 }
 
+/** Validated built-in and user motifs currently available to performance and authoring flows. */
 const store = new MotifStore();
+/** Transactional edit-session state, including snapshots used to cancel dirty edits safely. */
 const editor = new MotifEditorState();
+/** Absolute JSON filename for each loaded user motif id; built-ins are intentionally absent. */
 const userLibraryFiles = new Map<string, string>();
+/** Case-normalized library paths reserved by valid files and invalid/conflicting JSON entries. */
 const occupiedLibraryPaths = new Set<string>();
-const triggerMap = new Map<number, string>();
+
+/**
+ * Behavior assigned to one MIDI hot key.
+ * - `trigger` plays one motif instance on note-on.
+ * - `select` changes the motif used by subsequent trigger-zone notes.
+ * - `repeat` plays the assigned motif repeatedly until the hot key is released.
+ */
+type HotkeyAction = 'trigger' | 'select' | 'repeat';
+
+/** A MIDI hot key's stable motif target and note-on behavior. */
+interface HotkeyMapping {
+  /** Stable id resolved against {@link store}. */
+  motifId: string;
+  /** Performance behavior applied when the mapped MIDI note is received. */
+  action: HotkeyAction;
+}
+
+/** MIDI pitch to Library-configured motif/action assignment. */
+const triggerMap = new Map<number, HotkeyMapping>();
+/** Trigger pitches retained by the global hold/toggle/latch/release-tail modes. */
 const activeTriggers = new Set<number>();
+/** Global hold-mode releases deferred until the sustain pedal rises. */
 const sustainedReleases = new Set<number>();
 
+/** Directory waiting to be opened by the incremental library scanner. */
+interface PendingLibraryFolder {
+  /** Absolute Max filesystem path. */
+  pathname: string;
+  /** Slash-separated path displayed relative to the chosen library root. */
+  relativePath: string;
+  /** Root-relative recursion depth used to enforce {@link MAX_LIBRARY_DEPTH}. */
+  depth: number;
+}
+
+/** Directory currently open for one bounded scanner batch. */
+interface ActiveLibraryFolder extends PendingLibraryFolder {
+  /** Max Folder iterator, kept open only until this directory is exhausted. */
+  folder: Folder;
+}
+
+/** Mutable candidate library assembled off-screen and committed atomically after scanning. */
+interface LibraryScanState {
+  /** Monotonic token that invalidates callbacks from superseded scans. */
+  generation: number;
+  /** Status selector emitted after the candidate library commits. */
+  completionStatus: 'library' | 'library-refreshed';
+  /** Breadth-first queue of discovered directories. */
+  pending: PendingLibraryFolder[];
+  /** Directory whose entries are being consumed by the current batch. */
+  current: ActiveLibraryFolder | undefined;
+  /** Normalized absolute paths already queued, preventing cycles and duplicate traversal. */
+  visited: Set<string>;
+  /** Isolated motif store that replaces {@link store} only after a successful scan. */
+  candidateStore: MotifStore;
+  /** Candidate equivalent of {@link userLibraryFiles}. */
+  candidateFiles: Map<string, string>;
+  /** Candidate equivalent of {@link occupiedLibraryPaths}. */
+  candidateOccupiedPaths: Set<string>;
+  /** Directory entries examined so far, used by Library scan progress UI. */
+  processedEntries: number;
+  /** Valid user motifs accepted so far, used by Library scan progress UI. */
+  loadedMotifs: number;
+}
+
+/** Structured warning delivered to the Library modal instead of exposing internal parser errors. */
+interface LibraryAlert {
+  /** Monotonic identity that lets the page display each warning once. */
+  id: number;
+  /** Short dialog heading. */
+  title: string;
+  /** Actionable user-facing details. */
+  message: string;
+}
+
+/** Compact note record transported to the HTML editor. */
+interface LibraryNoteData {
+  pitch: number;
+  accidental: number | null;
+  at: number;
+  duration: number;
+  gate: number | null;
+  velocity: number | null;
+  velocityOffset: number | null;
+  velocityScale: number | null;
+  legato: boolean;
+  tie: boolean;
+}
+
+/** One active Hold & Repeat assignment and the Max task that launches its next cycle. */
+interface HeldRepeat {
+  /** Stable motif id captured when the key was pressed. */
+  motifId: string;
+  /** Original note-on velocity reused for every repeated cycle. */
+  velocity: number;
+  /** Original one-based MIDI channel reused for every repeated cycle. */
+  channel: number;
+  /** Low-priority Max task scheduled at the next motif boundary. */
+  task: Task;
+}
+
+/** Optional overrides used when a repeat cycle launches an already-resolved motif. */
+interface TriggerMotifOptions {
+  /** Stable motif id to play instead of resolving the current hot-key/default selection. */
+  motifId?: string;
+  /** Explicit launch delay; repeat cycles use zero after the quantized first launch. */
+  launchOffsetTicks?: number;
+}
+
+/** Built-in selected on first load and whenever the active user motif disappears. */
 const DEFAULT_MOTIF_ID = 'scale-turn';
+/** Maximum filesystem entries processed before yielding back to Max's UI thread. */
+const LIBRARY_SCAN_BATCH_SIZE = 32;
+/** Maximum nested folder levels traversed below the chosen user-library root. */
+const MAX_LIBRARY_DEPTH = 32;
+/** Smallest legal repeat-task delay, preventing malformed zero-length motifs from busy-looping. */
+const MIN_REPEAT_DELAY_MS = 1;
 
 let currentMotifId = DEFAULT_MOTIF_ID;
 let pitchModeOverride: PitchMode | undefined;
@@ -281,8 +408,18 @@ let previewTriggerPitch = 60;
 let previewWasTriggered = false;
 let tempoMultiplier = 1;
 let browserQuery = '';
+let libraryScanning = false;
+let libraryScanGeneration = 0;
+let libraryScanState: LibraryScanState | undefined;
+let libraryScanTask: Task | undefined;
+let libraryAlert: LibraryAlert | undefined;
+let libraryAlertCounter = 0;
+/** Monotonic identity used to discard stale note chunks in the Library page. */
+let libraryNoteTransferCounter = 0;
 
+/** Device-local tempo ratios exposed by the Settings menu. */
 const TEMPO_MULTIPLIERS = [0.5, 1, 1.5, 2] as const;
+/** Motif-note properties accepted by the indexed `edit_note_at` message. */
 const NOTE_EDIT_FIELDS = [
   'pitch',
   'accidental',
@@ -295,9 +432,13 @@ const NOTE_EDIT_FIELDS = [
   'legato',
   'tie',
 ] as const;
-const MAX_NOTE_ROWS = 16;
+/** Maximum number of notes stored, imported, or manually authored in one motif. */
+const MAX_MOTIF_NOTES = 512;
+/** Notes included in one Max → jweb transport message before client-side assembly. */
+const LIBRARY_NOTE_CHUNK_SIZE = 32;
 type NoteEditField = (typeof NOTE_EDIT_FIELDS)[number];
 
+/** Latest Live Song context mirrored by native observers in the Max patch. */
 const hostContext: HostContext = {
   tempo: 120,
   rootNote: 0,
@@ -308,6 +449,11 @@ const hostContext: HostContext = {
   isPlaying: false,
   currentSongTime: 0,
 };
+
+/** Active Hold & Repeat task for each currently held mapped MIDI pitch. */
+const heldRepeats = new Map<number, HeldRepeat>();
+/** Hold & Repeat key releases deferred while the sustain pedal remains down. */
+const sustainedRepeatReleases = new Set<number>();
 
 /**
  * Build the host context with the device-local tempo multiplier applied.
@@ -398,18 +544,96 @@ function formatNumber(value: number): string {
 }
 
 /**
+ * Get the relative browser folder for a motif.
+ * @param {string} id The motif id.
+ * @returns {string} `Built-ins`, `Library`, or a slash-separated relative folder.
+ */
+function motifBrowserFolder(id: string): string {
+  if (store.isBuiltin(id)) return 'Built-ins';
+  const filename = userLibraryFiles.get(id);
+  if (!filename || !userLibraryPath) return 'Library';
+
+  const root = userLibraryPath.replace(/\\/g, '/').replace(/\/+$/, '');
+  const normalized = filename.replace(/\\/g, '/');
+  const prefix = `${root}/`;
+  if (!normalized.toLowerCase().startsWith(prefix.toLowerCase())) return 'Library';
+
+  const relative = normalized.slice(prefix.length);
+  const separator = relative.lastIndexOf('/');
+  return separator < 0 ? 'Library' : relative.slice(0, separator);
+}
+
+/**
+ * List the MIDI hot keys assigned to a motif.
+ * @param {string} id The motif id.
+ * @returns {Array<{ pitch: number; action: HotkeyAction }>} Sorted MIDI mappings.
+ */
+function motifHotkeys(id: string): Array<{ pitch: number; action: HotkeyAction }> {
+  return [...triggerMap]
+    .filter(([, mapping]) => mapping.motifId === id)
+    .map(([pitch, mapping]) => ({ pitch, action: mapping.action }))
+    .sort((left, right) => left.pitch - right.pitch);
+}
+
+/**
+ * Serialize one motif note for the Library editor.
+ * @param {MotifNote} note The stored motif note.
+ * @returns {LibraryNoteData} A complete form-friendly note record.
+ */
+function libraryNoteData(note: MotifNote): LibraryNoteData {
+  return {
+    pitch: note.pitch,
+    accidental: note.accidental ?? null,
+    at: note.at,
+    duration: note.duration,
+    gate: note.gate ?? null,
+    velocity: note.velocity ?? null,
+    velocityOffset: note.velocityOffset ?? null,
+    velocityScale: note.velocityScale ?? null,
+    legato: note.legato ?? false,
+    tie: note.tie ?? false,
+  };
+}
+
+/**
  * Emit the library state through the device's single Max outlet.
  * @returns {void}
  */
 function emitLibraryState(): void {
-  const items = store.filter(browserQuery);
+  const normalizedQuery = browserQuery.trim().toLowerCase();
+  const matchedIds = new Set(store.filter(browserQuery).map((item) => item.id));
+  const items = store.list()
+    .filter((item) =>
+      !normalizedQuery
+      || matchedIds.has(item.id)
+      || motifBrowserFolder(item.id).toLowerCase().includes(normalizedQuery),
+    )
+    .sort((left, right) =>
+      motifBrowserFolder(left.id).localeCompare(motifBrowserFolder(right.id))
+      || left.name.localeCompare(right.name)
+      || left.id.localeCompare(right.id),
+    );
   const selected = currentMotif();
   const selectedIndex = selected ? items.findIndex((item) => item.id === selected.id) : -1;
   const nameCounts = new Map<string, number>();
   for (const item of items) nameCounts.set(item.name, (nameCounts.get(item.name) ?? 0) + 1);
 
   let selectedData: object | null = null;
+  let noteTransfer: {
+    id: number;
+    motifId: string;
+    notes: LibraryNoteData[];
+  } | undefined;
   if (selected) {
+    const notes = selected.notes.map(libraryNoteData);
+    if (notes.length > LIBRARY_NOTE_CHUNK_SIZE) {
+      libraryNoteTransferCounter += 1;
+      noteTransfer = {
+        id: libraryNoteTransferCounter,
+        motifId: selected.id,
+        notes,
+      };
+    }
     const preview = buildMotifPreview(selected, effectiveHost(), previewTriggerPitch, pitchModeOverride, meterMode);
     const sourceMeter = `${selected.sourceMeter.numerator}/${selected.sourceMeter.denominator}`;
     const tags = selected.metadata?.tags?.join(' · ') ?? 'custom motif';
@@ -445,18 +669,13 @@ function emitLibraryState(): void {
       tags: tagLine,
       isBuiltin: store.isBuiltin(selected.id),
       isPersisted: userLibraryFiles.has(selected.id),
-      notes: selected.notes.map((n) => ({
-        pitch: n.pitch,
-        accidental: n.accidental ?? null,
-        at: n.at,
-        duration: n.duration,
-        gate: n.gate ?? null,
-        velocity: n.velocity ?? null,
-        velocityOffset: n.velocityOffset ?? null,
-        velocityScale: n.velocityScale ?? null,
-        legato: n.legato ?? false,
-        tie: n.tie ?? false,
-      })),
+      folder: motifBrowserFolder(selected.id),
+      hotkeys: motifHotkeys(selected.id),
+      noteCount: selected.notes.length,
+      noteLimit: MAX_MOTIF_NOTES,
+      noteTransferId: noteTransfer?.id ?? null,
+      notesLoading: Boolean(noteTransfer),
+      notes: noteTransfer ? [] : notes,
     };
   }
 
@@ -466,14 +685,49 @@ function emitLibraryState(): void {
       id: item.id,
       name: item.name,
       showId: (nameCounts.get(item.name) ?? 0) > 1,
+      folder: motifBrowserFolder(item.id),
+      hotkeys: motifHotkeys(item.id),
     })),
     selectedIndex,
     selected: selectedData,
     editing: editor.snapshot(),
     libraryPath: userLibraryPath,
     libraryLoaded: userLibraryLoaded,
+    libraryScanning,
+    alert: libraryAlert ?? null,
+    scanProgress: libraryScanState
+      ? {
+          processedEntries: libraryScanState.processedEntries,
+          loadedMotifs: libraryScanState.loadedMotifs,
+        }
+      : null,
   };
   emit('ui', 'lib', encodeURIComponent(JSON.stringify(state)));
+  if (noteTransfer) {
+    for (let offset = 0; offset < noteTransfer.notes.length; offset += LIBRARY_NOTE_CHUNK_SIZE) {
+      emit('ui', 'lib', encodeURIComponent(JSON.stringify({
+        kind: 'note-chunk',
+        transferId: noteTransfer.id,
+        motifId: noteTransfer.motifId,
+        offset,
+        total: noteTransfer.notes.length,
+        notes: noteTransfer.notes.slice(offset, offset + LIBRARY_NOTE_CHUNK_SIZE),
+      })));
+    }
+  }
+}
+
+/**
+ * Present a user-facing Library warning and mirror it to the Max Console.
+ * @param {string} title Short warning title.
+ * @param {string} message Actionable warning details.
+ * @returns {void}
+ */
+function emitLibraryAlert(title: string, message: string): void {
+  libraryAlertCounter += 1;
+  libraryAlert = { id: libraryAlertCounter, title, message };
+  emitError(message);
+  emitLibraryState();
 }
 
 /**
@@ -618,7 +872,10 @@ function updateHost(property: string, values: readonly unknown[]): void {
     case 'is_playing': {
       const wasPlaying = hostContext.isPlaying;
       hostContext.isPlaying = (numeric[0] ?? 0) !== 0;
-      if (wasPlaying && !hostContext.isPlaying) clearScheduledNotes();
+      if (wasPlaying && !hostContext.isPlaying) {
+        stopAllHeldRepeats();
+        clearScheduledNotes();
+      }
       break;
     }
     case 'current_song_time': {
@@ -800,6 +1057,32 @@ function launchOffsetTicks(): number {
 }
 
 /**
+ * Resolve the motif's cycle length after applying the active meter mode.
+ * @param {Motif} motif The motif that will repeat.
+ * @returns {number} Effective cycle duration in PPQ ticks.
+ */
+function effectiveMotifLengthTicks(motif: Motif): number {
+  if (meterMode === 'preserve') return motif.length;
+  const targetBar = barLengthTicks(hostContext.timeSignature);
+  const sourceBar = barLengthTicks(motif.sourceMeter);
+  return motif.length * (targetBar / sourceBar);
+}
+
+/**
+ * Convert one effective motif cycle to a safe Max Task delay.
+ * The current tempo multiplier is re-read for every cycle so held repeats
+ * follow live tempo changes without rebuilding the active assignment.
+ * @param {Motif} motif The motif that will repeat.
+ * @returns {number} Repeat interval in milliseconds.
+ */
+function motifRepeatDelayMilliseconds(motif: Motif): number {
+  return Math.max(
+    MIN_REPEAT_DELAY_MS,
+    ticksToMilliseconds(effectiveMotifLengthTicks(motif), effectiveHost().tempo),
+  );
+}
+
+/**
  * Schedule one MIDI note event through Max `pipe` (delay in milliseconds).
  * @param {number} pitch The MIDI note number.
  * @param {number} velocity The MIDI velocity, or zero for note-off.
@@ -842,10 +1125,18 @@ function shouldPassDry(isTrigger: boolean): boolean {
  * @param {number} triggerPitch The pitch of the trigger.
  * @param {number} triggerVelocity The velocity of the trigger.
  * @param {number} channel The one-based MIDI channel.
+ * @param {TriggerMotifOptions} triggerOptions Optional motif and launch-delay overrides.
  * @returns {number | undefined} The instance id of the triggered motif, or undefined when the motif is unknown.
  */
-function triggerMotif(triggerPitch: number, triggerVelocity: number, channel: number): number | undefined {
-  const motifId = triggerMap.get(triggerPitch) ?? currentMotifId;
+function triggerMotif(
+  triggerPitch: number,
+  triggerVelocity: number,
+  channel: number,
+  triggerOptions: TriggerMotifOptions = {},
+): number | undefined {
+  const mapping = triggerMap.get(triggerPitch);
+  const motifId = triggerOptions.motifId
+    ?? (mapping?.action === 'trigger' ? mapping.motifId : currentMotifId);
   const selected = resolveMotif(motifId);
   if (!selected) {
     emitError(`Unknown motif: ${motifId}`);
@@ -864,7 +1155,7 @@ function triggerMotif(triggerPitch: number, triggerVelocity: number, channel: nu
     meterMode,
     triggerPitch: Math.round(triggerPitch),
     triggerVelocity: Math.round(triggerVelocity),
-    launchOffsetTicks: launchOffsetTicks(),
+    launchOffsetTicks: triggerOptions.launchOffsetTicks ?? launchOffsetTicks(),
     instanceId,
   };
   if (pitchModeOverride !== undefined) options.pitchMode = pitchModeOverride;
@@ -875,6 +1166,93 @@ function triggerMotif(triggerPitch: number, triggerVelocity: number, channel: nu
 
   emitStatus('trigger', motifId, triggerPitch, instanceId);
   return instanceId;
+}
+
+/**
+ * Cancel one Hold & Repeat task without cutting off the cycle already sent to Max `pipe`.
+ * @param {number} triggerPitch The held MIDI hot-key pitch.
+ * @param {boolean} emitFeedback Whether to emit the user-facing stopped status.
+ * @returns {void}
+ */
+function stopHeldRepeat(triggerPitch: number, emitFeedback = true): void {
+  const repeat = heldRepeats.get(triggerPitch);
+  if (!repeat) return;
+  repeat.task.cancel();
+  repeat.task.freepeer();
+  heldRepeats.delete(triggerPitch);
+  sustainedRepeatReleases.delete(triggerPitch);
+  if (emitFeedback) emitStatus('repeat-stopped', repeat.motifId, triggerPitch);
+}
+
+/**
+ * Cancel every active Hold & Repeat task.
+ * @param {boolean} emitFeedback Whether each stopped assignment should emit a status.
+ * @returns {void}
+ */
+function stopAllHeldRepeats(emitFeedback = false): void {
+  for (const pitch of [...heldRepeats.keys()]) stopHeldRepeat(pitch, emitFeedback);
+  sustainedRepeatReleases.clear();
+}
+
+/**
+ * Play a mapped motif once and schedule further cycles until note-off.
+ * Duplicate note-ons for a physically held key are ignored so controller
+ * key-repeat cannot create parallel Max Tasks.
+ * @param {number} triggerPitch The mapped MIDI hot-key pitch.
+ * @param {number} triggerVelocity The original note-on velocity.
+ * @param {number} channel The original one-based MIDI channel.
+ * @param {HotkeyMapping} mapping The repeat-mode mapping captured at note-on.
+ * @returns {void}
+ */
+function startHeldRepeat(
+  triggerPitch: number,
+  triggerVelocity: number,
+  channel: number,
+  mapping: HotkeyMapping,
+): void {
+  if (heldRepeats.has(triggerPitch)) return;
+  const motif = resolveMotif(mapping.motifId);
+  if (!motif) {
+    emitError(`Unknown motif: ${mapping.motifId}`);
+    return;
+  }
+
+  const firstLaunchOffset = launchOffsetTicks();
+  const instanceId = triggerMotif(triggerPitch, triggerVelocity, channel, {
+    motifId: motif.id,
+    launchOffsetTicks: firstLaunchOffset,
+  });
+  if (instanceId === undefined) return;
+
+  let repeat: HeldRepeat;
+  const task = new Task(() => {
+    if (heldRepeats.get(triggerPitch) !== repeat) return;
+    const repeatedMotif = resolveMotif(repeat.motifId);
+    if (!repeatedMotif) {
+      stopHeldRepeat(triggerPitch);
+      return;
+    }
+    const repeatedInstance = triggerMotif(
+      triggerPitch,
+      repeat.velocity,
+      repeat.channel,
+      { motifId: repeat.motifId, launchOffsetTicks: 0 },
+    );
+    if (repeatedInstance === undefined || heldRepeats.get(triggerPitch) !== repeat) return;
+    repeat.task.schedule(motifRepeatDelayMilliseconds(repeatedMotif));
+  });
+  repeat = {
+    motifId: motif.id,
+    velocity: triggerVelocity,
+    channel,
+    task,
+  };
+  heldRepeats.set(triggerPitch, repeat);
+
+  const firstDelay = ticksToMilliseconds(firstLaunchOffset, effectiveHost().tempo)
+    + motifRepeatDelayMilliseconds(motif);
+  task.schedule(Math.max(MIN_REPEAT_DELAY_MS, firstDelay));
+  emitStatus('repeat-started', motif.id, triggerPitch);
 }
 
 /**
@@ -899,10 +1277,34 @@ function note(pitchValue: number, velocityValue: number, channelValue = 1): void
   const pitch = Math.round(clamp(pitchValue, 0, 127));
   const velocity = Math.round(clamp(velocityValue, 0, 127));
   const channel = Math.round(clamp(channelValue, 1, 16));
-  const isTrigger = triggerMap.has(pitch) || (pitch >= triggerLow && pitch <= triggerHigh);
+  const mapping = triggerMap.get(pitch);
+  const isTrigger = Boolean(mapping)
+    || heldRepeats.has(pitch)
+    || (pitch >= triggerLow && pitch <= triggerHigh);
 
   if (shouldPassDry(isTrigger)) emitDirectNote(pitch, velocity, channel);
   if (!isTrigger) return;
+
+  if (mapping?.action === 'select') {
+    if (velocity > 0) {
+      select_browser(mapping.motifId);
+      if (currentMotifId === mapping.motifId) {
+        emitStatus('selected', mapping.motifId, pitch);
+      }
+    }
+    return;
+  }
+
+  if (mapping?.action === 'repeat' || heldRepeats.has(pitch)) {
+    if (velocity > 0) {
+      if (mapping?.action === 'repeat') startHeldRepeat(pitch, velocity, channel, mapping);
+    } else if (sustainDown) {
+      sustainedRepeatReleases.add(pitch);
+    } else {
+      stopHeldRepeat(pitch);
+    }
+    return;
+  }
 
   if (velocity > 0) {
     if (triggerMode === 'toggle' && activeTriggers.has(pitch)) {
@@ -938,6 +1340,8 @@ function cc(controllerValue: number, valueValue: number, _channel = 1): void {
   const wasDown = sustainDown;
   sustainDown = value >= 64;
   if (wasDown && !sustainDown) {
+    for (const pitch of [...sustainedRepeatReleases]) stopHeldRepeat(pitch);
+    sustainedRepeatReleases.clear();
     if (sustainedReleases.size > 0) clearScheduledNotes();
     sustainedReleases.clear();
   }
@@ -1104,30 +1508,67 @@ function trigger_high(value: number): void {
 }
 
 /**
+ * Parse a numeric MIDI pitch or Ableton-style note name.
+ * @param {number | string} value The pitch or note name.
+ * @returns {number | undefined} A rounded/clamped MIDI pitch, or undefined.
+ */
+function triggerPitchValue(value: number | string): number | undefined {
+  if (typeof value === 'string') {
+    const named = parseMidiNoteName(value);
+    if (named !== undefined) return named;
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? Math.round(clamp(numeric, 0, 127)) : undefined;
+  }
+  return Number.isFinite(value) ? Math.round(clamp(value, 0, 127)) : undefined;
+}
+
+/**
  * Handle a trigger map event.
- * @param {number} pitchValue The pitch value.
+ * @param {number | string} pitchValue The MIDI pitch or Ableton-style note name.
  * @param {string} motifId The motif id.
+ * @param {string} actionValue Whether the note triggers, selects, or repeats the motif while held.
  * @returns {void}
  */
-function map_trigger(pitchValue: number, motifId: string): void {
-  const pitch = Math.round(clamp(pitchValue, 0, 127));
+function map_trigger(
+  pitchValue: number | string,
+  motifId: string,
+  actionValue = 'trigger',
+): void {
+  const pitch = triggerPitchValue(pitchValue);
+  if (pitch === undefined) {
+    emitError(`Cannot map invalid MIDI note: ${String(pitchValue)}`);
+    return;
+  }
   const selected = resolveMotif(motifId);
   if (!selected) {
     emitError(`Cannot map ${pitch}: unknown motif ${motifId}`);
     return;
   }
-  triggerMap.set(pitch, selected.id);
-  emitStatus('mapped', pitch, motifId);
+  if (actionValue !== 'trigger' && actionValue !== 'select' && actionValue !== 'repeat') {
+    emitError(`Cannot map ${pitch}: unknown hot-key action ${actionValue}`);
+    return;
+  }
+  const action = actionValue;
+  stopHeldRepeat(pitch, false);
+  triggerMap.set(pitch, { motifId: selected.id, action });
+  emitLibraryState();
+  emitStatus('mapped', pitch, selected.id, action);
 }
 
 /**
  * Handle a trigger unmap event.
- * @param {number} pitchValue The pitch value.
+ * @param {number | string} pitchValue The MIDI pitch or Ableton-style note name.
  * @returns {void}
  */
-function unmap_trigger(pitchValue: number): void {
-  const pitch = Math.round(clamp(pitchValue, 0, 127));
+function unmap_trigger(pitchValue: number | string): void {
+  const pitch = triggerPitchValue(pitchValue);
+  if (pitch === undefined) {
+    emitError(`Cannot unmap invalid MIDI note: ${String(pitchValue)}`);
+    return;
+  }
+  stopHeldRepeat(pitch, false);
   triggerMap.delete(pitch);
+  emitLibraryState();
   emitStatus('unmapped', pitch);
 }
 
@@ -1136,8 +1577,23 @@ function unmap_trigger(pitchValue: number): void {
  * @returns {void}
  */
 function clear_trigger_map(): void {
+  stopAllHeldRepeats();
   triggerMap.clear();
+  emitLibraryState();
   emitStatus('map-cleared');
+}
+
+/**
+ * Remove hot-key assignments whose motifs are no longer in the library.
+ * @returns {void}
+ */
+function pruneTriggerMap(): void {
+  for (const [pitch, mapping] of triggerMap) {
+    if (!store.has(mapping.motifId)) {
+      stopHeldRepeat(pitch, false);
+      triggerMap.delete(pitch);
+    }
+  }
 }
 
 /**
@@ -1237,50 +1693,205 @@ function uniqueAvailableId(baseValue: string): string {
 }
 
 /**
- * Load the user library.
- * @returns {boolean} Whether the library was loaded successfully.
+ * Load one validated JSON motif, reserving its path even when invalid.
+ * @param {string} fullPath The complete JSON file path.
+ * @param {string} displayPath The relative path used in diagnostics.
+ * @param {LibraryScanState} scan The scan receiving the validated motif.
+ * @returns {void}
  */
-function loadUserLibrary(): boolean {
+function loadUserMotifFile(
+  fullPath: string,
+  displayPath: string,
+  scan: LibraryScanState,
+): void {
+  scan.candidateOccupiedPaths.add(canonicalLibraryPath(fullPath));
+  try {
+    const result = validateMotif(readJsonFile(fullPath));
+    if (!result.valid || !result.motif) {
+      emitError(`${displayPath}: ${result.errors.join('; ')}`);
+    } else if (scan.candidateStore.isBuiltin(result.motif.id)) {
+      emitError(`${displayPath}: id “${result.motif.id}” conflicts with a built-in and was skipped`);
+    } else if (scan.candidateFiles.has(result.motif.id)) {
+      emitError(`${displayPath}: duplicate motif id “${result.motif.id}” was skipped`);
+    } else {
+      const errors = scan.candidateStore.add(result.motif);
+      if (errors.length > 0) emitError(`${displayPath}: ${errors.join('; ')}`);
+      else {
+        scan.candidateFiles.set(result.motif.id, fullPath);
+        scan.loadedMotifs += 1;
+      }
+    }
+  } catch (reason) {
+    emitError(`${displayPath}: ${reason instanceof Error ? reason.message : String(reason)}`);
+  }
+}
+
+/**
+ * Close and discard any active asynchronous library scan.
+ * @returns {void}
+ */
+function cancelLibraryScan(): void {
+  libraryScanGeneration += 1;
+  if (libraryScanTask) {
+    libraryScanTask.cancel();
+    libraryScanTask.freepeer();
+    libraryScanTask = undefined;
+  }
+  if (libraryScanState?.current) {
+    libraryScanState.current.folder.close();
+  }
+  libraryScanState = undefined;
+  libraryScanning = false;
+}
+
+/**
+ * Commit a completed scan atomically so the previous library remains usable
+ * until every replacement motif has been read and validated.
+ * @param {LibraryScanState} scan The completed scan.
+ * @returns {void}
+ */
+function finishLibraryScan(scan: LibraryScanState): void {
+  if (scan.generation !== libraryScanGeneration || libraryScanState !== scan) return;
+
   store.resetToBuiltins();
+  for (const motif of scan.candidateStore.list()) {
+    if (!scan.candidateStore.isBuiltin(motif.id)) store.add(motif);
+  }
   userLibraryFiles.clear();
+  for (const [id, filename] of scan.candidateFiles) userLibraryFiles.set(id, filename);
   occupiedLibraryPaths.clear();
+  for (const filename of scan.candidateOccupiedPaths) occupiedLibraryPaths.add(filename);
+
+  libraryScanState = undefined;
+  libraryScanning = false;
+  userLibraryLoaded = true;
+  if (libraryScanTask) {
+    libraryScanTask.cancel();
+    libraryScanTask.freepeer();
+    libraryScanTask = undefined;
+  }
+
+  pruneTriggerMap();
+  ensureCurrentMotifId();
+  listMotifs();
+  if (scan.completionStatus === 'library') {
+    emitStatus('library', userLibraryPath);
+  } else {
+    emitStatus('library-refreshed', store.list().length);
+  }
+}
+
+/**
+ * Process a bounded amount of filesystem work, then yield back to Max.
+ * Directory entries are identified from the parent Folder iterator's
+ * `filetype`; files are never opened as Folder objects.
+ * @returns {void}
+ */
+function processLibraryScanBatch(): void {
+  const scan = libraryScanState;
+  if (!scan || scan.generation !== libraryScanGeneration) return;
+
+  let operations = 0;
+  while (operations < LIBRARY_SCAN_BATCH_SIZE) {
+    if (!scan.current) {
+      const next = scan.pending.shift();
+      if (!next) {
+        finishLibraryScan(scan);
+        return;
+      }
+
+      const canonical = canonicalLibraryPath(next.pathname).replace(/\/+$/, '');
+      if (scan.visited.has(canonical)) continue;
+      scan.visited.add(canonical);
+
+      const folder = new Folder(next.pathname);
+      operations += 1;
+      if (!folder.pathname) {
+        folder.close();
+        continue;
+      }
+      scan.current = { ...next, folder };
+    }
+
+    const active = scan.current;
+    if (active.folder.end) {
+      active.folder.close();
+      scan.current = undefined;
+      continue;
+    }
+
+    const filename = active.folder.filename;
+    const filetype = active.folder.filetype;
+    if (filename && filename !== '.' && filename !== '..') {
+      const fullPath = joinMaxPath(active.folder.pathname, filename);
+      const displayPath = active.relativePath ? `${active.relativePath}/${filename}` : filename;
+      if (filetype === 'fold') {
+        if (active.depth < MAX_LIBRARY_DEPTH) {
+          scan.pending.push({
+            pathname: fullPath,
+            relativePath: displayPath,
+            depth: active.depth + 1,
+          });
+        } else {
+          emitError(`${displayPath}: maximum library folder depth exceeded`);
+        }
+      } else if (filename.toLowerCase().endsWith('.json')) {
+        loadUserMotifFile(fullPath, displayPath, scan);
+      }
+      scan.processedEntries += 1;
+    }
+    active.folder.next();
+    operations += 1;
+  }
+
+  if (libraryScanTask && scan.generation === libraryScanGeneration) {
+    libraryScanTask.schedule(0);
+  }
+}
+
+/**
+ * Begin loading the user library in bounded low-priority batches.
+ * @param {'library' | 'library-refreshed'} completionStatus Status to emit on completion.
+ * @returns {boolean} Whether the root folder was opened and scanning began.
+ */
+function loadUserLibrary(completionStatus: 'library' | 'library-refreshed'): boolean {
+  cancelLibraryScan();
   userLibraryLoaded = false;
   if (!userLibraryPath) return false;
 
-  const folder = new Folder(userLibraryPath);
-  if (!folder.pathname) {
-    folder.close();
+  const root = new Folder(userLibraryPath);
+  if (!root.pathname) {
+    root.close();
+    store.resetToBuiltins();
+    userLibraryFiles.clear();
+    occupiedLibraryPaths.clear();
     emitError(`Library folder not found: ${userLibraryPath}`);
+    pruneTriggerMap();
+    ensureCurrentMotifId();
+    listMotifs();
+    emitStatus('library-unavailable', userLibraryPath);
     return false;
   }
-
-  while (!folder.end) {
-    const filename = folder.filename;
-    if (filename.toLowerCase().endsWith('.json')) {
-      const separator = folder.pathname.endsWith('/') || folder.pathname.endsWith(':') ? '' : '/';
-      const fullPath = `${folder.pathname}${separator}${filename}`;
-      reserveLibraryPath(fullPath);
-      try {
-        const result = validateMotif(readJsonFile(fullPath));
-        if (!result.valid || !result.motif) {
-          emitError(`${filename}: ${result.errors.join('; ')}`);
-        } else if (store.isBuiltin(result.motif.id)) {
-          emitError(`${filename}: id “${result.motif.id}” conflicts with a built-in and was skipped`);
-        } else if (userLibraryFiles.has(result.motif.id)) {
-          emitError(`${filename}: duplicate motif id “${result.motif.id}” was skipped`);
-        } else {
-          const errors = store.add(result.motif);
-          if (errors.length > 0) emitError(`${filename}: ${errors.join('; ')}`);
-          else userLibraryFiles.set(result.motif.id, fullPath);
-        }
-      } catch (reason) {
-        emitError(`${filename}: ${reason instanceof Error ? reason.message : String(reason)}`);
-      }
-    }
-    folder.next();
-  }
-  folder.close();
-  userLibraryLoaded = true;
+  libraryScanGeneration += 1;
+  libraryScanning = true;
+  libraryScanState = {
+    generation: libraryScanGeneration,
+    completionStatus,
+    pending: [],
+    current: { pathname: userLibraryPath, relativePath: '', depth: 0, folder: root },
+    visited: new Set<string>([
+      canonicalLibraryPath(userLibraryPath).replace(/\/+$/, ''),
+    ]),
+    candidateStore: new MotifStore(),
+    candidateFiles: new Map<string, string>(),
+    candidateOccupiedPaths: new Set<string>(),
+    processedEntries: 0,
+    loadedMotifs: 0,
+  };
+  emitLibraryState();
+  emitStatus('library-scanning', userLibraryPath);
+  libraryScanTask = new Task(processLibraryScanBatch);
+  libraryScanTask.schedule(0);
   return true;
 }
 
@@ -1321,17 +1932,14 @@ function library_path(...pathParts: unknown[]): void {
     return;
   }
 
-  if (nextPath === userLibraryPath && userLibraryLoaded) {
+  if (nextPath === userLibraryPath && (userLibraryLoaded || libraryScanning)) {
     emitLibraryState();
     return;
   }
 
   editor.abandon();
   userLibraryPath = nextPath;
-  const loaded = loadUserLibrary();
-  if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
-  listMotifs();
-  emitStatus(loaded ? 'library' : 'library-unavailable', userLibraryPath);
+  loadUserLibrary('library');
 }
 
 /**
@@ -1347,10 +1955,7 @@ function refresh_library(discardChanges?: number | boolean): void {
   }
 
   editor.abandon();
-  const loaded = loadUserLibrary();
-  if (!store.get(currentMotifId)) currentMotifId = store.list()[0]?.id ?? DEFAULT_MOTIF_ID;
-  listMotifs();
-  emitStatus(loaded ? 'library-refreshed' : 'library-unavailable', store.list().length);
+  loadUserLibrary('library-refreshed');
 }
 
 /**
@@ -1553,6 +2158,11 @@ function readClipNotes(clip: LiveAPI): AbsoluteNote[] {
  * @returns {void}
  */
 function import_clip(pitchModeValue = 'chromatic'): void {
+  if (libraryScanning) {
+    emitError('Wait for the library scan to finish before importing a clip');
+    emitLibraryState();
+    return;
+  }
   if (editor.isDirty()) {
     emitError('Save or cancel the current edits before importing a clip');
     emitLibraryState();
@@ -1581,6 +2191,15 @@ function import_clip(pitchModeValue = 'chromatic'): void {
 
   if (absoluteNotes.length === 0) {
     emitError('Selected clip has no notes');
+    return;
+  }
+  if (absoluteNotes.length > MAX_MOTIF_NOTES) {
+    emitLibraryAlert(
+      'MIDI file is too long',
+      `The selected MIDI clip contains ${absoluteNotes.length} notes. `
+      + `Motif can import up to ${MAX_MOTIF_NOTES} editable notes. `
+      + 'Shorten the clip or split it into smaller phrases, then import it again.',
+    );
     return;
   }
 
@@ -2012,6 +2631,11 @@ function editableMotif(): Motif | undefined {
  * @returns {void}
  */
 function begin_edit(): void {
+  if (libraryScanning) {
+    emitError('Wait for the library scan to finish before editing a motif');
+    emitLibraryState();
+    return;
+  }
   if (editor.isEditing(currentMotifId)) {
     emitLibraryState();
     return;
@@ -2043,6 +2667,7 @@ function cancel_edit(): void {
   }
 
   currentMotifId = store.has(restoredId) ? restoredId : (store.list()[0]?.id ?? DEFAULT_MOTIF_ID);
+  pruneTriggerMap();
   listMotifs();
   emitStatus('editing-cancelled', currentMotifId);
 }
@@ -2212,8 +2837,8 @@ function edit_note_at(rowIndexValue: number, fieldValue: string, valueValue: unk
 function add_note(): void {
   const editable = editableMotif();
   if (!editable) return;
-  if (editable.notes.length >= MAX_NOTE_ROWS) {
-    emitError(`Maximum ${MAX_NOTE_ROWS} notes per motif`);
+  if (editable.notes.length >= MAX_MOTIF_NOTES) {
+    emitError(`Maximum ${MAX_MOTIF_NOTES} notes per motif`);
     return;
   }
   const lastAt = editable.notes.at(-1)?.at ?? 0;
@@ -2294,6 +2919,21 @@ function lib_action(...encodedParts: unknown[]): void {
     case 'refresh_library':
       refresh_library(action['discardChanges'] as number | boolean | undefined);
       break;
+    case 'map_trigger':
+      map_trigger(
+        typeof action['pitch'] === 'number' ? action['pitch'] : stringAtom(action['pitch']),
+        stringAtom(action['motifId']),
+        stringAtom(action['action'], 'trigger'),
+      );
+      break;
+    case 'unmap_trigger':
+      unmap_trigger(
+        typeof action['pitch'] === 'number' ? action['pitch'] : stringAtom(action['pitch']),
+      );
+      break;
+    case 'clear_trigger_map':
+      clear_trigger_map();
+      break;
     case 'begin_edit':
       begin_edit();
       break;
@@ -2322,6 +2962,7 @@ function lib_action(...encodedParts: unknown[]): void {
  * @returns {void}
  */
 function panic(): void {
+  stopAllHeldRepeats();
   clearScheduledNotes();
   emitStatus('panic');
 }
