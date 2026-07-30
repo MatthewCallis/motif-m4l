@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { MotifEditorState } from '../src/library/editor-state.js';
 import { MotifStore } from '../src/library/store.js';
+import { addUserCopy } from './helpers/motif-store.js';
 
 describe('MotifEditorState', () => {
   it('built-in editing creates a unique same-name draft and cancel removes it', () => {
@@ -14,8 +15,6 @@ describe('MotifEditorState', () => {
     assert.ok(draft);
     assert.notEqual(draft.id, source.id);
     assert.equal(draft.name, source.name);
-    assert.deepEqual(draft.metadata, source.metadata);
-    assert.notEqual(draft.metadata?.tags, source.metadata?.tags);
     assert.equal(editor.snapshot().created, true);
 
     store.update({ ...draft, name: 'Temporary' });
@@ -28,7 +27,7 @@ describe('MotifEditorState', () => {
   it('cancel restores an existing user motif snapshot', () => {
     const store = new MotifStore();
     const editor = new MotifEditorState();
-    const user = store.cloneAsUser('chromatic-turn', 'user-motif');
+    const user = addUserCopy(store, 'chromatic-turn', 'user-motif');
     assert.ok(user);
 
     editor.begin(store, user.id);
@@ -41,14 +40,14 @@ describe('MotifEditorState', () => {
   it('new imported sessions are removed on cancel and successful save exits editing', () => {
     const store = new MotifStore();
     const editor = new MotifEditorState();
-    const imported = store.cloneAsUser('chromatic-turn', 'imported');
+    const imported = addUserCopy(store, 'chromatic-turn', 'imported');
     assert.ok(imported);
 
     editor.begin(store, imported.id, { created: true, dirty: true, sourceId: 'scale-turn' });
     assert.equal(editor.cancel(store), 'scale-turn');
     assert.equal(store.has(imported.id), false);
 
-    const saved = store.cloneAsUser('chromatic-turn', 'saved-copy');
+    const saved = addUserCopy(store, 'chromatic-turn', 'saved-copy');
     assert.ok(saved);
     editor.begin(store, saved.id, { dirty: true });
     assert.equal(editor.finishSave(), saved.id);
@@ -64,8 +63,8 @@ describe('MotifEditorState', () => {
   it('an active session cannot silently switch targets', () => {
     const store = new MotifStore();
     const editor = new MotifEditorState();
-    const first = store.cloneAsUser('chromatic-turn', 'first');
-    const second = store.cloneAsUser('chromatic-turn', 'second');
+    const first = addUserCopy(store, 'chromatic-turn', 'first');
+    const second = addUserCopy(store, 'chromatic-turn', 'second');
     assert.ok(first && second);
 
     assert.equal(editor.begin(store, first.id)?.id, first.id);

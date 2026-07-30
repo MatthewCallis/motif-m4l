@@ -1,40 +1,37 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { MotifStore, uniqueMotifId } from '../src/library/store.js';
+import { addUserCopy } from './helpers/motif-store.js';
 
 describe('MotifStore', () => {
-  it('filter matches name, id, and description without indexing metadata', () => {
+  it('filter matches name, id, and description', () => {
     const store = new MotifStore();
     const byName = store.filter('chromatic');
     assert.ok(byName.some((motif) => motif.id === 'chromatic-turn'));
-
-    assert.equal(store.filter('demo').length, 0, 'metadata tags must not participate in search');
 
     assert.equal(store.filter('zzz-no-such-motif').length, 0);
     assert.ok(store.filter('').length >= store.filter('chromatic').length);
   });
 
-  it('cloneAsUser copies a builtin under a new editable id', () => {
+  it('addUserCopy stores a builtin clone under a new editable id', () => {
     const store = new MotifStore();
     assert.equal(store.isBuiltin('chromatic-turn'), true);
 
-    const clone = store.cloneAsUser('chromatic-turn');
+    const clone = addUserCopy(store, 'chromatic-turn');
     assert.ok(clone);
     assert.equal(clone.id, 'chromatic-turn-2');
     assert.equal(store.isBuiltin(clone.id), false);
-    assert.deepEqual(clone.metadata, store.get('chromatic-turn')?.metadata);
-    assert.notEqual(clone.metadata?.tags, store.get('chromatic-turn')?.metadata?.tags);
     assert.equal(clone.name, 'Chromatic Turn', 'duplicate display names are allowed; ids are the identity');
 
-    const again = store.cloneAsUser('chromatic-turn');
+    const again = addUserCopy(store, 'chromatic-turn');
     assert.ok(again);
     assert.notEqual(again.id, clone.id);
   });
 
   it('unique ids are deterministic and duplicate names sort stably', () => {
     const store = new MotifStore();
-    const first = store.cloneAsUser('chromatic-turn');
-    const second = store.cloneAsUser('chromatic-turn');
+    const first = addUserCopy(store, 'chromatic-turn');
+    const second = addUserCopy(store, 'chromatic-turn');
     assert.ok(first && second);
     assert.equal(first.id, 'chromatic-turn-2');
     assert.equal(second.id, 'chromatic-turn-3');
@@ -60,7 +57,7 @@ describe('MotifStore', () => {
 
   it('setNotes recomputes length and validates', () => {
     const store = new MotifStore();
-    const clone = store.cloneAsUser('chromatic-turn');
+    const clone = addUserCopy(store, 'chromatic-turn');
     assert.ok(clone);
 
     const errors = store.setNotes(clone.id, [
@@ -90,11 +87,11 @@ describe('MotifStore', () => {
     const store = new MotifStore();
     assert.equal(store.has('chromatic-turn'), true);
     assert.equal(store.get('missing'), undefined);
-    assert.equal(store.cloneAsUser('missing'), undefined);
+    assert.equal(addUserCopy(store, 'missing'), undefined);
     assert.equal(store.remove('missing'), false);
     assert.ok(store.add(null).some((error) => error.includes('object')));
 
-    const clone = store.cloneAsUser('chromatic-turn', 'custom');
+    const clone = addUserCopy(store, 'chromatic-turn', 'custom');
     assert.ok(clone);
     assert.equal(store.remove(clone.id), true);
     assert.equal(store.has(clone.id), false);

@@ -85,6 +85,23 @@ async function removeStaleHashedArtifacts(
   );
 }
 
+/**
+ * List implementation TypeScript modules recursively, excluding declaration files.
+ * @param {string} directory The source directory to inspect.
+ * @returns {Promise<string[]>} Relative implementation-module paths.
+ */
+async function listTypeScriptModules(directory: string): Promise<string[]> {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const nested = await Promise.all(entries.map(async (entry) => {
+    const entryPath = path.join(directory, entry.name);
+    if (entry.isDirectory()) return listTypeScriptModules(entryPath);
+    return entry.isFile() && entry.name.endsWith('.ts') && !entry.name.endsWith('.d.ts')
+      ? [entryPath]
+      : [];
+  }));
+  return nested.flat().sort();
+}
+
 await generateBuiltins();
 
 const [libraryHtml, previewSource] = await Promise.all([
@@ -102,6 +119,7 @@ const [buildResult, previewResult] = await Promise.all([
     platform: 'neutral',
     target: 'es2020',
     write: false,
+    metafile: true,
     minify: true,
     sourcemap: false,
     legalComments: 'none',
@@ -125,6 +143,17 @@ const [buildResult, previewResult] = await Promise.all([
     legalComments: 'none',
   }),
 ]);
+
+const productionInputs = new Set(
+  Object.keys(buildResult.metafile.inputs).map((input) => path.normalize(input)),
+);
+const unusedSourceModules = (await listTypeScriptModules('src'))
+  .filter((modulePath) => !productionInputs.has(path.normalize(modulePath)));
+if (unusedSourceModules.length > 0) {
+  throw new Error(
+    `Implementation modules under src must be reachable from the Max runtime; move test/script-only files out of src: ${unusedSourceModules.join(', ')}`,
+  );
+}
 
 const engine = buildResult.outputFiles?.[0]?.text;
 if (engine === undefined) throw new Error('esbuild did not produce the Max engine bundle');

@@ -29,7 +29,6 @@ describe('motif note import', () => {
     assert.equal(motif.pitchMode, 'chromatic');
     assert.deepEqual(motif.notes.map(({ pitch }) => pitch), [0, 3, -2]);
     assert.equal(motif.length, 1440);
-    assert.deepEqual(motif.metadata?.tags, ['imported']);
   });
 
   it('absoluteNotesToMotif hybrid keeps accidentals against Live-like scale', () => {
@@ -44,7 +43,6 @@ describe('motif note import', () => {
         name: 'Hybrid',
         pitchMode: 'hybrid',
         scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
-        tags: ['imported', 'live-clip'],
       },
     );
 
@@ -53,7 +51,6 @@ describe('motif note import', () => {
     assert.equal(motif.notes[1]?.pitch, 1);
     assert.equal(motif.notes[1]?.accidental, 1);
     assert.equal(motif.notes[2]?.pitch, 4);
-    assert.deepEqual(motif.metadata?.tags, ['imported', 'live-clip']);
   });
 
   it('absoluteNotesToMotif scale snaps without storing accidentals', () => {

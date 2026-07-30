@@ -2322,7 +2322,6 @@ function import_clip(pitchModeValue = 'chromatic'): void {
       scaleIntervals: hostContext.scaleIntervals,
       sourceMeter: { ...hostContext.timeSignature },
       description: `Imported from Live clip “${clipName}” using ${mode} relative analysis.`,
-      tags: ['imported', 'live-clip'],
     });
   } catch (reason) {
     emitError(`Clip import failed: ${reason instanceof Error ? reason.message : String(reason)}`);

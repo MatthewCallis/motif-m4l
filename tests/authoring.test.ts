@@ -569,7 +569,6 @@ describe('Max authoring runtime', () => {
       sourceMeter: { numerator: 4, denominator: 4 },
       length: 480,
       notes: [{ at: 0, duration: 480, pitch }],
-      metadata: { tags: ['user'] },
     };
   }
 
@@ -1169,7 +1168,7 @@ describe('Max authoring runtime', () => {
     assert.ok(engine.errors.some((message) => message.includes('duplicate motif id')));
   });
 
-  it('editable motif properties and advanced note fields save while metadata stays untouched', async () => {
+  it('editable motif properties and advanced note fields save while data stays untouched', async () => {
     const path = '/Motifs';
     const engine = await createEngine({ folders: { [path]: [] } });
     engine.dispatch('library_path', path);
@@ -1183,11 +1182,6 @@ describe('Max authoring runtime', () => {
       sourceMeter: { numerator: 3, denominator: 8 },
       defaultGate: 0.75,
       velocityCurve: { inputMin: 5, inputMax: 120, outputMin: 20, outputMax: 110, exponent: 1.25 },
-      // Legacy or hand-crafted clients cannot edit metadata through the Library protocol.
-      metadata: {
-        author: 'Ignored Author',
-        tags: ['ignored'],
-      },
     };
     engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({ type: 'edit_motif', properties })));
     for (const [field, value] of [
@@ -1209,8 +1203,6 @@ describe('Max authoring runtime', () => {
     assert.deepEqual(selected['sourceMeter'], { numerator: 3, denominator: 8 });
     assert.equal(selected['defaultGate'], 0.75);
     assert.deepEqual(selected['velocityCurve'], properties.velocityCurve);
-    assert.ok(!('metadata' in selected));
-    assert.ok(!('tags' in selected));
     const notes = selected['notes'] as Array<Record<string, unknown>>;
     assert.equal(notes[0]?.['velocityOffset'], 7);
     assert.equal(notes[0]?.['velocityScale'], 0.5);
@@ -1224,18 +1216,16 @@ describe('Max authoring runtime', () => {
     const saved = JSON.parse(engine.files[`${path}/${draftId}.json`] ?? '{}') as Record<string, unknown>;
     assert.equal(saved['name'], 'Complete Motif');
     assert.deepEqual(saved['velocityCurve'], properties.velocityCurve);
-    assert.deepEqual(saved['metadata'], { tags: ['demo', 'chromatic'] });
     assert.equal(((saved['notes'] as Array<Record<string, unknown>>)[0])?.['legato'], true);
   });
 
-  it('optional editable properties can be cleared while existing metadata is preserved', async () => {
+  it('optional editable properties can be cleared while existing data is preserved', async () => {
     const path = '/Motifs';
     const filename = `${path}/user-full.json`;
     const original = {
       ...userMotif('user-full', 'User Full'),
       defaultGate: 0.8,
       velocityCurve: { outputMin: 20, outputMax: 100, exponent: 1.2 },
-      metadata: { author: 'Author', tags: ['tag'], suggestedModes: ['minor'], pickupTicks: 120 },
     };
     const engine = await createEngine({
       files: { [filename]: JSON.stringify(original) },
@@ -1257,10 +1247,8 @@ describe('Max authoring runtime', () => {
     const saved = JSON.parse(engine.files[filename] ?? '{}') as Record<string, unknown>;
     assert.ok(!('defaultGate' in saved));
     assert.ok(!('velocityCurve' in saved));
-    assert.deepEqual(saved['metadata'], original.metadata);
     const selected = lastLibState(engine.outlets)?.['selected'] as Record<string, unknown>;
     assert.equal(selected['defaultGate'], null);
-    assert.ok(!('metadata' in selected));
     assert.deepEqual(selected['velocityCurve'], {
       inputMin: null, inputMax: null, outputMin: null, outputMax: null, exponent: null,
     });

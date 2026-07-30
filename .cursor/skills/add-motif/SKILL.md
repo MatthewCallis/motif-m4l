@@ -36,7 +36,7 @@ npm run midi:import -- input.mid motifs/builtin/<id>.json chromatic
 # or: scale | hybrid
 ```
 
-Then hand-edit name/description/metadata/timing; re-check `length` covers every note.
+Then hand-edit name/description/timing; re-check `length` covers every note.
 
 In Live, open a MIDI clip in Detail View and use **Import Clip** in the floating Library window. Exact/chromatic analysis is the default; scale and hybrid analysis are explicit choices. Save writes JSON into the chosen library folder.
 
@@ -81,13 +81,6 @@ Device UI Pitch Mode `motif` = use the phrase’s stored `pitchMode` (not an ove
   "sourceMeter": { "numerator": 4, "denominator": 4 },
   "length": 3840,
   "defaultGate": 0.85,
-  "metadata": {
-    "author": "…",
-    "source": "https://…",
-    "license": "Descriptive melodic vocabulary; verify provenance before commercial library distribution",
-    "tags": ["chromatic", "one-bar"],
-    "suggestedModes": ["mixolydian", "major"]
-  },
   "notes": [
     { "at": 0, "duration": 480, "pitch": 0 },
     { "at": 480, "duration": 480, "pitch": 3, "velocityOffset": 8, "gate": 0.9 }
@@ -100,10 +93,6 @@ Device UI Pitch Mode `motif` = use the phrase’s stored `pitchMode` (not an ove
 - Required: `at`, `duration`, `pitch`
 - Optional: `accidental`, `velocity` (absolute 1–127), `velocityOffset`, `velocityScale`, `gate`, `legato`, `tie`
 - Prefer relative `velocityOffset` + motif `velocityCurve` over hard-coded `velocity` so trigger dynamics still matter
-
-### Metadata conventions
-
-For sourced vocabulary, include tags, `suggestedModes`, a source URL, and clear provenance/license notes. Demo motifs may use compact metadata.
 
 ## Authoring heuristics
 

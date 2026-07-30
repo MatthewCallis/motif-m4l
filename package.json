@@ -15,8 +15,7 @@
     "verify:release": "npm run verify && npm run validate:amxd",
     "midi:import": "tsx scripts/midi-to-motif.ts",
     "midi:export": "tsx scripts/motif-to-midi.ts",
-    "validate:max": "tsx scripts/validate-max-device.ts",
-    "validate:amxd": "tsx scripts/validate-amxd.ts"
+    "validate:max": "tsx scripts/validate-max-device.ts"
   },
   "devDependencies": {
     "@types/node": "^22.15.3",

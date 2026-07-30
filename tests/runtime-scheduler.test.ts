@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import { RuntimeScheduler } from '../src/core/runtime-scheduler.js';
+import { RuntimeScheduler } from './helpers/runtime-scheduler.js';
 import type { ScheduledMidiEvent } from '../src/core/types.js';
 
 function event(

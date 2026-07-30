@@ -14,12 +14,6 @@ export const BUILTIN_MOTIFS = [
     },
     "length": 3360,
     "defaultGate": 0.82,
-    "metadata": {
-      "tags": [
-        "demo",
-        "chromatic"
-      ]
-    },
     "notes": [
       {
         "at": 0,
@@ -72,13 +66,6 @@ export const BUILTIN_MOTIFS = [
     },
     "length": 3360,
     "defaultGate": 0.82,
-    "metadata": {
-      "tags": [
-        "demo",
-        "scale",
-        "turn"
-      ]
-    },
     "notes": [
       {
         "at": 0,

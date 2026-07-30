@@ -16,7 +16,6 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 - [x] Versioned JSON schema.
 - [x] Validation with useful Max Console errors.
 - [x] User-library directory and refresh command.
-- [x] Phrase metadata: author, source, tags, meter, pickup, suggested modes.
 - [x] Articulation: gate, accents, velocity curves, legato, rests, and ties.
 - [x] MIDI import and export utilities.
 - [x] Relative-analysis modes: chromatic intervals, scale degrees, and hybrid accidentals.

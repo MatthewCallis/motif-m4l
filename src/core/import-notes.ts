@@ -31,8 +31,6 @@ export interface AbsoluteNotesImportOptions {
   sourceMeter?: TimeSignature;
   /** The motif description. */
   description?: string;
-  /** The motif tags. */
-  tags?: readonly string[];
 }
 
 export interface PitchModeConversionContext {
@@ -180,7 +178,7 @@ export function convertMotifPitchMode(
 
 /**
  * Convert absolute MIDI notes into a relative Motif using chromatic, scale, or hybrid analysis.
- * Notes are sorted by time; `length` is the end of the last note.
+ * Notes are sorted by time, `length` is the end of the last note.
  * @param {readonly AbsoluteNote[]} absoluteNotes The absolute MIDI notes to convert.
  * @param {AbsoluteNotesImportOptions} options The import options.
  * @returns {Motif} The converted motif.
@@ -229,6 +227,5 @@ export function absoluteNotesToMotif(
     sourceMeter: options.sourceMeter ?? { numerator: 4, denominator: 4 },
     length,
     notes,
-    metadata: { tags: options.tags ? [...options.tags] : ['imported'] },
   };
 }

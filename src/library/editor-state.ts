@@ -10,10 +10,15 @@ export interface EditSnapshot {
 }
 
 interface ActiveEdit {
+  /** The id of the source motif. */
   sourceId: string;
+  /** The id of the target motif. */
   targetId: string;
+  /** The original motif. */
   original: Motif;
+  /** Whether the target was created. */
   created: boolean;
+  /** Whether the target has unsaved changes. */
   dirty: boolean;
 }
 
@@ -34,17 +39,6 @@ function cloneMotif(motif: Motif): Motif {
     sourceMeter: { ...motif.sourceMeter },
     notes: motif.notes.map((note) => ({ ...note })),
     ...(motif.velocityCurve ? { velocityCurve: { ...motif.velocityCurve } } : {}),
-    ...(motif.metadata
-      ? {
-          metadata: {
-            ...motif.metadata,
-            ...(motif.metadata.tags ? { tags: [...motif.metadata.tags] } : {}),
-            ...(motif.metadata.suggestedModes
-              ? { suggestedModes: [...motif.metadata.suggestedModes] }
-              : {}),
-          },
-        }
-      : {}),
   };
 }
 
@@ -101,7 +95,7 @@ export class MotifEditorState {
   }
 
   /**
-   * Begin editing a motif, cloning built-ins to an editable user id.
+   * Begin editing a motif.
    * @param {MotifStore} store The motif store containing the source.
    * @param {string} id The source motif id.
    * @param {BeginEditOptions} options Initial session and target-id options.
@@ -151,7 +145,9 @@ export class MotifEditorState {
    * @returns {void}
    */
   markDirty(): void {
-    if (this.#edit) this.#edit.dirty = true;
+    if (this.#edit) {
+      this.#edit.dirty = true;
+    }
   }
 
   /**
@@ -161,10 +157,15 @@ export class MotifEditorState {
    */
   cancel(store: MotifStore): string | undefined {
     const edit = this.#edit;
-    if (!edit) return undefined;
+    if (!edit) {
+      return undefined;
+    }
 
-    if (edit.created) store.remove(edit.targetId);
-    else store.update(cloneMotif(edit.original));
+    if (edit.created) {
+      store.remove(edit.targetId);
+    } else {
+      store.update(edit.original);
+    }
 
     this.#edit = undefined;
     return edit.sourceId;
@@ -182,7 +183,6 @@ export class MotifEditorState {
 
   /**
    * Drop session bookkeeping without restoring data after deletion or reload.
-   * @returns {void}
    */
   abandon(): void {
     this.#edit = undefined;

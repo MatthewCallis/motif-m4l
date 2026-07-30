@@ -24,7 +24,6 @@ describe('motif validation', () => {
       length: 0,
       defaultGate: 0,
       velocityCurve: 'linear',
-      metadata: 'unknown',
       notes: [null],
     });
 
@@ -39,14 +38,13 @@ describe('motif validation', () => {
       'length',
       'defaultGate',
       'velocityCurve',
-      'metadata',
       'notes[0]',
     ]) {
       assert.ok(result.errors.some((error) => error.includes(fragment)), `missing ${fragment}`);
     }
   });
 
-  it('validates optional curve, metadata, and note fields', () => {
+  it('validates optional curve and note fields', () => {
     const result = validateMotif({
       schemaVersion: 1,
       id: 'invalid-optionals',
@@ -61,14 +59,6 @@ describe('motif validation', () => {
         outputMin: null,
         outputMax: {},
         exponent: 0,
-      },
-      metadata: {
-        author: 1,
-        source: false,
-        license: [],
-        tags: ['valid', 2],
-        suggestedModes: 'major',
-        pickupTicks: -1,
       },
       notes: [{
         at: -1,
@@ -91,10 +81,6 @@ describe('motif validation', () => {
       'velocityCurve.outputMin',
       'velocityCurve.outputMax',
       'velocityCurve.exponent',
-      'metadata.author',
-      'metadata.tags',
-      'metadata.suggestedModes',
-      'metadata.pickupTicks',
       'notes[0].at',
       'notes[0].duration',
       'notes[0].pitch',
@@ -121,14 +107,6 @@ describe('motif validation', () => {
       length: 960,
       defaultGate: 0.9,
       velocityCurve: { inputMin: 1, inputMax: 127, outputMin: 10, outputMax: 120, exponent: 1.2 },
-      metadata: {
-        author: 'Tester',
-        source: 'Unit test',
-        license: 'MIT',
-        tags: ['valid'],
-        suggestedModes: ['Dorian'],
-        pickupTicks: 0,
-      },
       notes: [{ at: 0, duration: 960, pitch: 0, velocity: 100, legato: false, tie: false }],
     };
 

@@ -33,18 +33,6 @@
         "exponent": { "type": "number", "exclusiveMinimum": 0 }
       }
     },
-    "metadata": {
-      "type": "object",
-      "additionalProperties": false,
-      "properties": {
-        "author": { "type": "string" },
-        "source": { "type": "string" },
-        "license": { "type": "string" },
-        "tags": { "type": "array", "items": { "type": "string" } },
-        "suggestedModes": { "type": "array", "items": { "type": "string" } },
-        "pickupTicks": { "type": "number", "minimum": 0 }
-      }
-    },
     "notes": {
       "type": "array",
       "minItems": 1,

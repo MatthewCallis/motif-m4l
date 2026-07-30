@@ -12,7 +12,10 @@
  * @see https://docs.cycling74.com/reference/pipe
  */
 
-import type { ScheduleUnit, ScheduledMidiEvent } from './types.js';
+import type { ScheduledMidiEvent } from '../../src/core/types.js';
+
+/** Time unit used by the in-process test scheduler. */
+export type ScheduleUnit = 'ticks' | 'ms';
 
 /**
  * Relative MIDI event returned after queue rebuild (delay from `now`).

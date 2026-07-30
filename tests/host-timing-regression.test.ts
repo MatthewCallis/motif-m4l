@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
 import { compileMotif } from '../src/core/compile-motif.js';
-import { RuntimeScheduler } from '../src/core/runtime-scheduler.js';
+import { RuntimeScheduler } from './helpers/runtime-scheduler.js';
 import type { HostContext } from '../src/core/types.js';
 import { BUILTIN_MOTIFS } from '../src/generated/builtins.js';
 

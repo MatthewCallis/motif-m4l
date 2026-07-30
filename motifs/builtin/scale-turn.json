@@ -7,7 +7,6 @@
   "sourceMeter": { "numerator": 4, "denominator": 4 },
   "length": 3360,
   "defaultGate": 0.82,
-  "metadata": { "tags": ["demo", "scale", "turn"] },
   "notes": [
     { "at": 0, "duration": 480, "pitch": 0, "velocityOffset": 4 },
     { "at": 480, "duration": 480, "pitch": 1 },

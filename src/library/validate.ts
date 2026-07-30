@@ -67,12 +67,6 @@ function validateOptionalNumber(
   }
 }
 
-function validateStringArray(value: unknown, path: string, errors: string[]): void {
-  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
-    errors.push(`${path} must be an array of strings`);
-  }
-}
-
 function validateNote(value: unknown, index: number, errors: string[]): value is MotifNote {
   const path = `notes[${index}]`;
   if (!isRecord(value)) {
@@ -149,36 +143,6 @@ function validateVelocityCurve(value: unknown, errors: string[]): void {
   );
 }
 
-function validateMetadata(value: unknown, errors: string[]): void {
-  if (value === undefined) {
-    return;
-  }
-  if (!isRecord(value)) {
-    errors.push('metadata must be an object');
-    return;
-  }
-
-  for (const field of ['author', 'source', 'license'] as const) {
-    if (value[field] !== undefined && typeof value[field] !== 'string') {
-      errors.push(`metadata.${field} must be a string`);
-    }
-  }
-  if (value.tags !== undefined) {
-    validateStringArray(value.tags, 'metadata.tags', errors);
-  }
-  if (value.suggestedModes !== undefined) {
-    validateStringArray(value.suggestedModes, 'metadata.suggestedModes', errors);
-  }
-  validateOptionalNumber(
-    value,
-    'pickupTicks',
-    'metadata',
-    errors,
-    (number) => number >= 0,
-    'zero or greater',
-  );
-}
-
 /**
  * Validate unknown JSON against schema version {@link MOTIF_SCHEMA_VERSION}.
  * On success returns a typed Motif; on failure returns path-prefixed error messages.
@@ -215,7 +179,6 @@ export function validateMotif(value: unknown): ValidationResult {
     'greater than zero',
   );
   validateVelocityCurve(value.velocityCurve, errors);
-  validateMetadata(value.metadata, errors);
 
   if (!Array.isArray(value.notes) || value.notes.length === 0) {
     errors.push('notes must be a non-empty array');

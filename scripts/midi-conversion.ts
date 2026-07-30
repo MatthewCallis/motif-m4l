@@ -32,7 +32,7 @@ function noteKey(channel: number, note: number): string {
  * Parse Standard MIDI File bytes into a relative Motif.
  * Note-off (or note-on velocity 0) closes the matching channel/pitch stack.
  * @param {Uint8Array} bytes The Standard MIDI File bytes to parse.
- * @param {MidiImportOptions} options The motif metadata and pitch-analysis options.
+ * @param {MidiImportOptions} options The pitch-analysis options.
  * @returns {Motif} The imported relative motif.
  * @throws {Error} If the MIDI file contains no completed notes.
  */
@@ -88,7 +88,6 @@ export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions):
     ...options,
     pitchMode,
     description: options.description ?? `Imported from MIDI using ${pitchMode} relative analysis.`,
-    tags: options.tags ?? ['imported', 'midi'],
   });
 }
 

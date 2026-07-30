@@ -12,21 +12,6 @@ import type { Motif, MotifNote } from '../core/types.js';
 import { BUILTIN_MOTIFS } from '../generated/builtins.js';
 import { validateMotif } from './validate.js';
 
-function matchesQuery(motif: Motif, query: string): boolean {
-  const normalized = query.trim().toLowerCase();
-  if (!normalized) return true;
-
-  const haystack = [
-    motif.id,
-    motif.name,
-    motif.description,
-  ]
-    .join(' ')
-    .toLowerCase();
-
-  return haystack.includes(normalized);
-}
-
 /**
  * Turn a display name into a filesystem-safe, stable motif id candidate.
  * @param {string} name The display name to normalize.
@@ -46,11 +31,34 @@ export function uniqueMotifId(name: string, fallback = 'motif'): string {
 
 /** Mutable catalog keyed by motif `id`. Built-in ids are protected from overwrite on clone. */
 export class MotifStore {
-  readonly #motifs = new Map<string, Motif>();
-  readonly #builtinIds = new Set<string>(BUILTIN_MOTIFS.map((motif) => motif.id));
+  motifs = new Map<string, Motif>();
+  builtinIds = new Set<string>(BUILTIN_MOTIFS.map((motif) => motif.id));
+  sortedList: Motif[] | null = null;
 
   constructor() {
     this.resetToBuiltins();
+  }
+
+  /**
+   * Drop the cached display-order snapshot after the catalog changes.
+   * @returns {void}
+   */
+  invalidateSortedList(): void {
+    this.sortedList = null;
+  }
+
+  /**
+   * Return motifs sorted for display, reusing a cached snapshot when valid.
+   * @returns {Motif[]} Motifs in stable display order.
+   */
+  list(): Motif[] {
+    if (this.sortedList) {
+      return this.sortedList;
+    }
+    this.sortedList = [...this.motifs.values()].sort((left: Motif, right: Motif): number => {
+      return left.name.localeCompare(right.name) || left.id.localeCompare(right.id);
+    });
+    return this.sortedList;
   }
 
   /**
@@ -58,10 +66,11 @@ export class MotifStore {
    * @returns {void}
    */
   resetToBuiltins(): void {
-    this.#motifs.clear();
+    this.motifs.clear();
     for (const motif of BUILTIN_MOTIFS) {
-      this.#motifs.set(motif.id, motif);
+      this.motifs.set(motif.id, motif);
     }
+    this.invalidateSortedList();
   }
 
   /**
@@ -70,7 +79,7 @@ export class MotifStore {
    * @returns {boolean} Whether the id is built in.
    */
   isBuiltin(id: string): boolean {
-    return this.#builtinIds.has(id);
+    return this.builtinIds.has(id);
   }
 
   /**
@@ -79,11 +88,11 @@ export class MotifStore {
    * @returns {boolean} Whether the id exists.
    */
   has(id: string): boolean {
-    return this.#motifs.has(id);
+    return this.motifs.has(id);
   }
 
   /**
-   * Return an unused id, appending `-2`, `-3`, … when needed.
+   * Return an unused id, appending `-2`, `-3`, etc. when needed.
    * @param {string} baseValue The preferred id or display name.
    * @param {string | undefined} excludedId An existing id allowed during rename checks.
    * @returns {string} An id unused by every non-excluded motif.
@@ -93,8 +102,8 @@ export class MotifStore {
     let candidate = base;
     let suffix = 2;
     while (
-      (this.#motifs.has(candidate) && candidate !== excludedId)
-      || (this.#builtinIds.has(candidate) && candidate !== excludedId)
+      (this.motifs.has(candidate) && candidate !== excludedId)
+      || (this.builtinIds.has(candidate) && candidate !== excludedId)
     ) {
       candidate = `${base}-${suffix}`;
       suffix += 1;
@@ -117,7 +126,8 @@ export class MotifStore {
       return [`Cannot overwrite built-in motif: ${result.motif.id}`];
     }
 
-    this.#motifs.set(result.motif.id, result.motif);
+    this.motifs.set(result.motif.id, result.motif);
+    this.invalidateSortedList();
     return [];
   }
 
@@ -136,7 +146,7 @@ export class MotifStore {
    * @returns {Motif | undefined} The motif, or undefined when the id is unknown.
    */
   get(id: string): Motif | undefined {
-    return this.#motifs.get(id);
+    return this.motifs.get(id);
   }
 
   /**
@@ -146,70 +156,36 @@ export class MotifStore {
    */
   remove(id: string): boolean {
     if (this.isBuiltin(id)) return false;
-    return this.#motifs.delete(id);
+    const removed = this.motifs.delete(id);
+    if (removed) this.invalidateSortedList();
+    return removed;
   }
 
   /**
-   * List motifs by display name and then id so duplicate names remain stable.
-   * @returns {Motif[]} A newly sorted motif list.
-   */
-  list(): Motif[] {
-    return [...this.#motifs.values()].sort(
-      (left, right) => left.name.localeCompare(right.name) || left.id.localeCompare(right.id),
-    );
-  }
-
-  /**
-   * Search id, name, and description case-insensitively.
+   * Search `id`, `name`, and `description` case-insensitively.
    * @param {string} query The substring to search for.
-   * @returns {Motif[]} The matching motifs in stable display order.
+   * @returns {Motif[]} The matching motifs.
    */
   filter(query: string): Motif[] {
-    return this.list().filter((motif) => matchesQuery(motif, query));
+    const normalizedQuery = query.trim().toLowerCase();
+    const sorted = this.list();
+    if (!normalizedQuery) return sorted;
+
+    return sorted.filter((motif) => {
+      return motif.id.toLowerCase().includes(normalizedQuery)
+      || motif.name.toLowerCase().includes(normalizedQuery)
+      || motif.description.toLowerCase().includes(normalizedQuery)
+    });
   }
 
   /**
-   * Clone a built-in (or any motif) to a new user id so edits can be saved without overwriting builtins.
-   * Display names are intentionally preserved; ids, not names, are the selection identity.
-   * @param {string} id The source motif id.
-   * @param {string | undefined} newId The preferred id for the clone.
-   * @returns {Motif | undefined} The stored clone, or undefined when the source is unknown.
-   */
-  cloneAsUser(id: string, newId?: string): Motif | undefined {
-    const source = this.#motifs.get(id);
-    if (!source) return undefined;
-
-    const candidate = this.uniqueId(newId ?? uniqueMotifId(source.name, `${source.id}-copy`));
-    const clone: Motif = {
-      ...source,
-      id: candidate,
-      notes: source.notes.map((note) => ({ ...note })),
-      ...(source.velocityCurve ? { velocityCurve: { ...source.velocityCurve } } : {}),
-      ...(source.metadata
-        ? {
-            metadata: {
-              ...source.metadata,
-              ...(source.metadata.tags ? { tags: [...source.metadata.tags] } : {}),
-              ...(source.metadata.suggestedModes
-                ? { suggestedModes: [...source.metadata.suggestedModes] }
-                : {}),
-            },
-          }
-        : {}),
-    };
-
-    this.#motifs.set(clone.id, clone);
-    return clone;
-  }
-
-  /**
-   * Replace notes on an existing motif and recompute `length` to cover the new span.
+   * Replace the notes for an existing motif, validating and recomputing the `length`.
    * @param {string} id The id of the motif to update.
-   * @param {readonly MotifNote[]} notes The new notes to set.
+   * @param {MotifNote[]} notes The new notes to set.
    * @returns {string[]} Validation errors, or a single error if the id is unknown.
    */
-  setNotes(id: string, notes: readonly MotifNote[]): string[] {
-    const existing = this.#motifs.get(id);
+  setNotes(id: string, notes: MotifNote[]): string[] {
+    const existing = this.motifs.get(id);
     if (!existing) return [`Unknown motif: ${id}`];
 
     if (notes.length === 0) return ['notes must be a non-empty array'];

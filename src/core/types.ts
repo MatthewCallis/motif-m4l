@@ -42,9 +42,6 @@ export type LaunchQuantization = 'immediate' | '1/16' | '1/8' | '1/4' | 'bar';
 /** Which incoming MIDI notes bypass motif triggering and pass through. */
 export type PassThroughPolicy = 'none' | 'non-triggers' | 'all';
 
-/** Time unit used by the in-process RuntimeScheduler helper (not Max `pipe`). */
-export type ScheduleUnit = 'ticks' | 'ms';
-
 /** Meter as numerator/denominator (e.g. 4/4, 6/8). */
 export interface TimeSignature {
   numerator: number;
@@ -86,18 +83,6 @@ export interface VelocityCurve {
   exponent?: number;
 }
 
-/** Provenance and library browser metadata for a phrase. */
-export interface MotifMetadata {
-  author?: string;
-  source?: string;
-  license?: string;
-  tags?: readonly string[];
-  /** Pitch modes that sound good with this phrase (UI hints). */
-  suggestedModes?: readonly string[];
-  /** Pickup length in PPQ ticks before the downbeat. */
-  pickupTicks?: number;
-}
-
 /** One note (or rest gap) inside a motif phrase. */
 export interface MotifNote {
   /** Start position in source PPQ ticks. Gaps between notes represent rests. */
@@ -136,7 +121,6 @@ export interface Motif {
   /** Phrase length in PPQ ticks (usually last note end). */
   length: number;
   notes: readonly MotifNote[];
-  metadata?: MotifMetadata;
   /** Default gate when a note omits `gate`. */
   defaultGate?: number;
   velocityCurve?: VelocityCurve;
