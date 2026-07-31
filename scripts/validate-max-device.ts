@@ -31,6 +31,14 @@ type MaxBox = {
   ignoreclick?: number;
   rendermode?: number;
   url?: string;
+  parameter_enable?: number;
+  saved_attribute_attributes?: {
+    valueof?: {
+      parameter_initial?: Array<string | number>;
+      parameter_invisible?: 0 | 1 | 2;
+      parameter_type?: number;
+    };
+  };
   patcher?: {
     openinpresentation?: number;
     rect?: [number, number, number, number];
@@ -140,7 +148,7 @@ assert.ok(hasLine(midiselect, 7, midiflush, 0), "unselected raw MIDI is not pass
 assert.ok(hasLine(midiflush, 0, midiout, 0), "MIDI output chain is incomplete");
 
 const engineRoute = byText(
-  "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page",
+  "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page persist",
 );
 assert.ok(engineRoute, "missing engine output route");
 assert.ok(!byText("prepend delete_file"), "removed motif deletion path must not be generated");
@@ -160,6 +168,16 @@ assert.equal(
   byVarname("scale-name-display")?.maxclass,
   "live.menu",
   "scale name must be theme-default live.menu",
+);
+assert.equal(
+  byVarname("root-display")?.saved_attribute_attributes?.valueof?.parameter_invisible,
+  2,
+  "Song root display must not become a stored/automatable device parameter",
+);
+assert.equal(
+  byVarname("scale-name-display")?.saved_attribute_attributes?.valueof?.parameter_invisible,
+  2,
+  "Song scale display must not become a stored/automatable device parameter",
 );
 assert.ok(!byVarname("scale-mode-display"), "scale ♭♯ chip must not appear");
 assert.ok(!byVarname("tempo-display"), "Presentation UI must not show a BPM readout");
@@ -212,6 +230,14 @@ assert.ok(
   "authoring float window must not depend on resize behavior",
 );
 assert.ok(byText("receive ---motif_author"), "authoring controls must feed v8 via ---motif_author");
+const authorReceive = byText("receive ---motif_author");
+const authorDefer = authorReceive
+  ? boxes.find((box) => box.text === "deferlow" && hasLine(authorReceive, 0, box, 0))
+  : undefined;
+assert.ok(
+  authorDefer && hasLine(authorDefer, 0, v8, 0),
+  "Library actions that may create LiveAPI must run through deferlow",
+);
 assert.ok(byText("prepend tempo_multiplier"), "BPM multiplier must be wired to the engine");
 assert.ok(!boxes.some((box) => box.maxclass === "v8ui"), "core preview must not depend on v8ui");
 assert.ok(
@@ -331,15 +357,17 @@ assert.ok(
 
 const pcontrol = byText("pcontrol");
 const libraryInfo = byText("p library-info");
-const libraryOpenTrigger = byText("t b b b b b b");
 const closeMessage = boxes.find((box) => box.maxclass === "message" && box.text === "close");
 const infoTrigger = closeMessage
   ? boxes.find((box) => box.text === "t b b" && hasLine(box, 1, closeMessage, 0))
   : undefined;
+const openMessage = boxes.find((box) => box.maxclass === "message" && box.text === "open");
+const libraryOpenTrigger = openMessage
+  ? boxes.find((box) => box.text === "t b b b b b b" && hasLine(box, 2, openMessage, 0))
+  : undefined;
 const reopenDefer = libraryOpenTrigger
   ? boxes.find((box) => box.text === "deferlow" && hasLine(box, 0, libraryOpenTrigger, 0))
   : undefined;
-const openMessage = boxes.find((box) => box.maxclass === "message" && box.text === "open");
 const prepareMessage = boxes.find(
   (box) => box.maxclass === "message" && box.text === "library_prepare",
 );
@@ -402,7 +430,7 @@ for (const text of ["window flags float nogrow close zoom", "window size 640 460
 
 const libraryPathReceive = byText("receive ---library_path");
 const libraryPathPattr = byText(
-  "pattr motif_library_path @autorestore 1 @thru 2 @parameter_enable 1 @parameter_mappable 0",
+  "pattr motif_library_path @autorestore 0 @thru 0 @type symbol @parameter_enable 1 @parameter_mappable 0",
 );
 const libraryPathPrepend = byText("prepend library_path");
 assert.ok(
@@ -418,19 +446,74 @@ assert.ok(
   hasLine(libraryPathPattr, 0, libraryPathPrepend, 0),
   "restored path does not reload the library",
 );
-const restoreBang = boxes.find(
+assert.equal(
+  libraryPathPattr.saved_attribute_attributes?.valueof?.parameter_type,
+  3,
+  "library path must use Live's Blob parameter type",
+);
+assert.equal(
+  libraryPathPattr.saved_attribute_attributes?.valueof?.parameter_invisible,
+  1,
+  "library path must be Stored Only",
+);
+const pathRestoreBang = boxes.find(
   (box) =>
     box.maxclass === "message" && box.text === "bang" && hasLine(box, 0, libraryPathPattr, 0),
 );
-const restoreDefer = restoreBang ? boxes.find((box) => hasLine(box, 0, restoreBang, 0)) : undefined;
-assert.equal(
-  restoreDefer?.text,
-  "deferlow",
-  "saved path must be replayed after device initialization",
+const deviceStatePattr = byText(
+  "pattr motif_device_state @autorestore 0 @thru 0 @type symbol @parameter_enable 1 @parameter_mappable 0",
 );
+const stateRestoreBang = deviceStatePattr
+  ? boxes.find(
+      (box) =>
+        box.maxclass === "message" && box.text === "bang" && hasLine(box, 0, deviceStatePattr, 0),
+    )
+  : undefined;
+const stateRestorePrepend = byText("prepend restore_state");
 assert.ok(
-  hasLine(byText("live.thisdevice"), 0, restoreDefer, 0),
-  "live.thisdevice does not trigger path restore",
+  deviceStatePattr && stateRestoreBang && stateRestorePrepend,
+  "engine-owned device-state persistence graph is incomplete",
+);
+assert.equal(
+  deviceStatePattr.saved_attribute_attributes?.valueof?.parameter_type,
+  3,
+  "engine-owned state must use Live's Blob parameter type",
+);
+assert.equal(
+  deviceStatePattr.saved_attribute_attributes?.valueof?.parameter_invisible,
+  1,
+  "engine-owned state must be Stored Only",
+);
+assert.ok(hasLine(deviceStatePattr, 0, stateRestorePrepend, 0));
+assert.ok(hasLine(stateRestorePrepend, 0, v8, 0));
+assert.ok(hasLine(engineRoute, 12, deviceStatePattr, 0));
+
+const initOrder = byText("t b b b b b b");
+const parameterRestore = byText("t b b b b b b b b b b b b");
+assert.ok(
+  initOrder &&
+    pathRestoreBang &&
+    stateRestoreBang &&
+    parameterRestore &&
+    hasLine(byText("live.thisdevice"), 0, initOrder, 0) &&
+    hasLine(initOrder, 5, pathRestoreBang, 0) &&
+    hasLine(initOrder, 4, stateRestoreBang, 0) &&
+    hasLine(initOrder, 3, parameterRestore, 0),
+  "live.thisdevice must replay path, state, and restored Live parameters in order",
+);
+
+const invertButton = byVarname("invert-button");
+const reverseButton = byVarname("reverse-button");
+const invertPrepend = byText("prepend invert");
+const reversePrepend = byText("prepend reverse");
+assert.equal(invertButton?.parameter_enable, 1, "Invert must be a stored Live parameter");
+assert.equal(reverseButton?.parameter_enable, 1, "Reverse must be a stored Live parameter");
+assert.ok(hasLine(invertButton, 0, invertPrepend, 0) && hasLine(invertPrepend, 0, v8, 0));
+assert.ok(hasLine(reverseButton, 0, reversePrepend, 0) && hasLine(reversePrepend, 0, v8, 0));
+assert.equal(
+  boxes.filter((box) => box.text === "loadmess set 0").length,
+  0,
+  "loadmess defaults must not overwrite Live-restored transform parameters",
 );
 
 const contextSources = boxes.filter((box) => box.text === "prepend song_context");
@@ -549,7 +632,7 @@ assert.match(
   /function createStore<T>/,
   "Library must have one explicit typed local state store",
 );
-assert.match(libraryClient, /type:\s*'cancel_edit'/, "Library must expose cancel editing");
+assert.match(libraryClient, /type:\s*["']cancel_edit["']/, "Library must expose cancel editing");
 assert.doesNotMatch(
   libraryClient,
   /delete_motif|Delete motif|skipDeleteConfirmation/,
@@ -565,7 +648,7 @@ for (const id of [
 }
 assert.match(
   libraryClient,
-  /type:\s*'edit_motif'/,
+  /type:\s*["']edit_motif["']/,
   "Library must submit complete motif properties",
 );
 assert.match(libraryClient, /velocityOffset/, "Library must expose advanced note velocity fields");
@@ -595,7 +678,7 @@ assert.match(
   "engine must use a content-addressed temporary page",
 );
 assert.ok(
-  source.includes("<!DOCTYPE html>"),
+  /<!doctype html>/i.test(source),
   "compiled engine must contain the build-injected library page",
 );
 assert.match(

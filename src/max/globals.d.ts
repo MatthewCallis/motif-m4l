@@ -104,7 +104,7 @@ declare const __MOTIF_LIBRARY_PAGE_NAME__: string;
  */
 declare class LiveAPI {
   constructor(callback?: (args: unknown[]) => void, path?: string);
-  readonly id: number;
+  id: number;
   get(property: string): number | number[];
   getstring(property: string): string | string[];
   call(method: string, ...args: unknown[]): unknown;

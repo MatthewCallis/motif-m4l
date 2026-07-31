@@ -53,7 +53,7 @@ const MAX_BRIDGE =
   'var inlets=1;var outlets=1;function anything(){var message=messagename,args=arrayfromargs(arguments);if(typeof MotifEngine==="undefined"||typeof MotifEngine.dispatch!=="function"){error("Motif: engine dispatcher is unavailable for "+message+"\\n");return}return MotifEngine.dispatch(message,args)}';
 
 const HASH_LENGTH = 12;
-const LIBRARY_STYLE_TAG = '<link rel="stylesheet" href="library.css" data-motif-build>';
+const LIBRARY_STYLE_TAG = '<link rel="stylesheet" href="library.css" data-motif-build />';
 const LIBRARY_SCRIPT_TAG = '<script src="library.ts" data-motif-build></script>';
 
 /**

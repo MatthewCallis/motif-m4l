@@ -74,6 +74,16 @@ export class MotifHotkeyMap {
   }
 
   /**
+   * Snapshot every assignment in deterministic pitch order.
+   * @returns {HotkeyAssignment[]} Stable serializable assignments.
+   */
+  list(): HotkeyAssignment[] {
+    return [...this.mappings]
+      .map(([pitch, mapping]) => ({ pitch, motifId: mapping.motifId, action: mapping.action }))
+      .sort((left, right) => left.pitch - right.pitch);
+  }
+
+  /**
    * Validate and store one assignment.
    * @param {number | string} pitchValue MIDI pitch or Ableton-style note name.
    * @param {string} motifValue Motif id, generated label, or display name.

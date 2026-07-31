@@ -20,6 +20,8 @@ export interface MotifHandlers {
   preview_ready: () => void;
   /** Re-send Library data after the page becomes ready. */
   library_ready: () => void;
+  /** Restore engine-owned selection and hotkeys from Live's Blob parameter. */
+  restore_state: (...encodedParts: unknown[]) => void;
   /** Materialize the embedded Library page for jweb. */
   library_prepare: () => void;
   /** Mirror an embedded-page diagnostic to the Max Console. */
@@ -36,12 +38,8 @@ export interface MotifHandlers {
   pitch_mode: (mode: string) => void;
   /** Set non-destructive pitch inversion. */
   invert: (value: string | number | boolean) => void;
-  /** Flip non-destructive pitch inversion. */
-  invert_toggle: () => void;
   /** Set non-destructive note-order reversal. */
   reverse: (value: string | number | boolean) => void;
-  /** Flip non-destructive note-order reversal. */
-  reverse_toggle: () => void;
   /** Select preserve or fit-bar meter behavior. */
   meter_mode: (mode: string) => void;
   /** Select replace or overlap retrigger behavior. */

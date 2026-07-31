@@ -104,16 +104,18 @@ describe("Max documentation contract", () => {
       globals,
       /constructor\(callback\?: \(args: unknown\[\]\) => void, path\?: string\)/,
     );
-    assert.match(liveApi, /new LiveAPI\(undefined, 'live_set view detail_clip'\)/);
-    assert.match(liveApi, /clip\.call\('get_notes_extended', 0, 128, 0, 4096\)/);
-    assert.doesNotMatch(liveApi, /clip\.call\('get_notes'/);
+    assert.match(liveApi, /new LiveAPI\(undefined, ["']live_set view detail_clip["']\)/);
+    assert.match(liveApi, /clip\.call\(["']get_notes_extended["'], 0, 128, 0, 4096\)/);
+    assert.doesNotMatch(liveApi, /clip\.call\(["']get_notes["']/);
+    assert.match(globals, /^\s*id: number;$/m);
+    assert.doesNotMatch(globals, /readonly id: number/);
     assert.doesNotMatch(device, /mode === 'auto'/);
     assert.match(preview, /https:\/\/docs\.cycling74\.com\/apiref\/js\/mgraphics\//);
     assert.match(
       libraryTemplate,
       /https:\/\/docs\.cycling74\.com\/userguide\/web_browser\/#javascript-communication/,
     );
-    assert.match(libraryClient, /maxBridge\.bindInlet\('receiveData', receiveData\)/);
+    assert.match(libraryClient, /maxBridge\.bindInlet\(["']receiveData["'], receiveData\)/);
     assert.ok(documentation.includes("https://docs.cycling74.com/apiref/lom/clip/"));
   });
 });

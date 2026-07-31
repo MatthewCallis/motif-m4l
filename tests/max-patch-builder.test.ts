@@ -6,6 +6,7 @@ import {
   createHelpAttributes,
   createIntegerParameterAttributes,
   createMenuItems,
+  createStoredBlobParameterAttributes,
   type MaxBuilderColors,
   type MaxBox,
   type MaxHelpInfo,
@@ -95,6 +96,14 @@ describe("Max patch attribute helpers", () => {
       );
     });
 
+    it("can hide Song-owned enum helpers from Live parameter storage", () => {
+      assert.equal(
+        createEnumParameterAttributes("Song Root", "Root", ["C", "C♯"], 0, 2).valueof
+          .parameter_invisible,
+        2,
+      );
+    });
+
     it("rejects invalid names, values, and initial indices", () => {
       assert.throws(() => createEnumParameterAttributes("", "Mode", ["A"]), /parameter long name/);
       assert.throws(() => createEnumParameterAttributes("Mode", "", ["A"]), /parameter short name/);
@@ -114,6 +123,24 @@ describe("Max patch attribute helpers", () => {
       assert.throws(
         () => createEnumParameterAttributes("Mode", "Mode", ["A"], 0.5),
         /between 0 and 0/,
+      );
+    });
+  });
+
+  describe("createStoredBlobParameterAttributes", () => {
+    it("creates a Stored Only Blob parameter for opaque device state", () => {
+      assert.deepEqual(
+        createStoredBlobParameterAttributes("Motif Device State", "State", ["encoded"]),
+        {
+          valueof: {
+            parameter_initial: ["encoded"],
+            parameter_initial_enable: 1,
+            parameter_invisible: 1,
+            parameter_longname: "Motif Device State",
+            parameter_shortname: "State",
+            parameter_type: 3,
+          },
+        },
       );
     });
   });
@@ -386,6 +413,45 @@ describe("MaxPatchBuilder", () => {
       assert.equal(boxById(builder, defaultId).maxclass, "live.comment");
       assert.equal(boxById(builder, defaultId).hidden, 0);
       assert.equal(boxById(builder, hiddenId).hidden, 1);
+    });
+
+    it("adds parameter-enabled live.text toggles with a stored initial value", () => {
+      const builder = createBuilder();
+      const toggleId = builder.addLiveTextButton("toggle", "Toggle", [0, 0, 70, 20], HELP, {
+        mode: 1,
+        parameter: {
+          longName: "Transform Toggle",
+          shortName: "Toggle",
+          initial: 0,
+        },
+      });
+      const momentaryId = builder.addLiveTextButton(
+        "momentary",
+        "Momentary",
+        [0, 20, 70, 20],
+        HELP,
+      );
+
+      const toggle = boxById(builder, toggleId);
+      assert.equal(toggle.parameter_enable, 1);
+      assert.deepEqual(
+        (
+          toggle.saved_attribute_attributes as {
+            valueof: { parameter_initial: number[]; parameter_mmax: number };
+          }
+        ).valueof,
+        {
+          parameter_initial: [0],
+          parameter_initial_enable: 1,
+          parameter_longname: "Transform Toggle",
+          parameter_mmax: 1,
+          parameter_mmin: 0,
+          parameter_shortname: "Toggle",
+          parameter_type: 1,
+          parameter_unitstyle: 8,
+        },
+      );
+      assert.equal(boxById(builder, momentaryId).parameter_enable, 0);
     });
 
     it("adds live.tab controls with enum parameter metadata", () => {

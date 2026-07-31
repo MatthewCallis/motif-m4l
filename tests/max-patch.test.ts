@@ -29,7 +29,16 @@ type Box = {
   rendermode?: number;
   fontname?: string;
   url?: string;
-  saved_attribute_attributes?: { valueof?: { parameter_enum?: string[] } };
+  saved_attribute_attributes?: {
+    valueof?: {
+      parameter_enum?: string[];
+      parameter_initial?: Array<string | number>;
+      parameter_initial_enable?: number;
+      parameter_invisible?: 0 | 1 | 2;
+      parameter_longname?: string;
+      parameter_type?: number;
+    };
+  };
   patcher?: {
     boxes: Array<{ box: Box }>;
     lines: Array<{ patchline: PatchLine }>;
@@ -195,7 +204,7 @@ describe("Motif Max patch integration", () => {
     assert.ok(texts.includes("t b b b b b b b b b"));
     assert.ok(
       texts.includes(
-        "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page",
+        "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page persist",
       ),
     );
     assert.ok(
@@ -221,7 +230,7 @@ describe("Motif Max patch integration", () => {
 
     const engineRoute = boxByText(
       boxes,
-      "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page",
+      "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page persist",
     );
     assert.ok(engineRoute);
     assert.ok(!boxByText(boxes, "prepend delete_file"));
@@ -258,9 +267,16 @@ describe("Motif Max patch integration", () => {
       1,
       "live.menu needs an enabled parameter to own its enum",
     );
+    assert.equal(
+      rootDisplay?.saved_attribute_attributes?.valueof?.parameter_invisible,
+      2,
+      "Song-owned root display must be hidden from Live parameter storage and automation",
+    );
     assert.equal(rootDisplay?.ignoreclick, 1, "root display must not be user-editable");
-    assert.equal(boxByVarname(boxes, "scale-name-display")?.maxclass, "live.menu");
-    assert.equal(boxByVarname(boxes, "scale-name-display")?.ignoreclick, 1);
+    const scaleNameDisplay = boxByVarname(boxes, "scale-name-display");
+    assert.equal(scaleNameDisplay?.maxclass, "live.menu");
+    assert.equal(scaleNameDisplay?.ignoreclick, 1);
+    assert.equal(scaleNameDisplay?.saved_attribute_attributes?.valueof?.parameter_invisible, 2);
     assert.ok(!boxByVarname(boxes, "scale-mode-display"), "scale ♭♯ chip must be removed");
     assert.ok(
       !boxByVarname(boxes, "tempo-display"),
@@ -401,6 +417,8 @@ describe("Motif Max patch integration", () => {
       0,
       "Invert must emit the new toggle state on mouse-down",
     );
+    assert.equal(invertButton?.parameter_enable, 1, "Invert must be stored as a Live parameter");
+    assert.deepEqual(invertButton?.saved_attribute_attributes?.valueof?.parameter_initial, [0]);
     assert.equal(reverseButton?.maxclass, "live.text");
     assert.equal(reverseButton?.text, "Reverse");
     assert.equal(reverseButton?.mode, 1, "Reverse must visually latch on/off");
@@ -409,24 +427,45 @@ describe("Motif Max patch integration", () => {
       0,
       "Reverse must emit the new toggle state on mouse-down",
     );
-    const invertPrepend = boxByText(boxes, "prepend invert_toggle");
-    const reversePrepend = boxByText(boxes, "prepend reverse_toggle");
-    assert.ok(invertButton && invertPrepend && hasLine(lines, invertButton, 1, invertPrepend, 0));
+    assert.equal(reverseButton?.parameter_enable, 1, "Reverse must be stored as a Live parameter");
+    assert.deepEqual(reverseButton?.saved_attribute_attributes?.valueof?.parameter_initial, [0]);
+    const invertPrepend = boxByText(boxes, "prepend invert");
+    const reversePrepend = boxByText(boxes, "prepend reverse");
+    assert.ok(invertButton && invertPrepend && hasLine(lines, invertButton, 0, invertPrepend, 0));
     assert.ok(invertPrepend && hasLine(lines, invertPrepend, 0, v8, 0));
     assert.ok(
-      reverseButton && reversePrepend && hasLine(lines, reverseButton, 1, reversePrepend, 0),
+      reverseButton && reversePrepend && hasLine(lines, reverseButton, 0, reversePrepend, 0),
     );
     assert.ok(reversePrepend && hasLine(lines, reversePrepend, 0, v8, 0));
-    const transformDefaults = boxes
-      .filter(({ box }) => box.text === "loadmess set 0")
-      .map(({ box }) => box);
     assert.equal(
-      transformDefaults.length,
-      2,
-      "both transform latches need silent startup defaults",
+      boxes.filter(({ box }) => box.text === "loadmess set 0").length,
+      0,
+      "startup messages must not overwrite Live-restored transform values",
     );
-    assert.ok(transformDefaults.some((box) => hasLine(lines, box, 0, invertButton, 0)));
-    assert.ok(transformDefaults.some((box) => hasLine(lines, box, 0, reverseButton, 0)));
+    const parameterRestore = boxByText(boxes, "t b b b b b b b b b b b b");
+    const invertOutputValue = boxByText(boxes, "outputvalue");
+    const outputValueMessages = boxes
+      .filter(({ box }) => box.text === "outputvalue")
+      .map(({ box }) => box);
+    assert.equal(outputValueMessages.length, 2);
+    assert.ok(parameterRestore && invertOutputValue);
+    assert.ok(
+      outputValueMessages.some(
+        (box) =>
+          hasLine(lines, parameterRestore, 10, box, 0) && hasLine(lines, box, 0, invertButton, 0),
+      ),
+    );
+    assert.ok(
+      outputValueMessages.some(
+        (box) =>
+          hasLine(lines, parameterRestore, 11, box, 0) && hasLine(lines, box, 0, reverseButton, 0),
+      ),
+    );
+    const lowNumber = boxByVarname(boxes, "low-number");
+    const highNumber = boxByVarname(boxes, "high-number");
+    assert.ok(lowNumber && highNumber);
+    assert.ok(hasLine(lines, parameterRestore, 8, lowNumber, 0));
+    assert.ok(hasLine(lines, parameterRestore, 7, highNumber, 0));
     const transformRoute = boxByText(boxes, "route lib preview transforms");
     const transformUnpackId = transformRoute
       ? lines.find(
@@ -564,7 +603,14 @@ describe("Motif Max patch integration", () => {
 
     const libraryInfo = boxByText(boxes, "p library-info");
     const libraryPcontrol = boxByText(boxes, "pcontrol");
-    const libraryOpenTrigger = boxByText(boxes, "t b b b b b b");
+    const libraryOpen = boxes.find(
+      ({ box }) => box.maxclass === "message" && box.text === "open",
+    )?.box;
+    const libraryOpenTrigger = libraryOpen
+      ? boxes.find(
+          ({ box }) => box.text === "t b b b b b b" && hasLine(lines, box, 2, libraryOpen, 0),
+        )?.box
+      : undefined;
     const libraryClose = boxes.find(
       ({ box }) => box.maxclass === "message" && box.text === "close",
     )?.box;
@@ -577,9 +623,6 @@ describe("Motif Max patch integration", () => {
           ({ box }) => box.text === "deferlow" && hasLine(lines, box, 0, libraryOpenTrigger, 0),
         )?.box
       : undefined;
-    const libraryOpen = boxes.find(
-      ({ box }) => box.maxclass === "message" && box.text === "open",
-    )?.box;
     const libraryPrepare = boxes.find(
       ({ box }) => box.maxclass === "message" && box.text === "library_prepare",
     )?.box;
@@ -591,7 +634,7 @@ describe("Motif Max patch integration", () => {
     const libraryPagePrepend = boxByText(boxes, "prepend library_page");
     const libraryEngineRoute = boxByText(
       boxes,
-      "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page",
+      "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page persist",
     );
     assert.ok(
       libraryInfo &&
@@ -653,30 +696,57 @@ describe("Motif Max patch integration", () => {
     const libraryPathReceive = boxByText(boxes, "receive ---library_path");
     const libraryPathPattr = boxByText(
       boxes,
-      "pattr motif_library_path @autorestore 1 @thru 2 @parameter_enable 1 @parameter_mappable 0",
+      "pattr motif_library_path @autorestore 0 @thru 0 @type symbol @parameter_enable 1 @parameter_mappable 0",
     );
     const libraryPathPrepend = boxByText(boxes, "prepend library_path");
     assert.ok(libraryPathReceive && libraryPathPattr && libraryPathPrepend);
+    assert.equal(libraryPathPattr.saved_attribute_attributes?.valueof?.parameter_type, 3);
+    assert.equal(libraryPathPattr.saved_attribute_attributes?.valueof?.parameter_invisible, 1);
     assert.ok(hasLine(lines, libraryPathReceive, 0, libraryPathPattr, 0));
     assert.ok(hasLine(lines, libraryPathReceive, 0, libraryPathPrepend, 0));
     assert.ok(hasLine(lines, libraryPathPattr, 0, libraryPathPrepend, 0));
 
-    const restoreBang = boxes.find(
+    const pathRestoreBang = boxes.find(
       ({ box }) =>
         box.maxclass === "message" &&
         box.text === "bang" &&
         hasLine(lines, box, 0, libraryPathPattr, 0),
     )?.box;
-    const restoreDefer = restoreBang
-      ? boxes.find(({ box }) => hasLine(lines, box, 0, restoreBang, 0))?.box
-      : undefined;
-    const thisDevice = boxByText(boxes, "live.thisdevice");
-    assert.ok(restoreBang && restoreDefer && thisDevice);
-    assert.equal(restoreDefer.text, "deferlow");
-    assert.ok(
-      hasLine(lines, thisDevice, 0, restoreDefer, 0),
-      "saved library path must be replayed after device load",
+    const deviceStatePattr = boxByText(
+      boxes,
+      "pattr motif_device_state @autorestore 0 @thru 0 @type symbol @parameter_enable 1 @parameter_mappable 0",
     );
+    const stateRestoreBang = deviceStatePattr
+      ? boxes.find(
+          ({ box }) =>
+            box.maxclass === "message" &&
+            box.text === "bang" &&
+            hasLine(lines, box, 0, deviceStatePattr, 0),
+        )?.box
+      : undefined;
+    const stateRestorePrepend = boxByText(boxes, "prepend restore_state");
+    assert.ok(deviceStatePattr && stateRestoreBang && stateRestorePrepend && engineRoute);
+    assert.equal(deviceStatePattr.saved_attribute_attributes?.valueof?.parameter_type, 3);
+    assert.equal(deviceStatePattr.saved_attribute_attributes?.valueof?.parameter_invisible, 1);
+    assert.ok(hasLine(lines, deviceStatePattr, 0, stateRestorePrepend, 0));
+    assert.ok(hasLine(lines, stateRestorePrepend, 0, v8, 0));
+    assert.ok(hasLine(lines, engineRoute, 12, deviceStatePattr, 0));
+
+    const initOrder = boxByText(boxes, "t b b b b b b");
+    const thisDevice = boxByText(boxes, "live.thisdevice");
+    assert.ok(pathRestoreBang && initOrder && thisDevice && parameterRestore);
+    assert.ok(hasLine(lines, thisDevice, 0, initOrder, 0));
+    assert.ok(hasLine(lines, initOrder, 5, pathRestoreBang, 0));
+    assert.ok(hasLine(lines, initOrder, 4, stateRestoreBang, 0));
+    assert.ok(hasLine(lines, initOrder, 3, parameterRestore, 0));
+
+    const authorReceive = boxByText(boxes, "receive ---motif_author");
+    const authorDefer = authorReceive
+      ? boxes.find(({ box }) => box.text === "deferlow" && hasLine(lines, authorReceive, 0, box, 0))
+          ?.box
+      : undefined;
+    assert.ok(authorReceive && authorDefer);
+    assert.ok(hasLine(lines, authorDefer, 0, v8, 0));
 
     for (const varname of [
       "trigger-menu",
@@ -705,11 +775,11 @@ describe("Motif Max patch integration", () => {
       readFile("max/library.html", "utf8"),
     ]);
     const client = `${controller}\n${logic}\n${protocol}`;
-    const bindIndex = client.indexOf("maxBridge.bindInlet('receiveData', receiveData)");
-    const readyIndex = client.indexOf("maxBridge.outlet('library_ready')");
+    const bindIndex = client.search(/maxBridge\.bindInlet\(["']receiveData["'], receiveData\)/);
+    const readyIndex = client.search(/maxBridge\.outlet\(["']library_ready["']\)/);
     const script = libraryHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 
-    assert.match(template, /<link rel="stylesheet" href="library\.css" data-motif-build>/);
+    assert.match(template, /<link rel="stylesheet" href="library\.css" data-motif-build \/>/);
     assert.match(template, /<script src="library\.ts" data-motif-build><\/script>/);
     assert.doesNotMatch(template, /<style>|<script>(?!<\/script>)/);
     assert.ok(script, "production Library HTML must contain the compiled inline script");
@@ -726,16 +796,13 @@ describe("Motif Max patch integration", () => {
     );
     assert.ok(bindIndex >= 0, "library must bind the receiveData inlet");
     assert.ok(readyIndex > bindIndex, "library must announce readiness after binding receiveData");
+    assert.match(client, /maxBridge\.outlet\(["']web_debug["']/);
     assert.ok(
-      client.includes("maxBridge.outlet('web_debug'"),
-      "library must report diagnostics to Max",
-    );
-    assert.ok(
-      client.includes("window.addEventListener('error'"),
+      /window\.addEventListener\(["']error["']/.test(client),
       "library must capture JavaScript errors",
     );
     assert.ok(
-      client.includes("window.addEventListener('unhandledrejection'"),
+      /window\.addEventListener\(["']unhandledrejection["']/.test(client),
       "library must capture promise rejections",
     );
     assert.ok(
@@ -762,10 +829,12 @@ describe("Motif Max patch integration", () => {
       client.includes("detail === payloadErrorSignature"),
       "repeated payload errors must be deduplicated",
     );
-    assert.match(client, /confirmLabel:\s*'OK'/, "user warnings must be dismissible");
+    assert.match(client, /confirmLabel:\s*["']OK["']/, "user warnings must be dismissible");
     assert.ok(!client.includes("Bad library payload:"), "raw JSON parse errors must not be shown");
     assert.ok(
-      client.includes("maxBridge.outlet('lib_action', encodeURIComponent(JSON.stringify(action)))"),
+      /maxBridge\.outlet\(["']lib_action["'], encodeURIComponent\(JSON\.stringify\(action\)\)\)/.test(
+        client,
+      ),
       "library actions must use an explicit selector",
     );
     assert.match(
@@ -775,42 +844,42 @@ describe("Motif Max patch integration", () => {
     );
     assert.match(
       client,
-      /type:\s*'cancel_edit'/,
+      /type:\s*["']cancel_edit["']/,
       "library must provide an explicit way to exit editing",
     );
     assert.doesNotMatch(client, /delete_motif|skipDeleteConfirmation/);
-    assert.match(client, /type:\s*'select_browser'/, "browser selection must use stable ids");
-    assert.ok(client.includes("heading.className = 'browser-folder'"));
+    assert.match(client, /type:\s*["']select_browser["']/, "browser selection must use stable ids");
+    assert.match(client, /heading\.className = ["']browser-folder["']/);
     assert.ok(client.includes("collapsedFolders: new Set<string>()"));
-    assert.ok(client.includes("heading.setAttribute('aria-expanded'"));
+    assert.match(client, /heading\.setAttribute\(["']aria-expanded["']/);
     assert.ok(client.includes("if (folderCollapsed) continue"));
     assert.ok(client.includes("isFolderCollapsed(folder, server.query"));
     assert.ok(client.includes("item.folder"));
     assert.ok(client.includes("server?.libraryScanning"));
-    assert.match(template, /id="hotkey-input" type="text"/);
+    assert.match(template, /id="hotkey-input"\s+type="text"/);
     assert.match(template, /id="hotkey-action"/);
     assert.match(template, /<option value="trigger">Trigger Motif<\/option>/);
     assert.match(template, /<option value="select">Select Motif<\/option>/);
     assert.doesNotMatch(template, /<option value="repeat">/);
     assert.doesNotMatch(client, /function parseMidiNoteName/);
     assert.ok(client.includes("mapping.label"));
-    assert.match(client, /type:\s*'map_trigger'/);
-    assert.ok(client.includes("$<HTMLSelectElement>('hotkey-action').value"));
-    assert.match(client, /type:\s*'unmap_trigger'/);
+    assert.match(client, /type:\s*["']map_trigger["']/);
+    assert.match(client, /\$<HTMLSelectElement>\(["']hotkey-action["']\)\.value/);
+    assert.match(client, /type:\s*["']unmap_trigger["']/);
     assert.ok(client.includes("Save changes and exit editing"));
-    assert.match(client, /type:\s*'edit_motif', properties:\s*readProperties\(\)/);
+    assert.match(client, /type:\s*["']edit_motif["'], properties:\s*readProperties\(\)/);
     assert.doesNotMatch(client, /MAX_MOTIF_NOTES/);
     assert.ok(client.includes("selected.canAddNote"));
-    assert.match(style, /#notes-panel\s*\{\s*overflow:auto;/);
+    assert.match(style, /#notes-panel\s*\{\s*overflow:\s*auto;/);
     assert.doesNotMatch(client, /note-page-prev|set_note_page/);
     assert.ok(client.includes("function receiveStateChunk(payload: LibraryStateChunk)"));
-    assert.ok(client.includes("LIBRARY_STATE_CHUNK_KIND = 'state-chunk'"));
+    assert.match(client, /LIBRARY_STATE_CHUNK_KIND = ["']state-chunk["']/);
     assert.ok(client.includes("kind === LIBRARY_STATE_CHUNK_KIND"));
     assert.ok(client.includes("notes.forEach((note, index) => {"));
-    assert.match(client, /type:\s*'edit_note_at'/);
+    assert.match(client, /type:\s*["']edit_note_at["']/);
     assert.match(template, /id="import-mode"/);
     assert.match(template, /<option value="chromatic">Exact \/ Chromatic<\/option>/);
-    assert.match(client, /type:\s*'import_clip'/);
+    assert.match(client, /type:\s*["']import_clip["']/);
     for (const field of [
       "pitch-mode-edit",
       "meter-numerator-edit",

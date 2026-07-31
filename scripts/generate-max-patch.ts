@@ -30,6 +30,7 @@
 
 import { writeFile } from "node:fs/promises";
 import {
+  createStoredBlobParameterAttributes,
   MaxPatchBuilder,
   type MaxBuilderColors,
   type MaxPatchDocument,
@@ -38,6 +39,9 @@ import {
 
 const WIDTH = 475;
 const FONT = "Ableton Sans";
+const INITIAL_DEVICE_STATE = encodeURIComponent(
+  JSON.stringify({ schemaVersion: 1, selectedMotifId: "scale-turn", hotkeys: [] }),
+);
 
 /** Content-addressed JavaScript artifacts consumed by the generated Max patch. */
 export interface MaxRuntimeArtifacts {
@@ -232,7 +236,15 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
       description:
         "Mirror relative pitch offsets around the trigger note without changing the stored motif.",
     },
-    { mode: 1, ...motifHidden },
+    {
+      mode: 1,
+      parameter: {
+        longName: "Invert Motif Offsets",
+        shortName: "Invert",
+        initial: 0,
+      },
+      ...motifHidden,
+    },
   );
   uiButton(
     "reverse-button",
@@ -243,7 +255,15 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
       description:
         "Play the motif backward by mirroring note timing without changing the stored motif.",
     },
-    { mode: 1, ...motifHidden },
+    {
+      mode: 1,
+      parameter: {
+        longName: "Reverse Motif Notes",
+        shortName: "Reverse",
+        initial: 0,
+      },
+      ...motifHidden,
+    },
   );
   uiLiveComment("scale-label", "Scale", [208, 150, 40, 18], motifHidden);
   // parameter_enable must stay 1 - live.menu loads parameter_enum from the Live parameter.
@@ -260,7 +280,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
       description:
         "Live Set's current scale root, observed from Song.root_note. Dimmed when Scale Mode is off.",
     },
-    { ignoreclick: 1, ...motifHidden },
+    { ignoreclick: 1, parameterVisibility: 2, ...motifHidden },
   );
   uiLiveMenu(
     "scale-name-display",
@@ -274,7 +294,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
       description:
         "Live Set's current scale name, observed from Song.scale_name. Dimmed when Scale Mode is off.",
     },
-    { ignoreclick: 1, ...motifHidden },
+    { ignoreclick: 1, parameterVisibility: 2, ...motifHidden },
   );
 
   // Settings tab (initially hidden) - same 8px vertical rhythm
@@ -588,10 +608,10 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   });
   object(
     "engine-route",
-    "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page",
+    "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page persist",
     COL.engine,
     ENG_Y + ROW * 3,
-    920,
+    980,
   );
   object("event-unpack", "unpack 0 0 0 0.", COL.engine, ENG_Y + ROW * 4, 140);
   object("event-pipe", "pipe 0 0 0 0.", COL.engine, ENG_Y + ROW * 5, 130);
@@ -650,7 +670,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     560,
   );
   object("thisdevice", "live.thisdevice", COL.song, OBS_Y, 120);
-  object("init-order", "t b b b", COL.song, OBS_Y + ROW, 90);
+  object("init-order", "t b b b b b b", COL.song, OBS_Y + ROW, 140);
   object("property-fanout", "t b b b b b b b b b", COL.song + 200, OBS_Y + ROW, 200);
   object("live-path", "live.path live_set", COL.song, OBS_Y + ROW * 2, 140);
   object("initialize-defer", "deferlow", COL.song, OBS_Y + ROW * 3, 80);
@@ -823,31 +843,59 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect("library-pcontrol", 0, "library-info", 0);
 
   object("r-library-path", "receive ---library_path", COL.library + 420, LIB_Y, 180);
+  add("library-path-pattr", "newobj", [COL.library + 640, LIB_Y, 520, 22], {
+    text: "pattr motif_library_path @autorestore 0 @thru 0 @type symbol @parameter_enable 1 @parameter_mappable 0",
+    saved_attribute_attributes: createStoredBlobParameterAttributes(
+      "Motif Library Path",
+      "Library",
+      [""],
+    ),
+    saved_object_attributes: {
+      parameter_enable: 1,
+      parameter_mappable: 0,
+    },
+    varname: "motif_library_path",
+  });
+  object("library-prepend", "prepend library_path", COL.library + 1200, LIB_Y, 160);
+  message("library-path-restore-bang", "bang", COL.library + 640, LIB_Y + ROW, 60);
+  add("device-state-pattr", "newobj", [COL.library + 640, LIB_Y + ROW * 2, 520, 22], {
+    text: "pattr motif_device_state @autorestore 0 @thru 0 @type symbol @parameter_enable 1 @parameter_mappable 0",
+    saved_attribute_attributes: createStoredBlobParameterAttributes("Motif Device State", "State", [
+      INITIAL_DEVICE_STATE,
+    ]),
+    saved_object_attributes: {
+      parameter_enable: 1,
+      parameter_mappable: 0,
+    },
+    varname: "motif_device_state",
+  });
+  message("device-state-restore-bang", "bang", COL.library + 760, LIB_Y + ROW, 60);
   object(
-    "library-path-pattr",
-    "pattr motif_library_path @autorestore 1 @thru 2 @parameter_enable 1 @parameter_mappable 0",
-    COL.library + 640,
-    LIB_Y,
-    480,
+    "device-state-restore-prepend",
+    "prepend restore_state",
+    COL.library + 1200,
+    LIB_Y + ROW,
+    180,
   );
-  object("library-prepend", "prepend library_path", COL.library + 1160, LIB_Y, 160);
-  object("library-path-restore-defer", "deferlow", COL.library + 640, LIB_Y + ROW, 80);
-  message("library-path-restore-bang", "bang", COL.library + 760, LIB_Y + ROW, 60);
-  // r-author receives lib_action <encodedJson> from subpatcher (already prepended); pass to v8 directly.
+  // LiveAPI must run on Max's low-priority thread. Every Library action shares
+  // this deferred path because Import Clip can instantiate LiveAPI.
   object("r-author", "receive ---motif_author", COL.library + 420, LIB_Y + ROW, 180);
+  object("author-defer", "deferlow", COL.library + 420, LIB_Y + ROW * 2, 80);
   object("r-web-debug", "receive ---motif_web_debug", COL.library + 420, LIB_Y + ROW * 2, 210);
   object("web-debug-prepend", "prepend web_debug", COL.library + 680, LIB_Y + ROW * 2, 160);
-  // New choices update the hidden pattr without echoing (`@thru 2`) and load immediately.
-  // On device load, live.thisdevice bangs pattr after autorestore so the chosen
-  // folder is always scanned even when the jweb window has not opened yet.
+  // New choices update the hidden pattr without echoing (`@thru 0`) and load immediately.
+  // Live restores the parameter value before live.thisdevice; the ordered bang
+  // then replays it so the folder is scanned even when jweb has not opened.
   connect("r-library-path", 0, "library-path-pattr", 0);
   connect("r-library-path", 0, "library-prepend", 0);
   connect("library-path-pattr", 0, "library-prepend", 0);
   connect("library-prepend", 0, "v8", 0);
-  connect("thisdevice", 0, "library-path-restore-defer", 0);
-  connect("library-path-restore-defer", 0, "library-path-restore-bang", 0);
   connect("library-path-restore-bang", 0, "library-path-pattr", 0);
-  connect("r-author", 0, "v8", 0);
+  connect("device-state-restore-bang", 0, "device-state-pattr", 0);
+  connect("device-state-pattr", 0, "device-state-restore-prepend", 0);
+  connect("device-state-restore-prepend", 0, "v8", 0);
+  connect("r-author", 0, "author-defer", 0);
+  connect("author-defer", 0, "v8", 0);
   connect("r-web-debug", 0, "web-debug-prepend", 0);
   connect("web-debug-prepend", 0, "v8", 0);
 
@@ -895,6 +943,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect("engine-route", 10, "ui-route", 0);
   connect("engine-route", 11, "library-page-prepend", 0);
   connect("library-page-prepend", 0, "library-info", 0);
+  connect("engine-route", 12, "device-state-pattr", 0);
   connect("ui-route", 0, "lib-data-prepend", 0);
   connect("lib-data-prepend", 0, "lib-data-send", 0);
   connect("ui-route", 1, "preview-data-prepend", 0);
@@ -917,15 +966,15 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   const CTL_Y = 4800;
   patchComment(
     "section-controls",
-    "§ Controls → v8 - menus/tabs/numbers + loadmess defaults",
+    "§ Controls → v8 - Live parameters + post-restore synchronization",
     COL.controls,
     CTL_Y - 40,
     480,
   );
   object("motif-prepend", "prepend motif", COL.controls, CTL_Y, 110);
   object("pitch-prepend", "prepend pitch_mode", COL.controls + 200, CTL_Y, 150);
-  object("invert-prepend", "prepend invert_toggle", COL.controls + 400, CTL_Y, 150);
-  object("reverse-prepend", "prepend reverse_toggle", COL.controls + 560, CTL_Y, 160);
+  object("invert-prepend", "prepend invert", COL.controls + 400, CTL_Y, 150);
+  object("reverse-prepend", "prepend reverse", COL.controls + 560, CTL_Y, 160);
   object("tempo-mult-prepend", "prepend tempo_multiplier", COL.controls + 740, CTL_Y, 180);
   object("trigger-prepend", "prepend trigger_mode", COL.controls + 1000, CTL_Y, 160);
   object("quant-prepend", "prepend launch_quantization", COL.controls + 1240, CTL_Y, 200);
@@ -940,12 +989,10 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect("motif-prepend", 0, "v8", 0);
   connect("pitch-menu", 1, "pitch-prepend", 0);
   connect("pitch-prepend", 0, "v8", 0);
-  // `live.text`'s numeric toggle outlet is not reliable across repeated clicks.
-  // Its text outlet emits once per click, so use it as an event and let the
-  // engine own/flip the authoritative transform state.
-  connect("invert-button", 1, "invert-prepend", 0);
+  // The documented left outlet carries the absolute 0/1 toggle state.
+  connect("invert-button", 0, "invert-prepend", 0);
   connect("invert-prepend", 0, "v8", 0);
-  connect("reverse-button", 1, "reverse-prepend", 0);
+  connect("reverse-button", 0, "reverse-prepend", 0);
   connect("reverse-prepend", 0, "v8", 0);
   connect("tempo-mult-menu", 1, "tempo-mult-prepend", 0);
   connect("tempo-mult-prepend", 0, "v8", 0);
@@ -966,43 +1013,38 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect("panic-button", 0, "panic-message", 0);
   connect("panic-message", 0, "v8", 0);
 
-  const DEF_Y = CTL_Y + ROW * 3;
-  const defaults: Array<[string, number | string, number]> = [
-    ["pitch-default", 0, 0],
-    // `set 0` initializes the visual latch without emitting a click event.
-    ["invert-default", "set 0", 1],
-    ["reverse-default", "set 0", 2],
-    ["tempo-mult-default", 1, 3],
-    ["trigger-default", 0, 4],
-    ["quant-default", 0, 5],
-    ["pass-default", 1, 6],
-    ["meter-default", 0, 7],
-    ["retrigger-default", 0, 8],
-    ["low-default", 36, 9],
-    ["high-default", 84, 10],
-    ["page-default", 0, 11],
-  ];
-  for (const [name, value, index] of defaults) {
-    object(name, `loadmess ${value}`, COL.controls + index * 160, DEF_Y, 90);
-  }
-
-  const defaultWires: Array<[string, string]> = [
-    ["pitch-default", "pitch-menu"],
-    ["invert-default", "invert-button"],
-    ["reverse-default", "reverse-button"],
-    ["tempo-mult-default", "tempo-mult-menu"],
-    ["trigger-default", "trigger-menu"],
-    ["quant-default", "quant-menu"],
-    ["pass-default", "pass-menu"],
-    ["meter-default", "meter-tab"],
-    ["retrigger-default", "retrigger-tab"],
-    ["low-default", "low-number"],
-    ["high-default", "high-number"],
-    ["page-default", "page-tab"],
-  ];
-  for (const [source, destination] of defaultWires) {
-    connect(source, 0, destination, 0);
-  }
+  // Live restores Parameter Mode values before live.thisdevice. Explicitly
+  // output the restored values after initialization rather than overwriting
+  // them with loadmess defaults.
+  const RESTORE_Y = CTL_Y + ROW * 3;
+  object("parameter-restore-trigger", "t b b b b b b b b b b b b", COL.controls, RESTORE_Y, 250);
+  message("invert-outputvalue", "outputvalue", COL.controls + 280, RESTORE_Y, 90);
+  message("reverse-outputvalue", "outputvalue", COL.controls + 400, RESTORE_Y, 90);
+  const restoredControls = [
+    "pitch-menu",
+    "tempo-mult-menu",
+    "trigger-menu",
+    "quant-menu",
+    "pass-menu",
+    "meter-tab",
+    "retrigger-tab",
+    // trigger runs right-to-left: restore Low before High so cross-bounds stay valid.
+    "high-number",
+    "low-number",
+    "page-tab",
+  ] as const;
+  restoredControls.forEach((destination, outlet) => {
+    connect("parameter-restore-trigger", outlet, destination, 0);
+  });
+  connect("parameter-restore-trigger", 10, "invert-outputvalue", 0);
+  connect("invert-outputvalue", 0, "invert-button", 0);
+  connect("parameter-restore-trigger", 11, "reverse-outputvalue", 0);
+  connect("reverse-outputvalue", 0, "reverse-button", 0);
+  // trigger outputs right-to-left: library path starts its scan first, then
+  // engine-owned state can wait for that scan, then Live parameters synchronize.
+  connect("init-order", 5, "library-path-restore-bang", 0);
+  connect("init-order", 4, "device-state-restore-bang", 0);
+  connect("init-order", 3, "parameter-restore-trigger", 0);
 
   const patch: MaxPatchDocument = {
     patcher: {

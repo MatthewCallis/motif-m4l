@@ -7,6 +7,7 @@ const EXTRACTED_PUBLIC_MODULES = [
   "src/core/type-guards.ts",
   "src/library/motif-authoring.ts",
   "src/max/device-types.ts",
+  "src/max/device-state.ts",
   "src/max/device-logic.ts",
   "src/max/hotkey-map.ts",
   "src/max/library-logic.ts",

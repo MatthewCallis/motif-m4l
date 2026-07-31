@@ -592,6 +592,16 @@ describe("TypeScript device dispatcher", () => {
       ["initialize"],
       ["preview_ready"],
       ["library_ready"],
+      [
+        "restore_state",
+        encodeURIComponent(
+          JSON.stringify({
+            schemaVersion: 1,
+            selectedMotifId: "scale-turn",
+            hotkeys: [],
+          }),
+        ),
+      ],
       ["library_prepare"],
       ["web_debug", "library", "info", encodeURIComponent("ready")],
       ["song_context", "tempo", 128],
@@ -606,9 +616,7 @@ describe("TypeScript device dispatcher", () => {
       ["motif", "Chromatic Turn"],
       ["pitch_mode", "hybrid"],
       ["invert", 1],
-      ["invert_toggle"],
       ["reverse", 1],
-      ["reverse_toggle"],
       ["meter_mode", "fit-bar"],
       ["retrigger", "overlap"],
       ["trigger_mode", "hold"],

@@ -210,17 +210,28 @@ export interface MaxUiOptions {
   outputmode?: MaxBoolean;
 }
 
+/** Optional Live parameter definition for a persistent `live.text` toggle. */
+export interface MaxToggleParameterOptions {
+  /** Unique automation name shown by Live. */
+  longName: string;
+  /** Compact parameter label. */
+  shortName: string;
+  /** Fresh-device state. */
+  initial: MaxBoolean;
+}
+
 /** Parameter metadata serialized under `saved_attribute_attributes.valueof`. */
 export interface MaxParameterValueAttributes extends MaxJsonObject {
   parameter_enum?: string[];
-  parameter_initial: number[];
+  parameter_initial: MaxJsonScalar[];
   parameter_initial_enable: MaxBoolean;
+  parameter_invisible?: 0 | 1 | 2;
   parameter_longname: string;
-  parameter_mmax: number;
+  parameter_mmax?: number;
   parameter_mmin?: number;
   parameter_shortname: string;
   parameter_type: number;
-  parameter_unitstyle: number;
+  parameter_unitstyle?: number;
 }
 
 /** Wrapper used by Live UI objects for parameter metadata. */
@@ -252,7 +263,7 @@ export function createHelpAttributes(help: MaxHelpInfo): MaxHelpAttributes {
  * @param {readonly string[]} values Menu labels in display order.
  * @returns {string[]} A new list alternating labels with comma separator atoms.
  * @throws {TypeError} If a label is empty.
- * @see https://docs.cycling74.com/reference/ubumenu/#items
+ * @see https://docs.cycling74.com/reference/umenu/#items
  */
 export function createMenuItems(values: readonly string[]): string[] {
   const items: string[] = [];
@@ -274,6 +285,7 @@ export function createMenuItems(values: readonly string[]): string[] {
  * @param {string} shortName Compact label shown by Live UI objects.
  * @param {readonly string[]} values Enumeration labels in numeric order.
  * @param {number} initial Zero-based initial enum index.
+ * @param {0 | 1 | 2 | undefined} visibility Optional Max parameter visibility code.
  * @returns {MaxSavedAttributeAttributes} Serialized parameter metadata for a Live UI box.
  * @throws {RangeError} If the enum is empty or the initial index is invalid.
  * @see https://docs.cycling74.com/userguide/m4l/live_parameters/
@@ -284,6 +296,7 @@ export function createEnumParameterAttributes(
   shortName: string,
   values: readonly string[],
   initial = 0,
+  visibility?: 0 | 1 | 2,
 ): MaxSavedAttributeAttributes {
   assertParameterNames(longName, shortName);
   if (values.length === 0) throw new RangeError("enum parameter values must not be empty");
@@ -302,6 +315,7 @@ export function createEnumParameterAttributes(
       parameter_unitstyle: 9,
       parameter_initial_enable: 1,
       parameter_initial: [initial],
+      ...(visibility === undefined ? {} : { parameter_invisible: visibility }),
     },
   };
 }
@@ -341,6 +355,39 @@ export function createIntegerParameterAttributes(
       parameter_shortname: shortName,
       parameter_type: 1,
       parameter_unitstyle: 8,
+    },
+  };
+}
+
+/**
+ * Build a non-automatable Blob parameter stored in Live Sets and presets.
+ *
+ * Max serializes `parameter_invisible: 1` as the Inspector's Stored Only
+ * visibility. Blob parameters cannot be automated and are Stored Only by
+ * default; keeping the field explicit prevents a future editor save from
+ * accidentally hiding the state from Live's snapshot.
+ *
+ * @param {string} longName Unique parameter name.
+ * @param {string} shortName Compact parameter label.
+ * @param {readonly MaxJsonScalar[]} initial Initial atom list for a fresh device.
+ * @returns {MaxSavedAttributeAttributes} Serialized Blob parameter metadata.
+ * @see https://docs.cycling74.com/userguide/m4l/live_parameters/
+ * @see https://docs.cycling74.com/reference/pattr/#parameter_enable
+ */
+export function createStoredBlobParameterAttributes(
+  longName: string,
+  shortName: string,
+  initial: readonly MaxJsonScalar[],
+): MaxSavedAttributeAttributes {
+  assertParameterNames(longName, shortName);
+  return {
+    valueof: {
+      parameter_initial: [...initial],
+      parameter_initial_enable: 1,
+      parameter_invisible: 1,
+      parameter_longname: longName,
+      parameter_shortname: shortName,
+      parameter_type: 3,
     },
   };
 }
@@ -543,7 +590,7 @@ export class MaxPatchBuilder {
    * @param {MaxHelpInfo} help The user-facing help metadata.
    * @param {MaxUiOptions} options Optional UI attributes.
    * @returns {string} The generated Max object id.
-   * @see https://docs.cycling74.com/reference/ubumenu/
+   * @see https://docs.cycling74.com/reference/umenu/
    */
   readonly addDynamicMenu = (
     name: string,
@@ -578,7 +625,7 @@ export class MaxPatchBuilder {
    * @param {string} shortName The compact control label.
    * @param {number} initial The zero-based initial enum index.
    * @param {MaxHelpInfo} help The user-facing help metadata.
-   * @param {MaxUiOptions & { parameter_enable?: MaxBoolean }} options Optional UI attributes.
+   * @param {MaxUiOptions & { parameter_enable?: MaxBoolean; parameterVisibility?: 0 | 1 | 2 }} options Optional UI and parameter attributes.
    * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/live.menu/
    */
@@ -590,7 +637,10 @@ export class MaxPatchBuilder {
     shortName: string,
     initial: number,
     help: MaxHelpInfo,
-    options: MaxUiOptions & { parameter_enable?: MaxBoolean } = {},
+    options: MaxUiOptions & {
+      parameter_enable?: MaxBoolean;
+      parameterVisibility?: 0 | 1 | 2;
+    } = {},
   ): string =>
     this.addBox(name, "live.menu", rect, {
       appearance: 0,
@@ -602,6 +652,7 @@ export class MaxPatchBuilder {
         shortName,
         values,
         initial,
+        options.parameterVisibility,
       ),
       varname: name,
       valuepopup: 1,
@@ -733,7 +784,7 @@ export class MaxPatchBuilder {
    * @param {string} text The button label.
    * @param {MaxRect} rect The patching and presentation rectangle.
    * @param {MaxHelpInfo} help The user-facing help metadata.
-   * @param {Pick<MaxUiOptions, 'hidden' | 'fontsize' | 'mode' | 'outputmode'>} options Optional interaction, font, and visibility attributes.
+   * @param {Pick<MaxUiOptions, 'hidden' | 'fontsize' | 'mode' | 'outputmode'> & { parameter?: MaxToggleParameterOptions }} options Optional interaction, parameter, font, and visibility attributes.
    * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/live.text/
    */
@@ -742,7 +793,9 @@ export class MaxPatchBuilder {
     text: string,
     rect: MaxRect,
     help: MaxHelpInfo,
-    options: Pick<MaxUiOptions, "hidden" | "fontsize" | "mode" | "outputmode"> = {},
+    options: Pick<MaxUiOptions, "hidden" | "fontsize" | "mode" | "outputmode"> & {
+      parameter?: MaxToggleParameterOptions;
+    } = {},
   ): string =>
     this.addBox(name, "live.text", rect, {
       appearance: 0,
@@ -753,7 +806,18 @@ export class MaxPatchBuilder {
       // Mouse-up mode reports the release interaction and can resend 1 instead
       // of the off state, leaving runtime transforms stuck on.
       outputmode: options.outputmode ?? 0,
-      parameter_enable: 0,
+      parameter_enable: options.parameter ? 1 : 0,
+      ...(options.parameter
+        ? {
+            saved_attribute_attributes: createIntegerParameterAttributes(
+              options.parameter.longName,
+              options.parameter.shortName,
+              options.parameter.initial,
+              0,
+              1,
+            ),
+          }
+        : {}),
       text,
       texton: text,
       presentation: 1,

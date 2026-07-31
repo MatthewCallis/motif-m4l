@@ -15,6 +15,7 @@
  * - `status ...` / `error <message>` - console / debug
  * - `midi-pass <0|1>` - pass-through gate
  * - `ui <subselector> ...` - Presentation / Library window (preview, browser, notes)
+ * - `persist <encodedJson>` - engine-owned state stored by a Blob `pattr` in Live
  * - `motifs-reset` / `motif-item` / `motif-selected` - motif menu
  * - `context ...` - dump_context reply
  *
@@ -78,6 +79,12 @@ import {
   parseRetriggerMode,
   parseTempoMultiplier,
 } from "./device-logic.js";
+import {
+  decodePersistedDeviceState,
+  DEVICE_STATE_SCHEMA_VERSION,
+  encodePersistedDeviceState,
+  type PersistedDeviceState,
+} from "./device-state.js";
 import { MotifHotkeyMap } from "./hotkey-map.js";
 import {
   encodeLibraryStateMessages,
@@ -115,9 +122,12 @@ const library = new MaxUserLibrary(store, {
   onStateChange: () => emitLibraryState(),
   onStatus: emitStatus,
   onContentsChanged: () => {
-    pruneTriggerMap();
-    store.ensureCurrent(DEFAULT_MOTIF_ID);
+    if (!applyPendingPersistedState()) {
+      pruneTriggerMap();
+      store.ensureCurrent(DEFAULT_MOTIF_ID);
+    }
     listMotifs();
+    emitPersistedState();
   },
 });
 
@@ -149,6 +159,8 @@ let libraryAlert: LibraryAlert | undefined;
 let libraryAlertCounter = 0;
 /** Monotonic identity used to discard stale state chunks in the Library page. */
 let libraryStateTransferCounter = 0;
+/** Saved selection and hotkeys waiting for the asynchronous library scan. */
+let pendingPersistedState: PersistedDeviceState | undefined;
 
 /** Latest Live Song context mirrored by native observers in the Max patch. */
 const hostContext: HostContext = {
@@ -432,6 +444,68 @@ function listMotifs(): void {
   for (const item of store.list()) emit("motif-item", labels.get(item.id) ?? item.name);
   emit("motif-selected", labels.get(store.currentId) ?? store.current?.name ?? store.currentId);
   emitSelectedMotifUi();
+}
+
+/**
+ * Serialize engine-owned durable state into the patch's Stored Only Blob parameter.
+ */
+function emitPersistedState(): void {
+  const edit = editor.snapshot();
+  const selectedMotifId =
+    edit.active && edit.created && edit.sourceId ? edit.sourceId : store.currentId;
+  emit(
+    "persist",
+    encodePersistedDeviceState({
+      schemaVersion: DEVICE_STATE_SCHEMA_VERSION,
+      selectedMotifId,
+      hotkeys: hotkeys
+        .list()
+        .filter(
+          (assignment) =>
+            store.isBuiltin(assignment.motifId) || library.files.has(assignment.motifId),
+        ),
+    }),
+  );
+}
+
+/**
+ * Apply a saved snapshot once the selected user-library catalog is final.
+ * @returns {boolean} Whether pending state was consumed.
+ */
+function applyPendingPersistedState(): boolean {
+  if (!pendingPersistedState) return false;
+  if (library.scanning || (library.path !== "" && !library.loaded)) return false;
+
+  const state = pendingPersistedState;
+  pendingPersistedState = undefined;
+  for (const pitch of hotkeys.clear()) stopHeldRepeat(pitch, false);
+  for (const assignment of state.hotkeys) {
+    if (store.has(assignment.motifId)) {
+      hotkeys.assign(assignment.pitch, assignment.motifId, assignment.action);
+    }
+  }
+  if (!store.select(state.selectedMotifId)) store.ensureCurrent(DEFAULT_MOTIF_ID);
+  return true;
+}
+
+/**
+ * Receive the parameter-enabled `pattr` snapshot after Live restores the device.
+ * @param {unknown[]} encodedParts Encoded state atoms.
+ */
+function restore_state(...encodedParts: unknown[]): void {
+  const atoms = flattenValues(encodedParts)
+    .map((part) => stringAtom(part))
+    .filter((part) => part !== "");
+  const encoded = atoms[atoms.length - 1];
+  if (!encoded) return;
+
+  const state = decodePersistedDeviceState(encoded);
+  if (!state) {
+    if (encoded !== "0") emitError("Saved device state is invalid or from an unsupported version");
+    return;
+  }
+  pendingPersistedState = state;
+  if (applyPendingPersistedState()) listMotifs();
 }
 
 /**
@@ -798,6 +872,7 @@ function motif(value: string): void {
   store.select(selected.id);
   emit("motif-selected", store.labels().get(selected.id) ?? selected.name);
   emitSelectedMotifUi();
+  emitPersistedState();
   emitStatus("Motif", selected.name);
 }
 
@@ -836,14 +911,6 @@ function invert(value: string | number | boolean): void {
 }
 
 /**
- * Flip pitch inversion from a UI click event.
- * The engine owns the state so Max `live.text` outlet quirks cannot leave it stuck.
- */
-function invert_toggle(): void {
-  invert(!invertOffsets);
-}
-
-/**
  * Handle the performance note-reversal toggle.
  * @param {string | number | boolean} value The toggle state.
  */
@@ -852,14 +919,6 @@ function reverse(value: string | number | boolean): void {
   emitTransformUi();
   emitSelectedMotifUi();
   emitStatus("reverse", reverseNotes ? "on" : "off");
-}
-
-/**
- * Flip note reversal from a UI click event.
- * The engine owns the state so every click deterministically restores/applies it.
- */
-function reverse_toggle(): void {
-  reverse(!reverseNotes);
 }
 
 /**
@@ -965,6 +1024,7 @@ function map_trigger(pitchValue: number | string, motifId: string, actionValue =
   const { pitch, motifId: selectedId, action } = result.assignment;
   stopHeldRepeat(pitch, false);
   emitLibraryState();
+  emitPersistedState();
   emitStatus("mapped", pitch, selectedId, action);
 }
 
@@ -980,6 +1040,7 @@ function unmap_trigger(pitchValue: number | string): void {
   }
   stopHeldRepeat(pitch, false);
   emitLibraryState();
+  emitPersistedState();
   emitStatus("unmapped", pitch);
 }
 
@@ -989,6 +1050,7 @@ function unmap_trigger(pitchValue: number | string): void {
 function clear_trigger_map(): void {
   for (const pitch of hotkeys.clear()) stopHeldRepeat(pitch, false);
   emitLibraryState();
+  emitPersistedState();
   emitStatus("map-cleared");
 }
 
@@ -1224,6 +1286,7 @@ function save_motif(properties?: unknown): void {
     const filename = library.save(selected.id);
     editor.finishSave();
     listMotifs();
+    emitPersistedState();
     emitStatus("saved", selected.id, filename);
   } catch (reason) {
     const message = reason instanceof Error ? reason.message : String(reason);
@@ -1296,6 +1359,7 @@ function cancel_edit(): void {
   if (!store.select(restoredId)) store.ensureCurrent(DEFAULT_MOTIF_ID);
   pruneTriggerMap();
   listMotifs();
+  emitPersistedState();
   emitStatus("editing-cancelled", store.currentId);
 }
 
@@ -1333,6 +1397,7 @@ function select_browser(id: string, discardChanges?: number | boolean): void {
   store.select(selected.id);
   emit("motif-selected", store.labels().get(selected.id) ?? selected.name);
   emitSelectedMotifUi();
+  emitPersistedState();
   emitStatus("Motif", selected.name);
 }
 
@@ -1539,6 +1604,7 @@ const handlers: MotifHandlers = {
   initialize,
   preview_ready: emitPreviewState,
   library_ready: emitLibraryState,
+  restore_state,
   library_prepare,
   web_debug: mirrorWebDebug,
   note,
@@ -1547,9 +1613,7 @@ const handlers: MotifHandlers = {
   motif,
   pitch_mode,
   invert,
-  invert_toggle,
   reverse,
-  reverse_toggle,
   meter_mode,
   retrigger,
   trigger_mode,

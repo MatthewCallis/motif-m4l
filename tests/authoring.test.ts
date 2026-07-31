@@ -238,7 +238,114 @@ function lastLibState(outlets: OutletArgs[]): Record<string, unknown> | undefine
   return latest;
 }
 
+/**
+ * Read the last encoded engine-owned state sent to the patch's persistence parameter.
+ * @param {OutletArgs[]} outlets Captured Max outlet messages.
+ * @returns {string | undefined} Encoded snapshot.
+ */
+function lastPersistedState(outlets: OutletArgs[]): string | undefined {
+  const message = [...outlets]
+    .reverse()
+    .find((args) => args[0] === "persist" && typeof args[1] === "string");
+  return message?.[1] as string | undefined;
+}
+
 describe("Max authoring runtime", () => {
+  it("round-trips selected motif and MIDI hot keys through Live-stored state", async () => {
+    const first = await createEngine();
+    first.dispatch("initialize");
+    first.dispatch("motif", "Chromatic Turn");
+    first.dispatch("map_trigger", 20, "scale-turn", "select");
+    first.dispatch("map_trigger", 21, "chromatic-turn", "trigger");
+
+    const encoded = lastPersistedState(first.outlets);
+    assert.ok(encoded, "state changes must emit an encoded persistence snapshot");
+
+    const restored = await createEngine();
+    restored.dispatch("restore_state", encoded);
+    restored.dispatch("initialize");
+
+    const lib = lastLibState(restored.outlets);
+    assert.ok(lib);
+    assert.equal((lib["selected"] as Record<string, unknown>)["id"], "chromatic-turn");
+    const items = lib["items"] as Array<{
+      id: string;
+      hotkeys: Array<{ pitch: number; action: string }>;
+    }>;
+    assert.deepEqual(items.find((item) => item.id === "scale-turn")?.hotkeys, [
+      { pitch: 20, action: "select", label: "G♯-1" },
+    ]);
+    assert.deepEqual(items.find((item) => item.id === "chromatic-turn")?.hotkeys, [
+      { pitch: 21, action: "trigger", label: "A-1" },
+    ]);
+    assert.deepEqual(restored.errors, []);
+  });
+
+  it("waits for an asynchronous user-library scan before restoring stable ids", async () => {
+    const path = "/Persisted Library";
+    const filename = `${path}/saved.json`;
+    const restored = await createEngine({
+      files: { [filename]: JSON.stringify(userMotif("saved-user-motif", "Saved User Motif")) },
+      folders: { [path]: ["saved.json"] },
+      deferTasks: true,
+    });
+    const encoded = encodeURIComponent(
+      JSON.stringify({
+        schemaVersion: 1,
+        selectedMotifId: "saved-user-motif",
+        hotkeys: [
+          {
+            pitch: 24,
+            motifId: "saved-user-motif",
+            action: "trigger",
+          },
+        ],
+      }),
+    );
+
+    restored.dispatch("library_path", path);
+    restored.dispatch("restore_state", encoded);
+    let lib = lastLibState(restored.outlets);
+    assert.ok(lib);
+    assert.equal(lib["libraryScanning"], true);
+    assert.equal((lib["selected"] as Record<string, unknown>)["id"], "scale-turn");
+
+    assert.ok(restored.runScheduledTasks() >= 1);
+    lib = lastLibState(restored.outlets);
+    assert.ok(lib);
+    assert.equal(lib["libraryScanning"], false);
+    assert.equal((lib["selected"] as Record<string, unknown>)["id"], "saved-user-motif");
+    assert.deepEqual((lib["selected"] as Record<string, unknown>)["hotkeys"], [
+      { pitch: 24, action: "trigger", label: "C0" },
+    ]);
+    assert.deepEqual(restored.errors, []);
+  });
+
+  it("fails soft when a saved engine snapshot is malformed or unsupported", async () => {
+    const engine = await createEngine();
+    engine.dispatch("restore_state", "%not-json");
+    engine.dispatch(
+      "restore_state",
+      encodeURIComponent(
+        JSON.stringify({
+          schemaVersion: 99,
+          selectedMotifId: "scale-turn",
+          hotkeys: [],
+        }),
+      ),
+    );
+    engine.dispatch("initialize");
+
+    const selected = lastLibState(engine.outlets)?.["selected"] as
+      | Record<string, unknown>
+      | undefined;
+    assert.equal(selected?.["id"], "scale-turn");
+    assert.equal(
+      engine.errors.filter((message) => message.includes("Saved device state is invalid")).length,
+      2,
+    );
+  });
+
   it("filter_motifs emits a filtered browser list", async () => {
     const engine = await createEngine();
     engine.dispatch("initialize");
@@ -296,14 +403,14 @@ describe("Max authoring runtime", () => {
       "initialize must synchronize both visual transform latches off",
     );
 
-    engine.dispatch("invert_toggle");
+    engine.dispatch("invert", 1);
     assert.deepEqual(
       [...engine.outlets]
         .reverse()
         .find((args) => args[0] === "ui" && args[1] === "transforms")
         ?.slice(2),
       [1, 0],
-      "first Invert click must latch the engine and UI on",
+      "Invert parameter value 1 must latch the engine and UI on",
     );
     engine.outlets.length = 0;
     engine.dispatch("note", 60, 100, 1);
@@ -325,15 +432,15 @@ describe("Max authoring runtime", () => {
       [60, 59, 57, 53, 55, 59, 60],
     );
 
-    engine.dispatch("invert_toggle");
-    engine.dispatch("reverse_toggle");
+    engine.dispatch("invert", 0);
+    engine.dispatch("reverse", 1);
     assert.deepEqual(
       [...engine.outlets]
         .reverse()
         .find((args) => args[0] === "ui" && args[1] === "transforms")
         ?.slice(2),
       [0, 1],
-      "second Invert click and first Reverse click must synchronize their latch states",
+      "absolute transform parameter values must synchronize their latch states",
     );
     engine.outlets.length = 0;
     engine.dispatch("note", 60, 100, 1);
@@ -352,14 +459,14 @@ describe("Max authoring runtime", () => {
       "Library note data must remain in stored order with stored offsets",
     );
 
-    engine.dispatch("reverse_toggle");
+    engine.dispatch("reverse", 0);
     assert.deepEqual(
       [...engine.outlets]
         .reverse()
         .find((args) => args[0] === "ui" && args[1] === "transforms")
         ?.slice(2),
       [0, 0],
-      "second Reverse click must synchronize both transform latches off",
+      "Reverse parameter value 0 must synchronize both transform latches off",
     );
     engine.outlets.length = 0;
     engine.dispatch("note", 60, 100, 1);
