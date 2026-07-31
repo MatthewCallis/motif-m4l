@@ -1,4 +1,12 @@
 import type { MotifStore } from '../library/store.js';
+import type {
+  LaunchQuantization,
+  MeterMode,
+  PassThroughPolicy,
+  PitchMode,
+  RetriggerMode,
+  TriggerMode,
+} from '../core/types.js';
 import { LibraryCompletionStatus } from './user-library.js';
 
 /**
@@ -126,16 +134,6 @@ export interface LibraryScanState {
   loadedMotifs: number;
 }
 
-/** Structured warning delivered to the Library modal. */
-export interface LibraryAlert {
-  /** Monotonic alert identity. */
-  id: number;
-  /** Short modal title. */
-  title: string;
-  /** Actionable user-facing details. */
-  message: string;
-}
-
 /** One trigger held in global `hold-repeat` mode. */
 export interface HeldRepeat {
   /** Stable motif id captured on note-on. */
@@ -168,3 +166,32 @@ export const MIN_REPEAT_DELAY_MS = 1;
 export const TEMPO_MULTIPLIERS = [0.5, 1, 1.5, 2] as const;
 /** Maximum editable/importable notes in one motif. */
 export const MAX_MOTIF_NOTES = 512;
+/** Valid device-level motif pitch-mode overrides. */
+export const PITCH_MODE_OVERRIDES = ['scale', 'chromatic', 'hybrid'] as const satisfies readonly PitchMode[];
+/** Valid meter scaling behaviors. */
+export const METER_MODES = ['preserve', 'fit-bar'] as const satisfies readonly MeterMode[];
+/** Valid retrigger collision behaviors. */
+export const RETRIGGER_MODES = ['replace', 'overlap'] as const satisfies readonly RetriggerMode[];
+/** Valid global trigger lifecycles. */
+export const TRIGGER_MODES = [
+  'one-shot',
+  'hold',
+  'hold-repeat',
+  'toggle',
+  'latch',
+  'release-tail',
+] as const satisfies readonly TriggerMode[];
+/** Valid launch quantization grids. */
+export const LAUNCH_QUANTIZATIONS = [
+  'immediate',
+  '1/16',
+  '1/8',
+  '1/4',
+  'bar',
+] as const satisfies readonly LaunchQuantization[];
+/** Valid dry-MIDI pass-through behaviors. */
+export const PASS_THROUGH_POLICIES = [
+  'none',
+  'non-triggers',
+  'all',
+] as const satisfies readonly PassThroughPolicy[];

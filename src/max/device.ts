@@ -37,15 +37,9 @@ import {
 import { compileMotif } from '../core/compile-motif.js';
 import { clamp } from '../core/math.js';
 import { buildMotifPreview } from '../core/preview.js';
-import {
-  barLengthTicks,
-  quantizationTicks,
-  ticksToMilliseconds,
-  ticksUntilNextBoundary,
-} from '../core/timing.js';
+import { ticksToMilliseconds } from '../core/timing.js';
 import { transformMotif } from '../core/transform-motif.js';
 import {
-  PPQ,
   type CompileOptions,
   type HostContext,
   type LaunchQuantization,
@@ -67,20 +61,37 @@ import {
 import { MotifStore } from '../library/store.js';
 import {
   DEFAULT_MOTIF_ID,
+  LAUNCH_QUANTIZATIONS,
   MAX_MOTIF_NOTES,
+  METER_MODES,
   MIN_REPEAT_DELAY_MS,
-  TEMPO_MULTIPLIERS,
+  PASS_THROUGH_POLICIES,
+  PITCH_MODE_OVERRIDES,
+  TRIGGER_MODES,
   type HeldRepeat,
-  type LibraryAlert,
   type MotifHandlers,
   type TriggerMotifOptions,
 } from './device-types.js';
+import {
+  formatLibraryMotifStats,
+  isStringEnumValue,
+  launchOffsetTicksFor,
+  libraryQueryFromAtoms,
+  motifRepeatDelayFor,
+  parseRetriggerMode,
+  parseTempoMultiplier,
+} from './device-logic.js';
 import { MotifHotkeyMap } from './hotkey-map.js';
 import {
   encodeLibraryStateMessages,
   toLibraryHotkeyData,
   toLibraryNoteData,
 } from './library-view.js';
+import type {
+  LibraryAlert,
+  LibrarySelectedMotifData,
+  LibraryServerState,
+} from './library-protocol.js';
 import { readClipNotes, resolveDetailClip } from './live-api.js';
 import {
   discardAllowed,
@@ -160,29 +171,6 @@ const heldRepeats = new Map<number, HeldRepeat>();
 const sustainedRepeatReleases = new Set<number>();
 
 /**
- * Build the host context with the device-local tempo multiplier applied.
- * @returns {HostContext} The effective context used for scheduling and preview.
- */
-function effectiveHost(): HostContext {
-  return {
-    ...hostContext,
-    tempo: hostContext.tempo * tempoMultiplier,
-  };
-}
-
-/**
- * Apply the current non-destructive performance transforms to a motif.
- * @param {Motif} motif The stored motif.
- * @returns {Motif} A transient motif used only for playback and preview.
- */
-function performanceMotif(motif: Motif): Motif {
-  return transformMotif(motif, {
-    invert: invertOffsets,
-    reverse: reverseNotes,
-  });
-}
-
-/**
  * Emit the library state through the device's single Max outlet.
  */
 function emitLibraryState(): void {
@@ -205,23 +193,23 @@ function emitLibraryState(): void {
   const nameCounts = new Map<string, number>();
   for (const item of items) nameCounts.set(item.name, (nameCounts.get(item.name) ?? 0) + 1);
 
-  let selectedData: object | null = null;
+  let selectedData: LibrarySelectedMotifData | null = null;
   if (selected) {
     const notes = selected.notes.map(toLibraryNoteData);
     const preview = buildMotifPreview(
-      performanceMotif(selected),
-      effectiveHost(),
+      transformMotif(selected, {
+        invert: invertOffsets,
+        reverse: reverseNotes,
+      }),
+      {
+        ...hostContext,
+        tempo: hostContext.tempo * tempoMultiplier,
+      },
       previewTriggerPitch,
       pitchModeOverride,
       meterMode,
     );
-    const sourceMeter = `${selected.sourceMeter.numerator}/${selected.sourceMeter.denominator}`;
-    // Preserve meaningful half-bar values without displaying redundant decimal zeros.
-    const barCount = Number.isInteger(preview.bars)
-      ? String(preview.bars)
-      : preview.bars.toFixed(1).replace(/\.0$/, '');
-    const bars = `${barCount} ${preview.bars === 1 ? 'bar' : 'bars'}`;
-    const stats = `${preview.notes.length} notes  •  ${bars}  •  ${sourceMeter} source  •  ${preview.effectivePitchMode}`;
+    const stats = formatLibraryMotifStats(preview, selected.sourceMeter);
     selectedData = {
       schemaVersion: selected.schemaVersion,
       id: selected.id,
@@ -280,7 +268,7 @@ function emitLibraryState(): void {
           loadedMotifs: library.scanState.loadedMotifs,
         }
       : null,
-  };
+  } satisfies LibraryServerState;
   libraryStateTransferCounter += 1;
   for (const message of encodeLibraryStateMessages(state, libraryStateTransferCounter)) {
     emit('ui', 'lib', message);
@@ -306,8 +294,14 @@ function emitPreviewState(): void {
   const selected = store.current;
   if (!selected) return;
   const preview = buildMotifPreview(
-    performanceMotif(selected),
-    effectiveHost(),
+    transformMotif(selected, {
+      invert: invertOffsets,
+      reverse: reverseNotes,
+    }),
+    {
+      ...hostContext,
+      tempo: hostContext.tempo * tempoMultiplier,
+    },
     previewTriggerPitch,
     pitchModeOverride,
     meterMode,
@@ -458,20 +452,6 @@ function initialize(): void {
 }
 
 /**
- * Re-send the latest preview after the native renderer initializes or reloads.
- */
-function preview_ready(): void {
-  emitPreviewState();
-}
-
-/**
- * Re-send the latest library state after the asynchronous page finishes loading.
- */
-function library_ready(): void {
-  emitLibraryState();
-}
-
-/**
  * Write the build-injected Library page to Max's temporary folder and report
  * its resolved absolute path. jweb requires a real file loaded via `readfile`;
  * URL attributes and data URIs do not provide the Max bridge reliably.
@@ -489,46 +469,6 @@ function library_prepare(): void {
   } catch (reason) {
     emitError(`Library page preparation failed: ${reason instanceof Error ? reason.message : String(reason)}`);
   }
-}
-
-/**
- * Decode and mirror embedded-page diagnostics into the Max Console.
- * @param {string} page The embedded page reporting the diagnostic.
- * @param {string} level The diagnostic severity.
- * @param {string} encodedMessage The URL-encoded diagnostic text.
- */
-function web_debug(page: string, level: string, encodedMessage: string): void {
-  mirrorWebDebug(page, level, encodedMessage);
-}
-
-/**
- * Calculate the launch offset in ticks.
- * @returns {number} The launch offset in ticks.
- */
-function launchOffsetTicks(): number {
-  if (!hostContext.isPlaying || launchQuantization === 'immediate') return 0;
-  const grid = quantizationTicks(launchQuantization, hostContext.timeSignature);
-  return ticksUntilNextBoundary(Math.max(0, hostContext.currentSongTime * PPQ), grid);
-}
-
-/**
- * Convert one effective motif cycle to a safe Max Task delay.
- * The current tempo multiplier is re-read for every cycle so held repeats
- * follow live tempo changes without rebuilding the active assignment.
- * @param {Motif} motif The motif that will repeat.
- * @returns {number} Repeat interval in milliseconds.
- */
-function motifRepeatDelayMilliseconds(motif: Motif): number {
-  // Fit-bar mode scales the stored source-meter duration into the current Live bar.
-  const effectiveLength = meterMode === 'preserve'
-    ? motif.length
-    : motif.length * (
-        barLengthTicks(hostContext.timeSignature) / barLengthTicks(motif.sourceMeter)
-      );
-  return Math.max(
-    MIN_REPEAT_DELAY_MS,
-    ticksToMilliseconds(effectiveLength, effectiveHost().tempo),
-  );
 }
 
 /**
@@ -595,14 +535,25 @@ function triggerMotif(
     meterMode,
     triggerPitch: Math.round(triggerPitch),
     triggerVelocity: Math.round(triggerVelocity),
-    launchOffsetTicks: triggerOptions.launchOffsetTicks ?? launchOffsetTicks(),
+    launchOffsetTicks: triggerOptions.launchOffsetTicks
+      ?? launchOffsetTicksFor(hostContext, launchQuantization),
     instanceId,
   };
   if (pitchModeOverride !== undefined) {
     options.pitchMode = pitchModeOverride;
   }
   // Compile the motif and emit the corresponding MIDI events.
-  for (const event of compileMotif(performanceMotif(selected), effectiveHost(), options)) {
+  for (const event of compileMotif(
+    transformMotif(selected, {
+      invert: invertOffsets,
+      reverse: reverseNotes,
+    }),
+    {
+      ...hostContext,
+      tempo: hostContext.tempo * tempoMultiplier,
+    },
+    options,
+  )) {
     emitScheduledEvent(event.pitch, event.velocity, event.channel, event.offsetMs);
   }
 
@@ -665,7 +616,7 @@ function startHeldRepeat(
     return;
   }
 
-  const firstLaunchOffset = launchOffsetTicks();
+  const firstLaunchOffset = launchOffsetTicksFor(hostContext, launchQuantization);
   const instanceId = triggerMotif(triggerPitch, triggerVelocity, channel, {
     motifId: motif.id,
     launchOffsetTicks: firstLaunchOffset,
@@ -691,7 +642,10 @@ function startHeldRepeat(
     if (repeatedInstance === undefined || heldRepeats.get(triggerPitch) !== repeat) {
       return;
     }
-    repeat.task.schedule(motifRepeatDelayMilliseconds(repeatedMotif));
+    // Re-read tempo and meter state every cycle so held repeats follow live changes.
+    repeat.task.schedule(
+      motifRepeatDelayFor(repeatedMotif, meterMode, hostContext, tempoMultiplier),
+    );
   });
   repeat = {
     motifId: motif.id,
@@ -701,7 +655,10 @@ function startHeldRepeat(
   };
   heldRepeats.set(triggerPitch, repeat);
 
-  const firstDelay = ticksToMilliseconds(firstLaunchOffset, effectiveHost().tempo) + motifRepeatDelayMilliseconds(motif);
+  const firstDelay = ticksToMilliseconds(
+    firstLaunchOffset,
+    hostContext.tempo * tempoMultiplier,
+  ) + motifRepeatDelayFor(motif, meterMode, hostContext, tempoMultiplier);
   task.schedule(Math.max(MIN_REPEAT_DELAY_MS, firstDelay));
   emitStatus('repeat-started', motif.id, triggerPitch);
 }
@@ -853,7 +810,7 @@ function motif(value: string): void {
 function pitch_mode(mode: string): void {
   // `motif` = use the phrase's stored pitch mode.
   if (mode === 'motif') pitchModeOverride = undefined;
-  else if (mode === 'scale' || mode === 'chromatic' || mode === 'hybrid') pitchModeOverride = mode;
+  else if (isStringEnumValue(mode, PITCH_MODE_OVERRIDES)) pitchModeOverride = mode;
   else {
     emitError(`Unknown pitch mode: ${mode}`);
     return;
@@ -912,7 +869,7 @@ function reverse_toggle(): void {
  * @param {string} mode The meter mode.
  */
 function meter_mode(mode: string): void {
-  if (mode !== 'preserve' && mode !== 'fit-bar') {
+  if (!isStringEnumValue(mode, METER_MODES)) {
     emitError(`Unknown meter mode: ${mode}`);
     return;
   }
@@ -926,12 +883,12 @@ function meter_mode(mode: string): void {
  * @param {string | number} mode The retrigger mode.
  */
 function retrigger(mode: string | number): void {
-  if (mode === 1 || mode === 'replace') retriggerMode = 'replace';
-  else if (mode === 0 || mode === 'overlap') retriggerMode = 'overlap';
-  else {
+  const parsed = parseRetriggerMode(mode);
+  if (!parsed) {
     emitError(`Unknown retrigger mode: ${String(mode)}`);
     return;
   }
+  retriggerMode = parsed;
   emitStatus('retrigger', retriggerMode);
 }
 
@@ -940,12 +897,11 @@ function retrigger(mode: string | number): void {
  * @param {string} mode The trigger mode.
  */
 function trigger_mode(mode: string): void {
-  const valid: TriggerMode[] = ['one-shot', 'hold', 'hold-repeat', 'toggle', 'latch', 'release-tail'];
-  if (!valid.includes(mode as TriggerMode)) {
+  if (!isStringEnumValue(mode, TRIGGER_MODES)) {
     emitError(`Unknown trigger mode: ${mode}`);
     return;
   }
-  const nextMode = mode as TriggerMode;
+  const nextMode = mode;
   if (triggerMode === 'hold-repeat' && nextMode !== 'hold-repeat') stopAllHeldRepeats();
   triggerMode = nextMode;
   emitStatus('trigger-mode', triggerMode);
@@ -956,12 +912,11 @@ function trigger_mode(mode: string): void {
  * @param {string} value The launch quantization.
  */
 function launch_quantization(value: string): void {
-  const valid: LaunchQuantization[] = ['immediate', '1/16', '1/8', '1/4', 'bar'];
-  if (!valid.includes(value as LaunchQuantization)) {
+  if (!isStringEnumValue(value, LAUNCH_QUANTIZATIONS)) {
     emitError(`Unknown launch quantization: ${value}`);
     return;
   }
-  launchQuantization = value as LaunchQuantization;
+  launchQuantization = value;
   emitStatus('quantization', launchQuantization);
 }
 
@@ -970,12 +925,11 @@ function launch_quantization(value: string): void {
  * @param {string} value The pass-through policy.
  */
 function pass_through(value: string): void {
-  const valid: PassThroughPolicy[] = ['none', 'non-triggers', 'all'];
-  if (!valid.includes(value as PassThroughPolicy)) {
+  if (!isStringEnumValue(value, PASS_THROUGH_POLICIES)) {
     emitError(`Unknown pass-through policy: ${value}`);
     return;
   }
-  passThroughPolicy = value as PassThroughPolicy;
+  passThroughPolicy = value;
   emitMidiPassState();
   emitStatus('pass-through', passThroughPolicy);
 }
@@ -1093,8 +1047,8 @@ function refresh_library(discardChanges?: number | boolean): void {
  * @param {string | number} value The tempo multiplier value.
  */
 function tempo_multiplier(value: string | number): void {
-  const parsed = typeof value === 'number' ? value : Number(String(value).replace(/x$/i, ''));
-  if (!TEMPO_MULTIPLIERS.includes(parsed as (typeof TEMPO_MULTIPLIERS)[number])) {
+  const parsed = parseTempoMultiplier(value);
+  if (parsed === undefined) {
     emitError(`Unknown tempo multiplier: ${String(value)}`);
     return;
   }
@@ -1108,13 +1062,7 @@ function tempo_multiplier(value: string | number): void {
  * @param {unknown[]} queryParts The query parts.
  */
 function filter_motifs(...queryParts: unknown[]): void {
-  const raw = flattenValues(queryParts)
-    .map(String)
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .join(' ')
-    .trim();
-  browserQuery = raw;
+  browserQuery = libraryQueryFromAtoms(queryParts);
   emitLibraryState();
   emitStatus('filter', browserQuery || '(all)');
 }
@@ -1591,10 +1539,10 @@ function dump_context(): void {
 /** Lookup table for {@link dispatch}; keys are Max message selectors. */
 const handlers: MotifHandlers = {
   initialize,
-  preview_ready,
-  library_ready,
+  preview_ready: emitPreviewState,
+  library_ready: emitLibraryState,
   library_prepare,
-  web_debug,
+  web_debug: mirrorWebDebug,
   note,
   cc,
   sustain,

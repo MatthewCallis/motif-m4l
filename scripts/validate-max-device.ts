@@ -71,7 +71,7 @@ assert.deepEqual(
   'max directory contains missing or stale hashed runtime artifacts',
 );
 assert.ok(
-  !maxOutputFiles.some((name) => ['library.html', 'motif-device.js', 'motif-preview.js'].includes(name)),
+  !maxOutputFiles.some((name) => ['motif-device.js', 'motif-preview.js'].includes(name)),
   'max directory must not contain unreferenced stable-name runtime leftovers',
 );
 
@@ -334,7 +334,10 @@ assert.doesNotMatch(previewSource, /mgraphics\.clip\(/, 'legacy jsui does not ex
 assert.doesNotMatch(previewSource, /window\.max|readfile|preview\.html/, 'native preview must not depend on jweb');
 
 const libraryTemplate = await readFile('src/max/library.html', 'utf8');
-const libraryClient = await readFile('src/max/library.ts', 'utf8');
+const libraryController = await readFile('src/max/library.ts', 'utf8');
+const libraryLogic = await readFile('src/max/library-logic.ts', 'utf8');
+const libraryProtocol = await readFile('src/max/library-protocol.ts', 'utf8');
+const libraryClient = `${libraryController}\n${libraryLogic}\n${libraryProtocol}`;
 const libraryStyle = await readFile('src/max/library.css', 'utf8');
 const librarySource = await readFile('max/library.html', 'utf8');
 const libraryScript = librarySource.match(/<script>([\s\S]*?)<\/script>/)?.[1];

@@ -8,9 +8,23 @@
  * @see https://docs.cycling74.com/userguide/web_browser/#javascript-communication
  */
 
+import {
+  MAX_LIBRARY_STATE_CHUNKS,
+  type LibrarySelectedMotifData,
+  type LibraryServerState,
+  type LibraryStateChunk,
+} from './library-protocol.js';
+import {
+  createStore,
+  errorText,
+  isFolderCollapsed,
+  isLibraryStateChunk,
+  optionalNumberValue,
+  toggleCollapsedFolder,
+} from './library-logic.js';
+
 type PanelName = 'properties' | 'notes';
 type DebugLevel = 'info' | 'ok' | 'error';
-type HotkeyAction = 'trigger' | 'select';
 type NoteFieldName =
   | 'pitch'
   | 'accidental'
@@ -44,92 +58,6 @@ interface NoteField {
   step?: string;
 }
 
-interface LibraryNote {
-  pitch: number;
-  accidental: number | null;
-  at: number;
-  duration: number;
-  gate: number | null;
-  velocity: number | null;
-  velocityOffset: number | null;
-  velocityScale: number | null;
-  legato: boolean;
-  tie: boolean;
-}
-
-interface LibraryHotkey {
-  pitch: number;
-  label: string;
-  action: HotkeyAction;
-}
-
-interface LibraryBrowserItem {
-  id: string;
-  name: string;
-  showId: boolean;
-  folder: string;
-  hotkeys: LibraryHotkey[];
-}
-
-interface LibrarySelectedMotif {
-  schemaVersion: number;
-  id: string;
-  name: string;
-  description: string;
-  pitchMode: string;
-  sourceMeter: {
-    numerator: number;
-    denominator: number;
-  };
-  length: number;
-  defaultGate: number | null;
-  velocityCurve: {
-    inputMin: number | null;
-    inputMax: number | null;
-    outputMin: number | null;
-    outputMax: number | null;
-    exponent: number | null;
-  };
-  stats: string;
-  isBuiltin: boolean;
-  isPersisted: boolean;
-  hotkeys: LibraryHotkey[];
-  noteCount: number;
-  noteLimit: number;
-  canAddNote: boolean;
-  canRemoveNote: boolean;
-  notes: LibraryNote[];
-}
-
-interface LibraryServerState {
-  query: string;
-  libraryPath: string;
-  libraryLoaded: boolean;
-  libraryScanning: boolean;
-  editing: {
-    active: boolean;
-    dirty: boolean;
-    created: boolean;
-    sourceId: string | null;
-    targetId: string | null;
-  };
-  actions: {
-    editing: boolean;
-    canEdit: boolean;
-    canSave: boolean;
-    canImportClip: boolean;
-    canRefreshLibrary: boolean;
-  };
-  items: LibraryBrowserItem[];
-  selectedIndex: number;
-  selected: LibrarySelectedMotif | null;
-  alert: {
-    id: number;
-    title: string;
-    message: string;
-  } | null;
-}
-
 interface LibraryAction {
   type: string;
   [key: string]: unknown;
@@ -151,25 +79,11 @@ interface LibraryPageState {
   collapsedFolders: Set<string>;
 }
 
-interface StateChunk {
-  kind: 'state-chunk';
-  transferId: number;
-  index: number;
-  total: number;
-  data: string;
-}
-
 interface PendingStateTransfer {
   id: number;
   total: number;
   parts: string[];
   received: Set<number>;
-}
-
-interface Store<T> {
-  getState: () => T;
-  setState: (update: Partial<T> | ((current: T) => T)) => void;
-  subscribe: (subscriber: (state: T) => void) => () => void;
 }
 
 type ValueControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
@@ -215,29 +129,6 @@ function $<T extends HTMLElement>(id: string): T {
   return value as T;
 }
 
-/**
- * Create the small synchronous state container used by the page renderer.
- * @param {T} initialState Initial page state.
- * @returns {Store<T>} State access, updates, and subscription.
- */
-function createStore<T>(initialState: T): Store<T> {
-  let current = initialState;
-  const subscribers = new Set<(state: T) => void>();
-  return {
-    getState: () => current,
-    setState(update): void {
-      current = typeof update === 'function'
-        ? update(current)
-        : { ...current, ...update };
-      for (const subscriber of subscribers) subscriber(current);
-    },
-    subscribe(subscriber): () => void {
-      subscribers.add(subscriber);
-      return () => subscribers.delete(subscriber);
-    },
-  };
-}
-
 const nativeMax = window.max;
 /** Whether the page is running inside Max's jweb bridge instead of a normal browser. */
 const isMax = nativeMax !== undefined && typeof nativeMax.outlet === 'function';
@@ -266,15 +157,6 @@ let latestStateTransferId = 0;
 const debugIndicator = $<HTMLSpanElement>('debug-indicator');
 const debugSummary = $<HTMLSpanElement>('debug-summary');
 const debugPanel = $<HTMLDivElement>('debug-panel');
-
-/**
- * Format any thrown value for diagnostics.
- * @param {unknown} reason Thrown value.
- * @returns {string} Readable error details.
- */
-function errorText(reason: unknown): string {
-  return reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason);
-}
 
 /**
  * Record a local diagnostic and mirror it to Max when embedded.
@@ -313,15 +195,6 @@ function send(action: LibraryAction): void {
   } catch (reason) {
     debug('error', `Action failed: ${errorText(reason)}`);
   }
-}
-
-/**
- * Read the device-owned editing decision for the selected motif.
- * @param {LibraryServerState | null} server Current device state.
- * @returns {boolean} Whether the selected motif is being edited.
- */
-function selectedIsEditing(server: LibraryServerState | null): boolean {
-  return Boolean(server?.actions.editing);
 }
 
 /**
@@ -382,34 +255,6 @@ function renderModal(modal: ModalState | null): void {
   $<HTMLDivElement>('modal-message').textContent = modal.message;
   $<HTMLButtonElement>('modal-confirm').textContent = modal.confirmLabel ?? 'Continue';
   $<HTMLButtonElement>('modal-cancel').classList.toggle('hidden', Boolean(modal.dismissOnly));
-}
-
-/**
- * Determine whether a folder is locally collapsed outside search mode.
- * @param {string} folder Relative Library folder.
- * @param {string} query Active search query.
- * @param {Set<string>} collapsedFolders Locally collapsed folders.
- * @returns {boolean} Whether the folder contents should be hidden.
- */
-function isFolderCollapsed(
-  folder: string,
-  query: string,
-  collapsedFolders: Set<string>,
-): boolean {
-  return !query && collapsedFolders.has(folder);
-}
-
-/**
- * Toggle a folder without mutating the existing local state.
- * @param {string} folder Relative Library folder.
- * @param {Set<string>} collapsedFolders Existing collapsed folders.
- * @returns {Set<string>} Updated collapsed folder set.
- */
-function toggleCollapsedFolder(folder: string, collapsedFolders: Set<string>): Set<string> {
-  const next = new Set(collapsedFolders);
-  if (next.has(folder)) next.delete(folder);
-  else next.add(folder);
-  return next;
 }
 
 /**
@@ -488,9 +333,9 @@ function renderBrowser(server: LibraryServerState | null): void {
 
 /**
  * Render the device-formatted hot-key assignments.
- * @param {LibrarySelectedMotif | null} selected Selected motif.
+ * @param {LibrarySelectedMotifData | null} selected Selected motif.
  */
-function renderHotkeys(selected: LibrarySelectedMotif | null): void {
+function renderHotkeys(selected: LibrarySelectedMotifData | null): void {
   const input = $<HTMLInputElement>('hotkey-input');
   const action = $<HTMLSelectElement>('hotkey-action');
   const assign = $<HTMLButtonElement>('assign-hotkey-btn');
@@ -625,10 +470,10 @@ function setEditable(editing: boolean): void {
 
 /**
  * Render motif identity and property controls.
- * @param {LibrarySelectedMotif | null} selected Selected motif.
+ * @param {LibrarySelectedMotifData | null} selected Selected motif.
  * @param {boolean} editing Whether properties are editable.
  */
-function renderProperties(selected: LibrarySelectedMotif | null, editing: boolean): void {
+function renderProperties(selected: LibrarySelectedMotifData | null, editing: boolean): void {
   const curve = selected?.velocityCurve;
   setValue('id-display', selected?.id ?? '', false);
   setValue('schema-display', selected ? `v${selected.schemaVersion}` : '', false);
@@ -651,7 +496,7 @@ function renderProperties(selected: LibrarySelectedMotif | null, editing: boolea
  */
 function renderDetail(server: LibraryServerState | null, local: LibraryPageState): void {
   const selected = server?.selected ?? null;
-  const editing = selectedIsEditing(server);
+  const editing = Boolean(server?.actions.editing);
   const edit = $<HTMLButtonElement>('edit-btn');
   const cancel = $<HTMLButtonElement>('cancel-edit-btn');
   const save = $<HTMLButtonElement>('save-motif-btn');
@@ -738,16 +583,6 @@ function render(state: LibraryPageState): void {
 }
 
 /**
- * Read an optional number control.
- * @param {string} id Input id.
- * @returns {number | null} Numeric value or null for an empty control.
- */
-function optionalNumber(id: string): number | null {
-  const value = $<HTMLInputElement>(id).value.trim();
-  return value === '' ? null : Number(value);
-}
-
-/**
  * Serialize the complete property form for device-side validation.
  * @returns {Record<string, unknown>} Submitted motif properties.
  */
@@ -760,20 +595,20 @@ function readProperties(): Record<string, unknown> {
       numerator: Number($<HTMLInputElement>('meter-numerator-edit').value),
       denominator: Number($<HTMLSelectElement>('meter-denominator-edit').value),
     },
-    defaultGate: optionalNumber('default-gate-edit'),
+    defaultGate: optionalNumberValue($<HTMLInputElement>('default-gate-edit').value),
     velocityCurve: {
-      inputMin: optionalNumber('curve-input-min'),
-      inputMax: optionalNumber('curve-input-max'),
-      outputMin: optionalNumber('curve-output-min'),
-      outputMax: optionalNumber('curve-output-max'),
-      exponent: optionalNumber('curve-exponent'),
+      inputMin: optionalNumberValue($<HTMLInputElement>('curve-input-min').value),
+      inputMax: optionalNumberValue($<HTMLInputElement>('curve-input-max').value),
+      outputMin: optionalNumberValue($<HTMLInputElement>('curve-output-min').value),
+      outputMax: optionalNumberValue($<HTMLInputElement>('curve-output-max').value),
+      exponent: optionalNumberValue($<HTMLInputElement>('curve-exponent').value),
     },
   };
 }
 
 /** Submit property changes when an edit session is active. */
 function pushProperties(): void {
-  if (!selectedIsEditing(store.getState().server)) return;
+  if (!store.getState().server?.actions.editing) return;
   send({ type: 'edit_motif', properties: readProperties() });
 }
 
@@ -810,21 +645,10 @@ function applyServerState(server: LibraryServerState): void {
 }
 
 /**
- * Narrow a decoded transport payload to a state chunk.
- * @param {unknown} value Decoded payload.
- * @returns {value is StateChunk} Whether the value is a chunk envelope.
- */
-function isStateChunk(value: unknown): value is StateChunk {
-  return typeof value === 'object'
-    && value !== null
-    && (value as { kind?: unknown }).kind === 'state-chunk';
-}
-
-/**
  * Assemble one bounded state fragment and apply the completed state.
- * @param {StateChunk} payload State fragment.
+ * @param {LibraryStateChunk} payload State fragment.
  */
-function receiveStateChunk(payload: StateChunk): void {
+function receiveStateChunk(payload: LibraryStateChunk): void {
   const transferId = Number(payload.transferId);
   const index = Number(payload.index);
   const total = Number(payload.total);
@@ -836,7 +660,7 @@ function receiveStateChunk(payload: StateChunk): void {
     || index < 0
     || index >= total
     || total < 1
-    || total > 10_000
+    || total > MAX_LIBRARY_STATE_CHUNKS
     || typeof payload.data !== 'string'
   ) return;
 
@@ -871,7 +695,7 @@ function receiveData(...values: unknown[]): void {
   const encoded = values[values.length - 1];
   try {
     const payload = JSON.parse(decodeURIComponent(String(encoded))) as unknown;
-    if (isStateChunk(payload)) {
+    if (isLibraryStateChunk(payload)) {
       receiveStateChunk(payload);
       payloadErrorSignature = '';
       return;
@@ -1000,6 +824,7 @@ if (isMax) {
     libraryPath: '/Users/example/Motifs',
     libraryLoaded: true,
     libraryScanning: false,
+    scanProgress: null,
     editing: {
       active: false,
       dirty: false,
@@ -1050,6 +875,7 @@ if (isMax) {
       stats: '7 notes • 0.88 bars • 4/4 source • chromatic',
       isBuiltin: true,
       isPersisted: false,
+      folder: 'Built-ins',
       hotkeys: [],
       noteCount: 2,
       noteLimit: 512,
@@ -1085,5 +911,3 @@ if (isMax) {
     alert: null,
   } satisfies LibraryServerState)));
 }
-
-export {};

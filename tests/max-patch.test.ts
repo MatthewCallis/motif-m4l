@@ -485,12 +485,15 @@ describe('Motif Max patch integration', () => {
   });
 
   it('library jweb binds receiveData before readiness and contains valid diagnostic JavaScript', async () => {
-    const [template, client, style, libraryHtml] = await Promise.all([
+    const [template, controller, logic, protocol, style, libraryHtml] = await Promise.all([
       readFile('src/max/library.html', 'utf8'),
       readFile('src/max/library.ts', 'utf8'),
+      readFile('src/max/library-logic.ts', 'utf8'),
+      readFile('src/max/library-protocol.ts', 'utf8'),
       readFile('src/max/library.css', 'utf8'),
       readFile('max/library.html', 'utf8'),
     ]);
+    const client = `${controller}\n${logic}\n${protocol}`;
     const bindIndex = client.indexOf("maxBridge.bindInlet('receiveData', receiveData)");
     const readyIndex = client.indexOf("maxBridge.outlet('library_ready')");
     const script = libraryHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
@@ -547,8 +550,9 @@ describe('Motif Max patch integration', () => {
     assert.ok(client.includes('selected.canAddNote'));
     assert.match(style, /#notes-panel\s*\{\s*overflow:auto;/);
     assert.doesNotMatch(client, /note-page-prev|set_note_page/);
-    assert.ok(client.includes('function receiveStateChunk(payload: StateChunk)'));
-    assert.ok(client.includes("kind === 'state-chunk'"));
+    assert.ok(client.includes('function receiveStateChunk(payload: LibraryStateChunk)'));
+    assert.ok(client.includes("LIBRARY_STATE_CHUNK_KIND = 'state-chunk'"));
+    assert.ok(client.includes('kind === LIBRARY_STATE_CHUNK_KIND'));
     assert.ok(client.includes('notes.forEach((note, index) => {'));
     assert.match(client, /type:\s*'edit_note_at'/);
     assert.match(template, /id="import-mode"/);
