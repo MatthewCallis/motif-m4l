@@ -67,7 +67,7 @@ motif-preview-<content-hash>.js
 - Editing an existing motif saves it back to its original subfolder. New motifs are saved at the chosen library root.
 - Motif ids must remain unique across the entire folder tree; duplicate ids are skipped with an error naming the conflicting relative path.
 - MIDI hot keys are entered and displayed as Ableton-style note names such as `C3`, `F♯2`, or `Bb4` rather than raw MIDI numbers. Each mapping either triggers its motif using the device-wide Trigger Mode or selects that motif for subsequent trigger-zone notes.
-- Motifs and Live clip imports support up to 512 editable notes. The Notes panel is one scrollable table; large note lists are transported to jweb in bounded internal chunks and assembled before rendering so they remain editable without exceeding Max’s message capacity. Longer clips receive an actionable warning to shorten or split the phrase.
+- Motifs and Live clip imports support up to 512 editable notes. The Notes panel is one scrollable table; Library state is transported to jweb in size-aware bounded chunks and assembled before rendering so motifs and large catalogs remain editable without exceeding Max’s message capacity. Longer clips receive an actionable warning to shorten or split the phrase.
 
 ## Max JavaScript message boundary
 

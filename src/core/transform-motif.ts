@@ -37,8 +37,9 @@ export function transformMotif(
   motif: Motif,
   options: MotifTransformOptions,
 ): Motif {
-  if (!options.invert && !options.reverse) return motif;
-
+  if (!options.invert && !options.reverse) {
+    return motif;
+  }
   const sourceNotes = options.reverse ? [...motif.notes].reverse() : motif.notes;
   const notes = sourceNotes.map((source): MotifNote => {
     const note: MotifNote = { ...source };

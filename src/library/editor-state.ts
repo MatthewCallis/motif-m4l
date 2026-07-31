@@ -95,6 +95,16 @@ export class MotifEditorState {
   }
 
   /**
+   * Return the motif targeted by the active edit session.
+   * @param {MotifStore} store Catalog containing the editable draft.
+   * @returns {Motif | undefined} Active editable motif.
+   */
+  current(store: MotifStore): Motif | undefined {
+    const targetId = this.#edit?.targetId;
+    return targetId ? store.get(targetId) : undefined;
+  }
+
+  /**
    * Begin editing a motif.
    * @param {MotifStore} store The motif store containing the source.
    * @param {string} id The source motif id.

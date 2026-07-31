@@ -489,7 +489,8 @@ describe('Motif Max patch integration', () => {
     assert.ok(!libraryHtml.includes('window.receiveData = receiveData'), 'library must not rely on an unbound global function');
     assert.ok(!libraryHtml.includes("outlet.toString().includes('console.log')"), 'library must not infer Max from source text');
     assert.ok(libraryHtml.includes('No library state received within 2 seconds'), 'library must report missing state');
-    assert.ok(libraryHtml.includes("title:'MIDI file is too long'"), 'oversized payloads must show a user warning');
+    assert.ok(!libraryHtml.includes('MIDI file is too long'), 'the page must not infer domain warnings from transport failures');
+    assert.ok(libraryHtml.includes('Library data could not be displayed'), 'transport failures must retain a truthful diagnostic');
     assert.ok(libraryHtml.includes('detail === payloadErrorSignature'), 'repeated payload errors must be deduplicated');
     assert.ok(libraryHtml.includes("confirmLabel:'OK'"), 'user warnings must be dismissible');
     assert.ok(!libraryHtml.includes('debug(\'error\', `Bad library payload:'), 'raw JSON parse errors must not be shown');
@@ -515,32 +516,25 @@ describe('Motif Max patch integration', () => {
     assert.ok(libraryHtml.includes('<option value="trigger">Trigger Motif</option>'));
     assert.ok(libraryHtml.includes('<option value="select">Select Motif</option>'));
     assert.ok(!libraryHtml.includes('<option value="repeat">'), 'repeat must be a global Trigger Mode');
-    assert.ok(libraryHtml.includes('function parseMidiNoteName(noteName)'), 'library must parse MIDI note names');
-    assert.ok(!libraryHtml.includes('`${midiNoteName(pitch)} · ${pitch}'), 'assignments must not display MIDI numbers');
+    assert.ok(!libraryHtml.includes('function parseMidiNoteName'), 'MIDI note parsing must remain device-owned');
+    assert.ok(libraryHtml.includes('mapping.label'), 'the Library must display device-formatted MIDI note names');
     assert.ok(libraryHtml.includes("type:'map_trigger'"), 'library must assign MIDI hot keys');
     assert.ok(libraryHtml.includes("action:document.getElementById('hotkey-action').value"));
     assert.ok(libraryHtml.includes("type:'unmap_trigger'"), 'library must remove MIDI hot keys');
     assert.ok(libraryHtml.includes('Save changes and exit editing'), 'Save must document that it exits edit mode');
     assert.ok(libraryHtml.includes("type:'edit_motif', properties:readProperties()"), 'library must submit complete motif properties');
-    assert.ok(libraryHtml.includes('const MAX_MOTIF_NOTES = 512'), 'Library must expose the 512-note motif limit');
+    assert.ok(!libraryHtml.includes('MAX_MOTIF_NOTES'), 'motif note limits must remain device-owned');
+    assert.ok(libraryHtml.includes('selected.canAddNote'), 'the device must decide whether another note can be added');
     assert.ok(libraryHtml.includes('#notes-panel { overflow:auto; }'), 'the complete note table must scroll');
     assert.ok(!libraryHtml.includes('note-page-prev'), 'the note table must not expose pagination');
     assert.ok(!libraryHtml.includes('set_note_page'), 'the note table must not maintain page state');
-    assert.ok(libraryHtml.includes('function receiveNoteChunk(payload)'), 'bounded note transport must be assembled internally');
-    assert.ok(libraryHtml.includes("payload?.kind === 'note-chunk'"));
+    assert.ok(libraryHtml.includes('function receiveStateChunk(payload)'), 'bounded state transport must be assembled internally');
+    assert.ok(libraryHtml.includes("payload?.kind === 'state-chunk'"));
     assert.ok(libraryHtml.includes('notes.forEach((note, index) => {'), 'all assembled notes must render into one table');
     assert.ok(libraryHtml.includes("type:'edit_note_at', index"), 'scrolling-table edits must use absolute row indices');
     assert.ok(libraryHtml.includes('id="import-mode"'), 'library must expose the import pitch mode');
     assert.ok(libraryHtml.includes('<option value="chromatic">Exact / Chromatic</option>'), 'exact chromatic import must be the default');
     assert.ok(libraryHtml.includes("type:'import_clip', pitchMode:"), 'library must send the selected import mode');
-    const noteHelpersStart = libraryHtml.indexOf('  function midiNoteName');
-    const noteHelpersEnd = libraryHtml.indexOf('  function renderHotkeys');
-    assert.ok(noteHelpersStart >= 0 && noteHelpersEnd > noteHelpersStart);
-    const noteHelpers = libraryHtml.slice(noteHelpersStart, noteHelpersEnd);
-    const noteResults = vm.runInNewContext(`${noteHelpers}
-      [midiNoteName(60), parseMidiNoteName('C3'), parseMidiNoteName('F♯2'),
-       parseMidiNoteName('Bb4'), parseMidiNoteName('60'), parseMidiNoteName('G#8')]`) as unknown[];
-    assert.deepEqual(Array.from(noteResults), ['C3', 60, 54, 82, null, null]);
     const folderHelpersStart = libraryHtml.indexOf('  function isFolderCollapsed');
     const folderHelpersEnd = libraryHtml.indexOf('  function renderBrowser');
     assert.ok(folderHelpersStart >= 0 && folderHelpersEnd > folderHelpersStart);

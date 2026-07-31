@@ -5,7 +5,11 @@ import { addUserCopy } from './helpers/motif-store.js';
 
 describe('MotifStore', () => {
   it('filter matches name, id, and description', () => {
-    const store = new MotifStore();
+    const store = new MotifStore('scale-turn');
+    assert.equal(store.current?.id, 'scale-turn');
+    assert.equal(store.select('chromatic-turn')?.id, 'chromatic-turn');
+    assert.equal(store.select('missing'), undefined);
+    assert.equal(store.current?.id, 'chromatic-turn', 'unknown selections preserve current state');
     const byName = store.filter('chromatic');
     assert.ok(byName.some((motif) => motif.id === 'chromatic-turn'));
 
@@ -42,6 +46,28 @@ describe('MotifStore', () => {
       'chromatic-turn-2',
       'chromatic-turn-3',
     ]);
+    assert.equal(store.labels().get('chromatic-turn'), 'Chromatic Turn · chromatic-turn');
+    assert.equal(store.resolve('Chromatic Turn · chromatic-turn-2')?.id, 'chromatic-turn-2');
+    assert.equal(store.resolve('chromatic-turn-3')?.id, 'chromatic-turn-3');
+  });
+
+  it('allocates around external reservations and atomically replaces user motifs', () => {
+    const current = new MotifStore();
+    assert.equal(
+      current.uniqueId('Reserved', undefined, (candidate) => candidate === 'reserved'),
+      'reserved-2',
+    );
+
+    const candidate = new MotifStore();
+    const user = addUserCopy(candidate, 'chromatic-turn', 'replacement-user');
+    assert.ok(user);
+    current.replaceUsersFrom(candidate);
+
+    assert.ok(current.has('chromatic-turn'), 'builtins remain present');
+    assert.ok(current.has(user.id), 'candidate user motifs are committed');
+    current.select(user.id);
+    current.replaceUsersFrom(new MotifStore());
+    assert.equal(current.ensureCurrent('scale-turn')?.id, 'scale-turn');
   });
 
   it('built-in ids cannot be overwritten or removed', () => {

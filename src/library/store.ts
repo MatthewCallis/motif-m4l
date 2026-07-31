@@ -1,8 +1,8 @@
 /**
  * In-memory motif library: built-ins from generated JSON plus user phrases.
  *
- * Disk I/O (scanning a user library folder, reading/writing `.json`) happens in
- * `device.ts` via Max `Folder` / `File` - this store only holds validated Motif objects.
+ * Disk I/O (scanning a user library folder, reading/writing `.json`) is owned by
+ * `max/user-library.ts`; this store only holds validated Motif objects.
  *
  * @see https://docs.cycling74.com/apiref/js/folder/
  * @see https://docs.cycling74.com/apiref/js/file/
@@ -34,9 +34,16 @@ export class MotifStore {
   motifs = new Map<string, Motif>();
   builtinIds = new Set<string>(BUILTIN_MOTIFS.map((motif) => motif.id));
   sortedList: Motif[] | null = null;
+  currentId: string;
 
-  constructor() {
+  /**
+   * Create a store and select the requested motif when it exists.
+   * @param {string | undefined} initialId Preferred initial motif id.
+   */
+  constructor(initialId?: string) {
+    this.currentId = initialId ?? BUILTIN_MOTIFS[0]?.id ?? '';
     this.resetToBuiltins();
+    this.ensureCurrent();
   }
 
   /**
@@ -95,15 +102,21 @@ export class MotifStore {
    * Return an unused id, appending `-2`, `-3`, etc. when needed.
    * @param {string} baseValue The preferred id or display name.
    * @param {string | undefined} excludedId An existing id allowed during rename checks.
+   * @param {(candidate: string) => boolean} isReserved External identity collision check.
    * @returns {string} An id unused by every non-excluded motif.
    */
-  uniqueId(baseValue: string, excludedId?: string): string {
+  uniqueId(
+    baseValue: string,
+    excludedId?: string,
+    isReserved: (candidate: string) => boolean = () => false,
+  ): string {
     const base = uniqueMotifId(baseValue);
     let candidate = base;
     let suffix = 2;
     while (
       (this.motifs.has(candidate) && candidate !== excludedId)
       || (this.builtinIds.has(candidate) && candidate !== excludedId)
+      || isReserved(candidate)
     ) {
       candidate = `${base}-${suffix}`;
       suffix += 1;
@@ -150,6 +163,91 @@ export class MotifStore {
   }
 
   /**
+   * Return the currently selected motif.
+   * @returns {Motif | undefined} The selected motif, if the catalog is non-empty.
+   */
+  get current(): Motif | undefined {
+    return this.get(this.currentId);
+  }
+
+  /**
+   * Select an existing motif by stable id.
+   * @param {string} id Stable motif id.
+   * @returns {Motif | undefined} The selected motif, or undefined for an unknown id.
+   */
+  select(id: string): Motif | undefined {
+    const motif = this.get(id);
+    if (motif) this.currentId = motif.id;
+    return motif;
+  }
+
+  /**
+   * Repair selection after catalog replacement or removal.
+   * @param {string | undefined} fallbackId Preferred fallback id.
+   * @returns {Motif | undefined} The selected fallback motif.
+   */
+  ensureCurrent(fallbackId?: string): Motif | undefined {
+    const current = this.current;
+    if (current) return current;
+
+    const fallback = fallbackId ? this.get(fallbackId) : undefined;
+    const selected = fallback ?? this.list()[0];
+    if (selected) this.currentId = selected.id;
+    return selected;
+  }
+
+  /**
+   * Build unambiguous display labels for the Max motif menu.
+   * Duplicate names include their `id`.
+   * @returns {Map<string, string>} A map of `id` to display label.
+   */
+  labels(): Map<string, string> {
+    const motifs = this.list();
+    const counts = new Map<string, number>();
+    for (const motif of motifs) {
+      counts.set(motif.name, (counts.get(motif.name) ?? 0) + 1);
+    }
+    return new Map(
+      motifs.map((motif) => [
+        motif.id,
+        (counts.get(motif.name) ?? 0) > 1 ? `${motif.name} · ${motif.id}` : motif.name,
+      ]),
+    );
+  }
+
+  /**
+   * Resolve a motif from a stable id, generated menu label, or display name.
+   * @param {string} value The value to resolve.
+   * @returns {Motif | undefined} The motif, or undefined when the value is unknown.
+   */
+  resolve(value: string): Motif | undefined {
+    const normalized = String(value).trim();
+    const direct = this.get(normalized);
+    if (direct) {
+      return direct;
+    }
+    const labelMatch = [...this.labels()].find(([, label]) => label === normalized);
+    if (labelMatch) {
+      return this.get(labelMatch[0]);
+    }
+
+    return this.list().find((motif) => motif.name === normalized);
+  }
+
+  /**
+   * Replace all user motifs atomically from a fully built candidate store.
+   * @param {MotifStore} candidate The candidate store to replace users from.
+   */
+  replaceUsersFrom(candidate: MotifStore): void {
+    this.resetToBuiltins();
+    for (const motif of candidate.list()) {
+      if (!candidate.isBuiltin(motif.id)) {
+        this.add(motif);
+      }
+    }
+  }
+
+  /**
    * Remove a user motif while protecting built-in ids.
    * @param {string} id The motif id to remove.
    * @returns {boolean} Whether a motif was removed.
@@ -157,7 +255,10 @@ export class MotifStore {
   remove(id: string): boolean {
     if (this.isBuiltin(id)) return false;
     const removed = this.motifs.delete(id);
-    if (removed) this.invalidateSortedList();
+    if (removed) {
+      this.invalidateSortedList();
+      this.ensureCurrent();
+    }
     return removed;
   }
 

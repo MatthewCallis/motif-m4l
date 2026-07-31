@@ -189,12 +189,35 @@ async function createEngine(options: {
  * @returns {Record<string, unknown> | undefined} The decoded state, when emitted.
  */
 function lastLibState(outlets: OutletArgs[]): Record<string, unknown> | undefined {
-  for (const args of [...outlets].reverse()) {
+  let latest: Record<string, unknown> | undefined;
+  const transfers = new Map<number, {
+    total: number;
+    parts: string[];
+    received: Set<number>;
+  }>();
+  for (const args of outlets) {
     if (args[0] !== 'ui' || args[1] !== 'lib' || typeof args[2] !== 'string') continue;
     const payload = JSON.parse(decodeURIComponent(args[2])) as Record<string, unknown>;
-    if (payload['kind'] !== 'note-chunk') return payload;
+    if (payload['kind'] !== 'state-chunk') {
+      latest = payload;
+      continue;
+    }
+    const transferId = Number(payload['transferId']);
+    const index = Number(payload['index']);
+    const total = Number(payload['total']);
+    let transfer = transfers.get(transferId);
+    if (!transfer) {
+      transfer = { total, parts: new Array<string>(total), received: new Set<number>() };
+      transfers.set(transferId, transfer);
+    }
+    transfer.parts[index] = String(payload['data']);
+    transfer.received.add(index);
+    if (transfer.received.size === transfer.total) {
+      latest = JSON.parse(decodeURIComponent(transfer.parts.join(''))) as Record<string, unknown>;
+      transfers.delete(transferId);
+    }
   }
-  return undefined;
+  return latest;
 }
 
 describe('Max authoring runtime', () => {
@@ -544,19 +567,16 @@ describe('Max authoring runtime', () => {
     const selected = lastLibState(engine.outlets)?.['selected'] as Record<string, unknown>;
     assert.equal(selected['noteCount'], 512);
     assert.equal(selected['noteLimit'], 512);
-    assert.equal(selected['notesLoading'], true);
-    assert.deepEqual(selected['notes'], []);
+    assert.equal((selected['notes'] as unknown[]).length, 512);
 
     const chunks = engine.outlets
       .filter((args) => args[0] === 'ui' && args[1] === 'lib' && typeof args[2] === 'string')
       .map((args) => JSON.parse(decodeURIComponent(String(args[2]))) as Record<string, unknown>)
-      .filter((payload) => payload['kind'] === 'note-chunk');
-    assert.equal(chunks.length, 16);
-    assert.ok(chunks.every((chunk) => (chunk['notes'] as unknown[]).length <= 32));
-    assert.equal(
-      chunks.reduce((count, chunk) => count + (chunk['notes'] as unknown[]).length, 0),
-      512,
-    );
+      .filter((payload) => payload['kind'] === 'state-chunk');
+    assert.ok(chunks.length > 1);
+    assert.ok(engine.outlets
+      .filter((args) => args[0] === 'ui' && args[1] === 'lib' && typeof args[2] === 'string')
+      .every((args) => String(args[2]).length < 6_000));
   });
 
   function userMotif(id: string, name: string, pitch = 0): Record<string, unknown> {
@@ -659,7 +679,50 @@ describe('Max authoring runtime', () => {
     assert.ok(items.filter((item) => item.name === 'Shared Name').every((item) => item.showId));
   });
 
-  it('sends ordinary note lists directly for the single scrollable Library table', async () => {
+  it('transports the reported Chrono Trigger motif sizes without an oversized-MIDI warning', async () => {
+    const path = '/Users/test/Motif Library/Chrono Trigger';
+    const motifs = [
+      ['chrono-trigger-a-strange-happening-arp-1', 32],
+      ['chrono-trigger-a-premonition-harp-strum', 32],
+      ['chrono-trigger-a-premonition-timpani-roll', 37],
+    ] as const;
+    const files: Record<string, string> = {};
+    const filenames: string[] = [];
+    for (const [id, noteCount] of motifs) {
+      const filename = `${id}.json`;
+      filenames.push(filename);
+      files[`${path}/${filename}`] = JSON.stringify({
+        ...userMotif(id, id),
+        length: noteCount * 240,
+        notes: Array.from({ length: noteCount }, (_, index) => ({
+          at: index * 240,
+          duration: 240,
+          pitch: -(index % 6),
+          velocity: 50 + (index % 61),
+        })),
+      });
+    }
+    const engine = await createEngine({ files, folders: { [path]: filenames } });
+    engine.dispatch('library_path', path);
+
+    for (const [id, noteCount] of motifs) {
+      engine.outlets.length = 0;
+      engine.dispatch('select_browser', id);
+      const state = lastLibState(engine.outlets);
+      assert.ok(state);
+      assert.equal((state['selected'] as Record<string, unknown>)['noteCount'], noteCount);
+      assert.equal(
+        ((state['selected'] as Record<string, unknown>)['notes'] as unknown[]).length,
+        noteCount,
+      );
+      assert.equal(state['alert'], null);
+      assert.ok(engine.outlets
+        .filter((args) => args[0] === 'ui' && args[1] === 'lib' && typeof args[2] === 'string')
+        .every((args) => String(args[2]).length < 6_000));
+    }
+  });
+
+  it('preserves ordinary note lists for the single scrollable Library table', async () => {
     const path = '/Motifs';
     const notes = Array.from({ length: 24 }, (_, index) => ({
       at: index * 120,
@@ -683,7 +746,6 @@ describe('Max authoring runtime', () => {
     const selected = lib['selected'] as Record<string, unknown>;
     assert.equal(selected['noteCount'], 24);
     assert.equal(selected['noteLimit'], 512);
-    assert.equal(selected['notesLoading'], false);
     assert.equal((selected['notes'] as unknown[]).length, 24);
     assert.match(String(selected['stats']), /^24 notes/);
     assert.equal(((selected['notes'] as Array<Record<string, unknown>>)[16])?.['pitch'], 4);
@@ -858,7 +920,7 @@ describe('Max authoring runtime', () => {
     }>;
     assert.deepEqual(
       items.find((item) => item.id === 'chromatic-turn')?.hotkeys,
-      [{ pitch: 20, action: 'trigger' }],
+      [{ pitch: 20, action: 'trigger', label: 'G♯-1' }],
     );
 
     engine.outlets.length = 0;
@@ -879,11 +941,11 @@ describe('Max authoring runtime', () => {
     assert.deepEqual(items.find((item) => item.id === 'chromatic-turn')?.hotkeys, []);
     assert.deepEqual(
       items.find((item) => item.id === 'scale-turn')?.hotkeys,
-      [{ pitch: 20, action: 'trigger' }],
+      [{ pitch: 20, action: 'trigger', label: 'G♯-1' }],
     );
     assert.deepEqual(
       (lib['selected'] as Record<string, unknown>)['hotkeys'],
-      [{ pitch: 20, action: 'trigger' }],
+      [{ pitch: 20, action: 'trigger', label: 'G♯-1' }],
     );
 
     engine.dispatch('lib_action', encodeURIComponent(JSON.stringify({
@@ -920,7 +982,7 @@ describe('Max authoring runtime', () => {
       id: string;
       hotkeys: Array<{ pitch: number; action: string }>;
     }>).find((item) => item.id === 'chromatic-turn');
-    assert.deepEqual(chromatic?.hotkeys, [{ pitch: 20, action: 'select' }]);
+    assert.deepEqual(chromatic?.hotkeys, [{ pitch: 20, action: 'select', label: 'G♯-1' }]);
     assert.equal((lib['selected'] as Record<string, unknown>)['id'], 'scale-turn');
 
     engine.outlets.length = 0;

@@ -83,8 +83,9 @@ describe('Max documentation contract', () => {
   });
 
   it('keeps Max JavaScript and LiveAPI calls on the documented current surface', async () => {
-    const [device, globals, preview, library, documentation] = await Promise.all([
+    const [device, liveApi, globals, preview, library, documentation] = await Promise.all([
       readFile('src/max/device.ts', 'utf8'),
+      readFile('src/max/live-api.ts', 'utf8'),
       readFile('src/max/globals.d.ts', 'utf8'),
       readFile('src/max/motif-preview.js', 'utf8'),
       readFile('src/max/library.html', 'utf8'),
@@ -92,9 +93,9 @@ describe('Max documentation contract', () => {
     ]);
 
     assert.match(globals, /constructor\(callback\?: \(args: unknown\[\]\) => void, path\?: string\)/);
-    assert.match(device, /new LiveAPI\(undefined, 'live_set view detail_clip'\)/);
-    assert.match(device, /clip\.call\('get_notes_extended', 0, 128, 0, 4096\)/);
-    assert.doesNotMatch(device, /clip\.call\('get_notes'/);
+    assert.match(liveApi, /new LiveAPI\(undefined, 'live_set view detail_clip'\)/);
+    assert.match(liveApi, /clip\.call\('get_notes_extended', 0, 128, 0, 4096\)/);
+    assert.doesNotMatch(liveApi, /clip\.call\('get_notes'/);
     assert.doesNotMatch(device, /mode === 'auto'/);
     assert.match(preview, /https:\/\/docs\.cycling74\.com\/apiref\/js\/mgraphics\//);
     assert.match(library, /https:\/\/docs\.cycling74\.com\/userguide\/web_browser\/#javascript-communication/);

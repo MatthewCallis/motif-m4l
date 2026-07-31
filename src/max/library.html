@@ -266,8 +266,6 @@
 <script>
   /** Diagnostic source label forwarded to the Max console. */
   const PAGE = 'library';
-  /** Maximum number of notes allowed in one motif or Live clip import. */
-  const MAX_MOTIF_NOTES = 512;
   /** Editable note schema used to generate rows and coerce outgoing field values. */
   const NOTE_FIELDS = [
     { name:'pitch', type:'number', required:true, step:'1' },
@@ -325,7 +323,8 @@
   const debugEntries = [];
   let stateDeadline = null;
   let payloadErrorSignature = '';
-  let pendingNoteTransfer = null;
+  let pendingStateTransfer = null;
+  let latestStateTransferId = 0;
   const debugIndicator = document.getElementById('debug-indicator');
   const debugSummary = document.getElementById('debug-summary');
   const debugPanel = document.getElementById('debug-panel');
@@ -356,7 +355,7 @@
   }
 
   function selectedIsEditing(server) {
-    return Boolean(server?.selected && server.editing?.active && server.editing.targetId === server.selected.id);
+    return Boolean(server?.actions?.editing);
   }
 
   function hasUnsavedChanges() {
@@ -434,7 +433,7 @@
         const badge = document.createElement('div');
         badge.className = 'hotkey-badge';
         badge.textContent = item.hotkeys
-          .map((mapping) => `${midiNoteName(mapping.pitch)} ${mapping.action === 'select' ? '↦' : '▶'}`)
+          .map((mapping) => `${mapping.label} ${mapping.action === 'select' ? '↦' : '▶'}`)
           .join(' ');
         el.append(badge);
       }
@@ -451,21 +450,6 @@
       });
       list.append(el);
     }
-  }
-
-  function midiNoteName(pitch) {
-    const names = ['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B'];
-    const value = Math.max(0, Math.min(127, Math.round(Number(pitch))));
-    return `${names[value % 12]}${Math.floor(value / 12) - 2}`;
-  }
-
-  function parseMidiNoteName(noteName) {
-    const match = String(noteName).trim().match(/^([A-Ga-g])([#♯b♭]?)(-2|-1|[0-8])$/);
-    if (!match) return null;
-    const pitchClasses = { C:0, D:2, E:4, F:5, G:7, A:9, B:11 };
-    const accidental = match[2] === '#' || match[2] === '♯' ? 1 : match[2] === 'b' || match[2] === '♭' ? -1 : 0;
-    const pitch = (Number(match[3]) + 2) * 12 + pitchClasses[match[1].toUpperCase()] + accidental;
-    return pitch >= 0 && pitch <= 127 ? pitch : null;
   }
 
   function renderHotkeys(selected) {
@@ -490,8 +474,8 @@
       const chip = document.createElement('button');
       chip.className = 'hotkey-chip';
       const actionLabel = mapping.action === 'select' ? 'Select' : 'Trigger';
-      chip.title = `Remove ${midiNoteName(mapping.pitch)} · ${actionLabel}`;
-      chip.textContent = `${midiNoteName(mapping.pitch)} · ${actionLabel}  ×`;
+      chip.title = `Remove ${mapping.label} · ${actionLabel}`;
+      chip.textContent = `${mapping.label} · ${actionLabel}  ×`;
       chip.addEventListener('click', () => send({ type:'unmap_trigger', pitch:mapping.pitch }));
       list.append(chip);
     }
@@ -499,7 +483,6 @@
 
   function renderNoteRows(server, editing) {
     const notes = server?.selected?.notes ?? [];
-    const noteCount = Number(server?.selected?.noteCount ?? notes.length);
     const container = document.getElementById('note-rows');
     container.innerHTML = '';
     notes.forEach((note, index) => {
@@ -544,7 +527,7 @@
       remove.className = 'remove-btn';
       remove.textContent = '✕';
       remove.title = 'Remove note';
-      remove.disabled = !editing || noteCount <= 1;
+      remove.disabled = !server?.selected?.canRemoveNote;
       remove.addEventListener('click', () => send({ type:'remove_note', index }));
       row.append(remove);
       container.append(row);
@@ -588,6 +571,7 @@
     const cancel = document.getElementById('cancel-edit-btn');
     const save = document.getElementById('save-motif-btn');
     const add = document.getElementById('add-note-btn');
+    document.getElementById('import-clip-btn').disabled = !server?.actions?.canImportClip;
 
     if (!selected) {
       setValue('name-edit', '', false); setValue('description-edit', '', false);
@@ -611,17 +595,14 @@
         ? 'Built-in · Edit creates a user copy'
         : `${selected.isPersisted ? 'Saved' : 'Not yet saved'} · ${selected.id}`;
     edit.classList.toggle('hidden', editing);
-    edit.disabled = Boolean(server.libraryScanning);
+    edit.disabled = !server.actions.canEdit;
     cancel.classList.toggle('hidden', !editing);
     cancel.disabled = false;
-    save.disabled = !editing || !server.libraryLoaded;
+    save.disabled = !server.actions.canSave;
     save.title = server.libraryLoaded ? 'Save changes and exit editing' : 'Choose a valid library folder before saving';
-    add.disabled = !editing
-      || Boolean(selected.notesLoading)
-      || selected.noteCount >= (selected.noteLimit ?? MAX_MOTIF_NOTES);
+    add.disabled = !selected.canAddNote;
     renderNoteRows(server, editing);
     renderHotkeys(selected);
-    document.getElementById('import-clip-btn').disabled = Boolean(server.libraryScanning);
   }
 
   function renderPanels(activePanel) {
@@ -644,7 +625,7 @@
       : 'Built-ins only';
     path.title = server?.libraryPath || 'No user library selected';
     const refresh = document.getElementById('refresh-btn');
-    refresh.disabled = !server?.libraryPath || Boolean(server?.libraryScanning);
+    refresh.disabled = !server?.actions?.canRefreshLibrary;
     refresh.textContent = server?.libraryScanning ? 'Scanning…' : 'Refresh';
   }
 
@@ -676,109 +657,80 @@
     send({ type:'edit_motif', properties:readProperties() });
   }
 
-  function normalizeServerState(value) {
-    if (!value || !Array.isArray(value.items)) throw new TypeError('items must be an array');
-    if (!value.editing || typeof value.editing.active !== 'boolean') throw new TypeError('editing state is missing');
-    return {
-      ...value,
-      items:value.items.filter((item) => item && typeof item.id === 'string' && typeof item.name === 'string'),
-      selectedIndex:Number.isInteger(value.selectedIndex) ? value.selectedIndex : -1,
-      libraryPath:typeof value.libraryPath === 'string' ? value.libraryPath : '',
-      libraryScanning:Boolean(value.libraryScanning),
-    };
+  function applyServerState(server) {
+    const previous = store.getState();
+    const selectedChanged = previous.server?.selected?.id !== server.selected?.id;
+    const editingEnded = previous.server?.editing?.active && !server.editing.active;
+    store.setState({ server, formDirty:selectedChanged || editingEnded ? false : previous.formDirty });
+    if (server.alert?.id && server.alert.id !== previous.server?.alert?.id) {
+      openModal({
+        title:server.alert.title,
+        message:server.alert.message,
+        confirmLabel:'OK',
+        dismissOnly:true,
+      });
+    }
+    payloadErrorSignature = '';
+    if (stateDeadline !== null) { clearTimeout(stateDeadline); stateDeadline = null; }
+    debug('ok', `State: ${server.items.length} motifs${server.libraryPath ? ` · ${server.libraryPath}` : ''}`);
   }
 
-  function receiveNoteChunk(payload) {
-    const current = store.getState();
-    const selected = current.server?.selected;
+  function receiveStateChunk(payload) {
     const transferId = Number(payload.transferId);
-    const offset = Number(payload.offset);
+    const index = Number(payload.index);
     const total = Number(payload.total);
     if (
-      !selected
-      || selected.id !== payload.motifId
-      || selected.noteTransferId !== transferId
-      || !Number.isInteger(offset)
+      !Number.isInteger(transferId)
+      || transferId < latestStateTransferId
+      || !Number.isInteger(index)
       || !Number.isInteger(total)
-      || total < 0
-      || total > MAX_MOTIF_NOTES
-      || !Array.isArray(payload.notes)
+      || index < 0
+      || index >= total
+      || total < 1
+      || total > 10000
+      || typeof payload.data !== 'string'
     ) return;
 
     if (
-      !pendingNoteTransfer
-      || pendingNoteTransfer.id !== transferId
-      || pendingNoteTransfer.motifId !== payload.motifId
+      !pendingStateTransfer
+      || pendingStateTransfer.id !== transferId
     ) {
-      pendingNoteTransfer = {
+      if (pendingStateTransfer && transferId < pendingStateTransfer.id) return;
+      pendingStateTransfer = {
         id:transferId,
-        motifId:payload.motifId,
         total,
-        notes:new Array(total),
+        parts:new Array(total),
         received:new Set(),
       };
     }
 
-    payload.notes.forEach((note, index) => {
-      const noteIndex = offset + index;
-      if (noteIndex < 0 || noteIndex >= total || !note) return;
-      pendingNoteTransfer.notes[noteIndex] = note;
-      pendingNoteTransfer.received.add(noteIndex);
-    });
-    if (pendingNoteTransfer.received.size !== total) return;
+    if (pendingStateTransfer.total !== total) return;
+    pendingStateTransfer.parts[index] = payload.data;
+    pendingStateTransfer.received.add(index);
+    if (pendingStateTransfer.received.size !== total) return;
 
-    const notes = pendingNoteTransfer.notes;
-    pendingNoteTransfer = null;
-    store.setState({
-      server:{
-        ...current.server,
-        selected:{ ...selected, notes, notesLoading:false },
-      },
-    });
+    const encodedState = pendingStateTransfer.parts.join('');
+    latestStateTransferId = transferId;
+    pendingStateTransfer = null;
+    applyServerState(JSON.parse(decodeURIComponent(encodedState)));
   }
 
   function receiveData(...values) {
     const encoded = values[values.length - 1];
     try {
       const payload = JSON.parse(decodeURIComponent(String(encoded)));
-      if (payload?.kind === 'note-chunk') {
-        receiveNoteChunk(payload);
+      if (payload?.kind === 'state-chunk') {
+        receiveStateChunk(payload);
         payloadErrorSignature = '';
         return;
       }
-      const server = normalizeServerState(payload);
-      const previous = store.getState();
-      const selectedChanged = previous.server?.selected?.id !== server.selected?.id;
-      const editingEnded = previous.server?.editing?.active && !server.editing.active;
-      pendingNoteTransfer = null;
-      store.setState({ server, formDirty:selectedChanged || editingEnded ? false : previous.formDirty });
-      if (server.alert?.id && server.alert.id !== previous.server?.alert?.id) {
-        openModal({
-          title:server.alert.title || 'Import warning',
-          message:server.alert.message || 'The MIDI clip could not be imported.',
-          confirmLabel:'OK',
-          dismissOnly:true,
-        });
-      }
-      payloadErrorSignature = '';
-      if (stateDeadline !== null) { clearTimeout(stateDeadline); stateDeadline = null; }
-      debug('ok', `State: ${server.items.length} motifs${server.libraryPath ? ` · ${server.libraryPath}` : ''}`);
+      pendingStateTransfer = null;
+      applyServerState(payload);
     } catch (reason) {
       const detail = errorText(reason);
       if (detail === payloadErrorSignature) return;
       payloadErrorSignature = detail;
-      if (/Unterminated string|Unexpected end of JSON|unterminated/i.test(detail)) {
-        const message = 'The selected MIDI clip contains more note data than the Library can display. Shorten the clip or split it into smaller phrases, then import it again.';
-        debug('error', `MIDI file is too long: ${message}`);
-        openModal({
-          title:'MIDI file is too long',
-          message,
-          confirmLabel:'OK',
-          dismissOnly:true,
-        });
-      } else {
-        debug('error', `Library data could not be displayed: ${detail}`);
-      }
+      debug('error', `Library data could not be displayed: ${detail}`);
     }
   }
 
@@ -809,15 +761,10 @@
   document.getElementById('assign-hotkey-btn').addEventListener('click', () => {
     const selected = store.getState().server?.selected;
     const input = document.getElementById('hotkey-input');
-    const pitch = parseMidiNoteName(input.value);
-    if (!selected || pitch === null) {
-      debug('error', 'Hot key must be a note name from C-2 through G8, such as C3');
-      return;
-    }
-    input.value = midiNoteName(pitch);
+    if (!selected) return;
     send({
       type:'map_trigger',
-      pitch,
+      pitch:input.value,
       motifId:selected.id,
       action:document.getElementById('hotkey-action').value,
     });
@@ -860,9 +807,10 @@
     receiveData(encodeURIComponent(JSON.stringify({
       query:'', libraryPath:'/Users/example/Motifs', libraryLoaded:true, libraryScanning:false, scanProgress:null,
       editing:{ active:false, dirty:false, created:false, sourceId:null, targetId:null },
+      actions:{ editing:false, canEdit:true, canSave:false, canImportClip:true, canRefreshLibrary:true },
       items:[
-        { id:'chromatic-turn', name:'Chromatic Turn', showId:false },
-        { id:'scale-turn', name:'Scale Turn', showId:false },
+        { id:'chromatic-turn', name:'Chromatic Turn', showId:false, hotkeys:[] },
+        { id:'scale-turn', name:'Scale Turn', showId:false, hotkeys:[] },
       ],
       selectedIndex:0,
       selected:{
@@ -870,6 +818,7 @@
         pitchMode:'chromatic', sourceMeter:{ numerator:4, denominator:4 }, length:3360, defaultGate:.82,
         velocityCurve:{ inputMin:null, inputMax:null, outputMin:null, outputMax:null, exponent:null },
         stats:'7 notes • 0.88 bars • 4/4 source • chromatic', isBuiltin:true, isPersisted:false,
+        hotkeys:[], noteCount:2, noteLimit:512, canAddNote:false, canRemoveNote:false,
         notes:[
           { pitch:0, accidental:null, at:0, duration:480, gate:null, velocity:null, velocityOffset:null, velocityScale:null, legato:false, tie:false },
           { pitch:2, accidental:null, at:480, duration:480, gate:null, velocity:null, velocityOffset:null, velocityScale:null, legato:false, tie:false },

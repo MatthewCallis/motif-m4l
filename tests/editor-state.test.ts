@@ -93,6 +93,7 @@ describe('MotifEditorState', () => {
     });
     assert.equal(editor.isEditing(), false);
     assert.equal(editor.isDirty(), false);
+    assert.equal(editor.current(store), undefined);
     assert.equal(editor.begin(store, 'missing'), undefined);
     assert.equal(editor.cancel(store), undefined);
     assert.equal(editor.finishSave(), undefined);
@@ -108,6 +109,7 @@ describe('MotifEditorState', () => {
     assert.ok(first);
     assert.equal(editor.begin(store, first.id)?.id, first.id);
     assert.equal(editor.isEditing(first.id), true);
+    assert.equal(editor.current(store)?.id, first.id);
     assert.equal(editor.isEditing('scale-turn'), false);
   });
 });
