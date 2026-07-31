@@ -203,7 +203,9 @@ function emitLibraryState(): void {
   const selectedIndex = selected ? items.findIndex((item) => item.id === selected.id) : -1;
   const selectedIsEditing = selected ? editor.isEditing(selected.id) : false;
   const nameCounts = new Map<string, number>();
-  for (const item of items) nameCounts.set(item.name, (nameCounts.get(item.name) ?? 0) + 1);
+  for (const item of items) {
+    nameCounts.set(item.name, (nameCounts.get(item.name) ?? 0) + 1);
+  }
 
   let selectedData: LibrarySelectedMotifData | null = null;
   if (selected) {
@@ -327,6 +329,7 @@ function emitPreviewState(): void {
       pitch: n.pitch,
       atTicks: n.atTicks,
       durationTicks: n.durationTicks,
+      velocity: n.velocity,
     })),
     totalTicks,
     lowPitch: preview.lowPitch,

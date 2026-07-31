@@ -48,7 +48,7 @@ describe("device pure logic", () => {
     assert.equal(
       formatLibraryMotifStats(
         {
-          notes: [{ pitch: 60, atTicks: 0, durationTicks: 480 }],
+          notes: [{ pitch: 60, atTicks: 0, durationTicks: 480, velocity: 100 }],
           bars: 1,
           effectivePitchMode: "chromatic",
         },
@@ -60,8 +60,8 @@ describe("device pure logic", () => {
       formatLibraryMotifStats(
         {
           notes: [
-            { pitch: 60, atTicks: 0, durationTicks: 480 },
-            { pitch: 62, atTicks: 480, durationTicks: 480 },
+            { pitch: 60, atTicks: 0, durationTicks: 480, velocity: 80 },
+            { pitch: 62, atTicks: 480, durationTicks: 480, velocity: 120 },
           ],
           bars: 1.5,
           effectivePitchMode: "scale",

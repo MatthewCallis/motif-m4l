@@ -903,6 +903,7 @@ describe("Motif Max patch integration", () => {
     assert.match(previewScript, /outlet\(0, "preview_ready"\)/);
     assert.match(previewScript, /outlet\(0, "preview_debug", level/);
     assert.match(previewScript, /function paint\(\)/);
+    assert.match(previewScript, /function velocityColor\(color, velocity\)/);
     assert.match(
       previewScript,
       /jsarguments\.length > 1[\s\S]*Number\(jsarguments\[1\]\)[\s\S]*jsarguments\.length > 2[\s\S]*Number\(jsarguments\[2\]\)/,
@@ -965,8 +966,8 @@ describe("Motif Max patch integration", () => {
     const payload = encodeURIComponent(
       JSON.stringify({
         notes: [
-          { pitch: 60, atTicks: 0, durationTicks: 480 },
-          { pitch: 63, atTicks: 480, durationTicks: 480 },
+          { pitch: 60, atTicks: 0, durationTicks: 480, velocity: 20 },
+          { pitch: 63, atTicks: 480, durationTicks: 480, velocity: 120 },
         ],
         totalTicks: 960,
         lowPitch: 59,
@@ -978,6 +979,11 @@ describe("Motif Max patch integration", () => {
     (context.paint as () => void)();
 
     assert.equal(errors.length, 0);
+    const velocityColor = context.velocityColor as (color: number[], velocity: number) => number[];
+    const dim = Array.from(velocityColor([1, 0.55, 0.12, 1], 1));
+    const bright = Array.from(velocityColor([1, 0.55, 0.12, 1], 127));
+    assert.ok(dim[0]! < bright[0]! && dim[1]! < bright[1]! && dim[2]! < bright[2]!);
+    assert.equal(dim[3], bright[3], "velocity shading must not make notes transparent");
     assert.ok(
       outletMessages.some((message) => message[1] === "preview_debug" && message[2] === "ok"),
     );

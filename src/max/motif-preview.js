@@ -69,6 +69,13 @@ function setColor(color) {
   mgraphics.set_source_rgba(color[0], color[1], color[2], color[3]);
 }
 
+function velocityColor(color, velocity) {
+  var normalized = Math.max(0, Math.min(1, (velocity - 1) / 126));
+  // Retain enough brightness for velocity 1 to remain legible on both piano-roll rows.
+  var intensity = 0.25 + normalized * 0.75;
+  return [color[0] * intensity, color[1] * intensity, color[2] * intensity, color[3]];
+}
+
 function strokeRoundedRect(x, y, width, height, radius, color, lineWidth) {
   setColor(color);
   mgraphics.set_line_width(lineWidth || 1);
@@ -160,11 +167,14 @@ function normalizeData(value) {
     if (!isFinite(pitch) || !isFinite(atTicks) || !isFinite(durationTicks)) {
       throw new TypeError("note " + index + " contains a non-numeric value");
     }
+    var velocity = Number(note.velocity);
+    if (!isFinite(velocity)) velocity = 100;
 
     notes.push({
       pitch: Math.round(pitch),
       atTicks: Math.max(0, atTicks),
       durationTicks: Math.max(1, durationTicks),
+      velocity: Math.max(1, Math.min(127, Math.round(velocity))),
     });
   }
 
@@ -246,8 +256,21 @@ function drawRows(data, width, rollHeight) {
     var noteTop = (data.highPitch - note.pitch) * rowHeight + 1;
     var noteHeight = Math.max(2, rowHeight - 2);
 
-    fillRect(left, noteTop, Math.min(noteWidth, width - left), noteHeight, COLORS.note);
-    strokeLine(left, noteTop, Math.min(width, left + noteWidth), noteTop, COLORS.noteTop, 1);
+    fillRect(
+      left,
+      noteTop,
+      Math.min(noteWidth, width - left),
+      noteHeight,
+      velocityColor(COLORS.note, note.velocity),
+    );
+    strokeLine(
+      left,
+      noteTop,
+      Math.min(width, left + noteWidth),
+      noteTop,
+      velocityColor(COLORS.noteTop, note.velocity),
+      1,
+    );
   }
 }
 

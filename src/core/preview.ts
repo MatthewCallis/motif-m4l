@@ -6,24 +6,36 @@
  */
 
 import { barLengthTicks } from "./timing.js";
-import { resolveMotifPitch } from "./compile-motif.js";
+import { resolveMotifPitch, resolveVelocity } from "./compile-motif.js";
 import type { HostContext, MeterMode, Motif, PitchMode } from "./types.js";
 
 /** One preview step after pitch mapping and meter scaling. */
 export interface PreviewNote {
+  /** MIDI pitch. */
   pitch: number;
+  /** Start time in ticks. */
   atTicks: number;
+  /** Duration in ticks. */
   durationTicks: number;
+  /** Effective MIDI velocity used to shade the native preview note. */
+  velocity: number;
 }
 
 /** Aggregated note geometry, names, and range for the native preview UI. */
 export interface MotifPreview {
+  /** Preview notes in pitch-time order. */
   notes: PreviewNote[];
+  /** Note names in pitch-time order. */
   noteNames: string[];
+  /** Lowest pitch in the motif. */
   lowPitch: number;
+  /** Highest pitch in the motif. */
   highPitch: number;
+  /** Number of bars in the motif. */
   bars: number;
+  /** Effective pitch-mode override. */
   effectivePitchMode: PitchMode;
+  /** MIDI note that anchors relative motif pitches. */
   triggerPitch: number;
 }
 
@@ -48,8 +60,9 @@ export function midiNoteName(pitchValue: number): string {
  */
 export function parseMidiNoteName(value: string): number | undefined {
   const match = value.trim().match(/^([A-Ga-g])([#♯b♭]?)(-2|-1|[0-8])$/);
-  if (!match) return undefined;
-
+  if (!match) {
+    return undefined;
+  }
   const pitchClasses: Record<string, number> = {
     C: 0,
     D: 2,
@@ -62,12 +75,13 @@ export function parseMidiNoteName(value: string): number | undefined {
   const letter = match[1]?.toUpperCase() ?? "";
   const accidental = match[2];
   const octave = Number(match[3]);
-  const offset =
-    accidental === "#" || accidental === "♯"
-      ? 1
-      : accidental === "b" || accidental === "♭"
-        ? -1
-        : 0;
+  let offset = 0;
+  if (accidental === "#" || accidental === "♯") {
+    offset = 1;
+  } else if (accidental === "b" || accidental === "♭") {
+    offset = -1;
+  }
+  // MIDI 60 = C3.
   const pitch = (octave + 2) * 12 + (pitchClasses[letter] ?? 0) + offset;
   return pitch >= 0 && pitch <= 127 ? pitch : undefined;
 }
@@ -106,6 +120,8 @@ export function buildMotifPreview(
     }),
     atTicks: Math.max(0, note.at * timeScale),
     durationTicks: Math.max(1, note.duration * timeScale),
+    // Preview relative velocity programming against a stable reference strike.
+    velocity: resolveVelocity(note, motif, 100),
   }));
 
   const pitches = notes.map((note) => note.pitch);

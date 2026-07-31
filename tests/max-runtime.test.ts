@@ -82,7 +82,7 @@ describe("compiled Max runtime", () => {
     const initialPreviewRaw = lastEmission(emissions, ["ui", "preview"]);
     assert.ok(initialPreviewRaw, "preview state must be emitted on initialize");
     const initialPreview = JSON.parse(decodeURIComponent(encodedPayload(initialPreviewRaw))) as {
-      notes: Array<{ pitch: number; atTicks: number; durationTicks: number }>;
+      notes: Array<{ pitch: number; atTicks: number; durationTicks: number; velocity: number }>;
       totalTicks: number;
       lowPitch: number;
       highPitch: number;
@@ -93,6 +93,11 @@ describe("compiled Max runtime", () => {
       "preview must include notes",
     );
     assert.ok(typeof initialPreview.totalTicks === "number" && initialPreview.totalTicks > 0);
+    assert.ok(initialPreview.notes.every(({ velocity }) => velocity >= 1 && velocity <= 127));
+    assert.ok(
+      new Set(initialPreview.notes.map(({ velocity }) => velocity)).size > 1,
+      "preview must preserve the motif's rising and falling effective velocities",
+    );
 
     emissions.length = 0;
     send("preview_ready");

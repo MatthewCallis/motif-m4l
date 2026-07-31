@@ -47,6 +47,10 @@ describe("motif preview", () => {
       [60, 62, 63, 67, 65, 62, 60],
     );
     assert.deepEqual(preview.noteNames, ["C3", "D3", "D♯3", "G3", "F3", "D3", "C3"]);
+    assert.deepEqual(
+      preview.notes.map(({ velocity }) => velocity),
+      [100, 100, 100, 106, 100, 100, 100],
+    );
     assert.equal(preview.bars, 0.875);
     assert.equal(preview.effectivePitchMode, "chromatic");
   });
@@ -65,6 +69,10 @@ describe("motif preview", () => {
     );
     assert.equal(preview.noteNames[0], "D3");
     assert.equal(preview.effectivePitchMode, "scale");
+    assert.deepEqual(
+      preview.notes.map(({ velocity }) => velocity),
+      [104, 100, 103, 107, 100, 97, 102],
+    );
   });
 
   it("clamps note names and expands flat or empty preview ranges", () => {
