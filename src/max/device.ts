@@ -36,7 +36,6 @@ import { compileMotif } from "../core/compile-motif.js";
 import { clamp } from "../core/math.js";
 import { buildMotifPreview } from "../core/preview.js";
 import { ticksToMilliseconds } from "../core/timing.js";
-import { transformMotif } from "../core/transform-motif.js";
 import {
   type CompileOptions,
   type HostContext,
@@ -139,8 +138,6 @@ const activeTriggers = new Set<number>();
 const sustainedReleases = new Set<number>();
 
 let pitchModeOverride: PitchMode | undefined;
-let invertOffsets = false;
-let reverseNotes = false;
 let meterMode: MeterMode = "preserve";
 let retriggerMode: RetriggerMode = "replace";
 let triggerMode: TriggerMode = "one-shot";
@@ -211,10 +208,7 @@ function emitLibraryState(): void {
   if (selected) {
     const notes = selected.notes.map(toLibraryNoteData);
     const preview = buildMotifPreview(
-      transformMotif(selected, {
-        invert: invertOffsets,
-        reverse: reverseNotes,
-      }),
+      store.currentTransformed ?? selected,
       {
         ...hostContext,
         tempo: hostContext.tempo * tempoMultiplier,
@@ -305,13 +299,10 @@ function emitLibraryAlert(title: string, message: string): void {
  * Emit the preview state through the device's single Max outlet.
  */
 function emitPreviewState(): void {
-  const selected = store.current;
+  const selected = store.currentTransformed;
   if (!selected) return;
   const preview = buildMotifPreview(
-    transformMotif(selected, {
-      invert: invertOffsets,
-      reverse: reverseNotes,
-    }),
+    selected,
     {
       ...hostContext,
       tempo: hostContext.tempo * tempoMultiplier,
@@ -594,7 +585,7 @@ function triggerMotif(
   triggerOptions: TriggerMotifOptions = {},
 ): number | undefined {
   const motifId = triggerOptions.motifId ?? motifIdForTrigger(triggerPitch);
-  const selected = store.resolve(motifId);
+  const selected = store.resolveTransformed(motifId);
   if (!selected) {
     emitError(`Unknown motif: ${motifId}`);
     return undefined;
@@ -624,10 +615,7 @@ function triggerMotif(
   }
   // Compile the motif and emit the corresponding MIDI events.
   for (const event of compileMotif(
-    transformMotif(selected, {
-      invert: invertOffsets,
-      reverse: reverseNotes,
-    }),
+    selected,
     {
       ...hostContext,
       tempo: hostContext.tempo * tempoMultiplier,
@@ -899,7 +887,7 @@ function pitch_mode(mode: string): void {
  * Synchronize the visual transform latches with the engine-owned state.
  */
 function emitTransformUi(): void {
-  emit("ui", "transforms", invertOffsets ? 1 : 0, reverseNotes ? 1 : 0);
+  emit("ui", "transforms", store.invert ? 1 : 0, store.reverse ? 1 : 0);
 }
 
 /**
@@ -907,10 +895,10 @@ function emitTransformUi(): void {
  * @param {string | number | boolean} value The toggle state.
  */
 function invert(value: string | number | boolean): void {
-  invertOffsets = toggleEnabled(value);
+  store.invert = toggleEnabled(value);
   emitTransformUi();
   emitSelectedMotifUi();
-  emitStatus("invert", invertOffsets ? "on" : "off");
+  emitStatus("invert", store.invert ? "on" : "off");
 }
 
 /**
@@ -918,10 +906,10 @@ function invert(value: string | number | boolean): void {
  * @param {string | number | boolean} value The toggle state.
  */
 function reverse(value: string | number | boolean): void {
-  reverseNotes = toggleEnabled(value);
+  store.reverse = toggleEnabled(value);
   emitTransformUi();
   emitSelectedMotifUi();
-  emitStatus("reverse", reverseNotes ? "on" : "off");
+  emitStatus("reverse", store.reverse ? "on" : "off");
 }
 
 /**
