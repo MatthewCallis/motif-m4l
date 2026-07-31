@@ -97,7 +97,7 @@ Device UI Pitch Mode `motif` = use the phrase’s stored `pitchMode` (not an ove
 ## Authoring heuristics
 
 - **Famous lick** → usually `chromatic`, trigger = first/anchor pitch, short description of rhythm + intervals.
-- **Scale toy / demo** → `scale`, pitches as degree steps (`0,1,2,4…`).
+- **Scale toy / demo** → `scale`, pitches as degree steps (`0,1,2,4...`).
 - Keep phrases playable as one-shots: 1–2 bars is the sweet spot unless the user asks for longer.
 - Preview in Live: pick the motif, hit a trigger in-zone; contour updates from native Song observers.
 

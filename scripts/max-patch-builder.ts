@@ -851,7 +851,7 @@ export class MaxPatchBuilder {
   };
 
   /**
-   * Build tab visibility using one `script sendbox … hidden` message per object.
+   * Build tab visibility using one `script sendbox ... hidden` message per object.
    *
    * Separate messages avoid Max truncating one very large comma-separated
    * `thispatcher` script message. The target `thispatcher` box and all listed

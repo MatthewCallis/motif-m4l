@@ -12,11 +12,11 @@
  * - `event <pitch> <velocity> <channel> <delayMs>` - schedule via Max `pipe`
  * - `clear` / `panic` - flush scheduled notes
  * - `status Ready` - opens the fail-open MIDI gate in the patch (`route Ready`)
- * - `status …` / `error <message>` - console / debug
+ * - `status ...` / `error <message>` - console / debug
  * - `midi-pass <0|1>` - pass-through gate
- * - `ui <subselector> …` - Presentation / Library window (preview, browser, notes)
+ * - `ui <subselector> ...` - Presentation / Library window (preview, browser, notes)
  * - `motifs-reset` / `motif-item` / `motif-selected` - motif menu
- * - `context …` - dump_context reply
+ * - `context ...` - dump_context reply
  *
  * Song tempo/key/scale/meter/transport arrive as `song_context` from native
  * `live.path` + `live.observer` (not LiveAPI). Clip import is the LiveAPI exception.

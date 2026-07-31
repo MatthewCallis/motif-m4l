@@ -117,7 +117,7 @@ function truncateText(text, maxWidth, size) {
   mgraphics.set_font_size(size);
   if (mgraphics.text_measure(value)[0] <= maxWidth) return value;
 
-  var suffix = "…";
+  var suffix = "...";
   while (value.length > 0 && mgraphics.text_measure(value + suffix)[0] > maxWidth) {
     value = value.slice(0, -1);
   }
@@ -243,7 +243,7 @@ function drawRows(data, width, rollHeight) {
 }
 
 function drawStatus(width) {
-  var label = debugLevel === "error" ? "UI !" : debugLevel === "ok" ? "UI ✓" : "UI …";
+  var label = debugLevel === "error" ? "UI !" : debugLevel === "ok" ? "UI ✓" : "UI ...";
   var color = debugLevel === "error" ? COLORS.error : debugLevel === "ok" ? COLORS.ok : COLORS.muted;
   fillRect(width - 35, 2, 32, 12, [0.08, 0.08, 0.085, 0.9]);
   drawText(label, width - 31, 11, 8, color);
@@ -274,7 +274,7 @@ function paint() {
 
   if (!currentData || currentData.notes.length === 0) {
     drawText(
-      debugLevel === "error" ? "Preview error - click UI ! for details" : "Waiting for motif preview…",
+      debugLevel === "error" ? "Preview error - click UI ! for details" : "Waiting for motif preview...",
       8,
       rollHeight * 0.5,
       10,

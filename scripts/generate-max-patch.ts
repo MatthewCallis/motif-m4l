@@ -14,7 +14,7 @@
  * - Motif vs Settings pages via `live.tab` + `thispatcher` hide/show
  *
  * Prefer theme-default `live.*` colors. Every interactive control needs
- * `annotation_name`, `annotation`, and `hint`. Keep unlocked-patcher `§ …` section comments.
+ * `annotation_name`, `annotation`, and `hint`. Keep unlocked-patcher `§ ...` section comments.
  *
  * @see https://docs.cycling74.com/reference/live.path
  * @see https://docs.cycling74.com/reference/live.observer
@@ -121,7 +121,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   );
 
   const motifHidden = { hidden: 0 } as const;
-  uiDynamicMenu('motif-menu', ['Loading…'], [100, 4, 210, 20], {
+  uiDynamicMenu('motif-menu', ['Loading...'], [100, 4, 210, 20], {
     name: 'Selected Motif',
     description: 'Choose the phrase played when a trigger note is received. The preview updates immediately.',
   }, { fontsize: 10, ...motifHidden });

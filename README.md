@@ -25,7 +25,7 @@ Every Max object, JavaScript runtime call, jweb bridge method, and Live Object M
 
 Production performance work is tracked in [`OPTIMIZATION-PLAN.md`](OPTIMIZATION-PLAN.md), including the current artifact-size baseline, MIDI hot-path findings, and release gates.
 
-Use `npm run clean && npm run build` to remove and recreate every generated runtime artifact. A normal build already removes stale content-addressed runtimes. Handwritten Library and preview sources live under `src/max`; cleaning preserves `max/Motif.amxd` and `max/INSTALL.md`.
+Use `npm run clean && npm run build` to remove and recreate every generated runtime artifact. A normal build already removes stale content-addressed runtimes. The Library uses `src/max/library.html` as its markup template, `src/max/library.ts` as its typed browser controller, and `src/max/library.css` as its stylesheet. The build compiles the controller to an ES2018 browser IIFE, minifies the JavaScript and CSS, compresses the markup, and writes the self-contained result to `max/library.html` before embedding that exact page in the Max engine. Cleaning preserves `max/Motif.amxd` and `max/INSTALL.md`.
 
 Before distribution, freeze and save the device in Max, then run `npm run verify:release`. The release check inspects the packaged `.amxd` as well as the generated patch and refuses stale embedded hashes, retired handlers, or obsolete Live API calls.
 

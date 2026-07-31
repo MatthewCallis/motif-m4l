@@ -333,26 +333,33 @@ assert.match(previewSource, /outlet\(0, "preview_ready"\)/, 'native preview must
 assert.doesNotMatch(previewSource, /mgraphics\.clip\(/, 'legacy jsui does not expose mgraphics.clip()');
 assert.doesNotMatch(previewSource, /window\.max|readfile|preview\.html/, 'native preview must not depend on jweb');
 
-const librarySource = await readFile('src/max/library.html', 'utf8');
+const libraryTemplate = await readFile('src/max/library.html', 'utf8');
+const libraryClient = await readFile('src/max/library.ts', 'utf8');
+const libraryStyle = await readFile('src/max/library.css', 'utf8');
+const librarySource = await readFile('max/library.html', 'utf8');
 const libraryScript = librarySource.match(/<script>([\s\S]*?)<\/script>/)?.[1];
-assert.ok(libraryScript, 'library.html must include its state manager');
+assert.ok(libraryScript, 'generated library.html must include its compiled state manager');
 assert.doesNotThrow(() => new vm.Script(libraryScript, { filename: 'library.html' }), 'library state manager must parse');
-assert.match(librarySource, /function createStore\(initialState\)/, 'library must have one explicit local state store');
-assert.match(librarySource, /type:'cancel_edit'/, 'library must expose cancel editing');
-assert.doesNotMatch(librarySource, /delete_motif|Delete motif|skipDeleteConfirmation/, 'library deletion UI must remain removed');
+assert.match(libraryTemplate, /library\.css/, 'Library template must reference its extracted stylesheet');
+assert.match(libraryTemplate, /library\.ts/, 'Library template must reference its TypeScript entry');
+assert.doesNotMatch(librarySource, /library\.(?:css|ts)|data-motif-build/, 'generated Library must inline its assets');
+assert.match(libraryClient, /function createStore<T>/, 'Library must have one explicit typed local state store');
+assert.match(libraryClient, /type:\s*'cancel_edit'/, 'Library must expose cancel editing');
+assert.doesNotMatch(libraryClient, /delete_motif|Delete motif|skipDeleteConfirmation/, 'Library deletion UI must remain removed');
 for (const id of ['pitch-mode-edit', 'meter-numerator-edit', 'default-gate-edit', 'curve-exponent']) {
-  assert.match(librarySource, new RegExp(`id="${id}"`), `library must expose ${id}`);
+  assert.match(libraryTemplate, new RegExp(`id="${id}"`), `Library must expose ${id}`);
 }
-assert.match(librarySource, /type:'edit_motif'/, 'library must submit complete motif properties');
-assert.match(librarySource, /velocityOffset/, 'library must expose advanced note velocity fields');
-assert.match(librarySource, /legato/, 'library must expose note articulation fields');
+assert.match(libraryClient, /type:\s*'edit_motif'/, 'Library must submit complete motif properties');
+assert.match(libraryClient, /velocityOffset/, 'Library must expose advanced note velocity fields');
+assert.match(libraryClient, /legato/, 'Library must expose note articulation fields');
 
 const source = await readFile('dist/motif-device.js', 'utf8');
 const hashedSource = await readFile(`max/${engineFilename}`, 'utf8');
 assert.equal(hashedSource, source, 'hashed engine artifact differs from its canonical build output');
 const deviceSource = await readFile('src/max/device.ts', 'utf8');
 assert.ok(
-  source.length < deviceSource.length + librarySource.length,
+  source.length
+    < deviceSource.length + libraryTemplate.length + libraryClient.length + libraryStyle.length,
   'hashed engine artifact must be minified',
 );
 assert.equal(

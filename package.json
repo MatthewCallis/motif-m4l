@@ -7,10 +7,10 @@
   "scripts": {
     "build": "tsx scripts/build.ts",
     "clean": "tsx scripts/clean.ts",
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && tsc --noEmit -p tsconfig.library.json",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "test": "npm run build && c8 --all --include='src/**/*.ts' --exclude='src/generated/**' --exclude='src/**/*.d.ts' tsx --test tests/**/*.test.ts",
+    "test": "npm run build && c8 --all --include='src/**/*.ts' --exclude='src/generated/**' --exclude='src/**/*.d.ts' tsx --test tests/**/*.test.ts tests/**/*.test.mts",
     "verify": "npm run lint && npm run check && npm test && npm run validate:max",
     "verify:release": "npm run verify && npm run validate:amxd",
     "midi:import": "tsx scripts/midi-to-motif.ts",

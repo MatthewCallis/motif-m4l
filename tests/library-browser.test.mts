@@ -1,0 +1,329 @@
+/* oxlint-disable typescript/no-unsafe-call, typescript/no-unsafe-member-access */
+import assert from 'node:assert/strict';
+import { describe, it } from 'node:test';
+import { encodeLibraryStateMessages } from '../src/max/library-view.js';
+
+type Listener = (event: {
+  key?: string;
+  reason?: unknown;
+  message?: string;
+  filename?: string;
+  lineno?: number;
+  target?: unknown;
+  currentTarget?: unknown;
+  preventDefault: () => void;
+}) => void;
+
+class FakeClassList {
+  readonly values = new Set<string>();
+
+  add(value: string): void {
+    this.values.add(value);
+  }
+
+  remove(value: string): void {
+    this.values.delete(value);
+  }
+
+  toggle(value: string, force?: boolean): boolean {
+    const enabled = force ?? !this.values.has(value);
+    if (enabled) this.values.add(value);
+    else this.values.delete(value);
+    return enabled;
+  }
+}
+
+class FakeElement {
+  readonly classList = new FakeClassList();
+  readonly children: FakeElement[] = [];
+  readonly listeners = new Map<string, Listener[]>();
+  readonly dataset: Record<string, string> = {};
+  id = '';
+  className = '';
+  textContent = '';
+  #innerHTML = '';
+  title = '';
+  value = '';
+  type = '';
+  min = '';
+  max = '';
+  step = '';
+  checked = false;
+  disabled = false;
+  readOnly = false;
+
+  constructor(readonly tagName: string) {}
+
+  get innerHTML(): string {
+    return this.#innerHTML;
+  }
+
+  set innerHTML(value: string) {
+    this.#innerHTML = value;
+    if (value === '') this.children.length = 0;
+  }
+
+  append(...children: FakeElement[]): void {
+    this.children.push(...children);
+  }
+
+  setAttribute(name: string, value: string): void {
+    if (name.startsWith('data-')) this.dataset[name.slice(5)] = value;
+  }
+
+  addEventListener(name: string, listener: Listener): void {
+    const listeners = this.listeners.get(name) ?? [];
+    listeners.push(listener);
+    this.listeners.set(name, listeners);
+  }
+
+  dispatch(name: string, event: Partial<Parameters<Listener>[0]> = {}): void {
+    const complete = {
+      preventDefault: () => undefined,
+      target: this,
+      currentTarget: this,
+      ...event,
+    };
+    for (const listener of this.listeners.get(name) ?? []) listener(complete);
+  }
+
+  click(): void {
+    this.dispatch('click');
+  }
+}
+
+class FakeInputElement extends FakeElement {
+  constructor() {
+    super('INPUT');
+  }
+}
+
+class FakeTextAreaElement extends FakeElement {
+  constructor() {
+    super('TEXTAREA');
+  }
+}
+
+class FakeSelectElement extends FakeElement {
+  constructor() {
+    super('SELECT');
+  }
+}
+
+function createElementForId(id: string): FakeElement {
+  if (id === 'description-edit') return new FakeTextAreaElement();
+  if (
+    id === 'pitch-mode-edit'
+    || id === 'meter-denominator-edit'
+    || id === 'import-mode'
+    || id === 'hotkey-action'
+  ) return new FakeSelectElement();
+  if (
+    id.includes('input')
+    || id.includes('edit')
+    || id.includes('display')
+    || id === 'search'
+    || id.startsWith('curve-')
+    || id.startsWith('meter-')
+    || id === 'default-gate-edit'
+  ) return new FakeInputElement();
+  return new FakeElement(id.endsWith('btn') ? 'BUTTON' : 'DIV');
+}
+
+describe('Library browser runtime', () => {
+  it('boots the typed controller, renders state, assembles chunks, and emits actions', async () => {
+    const elements = new Map<string, FakeElement>();
+    const panelTabs = [
+      Object.assign(new FakeElement('BUTTON'), { dataset: { panel: 'properties' } }),
+      Object.assign(new FakeElement('BUTTON'), { dataset: { panel: 'notes' } }),
+    ];
+    const documentListeners = new Map<string, Listener>();
+    const windowListeners = new Map<string, Listener>();
+    const outlets: unknown[][] = [];
+    let receiveData: ((...values: unknown[]) => void) | undefined;
+
+    const fakeDocument = {
+      activeElement: null as FakeElement | null,
+      getElementById(id: string): FakeElement {
+        let value = elements.get(id);
+        if (!value) {
+          value = createElementForId(id);
+          value.id = id;
+          elements.set(id, value);
+        }
+        return value;
+      },
+      createElement(tagName: string): FakeElement {
+        if (tagName === 'input') return new FakeInputElement();
+        if (tagName === 'textarea') return new FakeTextAreaElement();
+        if (tagName === 'select') return new FakeSelectElement();
+        return new FakeElement(tagName.toUpperCase());
+      },
+      querySelectorAll(selector: string): FakeElement[] {
+        return selector === '.panel-tab' ? panelTabs : [];
+      },
+      addEventListener(name: string, listener: Listener): void {
+        documentListeners.set(name, listener);
+      },
+    };
+    const fakeWindow = {
+      max: {
+        outlet: (...args: unknown[]) => outlets.push(args),
+        bindInlet: (name: string, handler: (...values: unknown[]) => void) => {
+          if (name === 'receiveData') receiveData = handler;
+        },
+      },
+      addEventListener(name: string, listener: Listener): void {
+        windowListeners.set(name, listener);
+      },
+    };
+
+    Object.assign(globalThis, {
+      window: fakeWindow,
+      document: fakeDocument,
+      location: { href: 'file:///tmp/library.html' },
+      HTMLElement: FakeElement,
+      HTMLInputElement: FakeInputElement,
+      HTMLTextAreaElement: FakeTextAreaElement,
+      HTMLSelectElement: FakeSelectElement,
+      HTMLButtonElement: FakeElement,
+      HTMLDivElement: FakeElement,
+      HTMLSpanElement: FakeElement,
+    });
+
+    await import('../src/max/library.js');
+    assert.ok(receiveData, 'Library client must bind its Max inlet');
+    assert.ok(outlets.some((args) => args[0] === 'library_ready'));
+
+    const state = {
+      query: '',
+      libraryPath: '/Motifs',
+      libraryLoaded: true,
+      libraryScanning: false,
+      editing: {
+        active: true,
+        dirty: false,
+        created: false,
+        sourceId: 'browser-test',
+        targetId: 'browser-test',
+      },
+      actions: {
+        editing: true,
+        canEdit: true,
+        canSave: true,
+        canImportClip: true,
+        canRefreshLibrary: true,
+      },
+      items: [{
+        id: 'browser-test',
+        name: 'Browser Test',
+        showId: false,
+        folder: 'Tests',
+        hotkeys: [{ pitch: 60, label: 'C3', action: 'trigger' }],
+      }],
+      selectedIndex: 0,
+      selected: {
+        schemaVersion: 1,
+        id: 'browser-test',
+        name: 'Browser Test',
+        description: 'Browser test motif',
+        pitchMode: 'chromatic',
+        sourceMeter: { numerator: 4, denominator: 4 },
+        length: 960,
+        defaultGate: null,
+        velocityCurve: {
+          inputMin: null,
+          inputMax: null,
+          outputMin: null,
+          outputMax: null,
+          exponent: null,
+        },
+        stats: '2 notes',
+        isBuiltin: false,
+        isPersisted: true,
+        hotkeys: [{ pitch: 60, label: 'C3', action: 'trigger' }],
+        noteCount: 2,
+        noteLimit: 512,
+        canAddNote: true,
+        canRemoveNote: true,
+        notes: [
+          {
+            pitch: 0,
+            accidental: null,
+            at: 0,
+            duration: 480,
+            gate: null,
+            velocity: 100,
+            velocityOffset: null,
+            velocityScale: null,
+            legato: false,
+            tie: false,
+          },
+          {
+            pitch: 2,
+            accidental: null,
+            at: 480,
+            duration: 480,
+            gate: null,
+            velocity: 90,
+            velocityOffset: null,
+            velocityScale: null,
+            legato: true,
+            tie: false,
+          },
+        ],
+      },
+      alert: null,
+    };
+
+    receiveData(encodeURIComponent(JSON.stringify(state)));
+    assert.equal(elements.get('name-edit')?.value, 'Browser Test');
+    assert.equal(elements.get('note-rows')?.children.length, 2);
+    assert.equal(elements.get('browser-list')?.children.length, 2);
+
+    const chunkedState = {
+      ...state,
+      query: 'browser',
+      selected: {
+        ...state.selected,
+        notes: Array.from({ length: 40 }, (_, index) => ({
+          ...state.selected.notes[0],
+          at: index * 120,
+        })),
+        noteCount: 40,
+      },
+    };
+    for (const message of encodeLibraryStateMessages(chunkedState, 12)) {
+      receiveData(message);
+    }
+    assert.equal(elements.get('note-rows')?.children.length, 40);
+
+    const hotkeyInput = elements.get('hotkey-input');
+    assert.ok(hotkeyInput);
+    hotkeyInput.value = 'D3';
+    elements.get('assign-hotkey-btn')?.click();
+    assert.ok(outlets.some((args) =>
+      args[0] === 'lib_action'
+      && decodeURIComponent(String(args[1])).includes('"type":"map_trigger"'),
+    ));
+
+    panelTabs[1]?.click();
+    assert.equal(elements.get('notes-panel')?.classList.values.has('hidden'), false);
+    elements.get('choose-btn')?.click();
+    assert.ok(outlets.some((args) => args[0] === 'choose_library'));
+
+    windowListeners.get('error')?.({
+      message: 'browser failure',
+      filename: 'library.html',
+      lineno: 1,
+      preventDefault: () => undefined,
+    });
+    receiveData('%broken');
+    receiveData('%broken');
+    assert.match(elements.get('debug-panel')?.textContent ?? '', /Library data could not be displayed/);
+    documentListeners.get('keydown')?.({
+      key: 'Escape',
+      preventDefault: () => undefined,
+    });
+  });
+});

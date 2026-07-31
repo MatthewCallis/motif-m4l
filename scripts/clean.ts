@@ -3,6 +3,8 @@
  * sources, installation documentation, and packaged `Motif.amxd`.
  *
  * @see ../src/max/library.html
+ * @see ../src/max/library.ts
+ * @see ../src/max/library.css
  * @see ../src/max/motif-preview.js
  */
 

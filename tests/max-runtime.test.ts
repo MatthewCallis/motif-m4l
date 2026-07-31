@@ -107,7 +107,7 @@ describe('compiled Max runtime', () => {
     assert.match(String(libraryPage?.[1]), /^\/tmp\/max-temp\/uttori-motif-library-[a-f0-9]{12}\.html$/);
     assert.equal(
       temporaryFiles.get(String(libraryPage?.[1])),
-      await readFile('src/max/library.html', 'utf8'),
+      await readFile('max/library.html', 'utf8'),
       'library_prepare must materialize the exact bundled page',
     );
 

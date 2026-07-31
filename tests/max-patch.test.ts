@@ -90,11 +90,22 @@ describe('Motif Max patch integration', () => {
     const previewSource = await readFile(`max/${previewFilename}`, 'utf8');
     const previewCanonicalSource = await readFile('src/max/motif-preview.js', 'utf8');
     const deviceCanonicalSource = await readFile('src/max/device.ts', 'utf8');
-    const libraryCanonicalSource = await readFile('src/max/library.html', 'utf8');
+    const libraryCanonicalSources = await Promise.all([
+      readFile('src/max/library.html', 'utf8'),
+      readFile('src/max/library.ts', 'utf8'),
+      readFile('src/max/library.css', 'utf8'),
+    ]);
+    const libraryOutput = await readFile('max/library.html', 'utf8');
     assert.equal(engineSource, await readFile('dist/motif-device.js', 'utf8'));
     assert.ok(previewSource.length < previewCanonicalSource.length, 'production preview must be minified');
     assert.ok(
-      engineSource.length < deviceCanonicalSource.length + libraryCanonicalSource.length,
+      libraryOutput.length < libraryCanonicalSources.reduce((length, source) => length + source.length, 0),
+      'production Library HTML, CSS, and JavaScript must be minified',
+    );
+    assert.ok(
+      engineSource.length
+        < deviceCanonicalSource.length
+          + libraryCanonicalSources.reduce((length, source) => length + source.length, 0),
       'production engine must be minified',
     );
     assert.doesNotThrow(() => new vm.Script(previewSource, { filename: previewFilename }));
@@ -474,91 +485,80 @@ describe('Motif Max patch integration', () => {
   });
 
   it('library jweb binds receiveData before readiness and contains valid diagnostic JavaScript', async () => {
-    const libraryHtml = await readFile('src/max/library.html', 'utf8');
-    const bindIndex = libraryHtml.indexOf("window.max.bindInlet('receiveData', receiveData)");
-    const readyIndex = libraryHtml.indexOf("window.max.outlet('library_ready')");
+    const [template, client, style, libraryHtml] = await Promise.all([
+      readFile('src/max/library.html', 'utf8'),
+      readFile('src/max/library.ts', 'utf8'),
+      readFile('src/max/library.css', 'utf8'),
+      readFile('max/library.html', 'utf8'),
+    ]);
+    const bindIndex = client.indexOf("maxBridge.bindInlet('receiveData', receiveData)");
+    const readyIndex = client.indexOf("maxBridge.outlet('library_ready')");
     const script = libraryHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 
-    assert.ok(script, 'library must contain an inline script');
+    assert.match(template, /<link rel="stylesheet" href="library\.css" data-motif-build>/);
+    assert.match(template, /<script src="library\.ts" data-motif-build><\/script>/);
+    assert.doesNotMatch(template, /<style>|<script>(?!<\/script>)/);
+    assert.ok(script, 'production Library HTML must contain the compiled inline script');
+    assert.match(libraryHtml, /<style>[\s\S]+<\/style>/);
+    assert.doesNotMatch(libraryHtml, /library\.(?:css|ts)|data-motif-build/);
     assert.doesNotThrow(() => new vm.Script(script, { filename: 'library.html' }), 'library JavaScript must parse');
+    assert.doesNotMatch(script, /\?\.|\?\?|\binterface\b/, 'Library JavaScript must be compiled to its ES2018 target');
     assert.ok(bindIndex >= 0, 'library must bind the receiveData inlet');
     assert.ok(readyIndex > bindIndex, 'library must announce readiness after binding receiveData');
-    assert.ok(libraryHtml.includes("window.max.outlet('web_debug'"), 'library must report diagnostics to Max');
-    assert.ok(libraryHtml.includes("window.addEventListener('error'"), 'library must capture JavaScript errors');
-    assert.ok(libraryHtml.includes("window.addEventListener('unhandledrejection'"), 'library must capture promise rejections');
-    assert.ok(!libraryHtml.includes('window.receiveData = receiveData'), 'library must not rely on an unbound global function');
-    assert.ok(!libraryHtml.includes("outlet.toString().includes('console.log')"), 'library must not infer Max from source text');
-    assert.ok(libraryHtml.includes('No library state received within 2 seconds'), 'library must report missing state');
-    assert.ok(!libraryHtml.includes('MIDI file is too long'), 'the page must not infer domain warnings from transport failures');
-    assert.ok(libraryHtml.includes('Library data could not be displayed'), 'transport failures must retain a truthful diagnostic');
-    assert.ok(libraryHtml.includes('detail === payloadErrorSignature'), 'repeated payload errors must be deduplicated');
-    assert.ok(libraryHtml.includes("confirmLabel:'OK'"), 'user warnings must be dismissible');
-    assert.ok(!libraryHtml.includes('debug(\'error\', `Bad library payload:'), 'raw JSON parse errors must not be shown');
+    assert.ok(client.includes("maxBridge.outlet('web_debug'"), 'library must report diagnostics to Max');
+    assert.ok(client.includes("window.addEventListener('error'"), 'library must capture JavaScript errors');
+    assert.ok(client.includes("window.addEventListener('unhandledrejection'"), 'library must capture promise rejections');
+    assert.ok(!client.includes('window.receiveData = receiveData'), 'library must not rely on an unbound global function');
+    assert.ok(!client.includes("outlet.toString().includes('console.log')"), 'library must not infer Max from source text');
+    assert.ok(client.includes('No library state received within 2 seconds'), 'library must report missing state');
+    assert.ok(!client.includes('MIDI file is too long'), 'the page must not infer domain warnings from transport failures');
+    assert.ok(client.includes('Library data could not be displayed'), 'transport failures must retain a truthful diagnostic');
+    assert.ok(client.includes('detail === payloadErrorSignature'), 'repeated payload errors must be deduplicated');
+    assert.match(client, /confirmLabel:\s*'OK'/, 'user warnings must be dismissible');
+    assert.ok(!client.includes('Bad library payload:'), 'raw JSON parse errors must not be shown');
     assert.ok(
-      libraryHtml.includes("window.max.outlet('lib_action', encodeURIComponent(JSON.stringify(action)))"),
+      client.includes("maxBridge.outlet('lib_action', encodeURIComponent(JSON.stringify(action)))"),
       'library actions must use an explicit selector',
     );
-    assert.ok(libraryHtml.includes('function createStore(initialState)'), 'library must use one explicit local state store');
-    assert.ok(libraryHtml.includes("type:'cancel_edit'"), 'library must provide an explicit way to exit editing');
-    assert.ok(!libraryHtml.includes('delete_motif'), 'library deletion must remain removed');
-    assert.ok(!libraryHtml.includes('skipDeleteConfirmation'), 'removed delete preference must not remain');
-    assert.ok(libraryHtml.includes("type:'select_browser', id:item.id"), 'browser selection must use stable ids');
-    assert.ok(libraryHtml.includes("className = 'browser-folder'"), 'library must render relative folder groups');
-    assert.ok(libraryHtml.includes('collapsedFolders:new Set()'), 'library folders must retain local collapsed state');
-    assert.ok(libraryHtml.includes("heading.setAttribute('aria-expanded'"), 'folder headings must be accessible expanders');
-    assert.ok(libraryHtml.includes('if (folderCollapsed) continue'), 'collapsed folders must hide their motifs');
-    assert.ok(libraryHtml.includes('isFolderCollapsed(folder, server.query'), 'search must reveal matches in collapsed folders');
-    assert.ok(libraryHtml.includes('item.folder'), 'library browser items must carry folder metadata');
-    assert.ok(libraryHtml.includes('server?.libraryScanning'), 'library must display asynchronous scan progress');
-    assert.ok(libraryHtml.includes('id="hotkey-input"'), 'library must expose a MIDI hot-key input');
-    assert.ok(libraryHtml.includes('id="hotkey-input" type="text"'), 'MIDI hot-key input must use note names');
-    assert.ok(libraryHtml.includes('id="hotkey-action"'), 'MIDI hot keys must choose their behavior');
-    assert.ok(libraryHtml.includes('<option value="trigger">Trigger Motif</option>'));
-    assert.ok(libraryHtml.includes('<option value="select">Select Motif</option>'));
-    assert.ok(!libraryHtml.includes('<option value="repeat">'), 'repeat must be a global Trigger Mode');
-    assert.ok(!libraryHtml.includes('function parseMidiNoteName'), 'MIDI note parsing must remain device-owned');
-    assert.ok(libraryHtml.includes('mapping.label'), 'the Library must display device-formatted MIDI note names');
-    assert.ok(libraryHtml.includes("type:'map_trigger'"), 'library must assign MIDI hot keys');
-    assert.ok(libraryHtml.includes("action:document.getElementById('hotkey-action').value"));
-    assert.ok(libraryHtml.includes("type:'unmap_trigger'"), 'library must remove MIDI hot keys');
-    assert.ok(libraryHtml.includes('Save changes and exit editing'), 'Save must document that it exits edit mode');
-    assert.ok(libraryHtml.includes("type:'edit_motif', properties:readProperties()"), 'library must submit complete motif properties');
-    assert.ok(!libraryHtml.includes('MAX_MOTIF_NOTES'), 'motif note limits must remain device-owned');
-    assert.ok(libraryHtml.includes('selected.canAddNote'), 'the device must decide whether another note can be added');
-    assert.ok(libraryHtml.includes('#notes-panel { overflow:auto; }'), 'the complete note table must scroll');
-    assert.ok(!libraryHtml.includes('note-page-prev'), 'the note table must not expose pagination');
-    assert.ok(!libraryHtml.includes('set_note_page'), 'the note table must not maintain page state');
-    assert.ok(libraryHtml.includes('function receiveStateChunk(payload)'), 'bounded state transport must be assembled internally');
-    assert.ok(libraryHtml.includes("payload?.kind === 'state-chunk'"));
-    assert.ok(libraryHtml.includes('notes.forEach((note, index) => {'), 'all assembled notes must render into one table');
-    assert.ok(libraryHtml.includes("type:'edit_note_at', index"), 'scrolling-table edits must use absolute row indices');
-    assert.ok(libraryHtml.includes('id="import-mode"'), 'library must expose the import pitch mode');
-    assert.ok(libraryHtml.includes('<option value="chromatic">Exact / Chromatic</option>'), 'exact chromatic import must be the default');
-    assert.ok(libraryHtml.includes("type:'import_clip', pitchMode:"), 'library must send the selected import mode');
-    const folderHelpersStart = libraryHtml.indexOf('  function isFolderCollapsed');
-    const folderHelpersEnd = libraryHtml.indexOf('  function renderBrowser');
-    assert.ok(folderHelpersStart >= 0 && folderHelpersEnd > folderHelpersStart);
-    const folderHelpers = libraryHtml.slice(folderHelpersStart, folderHelpersEnd);
-    const folderResults = vm.runInNewContext(`${folderHelpers}
-      (() => {
-        const collapsed = new Set(['Bass']);
-        const expanded = toggleCollapsedFolder('Bass', collapsed);
-        const added = toggleCollapsedFolder('Leads', collapsed);
-        return [
-          isFolderCollapsed('Bass', '', collapsed),
-          isFolderCollapsed('Bass', 'fill', collapsed),
-          expanded.has('Bass'),
-          added.has('Bass'),
-          added.has('Leads'),
-          collapsed.has('Leads'),
-        ];
-      })()`) as unknown[];
-    assert.deepEqual(Array.from(folderResults), [true, false, false, true, true, false]);
+    assert.match(client, /function createStore<T>/, 'library must use one explicit typed local state store');
+    assert.match(client, /type:\s*'cancel_edit'/, 'library must provide an explicit way to exit editing');
+    assert.doesNotMatch(client, /delete_motif|skipDeleteConfirmation/);
+    assert.match(client, /type:\s*'select_browser'/, 'browser selection must use stable ids');
+    assert.ok(client.includes("heading.className = 'browser-folder'"));
+    assert.ok(client.includes('collapsedFolders: new Set<string>()'));
+    assert.ok(client.includes("heading.setAttribute('aria-expanded'"));
+    assert.ok(client.includes('if (folderCollapsed) continue'));
+    assert.ok(client.includes('isFolderCollapsed(folder, server.query'));
+    assert.ok(client.includes('item.folder'));
+    assert.ok(client.includes('server?.libraryScanning'));
+    assert.match(template, /id="hotkey-input" type="text"/);
+    assert.match(template, /id="hotkey-action"/);
+    assert.match(template, /<option value="trigger">Trigger Motif<\/option>/);
+    assert.match(template, /<option value="select">Select Motif<\/option>/);
+    assert.doesNotMatch(template, /<option value="repeat">/);
+    assert.doesNotMatch(client, /function parseMidiNoteName/);
+    assert.ok(client.includes('mapping.label'));
+    assert.match(client, /type:\s*'map_trigger'/);
+    assert.ok(client.includes("$<HTMLSelectElement>('hotkey-action').value"));
+    assert.match(client, /type:\s*'unmap_trigger'/);
+    assert.ok(client.includes('Save changes and exit editing'));
+    assert.match(client, /type:\s*'edit_motif', properties:\s*readProperties\(\)/);
+    assert.doesNotMatch(client, /MAX_MOTIF_NOTES/);
+    assert.ok(client.includes('selected.canAddNote'));
+    assert.match(style, /#notes-panel\s*\{\s*overflow:auto;/);
+    assert.doesNotMatch(client, /note-page-prev|set_note_page/);
+    assert.ok(client.includes('function receiveStateChunk(payload: StateChunk)'));
+    assert.ok(client.includes("kind === 'state-chunk'"));
+    assert.ok(client.includes('notes.forEach((note, index) => {'));
+    assert.match(client, /type:\s*'edit_note_at'/);
+    assert.match(template, /id="import-mode"/);
+    assert.match(template, /<option value="chromatic">Exact \/ Chromatic<\/option>/);
+    assert.match(client, /type:\s*'import_clip'/);
     for (const field of ['pitch-mode-edit', 'meter-numerator-edit', 'default-gate-edit', 'curve-exponent']) {
-      assert.ok(libraryHtml.includes(`id="${field}"`), `library must expose ${field}`);
+      assert.ok(template.includes(`id="${field}"`), `library must expose ${field}`);
     }
     for (const field of ['velocityOffset', 'velocityScale', 'legato', 'tie']) {
-      assert.ok(libraryHtml.includes(field), `library must expose note field ${field}`);
+      assert.ok(client.includes(field), `library must expose note field ${field}`);
     }
   });
 

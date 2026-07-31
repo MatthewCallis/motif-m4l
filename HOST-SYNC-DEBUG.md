@@ -55,5 +55,5 @@ If BPM or key does not update:
 If Import Clip fails:
 
 1. Open a MIDI clip in Detail View (or highlight a clip slot with a MIDI clip).
-2. Confirm Max Console for `Motif: No clip selected…` / empty-clip errors.
+2. Confirm Max Console for `Motif: No clip selected...` / empty-clip errors.
 3. Confirm the generated patch references the latest `motif-device-<hash>.js`.

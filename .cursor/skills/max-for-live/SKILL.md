@@ -76,8 +76,8 @@ MIDI input must remain fail-open until the engine reports `Ready`. Non-note MIDI
 - Browser-to-Max actions require an explicit selector such as `lib_action <encoded-json>`. Never treat the unmatched outlet of `route ... url title` as executable JSON because jweb may emit additional lifecycle messages.
 - The embedded Live preview uses native content-addressed `jsui` / MGraphics, loads after `live.thisdevice`, and keeps `ignoreclick 0` so diagnostics remain usable. The separate Library/Authoring window uses `jweb` with onscreen rendering.
 - Do not embed Jitter (`jit.*`) in the device maxpat - it can make the patch unloadable in Max/M4L. Use `umenu` for dynamic lists.
-- No Presentation `status-display` for engine debug (`trigger …`); Ready still gates MIDI via `route Ready`.
-- Unlocked patcher should keep `§ …` section comments for MIDI / engine / Song / tabs / library / controls.
+- No Presentation `status-display` for engine debug (`trigger ...`); Ready still gates MIDI via `route Ready`.
+- Unlocked patcher should keep `§ ...` section comments for MIDI / engine / Song / tabs / library / controls.
 - Every interactive control requires `annotation_name`, `annotation`, and `hint`.
 - Runtime filenames must remain content-addressed. The production `max/` folder must not contain stable-name JavaScript or standalone HTML runtime copies.
 

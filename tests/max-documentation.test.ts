@@ -83,12 +83,13 @@ describe('Max documentation contract', () => {
   });
 
   it('keeps Max JavaScript and LiveAPI calls on the documented current surface', async () => {
-    const [device, liveApi, globals, preview, library, documentation] = await Promise.all([
+    const [device, liveApi, globals, preview, libraryTemplate, libraryClient, documentation] = await Promise.all([
       readFile('src/max/device.ts', 'utf8'),
       readFile('src/max/live-api.ts', 'utf8'),
       readFile('src/max/globals.d.ts', 'utf8'),
       readFile('src/max/motif-preview.js', 'utf8'),
       readFile('src/max/library.html', 'utf8'),
+      readFile('src/max/library.ts', 'utf8'),
       readFile('MAX-DOCUMENTATION.md', 'utf8'),
     ]);
 
@@ -98,8 +99,8 @@ describe('Max documentation contract', () => {
     assert.doesNotMatch(liveApi, /clip\.call\('get_notes'/);
     assert.doesNotMatch(device, /mode === 'auto'/);
     assert.match(preview, /https:\/\/docs\.cycling74\.com\/apiref\/js\/mgraphics\//);
-    assert.match(library, /https:\/\/docs\.cycling74\.com\/userguide\/web_browser\/#javascript-communication/);
-    assert.match(library, /window\.max\.bindInlet\('receiveData', receiveData\)/);
+    assert.match(libraryTemplate, /https:\/\/docs\.cycling74\.com\/userguide\/web_browser\/#javascript-communication/);
+    assert.match(libraryClient, /maxBridge\.bindInlet\('receiveData', receiveData\)/);
     assert.ok(documentation.includes('https://docs.cycling74.com/apiref/lom/clip/'));
   });
 });

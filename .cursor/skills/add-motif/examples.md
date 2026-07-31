@@ -26,8 +26,8 @@ test('ships <Name> as a built-in motif', () => {
   const motif = BUILTIN_MOTIFS.find(({ id }) => id === 'my-lick');
   assert.ok(motif);
   assert.equal(motif.length, /* ticks */);
-  assert.deepEqual(motif.notes.map(({ pitch }) => pitch), [/* … */]);
-  assert.deepEqual(motif.notes.map(({ at }) => at), [/* … */]);
+  assert.deepEqual(motif.notes.map(({ pitch }) => pitch), [/* ... */]);
+  assert.deepEqual(motif.notes.map(({ at }) => at), [/* ... */]);
 });
 
 test('transposes <Name> from the trigger note', () => {

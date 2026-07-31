@@ -52,6 +52,8 @@ export const BUILTIN_MOTIFS = ${JSON.stringify(motifs, null, 2)} as const satisf
 const MAX_BRIDGE = 'var inlets=1;var outlets=1;function anything(){var message=messagename,args=arrayfromargs(arguments);if(typeof MotifEngine==="undefined"||typeof MotifEngine.dispatch!=="function"){error("Motif: engine dispatcher is unavailable for "+message+"\\n");return}return MotifEngine.dispatch(message,args)}';
 
 const HASH_LENGTH = 12;
+const LIBRARY_STYLE_TAG = '<link rel="stylesheet" href="library.css" data-motif-build>';
+const LIBRARY_SCRIPT_TAG = '<script src="library.ts" data-motif-build></script>';
 
 /**
  * Build a content-addressed JavaScript filename.
@@ -62,6 +64,29 @@ const HASH_LENGTH = 12;
 function hashedJavaScriptFilename(stem: string, content: string): string {
   const digest = createHash('sha256').update(content).digest('hex').slice(0, HASH_LENGTH);
   return `${stem}-${digest}.js`;
+}
+
+/**
+ * Inline compiled Library assets and remove development-only HTML whitespace.
+ * Text content is preserved; only comments and whitespace between tags are removed.
+ * @param {string} template Hand-authored Library HTML template.
+ * @param {string} style Minified Library CSS.
+ * @param {string} script Minified browser-compatible Library JavaScript.
+ * @returns {string} Self-contained production Library page.
+ */
+function assembleLibraryHtml(template: string, style: string, script: string): string {
+  if (!template.includes(LIBRARY_STYLE_TAG)) {
+    throw new Error('Library HTML template is missing its build-time stylesheet tag');
+  }
+  if (!template.includes(LIBRARY_SCRIPT_TAG)) {
+    throw new Error('Library HTML template is missing its build-time script tag');
+  }
+  return template
+    .replace(LIBRARY_STYLE_TAG, `<style>${style}</style>`)
+    .replace(LIBRARY_SCRIPT_TAG, `<script>${script}</script>`)
+    .replace(/<!--[\s\S]*?-->/g, '')
+    .replace(/>\s+</g, '><')
+    .trim();
 }
 
 /**
@@ -104,10 +129,37 @@ async function listTypeScriptModules(directory: string): Promise<string[]> {
 
 await generateBuiltins();
 
-const [libraryHtml, previewSource] = await Promise.all([
+const [libraryTemplate, libraryStyleSource, previewSource, libraryBuild] = await Promise.all([
   readFile('src/max/library.html', 'utf8'),
+  readFile('src/max/library.css', 'utf8'),
   readFile('src/max/motif-preview.js', 'utf8'),
+  build({
+    entryPoints: ['src/max/library.ts'],
+    bundle: true,
+    format: 'iife',
+    platform: 'browser',
+    // Max's jweb is Chromium-based. ES2018 avoids newer syntax while retaining
+    // standard DOM APIs available across supported Max releases.
+    target: 'es2018',
+    write: false,
+    metafile: true,
+    minify: true,
+    sourcemap: false,
+    legalComments: 'none',
+  }),
 ]);
+const libraryScript = libraryBuild.outputFiles?.[0]?.text;
+if (libraryScript === undefined) {
+  throw new Error('esbuild did not produce the Library browser bundle');
+}
+const libraryStyle = (await transform(libraryStyleSource, {
+  loader: 'css',
+  target: 'chrome80',
+  minify: true,
+  sourcemap: false,
+  legalComments: 'none',
+})).code;
+const libraryHtml = assembleLibraryHtml(libraryTemplate, libraryStyle, libraryScript);
 const libraryDigest = createHash('sha256').update(libraryHtml).digest('hex').slice(0, 12);
 const libraryPageName = `uttori-motif-library-${libraryDigest}.html`;
 const [buildResult, previewResult] = await Promise.all([
@@ -145,7 +197,8 @@ const [buildResult, previewResult] = await Promise.all([
 ]);
 
 const productionInputs = new Set(
-  Object.keys(buildResult.metafile.inputs).map((input) => path.normalize(input)),
+  [...Object.keys(buildResult.metafile.inputs), ...Object.keys(libraryBuild.metafile.inputs)]
+    .map((input) => path.normalize(input)),
 );
 const unusedSourceModules = (await listTypeScriptModules('src'))
   .filter((modulePath) => !productionInputs.has(path.normalize(modulePath)));
@@ -180,6 +233,7 @@ await Promise.all([
   rm('max/motif-preview.js', { force: true }),
 ]);
 
+await writeFile('max/library.html', libraryHtml);
 await writeFile('dist/motif-device.js', output);
 await writeFile(path.join('max', engineFilename), output);
 await writeFile(path.join('max', previewFilename), preview);
