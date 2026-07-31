@@ -2,7 +2,7 @@
  * Minimal ambient typings for the `midi-file` package used by the conversion scripts.
  * Not a full upstream type definition - only fields Motif import/export touch.
  */
-declare module 'midi-file' {
+declare module "midi-file" {
   export interface MidiEvent {
     deltaTime: number;
     type: string;

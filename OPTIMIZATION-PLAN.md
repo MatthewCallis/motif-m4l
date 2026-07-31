@@ -4,11 +4,11 @@ This plan starts from the production build measured on July 29, 2026. It priorit
 
 ## Current baseline
 
-| Artifact | Before production minification | Current | Change |
-| --- | ---: | ---: | ---: |
-| Max engine | 193,418 bytes | 89,078 bytes | -53.9% |
-| Native preview | 9,830 bytes | 5,764 bytes | -41.4% |
-| Total shipped JavaScript | 203,248 bytes | 94,842 bytes | -53.3% |
+| Artifact                 | Before production minification |      Current | Change |
+| ------------------------ | -----------------------------: | -----------: | -----: |
+| Max engine               |                  193,418 bytes | 89,078 bytes | -53.9% |
+| Native preview           |                    9,830 bytes |  5,764 bytes | -41.4% |
+| Total shipped JavaScript |                  203,248 bytes | 94,842 bytes | -53.3% |
 
 The current build emits one stable engine in `dist/` for VM tests and only the two content-addressed, minified runtimes referenced by `Motif.maxpat` in `max/`.
 

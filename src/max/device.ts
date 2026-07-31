@@ -30,15 +30,12 @@
  * @see https://github.com/Ableton/maxdevtools/tree/main/m4l-production-guidelines
  */
 
-import {
-  absoluteNotesToMotif,
-  type AbsoluteNote,
-} from '../core/import-notes.js';
-import { compileMotif } from '../core/compile-motif.js';
-import { clamp } from '../core/math.js';
-import { buildMotifPreview } from '../core/preview.js';
-import { ticksToMilliseconds } from '../core/timing.js';
-import { transformMotif } from '../core/transform-motif.js';
+import { absoluteNotesToMotif, type AbsoluteNote } from "../core/import-notes.js";
+import { compileMotif } from "../core/compile-motif.js";
+import { clamp } from "../core/math.js";
+import { buildMotifPreview } from "../core/preview.js";
+import { ticksToMilliseconds } from "../core/timing.js";
+import { transformMotif } from "../core/transform-motif.js";
 import {
   type CompileOptions,
   type HostContext,
@@ -49,16 +46,16 @@ import {
   type PitchMode,
   type RetriggerMode,
   type TriggerMode,
-} from '../core/types.js';
-import { MotifEditorState } from '../library/editor-state.js';
+} from "../core/types.js";
+import { MotifEditorState } from "../library/editor-state.js";
 import {
   appendMotifNote,
   applyMotifProperties as buildMotifProperties,
   removeMotifNote,
   updateMotifNote,
   type NoteEditField,
-} from '../library/motif-authoring.js';
-import { MotifStore } from '../library/store.js';
+} from "../library/motif-authoring.js";
+import { MotifStore } from "../library/store.js";
 import {
   DEFAULT_MOTIF_ID,
   LAUNCH_QUANTIZATIONS,
@@ -71,7 +68,7 @@ import {
   type HeldRepeat,
   type MotifHandlers,
   type TriggerMotifOptions,
-} from './device-types.js';
+} from "./device-types.js";
 import {
   formatLibraryMotifStats,
   isStringEnumValue,
@@ -80,19 +77,19 @@ import {
   motifRepeatDelayFor,
   parseRetriggerMode,
   parseTempoMultiplier,
-} from './device-logic.js';
-import { MotifHotkeyMap } from './hotkey-map.js';
+} from "./device-logic.js";
+import { MotifHotkeyMap } from "./hotkey-map.js";
 import {
   encodeLibraryStateMessages,
   toLibraryHotkeyData,
   toLibraryNoteData,
-} from './library-view.js';
+} from "./library-view.js";
 import type {
   LibraryAlert,
   LibrarySelectedMotifData,
   LibraryServerState,
-} from './library-protocol.js';
-import { readClipNotes, resolveDetailClip } from './live-api.js';
+} from "./library-protocol.js";
+import { readClipNotes, resolveDetailClip } from "./live-api.js";
 import {
   discardAllowed,
   emit,
@@ -105,8 +102,8 @@ import {
   prepareLibraryPage,
   stringAtom,
   toggleEnabled,
-} from './max-helpers.js';
-import { MaxUserLibrary } from './user-library.js';
+} from "./max-helpers.js";
+import { MaxUserLibrary } from "./user-library.js";
 
 /** Validated built-in and user motifs currently available to performance and authoring flows. */
 const store = new MotifStore(DEFAULT_MOTIF_ID);
@@ -134,11 +131,11 @@ const sustainedReleases = new Set<number>();
 let pitchModeOverride: PitchMode | undefined;
 let invertOffsets = false;
 let reverseNotes = false;
-let meterMode: MeterMode = 'preserve';
-let retriggerMode: RetriggerMode = 'replace';
-let triggerMode: TriggerMode = 'one-shot';
-let launchQuantization: LaunchQuantization = 'immediate';
-let passThroughPolicy: PassThroughPolicy = 'non-triggers';
+let meterMode: MeterMode = "preserve";
+let retriggerMode: RetriggerMode = "replace";
+let triggerMode: TriggerMode = "one-shot";
+let launchQuantization: LaunchQuantization = "immediate";
+let passThroughPolicy: PassThroughPolicy = "non-triggers";
 let triggerLow = 36;
 let triggerHigh = 84;
 let sustainDown = false;
@@ -147,7 +144,7 @@ let instanceCounter = 1;
 let previewTriggerPitch = 60;
 let previewWasTriggered = false;
 let tempoMultiplier = 1;
-let browserQuery = '';
+let browserQuery = "";
 let libraryAlert: LibraryAlert | undefined;
 let libraryAlertCounter = 0;
 /** Monotonic identity used to discard stale state chunks in the Library page. */
@@ -157,7 +154,7 @@ let libraryStateTransferCounter = 0;
 const hostContext: HostContext = {
   tempo: 120,
   rootNote: 0,
-  scaleName: 'Major',
+  scaleName: "Major",
   scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
   scaleMode: true,
   timeSignature: { numerator: 4, denominator: 4 },
@@ -176,16 +173,19 @@ const sustainedRepeatReleases = new Set<number>();
 function emitLibraryState(): void {
   const normalizedQuery = browserQuery.trim().toLowerCase();
   const matchedIds = new Set(store.filter(browserQuery).map((item) => item.id));
-  const items = store.list()
-    .filter((item) =>
-      !normalizedQuery
-      || matchedIds.has(item.id)
-      || library.browserFolder(item.id).toLowerCase().includes(normalizedQuery),
+  const items = store
+    .list()
+    .filter(
+      (item) =>
+        !normalizedQuery ||
+        matchedIds.has(item.id) ||
+        library.browserFolder(item.id).toLowerCase().includes(normalizedQuery),
     )
-    .sort((left, right) =>
-      library.browserFolder(left.id).localeCompare(library.browserFolder(right.id))
-      || left.name.localeCompare(right.name)
-      || left.id.localeCompare(right.id),
+    .sort(
+      (left, right) =>
+        library.browserFolder(left.id).localeCompare(library.browserFolder(right.id)) ||
+        left.name.localeCompare(right.name) ||
+        left.id.localeCompare(right.id),
     );
   const selected = store.current;
   const selectedIndex = selected ? items.findIndex((item) => item.id === selected.id) : -1;
@@ -214,7 +214,7 @@ function emitLibraryState(): void {
       schemaVersion: selected.schemaVersion,
       id: selected.id,
       name: selected.name,
-      description: selected.description ?? '',
+      description: selected.description ?? "",
       pitchMode: selected.pitchMode,
       sourceMeter: { ...selected.sourceMeter },
       length: selected.length,
@@ -271,7 +271,7 @@ function emitLibraryState(): void {
   } satisfies LibraryServerState;
   libraryStateTransferCounter += 1;
   for (const message of encodeLibraryStateMessages(state, libraryStateTransferCounter)) {
-    emit('ui', 'lib', message);
+    emit("ui", "lib", message);
   }
 }
 
@@ -311,13 +311,17 @@ function emitPreviewState(): void {
     1,
   );
   const state = {
-    notes: preview.notes.map((n) => ({ pitch: n.pitch, atTicks: n.atTicks, durationTicks: n.durationTicks })),
+    notes: preview.notes.map((n) => ({
+      pitch: n.pitch,
+      atTicks: n.atTicks,
+      durationTicks: n.durationTicks,
+    })),
     totalTicks,
     lowPitch: preview.lowPitch,
     highPitch: preview.highPitch,
-    noteNames: preview.noteNames.join('  ·  '),
+    noteNames: preview.noteNames.join("  ·  "),
   };
-  emit('ui', 'preview', encodeURIComponent(JSON.stringify(state)));
+  emit("ui", "preview", encodeURIComponent(JSON.stringify(state)));
 }
 
 /**
@@ -332,8 +336,8 @@ function emitSelectedMotifUi(): void {
  * Flush Max `pipe` queues and reset local trigger bookkeeping.
  */
 function clearScheduledNotes(): void {
-  emit('clear');
-  emit('panic');
+  emit("clear");
+  emit("panic");
   activeTriggers.clear();
   sustainedReleases.clear();
 }
@@ -348,12 +352,12 @@ function song_context(property: string, ...values: unknown[]): void {
   const numeric = numbers(values);
 
   switch (property) {
-    case 'tempo': {
+    case "tempo": {
       const value = numeric[0];
       if (value !== undefined && value > 0) hostContext.tempo = value;
       break;
     }
-    case 'root_note': {
+    case "root_note": {
       const value = numeric[0];
       if (value !== undefined) {
         hostContext.rootNote = Math.round(value);
@@ -362,27 +366,27 @@ function song_context(property: string, ...values: unknown[]): void {
       }
       break;
     }
-    case 'scale_mode': {
+    case "scale_mode": {
       hostContext.scaleMode = (numeric[0] ?? 0) !== 0;
       emitSelectedMotifUi();
       break;
     }
-    case 'scale_intervals': {
+    case "scale_intervals": {
       if (numeric.length > 0) {
         hostContext.scaleIntervals = numeric.map(Math.round);
         emitSelectedMotifUi();
       }
       break;
     }
-    case 'scale_name': {
-      const value = flattenValues(values).map(String).join(' ').trim();
+    case "scale_name": {
+      const value = flattenValues(values).map(String).join(" ").trim();
       if (value) {
         hostContext.scaleName = value;
         emitSelectedMotifUi();
       }
       break;
     }
-    case 'signature_numerator': {
+    case "signature_numerator": {
       const value = numeric[0];
       if (value !== undefined && value > 0) {
         hostContext.timeSignature.numerator = Math.round(value);
@@ -390,7 +394,7 @@ function song_context(property: string, ...values: unknown[]): void {
       }
       break;
     }
-    case 'signature_denominator': {
+    case "signature_denominator": {
       const value = numeric[0];
       if (value !== undefined && value > 0) {
         hostContext.timeSignature.denominator = Math.round(value);
@@ -398,7 +402,7 @@ function song_context(property: string, ...values: unknown[]): void {
       }
       break;
     }
-    case 'is_playing': {
+    case "is_playing": {
       const wasPlaying = hostContext.isPlaying;
       hostContext.isPlaying = (numeric[0] ?? 0) !== 0;
       if (wasPlaying && !hostContext.isPlaying) {
@@ -407,7 +411,7 @@ function song_context(property: string, ...values: unknown[]): void {
       }
       break;
     }
-    case 'current_song_time': {
+    case "current_song_time": {
       const value = numeric[0];
       if (value !== undefined && value >= 0) hostContext.currentSongTime = value;
       break;
@@ -424,9 +428,9 @@ function song_context(property: string, ...values: unknown[]): void {
 function listMotifs(): void {
   store.ensureCurrent(DEFAULT_MOTIF_ID);
   const labels = store.labels();
-  emit('motifs-reset');
-  for (const item of store.list()) emit('motif-item', labels.get(item.id) ?? item.name);
-  emit('motif-selected', labels.get(store.currentId) ?? store.current?.name ?? store.currentId);
+  emit("motifs-reset");
+  for (const item of store.list()) emit("motif-item", labels.get(item.id) ?? item.name);
+  emit("motif-selected", labels.get(store.currentId) ?? store.current?.name ?? store.currentId);
   emitSelectedMotifUi();
 }
 
@@ -434,7 +438,7 @@ function listMotifs(): void {
  * Emit the MIDI pass state through the device's single Max outlet.
  */
 function emitMidiPassState(): void {
-  emit('midi-pass', passThroughPolicy === 'none' ? 0 : 1);
+  emit("midi-pass", passThroughPolicy === "none" ? 0 : 1);
 }
 
 /**
@@ -444,7 +448,7 @@ function emitMidiPassState(): void {
 function initialize(): void {
   if (!initialized) {
     initialized = true;
-    emitStatus('Ready');
+    emitStatus("Ready");
     emitMidiPassState();
   }
   listMotifs();
@@ -461,13 +465,12 @@ function initialize(): void {
  */
 function library_prepare(): void {
   try {
-    const absolutePath = prepareLibraryPage(
-      __MOTIF_LIBRARY_PAGE_NAME__,
-      __MOTIF_LIBRARY_HTML__,
-    );
-    emit('library-page', absolutePath);
+    const absolutePath = prepareLibraryPage(__MOTIF_LIBRARY_PAGE_NAME__, __MOTIF_LIBRARY_HTML__);
+    emit("library-page", absolutePath);
   } catch (reason) {
-    emitError(`Library page preparation failed: ${reason instanceof Error ? reason.message : String(reason)}`);
+    emitError(
+      `Library page preparation failed: ${reason instanceof Error ? reason.message : String(reason)}`,
+    );
   }
 }
 
@@ -485,7 +488,7 @@ function emitScheduledEvent(
   channel: number,
   delayMilliseconds: number,
 ): void {
-  emit('event', pitch, velocity, channel, Math.max(0, delayMilliseconds));
+  emit("event", pitch, velocity, channel, Math.max(0, delayMilliseconds));
 }
 
 /**
@@ -496,7 +499,7 @@ function emitScheduledEvent(
  */
 function motifIdForTrigger(triggerPitch: number): string {
   const mapping = hotkeys.get(triggerPitch);
-  return mapping?.action === 'trigger' ? mapping.motifId : store.currentId;
+  return mapping?.action === "trigger" ? mapping.motifId : store.currentId;
 }
 
 /**
@@ -520,7 +523,7 @@ function triggerMotif(
     return undefined;
   }
 
-  if (retriggerMode === 'replace' || triggerMode === 'latch') {
+  if (retriggerMode === "replace" || triggerMode === "latch") {
     clearScheduledNotes();
   }
 
@@ -535,8 +538,8 @@ function triggerMotif(
     meterMode,
     triggerPitch: Math.round(triggerPitch),
     triggerVelocity: Math.round(triggerVelocity),
-    launchOffsetTicks: triggerOptions.launchOffsetTicks
-      ?? launchOffsetTicksFor(hostContext, launchQuantization),
+    launchOffsetTicks:
+      triggerOptions.launchOffsetTicks ?? launchOffsetTicksFor(hostContext, launchQuantization),
     instanceId,
   };
   if (pitchModeOverride !== undefined) {
@@ -557,7 +560,7 @@ function triggerMotif(
     emitScheduledEvent(event.pitch, event.velocity, event.channel, event.offsetMs);
   }
 
-  emitStatus('trigger', motifId, triggerPitch, instanceId);
+  emitStatus("trigger", motifId, triggerPitch, instanceId);
   return instanceId;
 }
 
@@ -580,7 +583,7 @@ function stopHeldRepeat(triggerPitch: number, emitFeedback = true): void {
   // Delete the pitch from the sustained repeat releases.
   sustainedRepeatReleases.delete(triggerPitch);
   if (emitFeedback) {
-    emitStatus('repeat-stopped', repeat.motifId, triggerPitch);
+    emitStatus("repeat-stopped", repeat.motifId, triggerPitch);
   }
 }
 
@@ -603,11 +606,7 @@ function stopAllHeldRepeats(emitFeedback = false): void {
  * @param {number} triggerVelocity The original note-on velocity.
  * @param {number} channel The original one-based MIDI channel.
  */
-function startHeldRepeat(
-  triggerPitch: number,
-  triggerVelocity: number,
-  channel: number,
-): void {
+function startHeldRepeat(triggerPitch: number, triggerVelocity: number, channel: number): void {
   if (heldRepeats.has(triggerPitch)) return;
   const motifId = motifIdForTrigger(triggerPitch);
   const motif = store.resolve(motifId);
@@ -633,12 +632,10 @@ function startHeldRepeat(
       stopHeldRepeat(triggerPitch);
       return;
     }
-    const repeatedInstance = triggerMotif(
-      triggerPitch,
-      repeat.velocity,
-      repeat.channel,
-      { motifId: repeat.motifId, launchOffsetTicks: 0 },
-    );
+    const repeatedInstance = triggerMotif(triggerPitch, repeat.velocity, repeat.channel, {
+      motifId: repeat.motifId,
+      launchOffsetTicks: 0,
+    });
     if (repeatedInstance === undefined || heldRepeats.get(triggerPitch) !== repeat) {
       return;
     }
@@ -655,12 +652,11 @@ function startHeldRepeat(
   };
   heldRepeats.set(triggerPitch, repeat);
 
-  const firstDelay = ticksToMilliseconds(
-    firstLaunchOffset,
-    hostContext.tempo * tempoMultiplier,
-  ) + motifRepeatDelayFor(motif, meterMode, hostContext, tempoMultiplier);
+  const firstDelay =
+    ticksToMilliseconds(firstLaunchOffset, hostContext.tempo * tempoMultiplier) +
+    motifRepeatDelayFor(motif, meterMode, hostContext, tempoMultiplier);
   task.schedule(Math.max(MIN_REPEAT_DELAY_MS, firstDelay));
-  emitStatus('repeat-started', motif.id, triggerPitch);
+  emitStatus("repeat-started", motif.id, triggerPitch);
 }
 
 /**
@@ -673,7 +669,7 @@ function cancelTrigger(triggerPitch: number): void {
   }
   // Cancel the scheduled notes and emit the corresponding status message.
   clearScheduledNotes();
-  emitStatus('release', triggerPitch);
+  emitStatus("release", triggerPitch);
 }
 
 /**
@@ -687,29 +683,28 @@ function note(pitchValue: number, velocityValue: number, channelValue = 1): void
   const velocity = Math.round(clamp(velocityValue, 0, 127));
   const channel = Math.round(clamp(channelValue, 1, 16));
   const mapping = hotkeys.get(pitch);
-  const isTrigger = Boolean(mapping)
-    || heldRepeats.has(pitch)
-    || (pitch >= triggerLow && pitch <= triggerHigh);
+  const isTrigger =
+    Boolean(mapping) || heldRepeats.has(pitch) || (pitch >= triggerLow && pitch <= triggerHigh);
 
   // Dry MIDI passes either unconditionally or only when this note is not a trigger.
-  if (passThroughPolicy === 'all' || (passThroughPolicy === 'non-triggers' && !isTrigger)) {
+  if (passThroughPolicy === "all" || (passThroughPolicy === "non-triggers" && !isTrigger)) {
     emitScheduledEvent(pitch, velocity, channel, 0);
   }
   if (!isTrigger) return;
 
-  if (mapping?.action === 'select') {
+  if (mapping?.action === "select") {
     if (velocity > 0) {
       select_browser(mapping.motifId);
       if (store.currentId === mapping.motifId) {
-        emitStatus('selected', mapping.motifId, pitch);
+        emitStatus("selected", mapping.motifId, pitch);
       }
     }
     return;
   }
 
-  if (triggerMode === 'hold-repeat' || heldRepeats.has(pitch)) {
+  if (triggerMode === "hold-repeat" || heldRepeats.has(pitch)) {
     if (velocity > 0) {
-      if (triggerMode === 'hold-repeat') startHeldRepeat(pitch, velocity, channel);
+      if (triggerMode === "hold-repeat") startHeldRepeat(pitch, velocity, channel);
     } else if (sustainDown) {
       sustainedRepeatReleases.add(pitch);
     } else {
@@ -719,20 +714,20 @@ function note(pitchValue: number, velocityValue: number, channelValue = 1): void
   }
 
   if (velocity > 0) {
-    if (triggerMode === 'toggle' && activeTriggers.has(pitch)) {
+    if (triggerMode === "toggle" && activeTriggers.has(pitch)) {
       cancelTrigger(pitch);
       return;
     }
 
     const instanceId = triggerMotif(pitch, velocity, channel);
-    if (instanceId !== undefined && triggerMode !== 'one-shot') activeTriggers.add(pitch);
+    if (instanceId !== undefined && triggerMode !== "one-shot") activeTriggers.add(pitch);
     return;
   }
 
-  if (triggerMode === 'hold') {
+  if (triggerMode === "hold") {
     if (sustainDown) sustainedReleases.add(pitch);
     else cancelTrigger(pitch);
-  } else if (triggerMode === 'release-tail') {
+  } else if (triggerMode === "release-tail") {
     activeTriggers.delete(pitch);
   }
 }
@@ -756,7 +751,7 @@ function cc(controllerValue: number, valueValue: number, _channel = 1): void {
     if (sustainedReleases.size > 0) clearScheduledNotes();
     sustainedReleases.clear();
   }
-  emitStatus('sustain', sustainDown ? 'on' : 'off');
+  emitStatus("sustain", sustainDown ? "on" : "off");
 }
 
 /**
@@ -783,8 +778,11 @@ function motif(value: string): void {
 
   if (editor.isEditing()) {
     if (editor.isDirty()) {
-      emitError('Save or cancel the current edits before selecting another motif');
-      emit('motif-selected', store.labels().get(store.currentId) ?? store.current?.name ?? store.currentId);
+      emitError("Save or cancel the current edits before selecting another motif");
+      emit(
+        "motif-selected",
+        store.labels().get(store.currentId) ?? store.current?.name ?? store.currentId,
+      );
       emitLibraryState();
       return;
     }
@@ -798,9 +796,9 @@ function motif(value: string): void {
   }
 
   store.select(selected.id);
-  emit('motif-selected', store.labels().get(selected.id) ?? selected.name);
+  emit("motif-selected", store.labels().get(selected.id) ?? selected.name);
   emitSelectedMotifUi();
-  emitStatus('Motif', selected.name);
+  emitStatus("Motif", selected.name);
 }
 
 /**
@@ -809,21 +807,21 @@ function motif(value: string): void {
  */
 function pitch_mode(mode: string): void {
   // `motif` = use the phrase's stored pitch mode.
-  if (mode === 'motif') pitchModeOverride = undefined;
+  if (mode === "motif") pitchModeOverride = undefined;
   else if (isStringEnumValue(mode, PITCH_MODE_OVERRIDES)) pitchModeOverride = mode;
   else {
     emitError(`Unknown pitch mode: ${mode}`);
     return;
   }
   emitSelectedMotifUi();
-  emitStatus('Pitch', mode);
+  emitStatus("Pitch", mode);
 }
 
 /**
  * Synchronize the visual transform latches with the engine-owned state.
  */
 function emitTransformUi(): void {
-  emit('ui', 'transforms', invertOffsets ? 1 : 0, reverseNotes ? 1 : 0);
+  emit("ui", "transforms", invertOffsets ? 1 : 0, reverseNotes ? 1 : 0);
 }
 
 /**
@@ -834,7 +832,7 @@ function invert(value: string | number | boolean): void {
   invertOffsets = toggleEnabled(value);
   emitTransformUi();
   emitSelectedMotifUi();
-  emitStatus('invert', invertOffsets ? 'on' : 'off');
+  emitStatus("invert", invertOffsets ? "on" : "off");
 }
 
 /**
@@ -853,7 +851,7 @@ function reverse(value: string | number | boolean): void {
   reverseNotes = toggleEnabled(value);
   emitTransformUi();
   emitSelectedMotifUi();
-  emitStatus('reverse', reverseNotes ? 'on' : 'off');
+  emitStatus("reverse", reverseNotes ? "on" : "off");
 }
 
 /**
@@ -875,7 +873,7 @@ function meter_mode(mode: string): void {
   }
   meterMode = mode;
   emitSelectedMotifUi();
-  emitStatus('Meter', mode);
+  emitStatus("Meter", mode);
 }
 
 /**
@@ -889,7 +887,7 @@ function retrigger(mode: string | number): void {
     return;
   }
   retriggerMode = parsed;
-  emitStatus('retrigger', retriggerMode);
+  emitStatus("retrigger", retriggerMode);
 }
 
 /**
@@ -902,9 +900,9 @@ function trigger_mode(mode: string): void {
     return;
   }
   const nextMode = mode;
-  if (triggerMode === 'hold-repeat' && nextMode !== 'hold-repeat') stopAllHeldRepeats();
+  if (triggerMode === "hold-repeat" && nextMode !== "hold-repeat") stopAllHeldRepeats();
   triggerMode = nextMode;
-  emitStatus('trigger-mode', triggerMode);
+  emitStatus("trigger-mode", triggerMode);
 }
 
 /**
@@ -917,7 +915,7 @@ function launch_quantization(value: string): void {
     return;
   }
   launchQuantization = value;
-  emitStatus('quantization', launchQuantization);
+  emitStatus("quantization", launchQuantization);
 }
 
 /**
@@ -931,7 +929,7 @@ function pass_through(value: string): void {
   }
   passThroughPolicy = value;
   emitMidiPassState();
-  emitStatus('pass-through', passThroughPolicy);
+  emitStatus("pass-through", passThroughPolicy);
 }
 
 /**
@@ -940,7 +938,7 @@ function pass_through(value: string): void {
  */
 function trigger_low(value: number): void {
   triggerLow = Math.min(triggerHigh, Math.round(clamp(value, 0, 127)));
-  emitStatus('trigger-zone', triggerLow, triggerHigh);
+  emitStatus("trigger-zone", triggerLow, triggerHigh);
 }
 
 /**
@@ -949,7 +947,7 @@ function trigger_low(value: number): void {
  */
 function trigger_high(value: number): void {
   triggerHigh = Math.max(triggerLow, Math.round(clamp(value, 0, 127)));
-  emitStatus('trigger-zone', triggerLow, triggerHigh);
+  emitStatus("trigger-zone", triggerLow, triggerHigh);
 }
 
 /**
@@ -958,20 +956,16 @@ function trigger_high(value: number): void {
  * @param {string} motifId The motif id.
  * @param {string} actionValue Whether the note triggers or selects the motif.
  */
-function map_trigger(
-  pitchValue: number | string,
-  motifId: string,
-  actionValue = 'trigger',
-): void {
+function map_trigger(pitchValue: number | string, motifId: string, actionValue = "trigger"): void {
   const result = hotkeys.assign(pitchValue, motifId, actionValue);
   if (!result.ok) {
-    emitLibraryAlert('Invalid MIDI hot key', result.error);
+    emitLibraryAlert("Invalid MIDI hot key", result.error);
     return;
   }
   const { pitch, motifId: selectedId, action } = result.assignment;
   stopHeldRepeat(pitch, false);
   emitLibraryState();
-  emitStatus('mapped', pitch, selectedId, action);
+  emitStatus("mapped", pitch, selectedId, action);
 }
 
 /**
@@ -986,7 +980,7 @@ function unmap_trigger(pitchValue: number | string): void {
   }
   stopHeldRepeat(pitch, false);
   emitLibraryState();
-  emitStatus('unmapped', pitch);
+  emitStatus("unmapped", pitch);
 }
 
 /**
@@ -995,7 +989,7 @@ function unmap_trigger(pitchValue: number | string): void {
 function clear_trigger_map(): void {
   for (const pitch of hotkeys.clear()) stopHeldRepeat(pitch, false);
   emitLibraryState();
-  emitStatus('map-cleared');
+  emitStatus("map-cleared");
 }
 
 /**
@@ -1013,7 +1007,7 @@ function library_path(...pathParts: unknown[]): void {
   const nextPath = pathFromAtoms(pathParts);
   if (!nextPath) return;
   if (editor.isDirty()) {
-    emitError('Finish or cancel editing before changing the library folder');
+    emitError("Finish or cancel editing before changing the library folder");
     emitLibraryState();
     return;
   }
@@ -1033,13 +1027,13 @@ function library_path(...pathParts: unknown[]): void {
  */
 function refresh_library(discardChanges?: number | boolean): void {
   if (editor.isDirty() && !discardAllowed(discardChanges)) {
-    emitError('Unsaved edits must be saved or discarded before refreshing');
+    emitError("Unsaved edits must be saved or discarded before refreshing");
     emitLibraryState();
     return;
   }
 
   editor.abandon();
-  library.load('library-refreshed');
+  library.load("library-refreshed");
 }
 
 /**
@@ -1054,7 +1048,7 @@ function tempo_multiplier(value: string | number): void {
   }
   tempoMultiplier = parsed;
   emitSelectedMotifUi();
-  emitStatus('tempo-multiplier', tempoMultiplier);
+  emitStatus("tempo-multiplier", tempoMultiplier);
 }
 
 /**
@@ -1064,7 +1058,7 @@ function tempo_multiplier(value: string | number): void {
 function filter_motifs(...queryParts: unknown[]): void {
   browserQuery = libraryQueryFromAtoms(queryParts);
   emitLibraryState();
-  emitStatus('filter', browserQuery || '(all)');
+  emitStatus("filter", browserQuery || "(all)");
 }
 
 /**
@@ -1072,27 +1066,27 @@ function filter_motifs(...queryParts: unknown[]): void {
  * Does not write disk until the user saves; requires a valid LiveAPI clip path.
  * @param {string} pitchModeValue The relative pitch-analysis mode.
  */
-function import_clip(pitchModeValue = 'chromatic'): void {
+function import_clip(pitchModeValue = "chromatic"): void {
   if (library.scanning) {
-    emitError('Wait for the library scan to finish before importing a clip');
+    emitError("Wait for the library scan to finish before importing a clip");
     emitLibraryState();
     return;
   }
   if (editor.isDirty()) {
-    emitError('Save or cancel the current edits before importing a clip');
+    emitError("Save or cancel the current edits before importing a clip");
     emitLibraryState();
     return;
   }
 
-  const mode = String(pitchModeValue || 'chromatic');
-  if (mode !== 'scale' && mode !== 'chromatic' && mode !== 'hybrid') {
+  const mode = String(pitchModeValue || "chromatic");
+  if (mode !== "scale" && mode !== "chromatic" && mode !== "hybrid") {
     emitError(`Unknown import pitch mode: ${mode}`);
     return;
   }
 
   const clip = resolveDetailClip();
   if (!clip) {
-    emitError('No clip selected - open a MIDI clip in Detail View, then Import Clip');
+    emitError("No clip selected - open a MIDI clip in Detail View, then Import Clip");
     return;
   }
 
@@ -1105,26 +1099,27 @@ function import_clip(pitchModeValue = 'chromatic'): void {
   }
 
   if (absoluteNotes.length === 0) {
-    emitError('Selected clip has no notes');
+    emitError("Selected clip has no notes");
     return;
   }
   if (absoluteNotes.length > MAX_MOTIF_NOTES) {
     emitLibraryAlert(
-      'MIDI file is too long',
-      `The selected MIDI clip contains ${absoluteNotes.length} notes. `
-      + `Motif can import up to ${MAX_MOTIF_NOTES} editable notes. `
-      + 'Shorten the clip or split it into smaller phrases, then import it again.',
+      "MIDI file is too long",
+      `The selected MIDI clip contains ${absoluteNotes.length} notes. ` +
+        `Motif can import up to ${MAX_MOTIF_NOTES} editable notes. ` +
+        "Shorten the clip or split it into smaller phrases, then import it again.",
     );
     return;
   }
 
-  const clipNameRaw = clip.getstring('name');
-  const clipName = String(Array.isArray(clipNameRaw) ? clipNameRaw[0] : clipNameRaw || 'Imported Clip').trim()
-    || 'Imported Clip';
+  const clipNameRaw = clip.getstring("name");
+  const clipName =
+    String(Array.isArray(clipNameRaw) ? clipNameRaw[0] : clipNameRaw || "Imported Clip").trim() ||
+    "Imported Clip";
   let imported: Motif;
   try {
     imported = absoluteNotesToMotif(absoluteNotes, {
-      id: 'pending-import',
+      id: "pending-import",
       name: clipName,
       pitchMode: mode,
       scaleRootNote: hostContext.rootNote,
@@ -1150,20 +1145,20 @@ function import_clip(pitchModeValue = 'chromatic'): void {
     if (errors.length > 0) {
       if (!store.select(restoreId)) store.ensureCurrent(DEFAULT_MOTIF_ID);
       listMotifs();
-      emitError(errors.join('; '));
+      emitError(errors.join("; "));
       return;
     }
     const edit = editor.begin(store, id, { dirty: true, created: true, sourceId: restoreId });
     if (!edit) {
       store.remove(id);
       if (!store.select(restoreId)) store.ensureCurrent(DEFAULT_MOTIF_ID);
-      emitError('Could not start editing the imported motif');
+      emitError("Could not start editing the imported motif");
       listMotifs();
       return;
     }
     store.select(id);
     listMotifs();
-    emitStatus('imported-clip', id, absoluteNotes.length);
+    emitStatus("imported-clip", id, absoluteNotes.length);
   } catch (reason) {
     store.remove(id);
     if (!store.select(restoreId)) store.ensureCurrent(DEFAULT_MOTIF_ID);
@@ -1193,7 +1188,7 @@ function applyMotifProperties(value: unknown): boolean {
 
   const errors = store.update(result.value);
   if (errors.length > 0) {
-    emitError(errors.join('; '));
+    emitError(errors.join("; "));
     emitLibraryState();
     return false;
   }
@@ -1210,17 +1205,17 @@ function save_motif(properties?: unknown): void {
     return;
   }
   if (!library.path || !library.loaded) {
-    emitError('Choose a valid library folder before saving');
+    emitError("Choose a valid library folder before saving");
     return;
   }
 
   const selected = store.current;
   if (!selected) {
-    emitError('No motif selected');
+    emitError("No motif selected");
     return;
   }
   if (!editor.isEditing(selected.id)) {
-    emitError('Start editing before saving');
+    emitError("Start editing before saving");
     emitLibraryState();
     return;
   }
@@ -1229,11 +1224,11 @@ function save_motif(properties?: unknown): void {
     const filename = library.save(selected.id);
     editor.finishSave();
     listMotifs();
-    emitStatus('saved', selected.id, filename);
+    emitStatus("saved", selected.id, filename);
   } catch (reason) {
     const message = reason instanceof Error ? reason.message : String(reason);
     emitError(
-      message.includes('already exists')
+      message.includes("already exists")
         ? `Save refused because ${message}`
         : `Save failed: ${message}`,
     );
@@ -1247,12 +1242,12 @@ function save_motif(properties?: unknown): void {
  */
 function editableMotif(): Motif | undefined {
   if (!store.current) {
-    emitError('No motif selected');
+    emitError("No motif selected");
     return undefined;
   }
   const editable = editor.current(store);
   if (!editable || editable.id !== store.currentId) {
-    emitError('Start editing before changing this motif');
+    emitError("Start editing before changing this motif");
     emitLibraryState();
     return undefined;
   }
@@ -1264,7 +1259,7 @@ function editableMotif(): Motif | undefined {
  */
 function begin_edit(): void {
   if (library.scanning) {
-    emitError('Wait for the library scan to finish before editing a motif');
+    emitError("Wait for the library scan to finish before editing a motif");
     emitLibraryState();
     return;
   }
@@ -1274,17 +1269,18 @@ function begin_edit(): void {
   }
 
   const selected = store.current;
-  const targetId = selected && store.isBuiltin(selected.id)
-    ? library.uniqueId(selected.name, `${selected.id}-copy`)
-    : undefined;
+  const targetId =
+    selected && store.isBuiltin(selected.id)
+      ? library.uniqueId(selected.name, `${selected.id}-copy`)
+      : undefined;
   const editable = editor.begin(store, store.currentId, targetId ? { targetId } : {});
   if (!editable) {
-    emitError('Could not start editing the selected motif');
+    emitError("Could not start editing the selected motif");
     return;
   }
   store.select(editable.id);
   listMotifs();
-  emitStatus('editing', editable.id, editable.name);
+  emitStatus("editing", editable.id, editable.name);
 }
 
 /**
@@ -1300,7 +1296,7 @@ function cancel_edit(): void {
   if (!store.select(restoredId)) store.ensureCurrent(DEFAULT_MOTIF_ID);
   pruneTriggerMap();
   listMotifs();
-  emitStatus('editing-cancelled', store.currentId);
+  emitStatus("editing-cancelled", store.currentId);
 }
 
 /**
@@ -1310,7 +1306,7 @@ function cancel_edit(): void {
 function edit_motif(properties: unknown): void {
   if (!applyMotifProperties(properties)) return;
   emitSelectedMotifUi();
-  emitStatus('motif-edited', store.currentId);
+  emitStatus("motif-edited", store.currentId);
 }
 
 /**
@@ -1325,7 +1321,7 @@ function select_browser(id: string, discardChanges?: number | boolean): void {
 
   if (editor.isEditing()) {
     if (editor.isDirty() && !discardAllowed(discardChanges)) {
-      emitError('Unsaved edits must be saved or discarded before selecting another motif');
+      emitError("Unsaved edits must be saved or discarded before selecting another motif");
       emitLibraryState();
       return;
     }
@@ -1335,9 +1331,9 @@ function select_browser(id: string, discardChanges?: number | boolean): void {
   const selected = store.get(item.id);
   if (!selected) return;
   store.select(selected.id);
-  emit('motif-selected', store.labels().get(selected.id) ?? selected.name);
+  emit("motif-selected", store.labels().get(selected.id) ?? selected.name);
   emitSelectedMotifUi();
-  emitStatus('Motif', selected.name);
+  emitStatus("Motif", selected.name);
 }
 
 /**
@@ -1359,13 +1355,13 @@ function updateNoteAt(index: number, field: NoteEditField, value: unknown): bool
 
   const errors = store.setNotes(editable.id, result.notes);
   if (errors.length > 0) {
-    emitError(errors.join('; '));
+    emitError(errors.join("; "));
     return false;
   }
 
   editor.markDirty();
   emitSelectedMotifUi();
-  emitStatus('note-edited', index, field, result.statusValue ?? 'unset');
+  emitStatus("note-edited", index, field, result.statusValue ?? "unset");
   return true;
 }
 
@@ -1392,7 +1388,7 @@ function add_note(): void {
   }
   const errors = store.setNotes(editable.id, result.notes);
   if (errors.length > 0) {
-    emitError(errors.join('; '));
+    emitError(errors.join("; "));
     return;
   }
   editor.markDirty();
@@ -1424,7 +1420,7 @@ function remove_note(indexValue: number): void {
   // Update the motif notes in the store.
   const errors = store.setNotes(editable.id, result.notes);
   if (errors.length > 0) {
-    emitError(errors.join('; '));
+    emitError(errors.join("; "));
     return;
   }
   editor.markDirty();
@@ -1446,7 +1442,7 @@ function lib_action(...encodedParts: unknown[]): void {
   const encodedJson = payloads[payloads.length - 1];
   // If there is no JSON string, emit an error.
   if (!encodedJson) {
-    emitError('lib_action: missing JSON payload');
+    emitError("lib_action: missing JSON payload");
     return;
   }
 
@@ -1458,56 +1454,58 @@ function lib_action(...encodedParts: unknown[]): void {
     return;
   }
 
-  const type = stringAtom(action['type']);
+  const type = stringAtom(action["type"]);
   switch (type) {
-    case 'select_browser':
+    case "select_browser":
       select_browser(
-        stringAtom(action['id']),
-        action['discardChanges'] as number | boolean | undefined,
+        stringAtom(action["id"]),
+        action["discardChanges"] as number | boolean | undefined,
       );
       break;
-    case 'filter_motifs':
-      filter_motifs(action['query']);
+    case "filter_motifs":
+      filter_motifs(action["query"]);
       break;
-    case 'import_clip':
-      import_clip(action['pitchMode'] !== undefined ? stringAtom(action['pitchMode']) : undefined);
+    case "import_clip":
+      import_clip(action["pitchMode"] !== undefined ? stringAtom(action["pitchMode"]) : undefined);
       break;
-    case 'save_motif':
-      save_motif(action['properties']);
+    case "save_motif":
+      save_motif(action["properties"]);
       break;
-    case 'refresh_library':
-      refresh_library(action['discardChanges'] as number | boolean | undefined);
+    case "refresh_library":
+      refresh_library(action["discardChanges"] as number | boolean | undefined);
       break;
-    case 'map_trigger':
+    case "map_trigger":
       map_trigger(
-        typeof action['pitch'] === 'number' ? action['pitch'] : stringAtom(action['pitch']),
-        stringAtom(action['motifId']),
-        stringAtom(action['action'], 'trigger'),
+        typeof action["pitch"] === "number" ? action["pitch"] : stringAtom(action["pitch"]),
+        stringAtom(action["motifId"]),
+        stringAtom(action["action"], "trigger"),
       );
       break;
-    case 'unmap_trigger':
-      unmap_trigger(typeof action['pitch'] === 'number' ? action['pitch'] : stringAtom(action['pitch']));
+    case "unmap_trigger":
+      unmap_trigger(
+        typeof action["pitch"] === "number" ? action["pitch"] : stringAtom(action["pitch"]),
+      );
       break;
-    case 'clear_trigger_map':
+    case "clear_trigger_map":
       clear_trigger_map();
       break;
-    case 'begin_edit':
+    case "begin_edit":
       begin_edit();
       break;
-    case 'cancel_edit':
+    case "cancel_edit":
       cancel_edit();
       break;
-    case 'edit_motif':
-      edit_motif(action['properties']);
+    case "edit_motif":
+      edit_motif(action["properties"]);
       break;
-    case 'add_note':
+    case "add_note":
       add_note();
       break;
-    case 'remove_note':
-      remove_note(Number(action['index']));
+    case "remove_note":
+      remove_note(Number(action["index"]));
       break;
-    case 'edit_note_at':
-      edit_note_at(Number(action['index']), stringAtom(action['field']), action['value']);
+    case "edit_note_at":
+      edit_note_at(Number(action["index"]), stringAtom(action["field"]), action["value"]);
       break;
     default:
       emitError(`lib_action: unknown type ${type}`);
@@ -1520,7 +1518,7 @@ function lib_action(...encodedParts: unknown[]): void {
 function panic(): void {
   stopAllHeldRepeats();
   clearScheduledNotes();
-  emitStatus('panic');
+  emitStatus("panic");
 }
 
 /**
@@ -1528,7 +1526,7 @@ function panic(): void {
  */
 function dump_context(): void {
   emit(
-    'context',
+    "context",
     hostContext.tempo,
     hostContext.rootNote,
     hostContext.scaleName,

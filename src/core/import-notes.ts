@@ -2,8 +2,8 @@
  * Convert absolute MIDI notes (clip import, MIDI files) into relative Motif JSON.
  */
 
-import { scaleDegreeSemitoneOffset } from './pitch.js';
-import type { Motif, MotifNote, PitchMode, TimeSignature } from './types.js';
+import { scaleDegreeSemitoneOffset } from "./pitch.js";
+import type { Motif, MotifNote, PitchMode, TimeSignature } from "./types.js";
 
 /** Absolute MIDI note in motif PPQ ticks. */
 export interface AbsoluteNote {
@@ -61,27 +61,28 @@ export function analyzeScaleOffset(
   triggerPitch = 60,
   scaleRootNote = 0,
 ): { degree: number; accidental: number } {
-  const scaleLength = Math.max(1, new Set(intervals.map((value) => ((Math.round(value) % 12) + 12) % 12)).size);
+  const scaleLength = Math.max(
+    1,
+    new Set(intervals.map((value) => ((Math.round(value) % 12) + 12) % 12)).size,
+  );
   const estimate = Math.round((semitoneOffset / 12) * scaleLength);
   const radius = scaleLength * 2 + 2;
   let bestDegree = estimate;
-  let bestAccidental = semitoneOffset
-    - scaleDegreeSemitoneOffset(triggerPitch, estimate, scaleRootNote, intervals);
+  let bestAccidental =
+    semitoneOffset - scaleDegreeSemitoneOffset(triggerPitch, estimate, scaleRootNote, intervals);
 
   for (let degree = estimate - radius; degree <= estimate + radius; degree += 1) {
-    const accidental = semitoneOffset
-      - scaleDegreeSemitoneOffset(triggerPitch, degree, scaleRootNote, intervals);
+    const accidental =
+      semitoneOffset - scaleDegreeSemitoneOffset(triggerPitch, degree, scaleRootNote, intervals);
     const absolute = Math.abs(accidental);
     const bestAbsolute = Math.abs(bestAccidental);
 
     if (
-      absolute < bestAbsolute
-      || (absolute === bestAbsolute && Math.abs(degree) < Math.abs(bestDegree))
-      || (
-        absolute === bestAbsolute
-        && Math.abs(degree) === Math.abs(bestDegree)
-        && degree < bestDegree
-      )
+      absolute < bestAbsolute ||
+      (absolute === bestAbsolute && Math.abs(degree) < Math.abs(bestDegree)) ||
+      (absolute === bestAbsolute &&
+        Math.abs(degree) === Math.abs(bestDegree) &&
+        degree < bestDegree)
     ) {
       bestDegree = degree;
       bestAccidental = accidental;
@@ -102,8 +103,8 @@ export function encodeSemitoneOffset(
   semitoneOffset: number,
   pitchMode: PitchMode,
   context: PitchModeConversionContext,
-): Pick<MotifNote, 'pitch' | 'accidental'> {
-  if (pitchMode === 'chromatic') {
+): Pick<MotifNote, "pitch" | "accidental"> {
+  if (pitchMode === "chromatic") {
     return { pitch: semitoneOffset };
   }
 
@@ -113,7 +114,7 @@ export function encodeSemitoneOffset(
     context.triggerPitch,
     context.rootNote,
   );
-  if (pitchMode === 'hybrid' && analyzed.accidental !== 0) {
+  if (pitchMode === "hybrid" && analyzed.accidental !== 0) {
     return { pitch: analyzed.degree, accidental: analyzed.accidental };
   }
   return { pitch: analyzed.degree };
@@ -131,7 +132,7 @@ export function decodeSemitoneOffset(
   pitchMode: PitchMode,
   context: PitchModeConversionContext,
 ): number {
-  if (pitchMode === 'chromatic') {
+  if (pitchMode === "chromatic") {
     return note.pitch + (note.accidental ?? 0);
   }
 
@@ -141,7 +142,7 @@ export function decodeSemitoneOffset(
     context.rootNote,
     context.scaleIntervals,
   );
-  return scaleOffset + (pitchMode === 'hybrid' ? (note.accidental ?? 0) : 0);
+  return scaleOffset + (pitchMode === "hybrid" ? (note.accidental ?? 0) : 0);
 }
 
 /**
@@ -197,7 +198,7 @@ export function absoluteNotesToMotif(
     .sort((left, right) => left.at - right.at || left.pitch - right.pitch);
 
   if (completed.length === 0) {
-    throw new Error('No completed notes to import');
+    throw new Error("No completed notes to import");
   }
 
   const anchor = options.rootNote ?? completed[0]?.pitch ?? 60;
@@ -221,8 +222,7 @@ export function absoluteNotesToMotif(
     schemaVersion: 1,
     id: options.id,
     name: options.name,
-    description:
-      options.description ?? `Imported using ${options.pitchMode} relative analysis.`,
+    description: options.description ?? `Imported using ${options.pitchMode} relative analysis.`,
     pitchMode: options.pitchMode,
     sourceMeter: options.sourceMeter ?? { numerator: 4, denominator: 4 },
     length,

@@ -8,9 +8,9 @@
  * @see https://docs.cycling74.com/apiref/js/file/
  */
 
-import type { Motif, MotifNote } from '../core/types.js';
-import { BUILTIN_MOTIFS } from '../generated/builtins.js';
-import { validateMotif } from './validate.js';
+import type { Motif, MotifNote } from "../core/types.js";
+import { BUILTIN_MOTIFS } from "../generated/builtins.js";
+import { validateMotif } from "./validate.js";
 
 /**
  * Turn a display name into a filesystem-safe, stable motif id candidate.
@@ -18,13 +18,13 @@ import { validateMotif } from './validate.js';
  * @param {string} fallback The id to use when the normalized name is empty.
  * @returns {string} The normalized motif id candidate.
  */
-export function uniqueMotifId(name: string, fallback = 'motif'): string {
+export function uniqueMotifId(name: string, fallback = "motif"): string {
   const normalized = name
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
     .slice(0, 72);
   return normalized || fallback;
 }
@@ -41,7 +41,7 @@ export class MotifStore {
    * @param {string | undefined} initialId Preferred initial motif id.
    */
   constructor(initialId?: string) {
-    this.currentId = initialId ?? BUILTIN_MOTIFS[0]?.id ?? '';
+    this.currentId = initialId ?? BUILTIN_MOTIFS[0]?.id ?? "";
     this.resetToBuiltins();
     this.ensureCurrent();
   }
@@ -114,9 +114,9 @@ export class MotifStore {
     let candidate = base;
     let suffix = 2;
     while (
-      (this.motifs.has(candidate) && candidate !== excludedId)
-      || (this.builtinIds.has(candidate) && candidate !== excludedId)
-      || isReserved(candidate)
+      (this.motifs.has(candidate) && candidate !== excludedId) ||
+      (this.builtinIds.has(candidate) && candidate !== excludedId) ||
+      isReserved(candidate)
     ) {
       candidate = `${base}-${suffix}`;
       suffix += 1;
@@ -273,9 +273,11 @@ export class MotifStore {
     if (!normalizedQuery) return sorted;
 
     return sorted.filter((motif) => {
-      return motif.id.toLowerCase().includes(normalizedQuery)
-      || motif.name.toLowerCase().includes(normalizedQuery)
-      || motif.description.toLowerCase().includes(normalizedQuery)
+      return (
+        motif.id.toLowerCase().includes(normalizedQuery) ||
+        motif.name.toLowerCase().includes(normalizedQuery) ||
+        motif.description.toLowerCase().includes(normalizedQuery)
+      );
     });
   }
 
@@ -289,7 +291,7 @@ export class MotifStore {
     const existing = this.motifs.get(id);
     if (!existing) return [`Unknown motif: ${id}`];
 
-    if (notes.length === 0) return ['notes must be a non-empty array'];
+    if (notes.length === 0) return ["notes must be a non-empty array"];
 
     const length = Math.max(...notes.map((note) => note.at + note.duration));
 

@@ -6,11 +6,11 @@
  * host context so chromatic/scale offsets render as absolute MIDI.
  */
 
-import { parseMidi, writeMidi, type MidiData, type MidiEvent } from 'midi-file';
-import { absoluteNotesToMotif, type AbsoluteNotesImportOptions } from '../src/core/import-notes.js';
-import { compileMotif } from '../src/core/compile-motif.js';
-import { PPQ, type HostContext, type Motif, type PitchMode } from '../src/core/types.js';
-import { validateMotif } from '../src/library/validate.js';
+import { parseMidi, writeMidi, type MidiData, type MidiEvent } from "midi-file";
+import { absoluteNotesToMotif, type AbsoluteNotesImportOptions } from "../src/core/import-notes.js";
+import { compileMotif } from "../src/core/compile-motif.js";
+import { PPQ, type HostContext, type Motif, type PitchMode } from "../src/core/types.js";
+import { validateMotif } from "../src/library/validate.js";
 
 /** Active note with its start time & velocity. */
 interface ActiveNote {
@@ -20,7 +20,7 @@ interface ActiveNote {
 }
 
 /** Import options. Chromatic is the default so MIDI is preserved exactly. */
-export type MidiImportOptions = Omit<AbsoluteNotesImportOptions, 'pitchMode'> & {
+export type MidiImportOptions = Omit<AbsoluteNotesImportOptions, "pitchMode"> & {
   pitchMode?: PitchMode;
 };
 
@@ -37,7 +37,7 @@ function noteKey(channel: number, note: number): string {
  * @throws {Error} If the MIDI file contains no completed notes.
  */
 export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions): Motif {
-  const pitchMode = options.pitchMode ?? 'chromatic';
+  const pitchMode = options.pitchMode ?? "chromatic";
   const parsed = parseMidi(bytes);
   const sourcePpq = parsed.header.ticksPerBeat ?? PPQ;
   const ratio = PPQ / sourcePpq;
@@ -49,7 +49,7 @@ export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions):
     absolute = 0;
     for (const event of track) {
       absolute += event.deltaTime;
-      if (event.type !== 'noteOn' && event.type !== 'noteOff') {
+      if (event.type !== "noteOn" && event.type !== "noteOff") {
         continue;
       }
 
@@ -57,7 +57,7 @@ export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions):
       const noteNumber = event.noteNumber ?? 0;
       const velocity = event.velocity ?? 0;
       const key = noteKey(channel, noteNumber);
-      const isOn = event.type === 'noteOn' && velocity > 0;
+      const isOn = event.type === "noteOn" && velocity > 0;
 
       if (isOn) {
         const stack = active.get(key) ?? [];
@@ -81,7 +81,7 @@ export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions):
   }
 
   if (completed.length === 0) {
-    throw new Error('MIDI file contains no completed notes');
+    throw new Error("MIDI file contains no completed notes");
   }
 
   return absoluteNotesToMotif(completed, {
@@ -103,13 +103,13 @@ export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions):
 export function motifToMidiBytes(value: unknown, triggerPitch = 60): Uint8Array {
   const validation = validateMotif(value);
   if (!validation.valid || !validation.motif) {
-    throw new Error(validation.errors.join('; '));
+    throw new Error(validation.errors.join("; "));
   }
 
   const host: HostContext = {
     tempo: 120,
     rootNote: 0,
-    scaleName: 'Major',
+    scaleName: "Major",
     scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
     scaleMode: true,
     timeSignature: validation.motif.sourceMeter,
@@ -118,25 +118,25 @@ export function motifToMidiBytes(value: unknown, triggerPitch = 60): Uint8Array 
   };
   const events = compileMotif(validation.motif, host, {
     channel: 1,
-    meterMode: 'preserve',
+    meterMode: "preserve",
     triggerPitch,
     triggerVelocity: 100,
   });
   const midiEvents: MidiEvent[] = [
-    { deltaTime: 0, meta: true, type: 'setTempo', microsecondsPerBeat: 500_000 },
+    { deltaTime: 0, meta: true, type: "setTempo", microsecondsPerBeat: 500_000 },
   ];
   let previous = 0;
   for (const event of events) {
     midiEvents.push({
       deltaTime: Math.round(event.offsetTicks - previous),
-      type: event.velocity > 0 ? 'noteOn' : 'noteOff',
+      type: event.velocity > 0 ? "noteOn" : "noteOff",
       channel: event.channel - 1,
       noteNumber: event.pitch,
       velocity: event.velocity,
     });
     previous = event.offsetTicks;
   }
-  midiEvents.push({ deltaTime: 0, meta: true, type: 'endOfTrack' });
+  midiEvents.push({ deltaTime: 0, meta: true, type: "endOfTrack" });
 
   const midi: MidiData = {
     header: { format: 0, numTracks: 1, ticksPerBeat: PPQ },

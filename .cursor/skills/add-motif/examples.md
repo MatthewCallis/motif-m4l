@@ -22,24 +22,33 @@ length: 3360
 ## Test sketch
 
 ```ts
-test('ships <Name> as a built-in motif', () => {
-  const motif = BUILTIN_MOTIFS.find(({ id }) => id === 'my-lick');
+test("ships <Name> as a built-in motif", () => {
+  const motif = BUILTIN_MOTIFS.find(({ id }) => id === "my-lick");
   assert.ok(motif);
-  assert.equal(motif.length, /* ticks */);
-  assert.deepEqual(motif.notes.map(({ pitch }) => pitch), [/* ... */]);
-  assert.deepEqual(motif.notes.map(({ at }) => at), [/* ... */]);
+  assert.equal(motif.length /* ticks */);
+  assert.deepEqual(
+    motif.notes.map(({ pitch }) => pitch),
+    [/* ... */],
+  );
+  assert.deepEqual(
+    motif.notes.map(({ at }) => at),
+    [/* ... */],
+  );
 });
 
-test('transposes <Name> from the trigger note', () => {
-  const motif = BUILTIN_MOTIFS.find(({ id }) => id === 'my-lick');
+test("transposes <Name> from the trigger note", () => {
+  const motif = BUILTIN_MOTIFS.find(({ id }) => id === "my-lick");
   assert.ok(motif);
   const noteOns = compileMotif(motif, HOST, {
     channel: 1,
-    meterMode: 'preserve',
+    meterMode: "preserve",
     triggerPitch: 60,
     triggerVelocity: 100,
   }).filter(({ velocity }) => velocity > 0);
-  assert.deepEqual(noteOns.map(({ pitch }) => pitch), [/* absolute MIDI */]);
+  assert.deepEqual(
+    noteOns.map(({ pitch }) => pitch),
+    [/* absolute MIDI */],
+  );
 });
 ```
 

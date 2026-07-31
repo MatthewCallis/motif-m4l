@@ -1,5 +1,5 @@
-import type { Motif } from '../../src/core/types.js';
-import { MotifStore, uniqueMotifId } from '../../src/library/store.js';
+import type { Motif } from "../../src/core/types.js";
+import { MotifStore, uniqueMotifId } from "../../src/library/store.js";
 
 /**
  * Insert a deep copy of an existing motif under a new user id.
@@ -28,7 +28,7 @@ export function addUserCopy(
 
   const errors = store.add(copy);
   if (errors.length > 0) {
-    throw new Error(errors.join('; '));
+    throw new Error(errors.join("; "));
   }
   return copy;
 }

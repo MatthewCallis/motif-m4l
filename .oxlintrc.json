@@ -1,11 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": [
-    "import",
-    "node",
-    "promise",
-    "typescript"
-  ],
+  "plugins": ["import", "node", "promise", "typescript"],
   "options": {
     "typeAware": true
   },
@@ -14,13 +9,7 @@
     "es2026": true,
     "node": true
   },
-  "ignorePatterns": [
-    "**/node_modules",
-    "**/__MACOSX/**",
-    "**/._*",
-    "**/dist/**/*",
-    "max/**/*"
-  ],
+  "ignorePatterns": ["**/node_modules", "**/__MACOSX/**", "**/._*", "**/dist/**/*", "max/**/*"],
   "rules": {
     "import/namespace": "error",
     "import/default": "error",
@@ -92,10 +81,7 @@
   },
   "overrides": [
     {
-      "files": [
-        "tests/**/*.ts",
-        "scripts/**/*.ts"
-      ],
+      "files": ["tests/**/*.ts", "scripts/**/*.ts"],
       "rules": {
         "typescript/no-floating-promises": "off",
         "typescript/no-unsafe-argument": "off",

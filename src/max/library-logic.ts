@@ -1,7 +1,4 @@
-import {
-  LIBRARY_STATE_CHUNK_KIND,
-  type LibraryStateChunk,
-} from './library-protocol.js';
+import { LIBRARY_STATE_CHUNK_KIND, type LibraryStateChunk } from "./library-protocol.js";
 
 /** Minimal synchronous store used by the Library renderer. */
 export interface Store<T> {
@@ -24,9 +21,7 @@ export function createStore<T>(initialState: T): Store<T> {
   return {
     getState: () => current,
     setState(update): void {
-      current = typeof update === 'function'
-        ? update(current)
-        : { ...current, ...update };
+      current = typeof update === "function" ? update(current) : { ...current, ...update };
       for (const subscriber of subscribers) subscriber(current);
     },
     subscribe(subscriber): () => void {
@@ -57,7 +52,7 @@ export function isFolderCollapsed(
   query: string,
   collapsedFolders: Set<string>,
 ): boolean {
-  return query.trim() === '' && collapsedFolders.has(folder);
+  return query.trim() === "" && collapsedFolders.has(folder);
 }
 
 /**
@@ -80,7 +75,7 @@ export function toggleCollapsedFolder(folder: string, collapsedFolders: Set<stri
  */
 export function optionalNumberValue(value: string): number | null {
   const normalized = value.trim();
-  return normalized === '' ? null : Number(normalized);
+  return normalized === "" ? null : Number(normalized);
 }
 
 /**
@@ -89,7 +84,9 @@ export function optionalNumberValue(value: string): number | null {
  * @returns {value is LibraryStateChunk} Whether the value is a chunk envelope.
  */
 export function isLibraryStateChunk(value: unknown): value is LibraryStateChunk {
-  return typeof value === 'object'
-    && value !== null
-    && (value as { kind?: unknown }).kind === LIBRARY_STATE_CHUNK_KIND;
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { kind?: unknown }).kind === LIBRARY_STATE_CHUNK_KIND
+  );
 }

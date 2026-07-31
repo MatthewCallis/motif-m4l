@@ -4,7 +4,16 @@
   "title": "Motif v1",
   "type": "object",
   "additionalProperties": false,
-  "required": ["schemaVersion", "id", "name", "description", "pitchMode", "sourceMeter", "length", "notes"],
+  "required": [
+    "schemaVersion",
+    "id",
+    "name",
+    "description",
+    "pitchMode",
+    "sourceMeter",
+    "length",
+    "notes"
+  ],
   "properties": {
     "schemaVersion": { "const": 1 },
     "id": { "type": "string", "minLength": 1 },

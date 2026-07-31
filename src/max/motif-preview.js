@@ -41,7 +41,7 @@ var COLORS = {
   ok: [0.45, 0.78, 0.45, 1],
   error: [1, 0.42, 0.38, 1],
   overlay: [0.03, 0.03, 0.035, 0.96],
-  border: [0.2, 0.2, 0.22, 1]
+  border: [0.2, 0.2, 0.22, 1],
 };
 
 var CORNER_RADIUS = 6;
@@ -61,7 +61,7 @@ function dimensions() {
   var rect = box.rect;
   return {
     width: Math.max(1, rect[2] - rect[0]),
-    height: Math.max(1, rect[3] - rect[1])
+    height: Math.max(1, rect[3] - rect[1]),
   };
 }
 
@@ -85,7 +85,7 @@ function frameMetrics(width, height) {
     innerX: inset,
     innerY: inset,
     innerWidth: Math.max(1, width - inset * 2),
-    innerHeight: Math.max(1, height - inset * 2)
+    innerHeight: Math.max(1, height - inset * 2),
   };
 }
 
@@ -151,7 +151,8 @@ function normalizeData(value) {
   var notes = [];
   for (var index = 0; index < value.notes.length; index += 1) {
     var note = value.notes[index];
-    if (!note || typeof note !== "object") throw new TypeError("note " + index + " must be an object");
+    if (!note || typeof note !== "object")
+      throw new TypeError("note " + index + " must be an object");
 
     var pitch = Number(note.pitch);
     var atTicks = Number(note.atTicks);
@@ -163,7 +164,7 @@ function normalizeData(value) {
     notes.push({
       pitch: Math.round(pitch),
       atTicks: Math.max(0, atTicks),
-      durationTicks: Math.max(1, durationTicks)
+      durationTicks: Math.max(1, durationTicks),
     });
   }
 
@@ -190,7 +191,7 @@ function normalizeData(value) {
     totalTicks: Math.max(1, Number(value.totalTicks) || 1),
     lowPitch: lowPitch,
     highPitch: highPitch,
-    noteNames: String(value.noteNames || "–")
+    noteNames: String(value.noteNames || "–"),
   };
 }
 
@@ -209,7 +210,10 @@ function receiveData() {
     }
   } catch (reason) {
     currentData = null;
-    report("error", "Bad preview payload: " + (reason && reason.message ? reason.message : String(reason)));
+    report(
+      "error",
+      "Bad preview payload: " + (reason && reason.message ? reason.message : String(reason)),
+    );
   }
 }
 
@@ -220,7 +224,12 @@ function drawRows(data, width, rollHeight) {
   for (var pitch = data.lowPitch; pitch <= data.highPitch; pitch += 1) {
     var top = (data.highPitch - pitch) * rowHeight;
     var pitchClass = ((pitch % 12) + 12) % 12;
-    var isBlack = pitchClass === 1 || pitchClass === 3 || pitchClass === 6 || pitchClass === 8 || pitchClass === 10;
+    var isBlack =
+      pitchClass === 1 ||
+      pitchClass === 3 ||
+      pitchClass === 6 ||
+      pitchClass === 8 ||
+      pitchClass === 10;
     fillRect(0, top, width, rowHeight, isBlack ? COLORS.blackRow : COLORS.row);
     strokeLine(0, top, width, top, pitchClass === 0 ? COLORS.octave : COLORS.grid, 1);
 
@@ -244,7 +253,8 @@ function drawRows(data, width, rollHeight) {
 
 function drawStatus(width) {
   var label = debugLevel === "error" ? "UI !" : debugLevel === "ok" ? "UI ✓" : "UI ...";
-  var color = debugLevel === "error" ? COLORS.error : debugLevel === "ok" ? COLORS.ok : COLORS.muted;
+  var color =
+    debugLevel === "error" ? COLORS.error : debugLevel === "ok" ? COLORS.ok : COLORS.muted;
   fillRect(width - 35, 2, 32, 12, [0.08, 0.08, 0.085, 0.9]);
   drawText(label, width - 31, 11, 8, color);
 }
@@ -274,11 +284,13 @@ function paint() {
 
   if (!currentData || currentData.notes.length === 0) {
     drawText(
-      debugLevel === "error" ? "Preview error - click UI ! for details" : "Waiting for motif preview...",
+      debugLevel === "error"
+        ? "Preview error - click UI ! for details"
+        : "Waiting for motif preview...",
       8,
       rollHeight * 0.5,
       10,
-      debugLevel === "error" ? COLORS.error : COLORS.muted
+      debugLevel === "error" ? COLORS.error : COLORS.muted,
     );
   } else {
     drawRows(currentData, width, rollHeight);
@@ -299,7 +311,7 @@ function paint() {
       frame.innerHeight,
       frame.radius,
       COLORS.border,
-      BORDER_WIDTH
+      BORDER_WIDTH,
     );
   }
 }

@@ -1,7 +1,7 @@
 /* oxlint-disable typescript/no-unsafe-call, typescript/no-unsafe-member-access */
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
-import { encodeLibraryStateMessages } from '../src/max/library-view.js';
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { encodeLibraryStateMessages } from "../src/max/library-view.js";
 
 type Listener = (event: {
   key?: string;
@@ -38,16 +38,16 @@ class FakeElement {
   readonly children: FakeElement[] = [];
   readonly listeners = new Map<string, Listener[]>();
   readonly dataset: Record<string, string> = {};
-  id = '';
-  className = '';
-  textContent = '';
-  #innerHTML = '';
-  title = '';
-  value = '';
-  type = '';
-  min = '';
-  max = '';
-  step = '';
+  id = "";
+  className = "";
+  textContent = "";
+  #innerHTML = "";
+  title = "";
+  value = "";
+  type = "";
+  min = "";
+  max = "";
+  step = "";
   checked = false;
   disabled = false;
   readOnly = false;
@@ -60,7 +60,7 @@ class FakeElement {
 
   set innerHTML(value: string) {
     this.#innerHTML = value;
-    if (value === '') this.children.length = 0;
+    if (value === "") this.children.length = 0;
   }
 
   append(...children: FakeElement[]): void {
@@ -68,7 +68,7 @@ class FakeElement {
   }
 
   setAttribute(name: string, value: string): void {
-    if (name.startsWith('data-')) this.dataset[name.slice(5)] = value;
+    if (name.startsWith("data-")) this.dataset[name.slice(5)] = value;
   }
 
   addEventListener(name: string, listener: Listener): void {
@@ -88,54 +88,56 @@ class FakeElement {
   }
 
   click(): void {
-    this.dispatch('click');
+    this.dispatch("click");
   }
 }
 
 class FakeInputElement extends FakeElement {
   constructor() {
-    super('INPUT');
+    super("INPUT");
   }
 }
 
 class FakeTextAreaElement extends FakeElement {
   constructor() {
-    super('TEXTAREA');
+    super("TEXTAREA");
   }
 }
 
 class FakeSelectElement extends FakeElement {
   constructor() {
-    super('SELECT');
+    super("SELECT");
   }
 }
 
 function createElementForId(id: string): FakeElement {
-  if (id === 'description-edit') return new FakeTextAreaElement();
+  if (id === "description-edit") return new FakeTextAreaElement();
   if (
-    id === 'pitch-mode-edit'
-    || id === 'meter-denominator-edit'
-    || id === 'import-mode'
-    || id === 'hotkey-action'
-  ) return new FakeSelectElement();
+    id === "pitch-mode-edit" ||
+    id === "meter-denominator-edit" ||
+    id === "import-mode" ||
+    id === "hotkey-action"
+  )
+    return new FakeSelectElement();
   if (
-    id.includes('input')
-    || id.includes('edit')
-    || id.includes('display')
-    || id === 'search'
-    || id.startsWith('curve-')
-    || id.startsWith('meter-')
-    || id === 'default-gate-edit'
-  ) return new FakeInputElement();
-  return new FakeElement(id.endsWith('btn') ? 'BUTTON' : 'DIV');
+    id.includes("input") ||
+    id.includes("edit") ||
+    id.includes("display") ||
+    id === "search" ||
+    id.startsWith("curve-") ||
+    id.startsWith("meter-") ||
+    id === "default-gate-edit"
+  )
+    return new FakeInputElement();
+  return new FakeElement(id.endsWith("btn") ? "BUTTON" : "DIV");
 }
 
-describe('Library browser runtime', () => {
-  it('boots the typed controller, renders state, assembles chunks, and emits actions', async () => {
+describe("Library browser runtime", () => {
+  it("boots the typed controller, renders state, assembles chunks, and emits actions", async () => {
     const elements = new Map<string, FakeElement>();
     const panelTabs = [
-      Object.assign(new FakeElement('BUTTON'), { dataset: { panel: 'properties' } }),
-      Object.assign(new FakeElement('BUTTON'), { dataset: { panel: 'notes' } }),
+      Object.assign(new FakeElement("BUTTON"), { dataset: { panel: "properties" } }),
+      Object.assign(new FakeElement("BUTTON"), { dataset: { panel: "notes" } }),
     ];
     const documentListeners = new Map<string, Listener>();
     const windowListeners = new Map<string, Listener>();
@@ -154,13 +156,13 @@ describe('Library browser runtime', () => {
         return value;
       },
       createElement(tagName: string): FakeElement {
-        if (tagName === 'input') return new FakeInputElement();
-        if (tagName === 'textarea') return new FakeTextAreaElement();
-        if (tagName === 'select') return new FakeSelectElement();
+        if (tagName === "input") return new FakeInputElement();
+        if (tagName === "textarea") return new FakeTextAreaElement();
+        if (tagName === "select") return new FakeSelectElement();
         return new FakeElement(tagName.toUpperCase());
       },
       querySelectorAll(selector: string): FakeElement[] {
-        return selector === '.panel-tab' ? panelTabs : [];
+        return selector === ".panel-tab" ? panelTabs : [];
       },
       addEventListener(name: string, listener: Listener): void {
         documentListeners.set(name, listener);
@@ -170,7 +172,7 @@ describe('Library browser runtime', () => {
       max: {
         outlet: (...args: unknown[]) => outlets.push(args),
         bindInlet: (name: string, handler: (...values: unknown[]) => void) => {
-          if (name === 'receiveData') receiveData = handler;
+          if (name === "receiveData") receiveData = handler;
         },
       },
       addEventListener(name: string, listener: Listener): void {
@@ -181,7 +183,7 @@ describe('Library browser runtime', () => {
     Object.assign(globalThis, {
       window: fakeWindow,
       document: fakeDocument,
-      location: { href: 'file:///tmp/library.html' },
+      location: { href: "file:///tmp/library.html" },
       HTMLElement: FakeElement,
       HTMLInputElement: FakeInputElement,
       HTMLTextAreaElement: FakeTextAreaElement,
@@ -191,21 +193,21 @@ describe('Library browser runtime', () => {
       HTMLSpanElement: FakeElement,
     });
 
-    await import('../src/max/library.js');
-    assert.ok(receiveData, 'Library client must bind its Max inlet');
-    assert.ok(outlets.some((args) => args[0] === 'library_ready'));
+    await import("../src/max/library.js");
+    assert.ok(receiveData, "Library client must bind its Max inlet");
+    assert.ok(outlets.some((args) => args[0] === "library_ready"));
 
     const state = {
-      query: '',
-      libraryPath: '/Motifs',
+      query: "",
+      libraryPath: "/Motifs",
       libraryLoaded: true,
       libraryScanning: false,
       editing: {
         active: true,
         dirty: false,
         created: false,
-        sourceId: 'browser-test',
-        targetId: 'browser-test',
+        sourceId: "browser-test",
+        targetId: "browser-test",
       },
       actions: {
         editing: true,
@@ -214,20 +216,22 @@ describe('Library browser runtime', () => {
         canImportClip: true,
         canRefreshLibrary: true,
       },
-      items: [{
-        id: 'browser-test',
-        name: 'Browser Test',
-        showId: false,
-        folder: 'Tests',
-        hotkeys: [{ pitch: 60, label: 'C3', action: 'trigger' }],
-      }],
+      items: [
+        {
+          id: "browser-test",
+          name: "Browser Test",
+          showId: false,
+          folder: "Tests",
+          hotkeys: [{ pitch: 60, label: "C3", action: "trigger" }],
+        },
+      ],
       selectedIndex: 0,
       selected: {
         schemaVersion: 1,
-        id: 'browser-test',
-        name: 'Browser Test',
-        description: 'Browser test motif',
-        pitchMode: 'chromatic',
+        id: "browser-test",
+        name: "Browser Test",
+        description: "Browser test motif",
+        pitchMode: "chromatic",
         sourceMeter: { numerator: 4, denominator: 4 },
         length: 960,
         defaultGate: null,
@@ -238,10 +242,10 @@ describe('Library browser runtime', () => {
           outputMax: null,
           exponent: null,
         },
-        stats: '2 notes',
+        stats: "2 notes",
         isBuiltin: false,
         isPersisted: true,
-        hotkeys: [{ pitch: 60, label: 'C3', action: 'trigger' }],
+        hotkeys: [{ pitch: 60, label: "C3", action: "trigger" }],
         noteCount: 2,
         noteLimit: 512,
         canAddNote: true,
@@ -277,13 +281,13 @@ describe('Library browser runtime', () => {
     };
 
     receiveData(encodeURIComponent(JSON.stringify(state)));
-    assert.equal(elements.get('name-edit')?.value, 'Browser Test');
-    assert.equal(elements.get('note-rows')?.children.length, 2);
-    assert.equal(elements.get('browser-list')?.children.length, 2);
+    assert.equal(elements.get("name-edit")?.value, "Browser Test");
+    assert.equal(elements.get("note-rows")?.children.length, 2);
+    assert.equal(elements.get("browser-list")?.children.length, 2);
 
     const chunkedState = {
       ...state,
-      query: 'browser',
+      query: "browser",
       selected: {
         ...state.selected,
         notes: Array.from({ length: 40 }, (_, index) => ({
@@ -296,33 +300,39 @@ describe('Library browser runtime', () => {
     for (const message of encodeLibraryStateMessages(chunkedState, 12)) {
       receiveData(message);
     }
-    assert.equal(elements.get('note-rows')?.children.length, 40);
+    assert.equal(elements.get("note-rows")?.children.length, 40);
 
-    const hotkeyInput = elements.get('hotkey-input');
+    const hotkeyInput = elements.get("hotkey-input");
     assert.ok(hotkeyInput);
-    hotkeyInput.value = 'D3';
-    elements.get('assign-hotkey-btn')?.click();
-    assert.ok(outlets.some((args) =>
-      args[0] === 'lib_action'
-      && decodeURIComponent(String(args[1])).includes('"type":"map_trigger"'),
-    ));
+    hotkeyInput.value = "D3";
+    elements.get("assign-hotkey-btn")?.click();
+    assert.ok(
+      outlets.some(
+        (args) =>
+          args[0] === "lib_action" &&
+          decodeURIComponent(String(args[1])).includes('"type":"map_trigger"'),
+      ),
+    );
 
     panelTabs[1]?.click();
-    assert.equal(elements.get('notes-panel')?.classList.values.has('hidden'), false);
-    elements.get('choose-btn')?.click();
-    assert.ok(outlets.some((args) => args[0] === 'choose_library'));
+    assert.equal(elements.get("notes-panel")?.classList.values.has("hidden"), false);
+    elements.get("choose-btn")?.click();
+    assert.ok(outlets.some((args) => args[0] === "choose_library"));
 
-    windowListeners.get('error')?.({
-      message: 'browser failure',
-      filename: 'library.html',
+    windowListeners.get("error")?.({
+      message: "browser failure",
+      filename: "library.html",
       lineno: 1,
       preventDefault: () => undefined,
     });
-    receiveData('%broken');
-    receiveData('%broken');
-    assert.match(elements.get('debug-panel')?.textContent ?? '', /Library data could not be displayed/);
-    documentListeners.get('keydown')?.({
-      key: 'Escape',
+    receiveData("%broken");
+    receiveData("%broken");
+    assert.match(
+      elements.get("debug-panel")?.textContent ?? "",
+      /Library data could not be displayed/,
+    );
+    documentListeners.get("keydown")?.({
+      key: "Escape",
       preventDefault: () => undefined,
     });
   });

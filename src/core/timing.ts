@@ -4,7 +4,7 @@
  * Live song position arrives in beats.
  */
 
-import { PPQ, type LaunchQuantization, type TimeSignature } from './types.js';
+import { PPQ, type LaunchQuantization, type TimeSignature } from "./types.js";
 
 /**
  * Length of one bar in PPQ ticks for the given meter.
@@ -37,13 +37,13 @@ export function quantizationTicks(
   signature: TimeSignature,
 ): number {
   switch (quantization) {
-    case '1/16':
+    case "1/16":
       return PPQ / 4;
-    case '1/8':
+    case "1/8":
       return PPQ / 2;
-    case '1/4':
+    case "1/4":
       return PPQ;
-    case 'bar':
+    case "bar":
       return barLengthTicks(signature);
     default:
       return 0;

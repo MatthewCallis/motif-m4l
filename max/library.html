@@ -1,5 +1,1530 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><title>Motif Library</title><style>*,*:before,*:after{box-sizing:border-box;margin:0;padding:0}:root{--bg:#141415;--surface:#1c1c1e;--surface2:#18181a;--border:#2e2e32;--accent:#ff8c1f;--text:#e0e0e6;--muted:#7a7a82;--input:#0e0e10;--btn:#2a2a2e;--btn-hover:#363638;--danger:#d55549;--note-alt:#1a1a1c}html,body{height:100%;background:var(--bg);color:var(--text);font:11px Ableton Sans,system-ui,-apple-system,sans-serif;overflow:hidden}button,input,textarea,select{font:inherit}button:disabled,input:disabled,textarea:disabled,select:disabled{opacity:.42;cursor:not-allowed!important}.hidden{display:none!important}#app{display:flex;height:calc(100% - 20px)}#left{width:clamp(170px,30vw,240px);min-width:150px;flex-shrink:0;display:flex;flex-direction:column;border-right:1px solid var(--border)}#right{flex:1;min-width:0;display:flex;flex-direction:column}#search-row{display:flex;align-items:center;gap:4px;padding:6px 6px 4px}#search{flex:1;min-width:0;background:var(--input);border:1px solid var(--border);color:var(--text);padding:3px 6px;outline:none}#clear-search{background:none;border:0;color:var(--muted);cursor:pointer;font-size:13px;padding:0 2px}#browser-list{flex:1;overflow-y:auto;border-top:1px solid var(--border)}.browser-folder{position:sticky;top:0;z-index:1;width:100%;padding:4px 8px 3px;background:var(--surface2);border:0;border-bottom:1px solid var(--border);color:var(--muted);cursor:pointer;font-size:9px;font-weight:600;text-align:left;text-transform:uppercase;letter-spacing:.05em}.browser-folder:hover{background:var(--btn);color:var(--text)}.browser-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 5px;padding:5px 8px;cursor:pointer;border-bottom:1px solid transparent}.browser-item:hover{background:var(--btn)}.browser-item.selected{background:var(--accent);color:#000}.browser-name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.browser-id{grid-column:1 / -1;margin-top:1px;color:var(--muted);font:9px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.hotkey-badge{align-self:center;color:var(--accent);font:9px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap}.browser-item.selected .browser-id{color:#0000009e}.browser-item.selected .hotkey-badge{color:#000}#empty-list{padding:12px 8px;color:var(--muted);text-align:center}#browser-actions{border-top:1px solid var(--border);display:flex;gap:4px;padding:5px}#library-path{padding:0 6px 5px;color:var(--muted);font:9px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.btn{background:var(--btn);border:1px solid var(--border);color:var(--text);cursor:pointer;padding:3px 7px;text-align:center;white-space:nowrap}.btn:hover:not(:disabled){background:var(--btn-hover)}.btn:active:not(:disabled),.btn.accent{background:var(--accent);color:#000;border-color:transparent}#meta{padding:6px 8px 4px;border-bottom:1px solid var(--border);display:flex;flex-direction:column;gap:3px}#meta-row-1{display:flex;align-items:center;gap:4px}#name-edit{flex:1;min-width:0;font-size:12px;font-weight:600}.field{background:var(--input);border:1px solid var(--border);color:var(--text);padding:3px 5px;outline:none;min-width:0}.field:focus{border-color:var(--accent)}.field[readonly],.field:disabled{background:transparent;border-color:transparent;color:var(--muted)}#description-edit{resize:none;height:34px;width:100%}#stats-line{color:var(--muted);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#edit-state{color:var(--accent);font-size:10px;min-height:12px}#detail-actions{display:flex;gap:4px;padding:4px 8px;border-bottom:1px solid var(--border)}#detail-actions .btn{flex:1}#import-mode{width:104px;flex:0 0 auto}#panel-tabs{display:flex;border-bottom:1px solid var(--border);background:var(--surface2)}.panel-tab{flex:1;border:0;border-right:1px solid var(--border);background:transparent;color:var(--muted);cursor:pointer;padding:4px 8px}.panel-tab:last-child{border-right:0}.panel-tab.active{background:var(--surface);color:var(--text);box-shadow:inset 0 -2px var(--accent)}.panel{flex:1;min-height:0;overflow:auto}#properties-panel{padding:7px 8px 12px}.section{margin-bottom:9px}.section-title{color:var(--muted);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}.property-grid{display:grid;grid-template-columns:92px minmax(0,1fr) 92px minmax(0,1fr);gap:4px 6px;align-items:center}.property-grid .wide{grid-column:2 / 5}.property-grid label{color:var(--muted);font-size:10px;text-align:right}.property-grid input,.property-grid select,.property-grid textarea{width:100%}.property-grid textarea{min-height:38px;resize:vertical}#source-meter-controls{display:flex;gap:4px}.identity{font:9px ui-monospace,SFMono-Regular,Menlo,monospace}.help{grid-column:2 / 5;color:var(--muted);font-size:9px;line-height:1.25}#hotkey-controls{display:flex;gap:4px}#hotkey-input{width:72px}#hotkey-action{width:112px}#hotkey-list{display:flex;flex-wrap:wrap;gap:4px}.hotkey-chip{background:var(--btn);border:1px solid var(--border);color:var(--text);cursor:pointer;padding:2px 5px}.hotkey-chip:hover{background:var(--danger);border-color:var(--danger);color:#fff}#notes-panel{overflow:auto}#note-table{min-width:780px;display:flex;flex-direction:column;min-height:100%}#note-header,.note-row{display:grid;grid-template-columns:28px 48px 38px 48px 54px 44px 48px 50px 50px 42px 42px 26px}#note-header{position:sticky;top:0;z-index:2;background:var(--surface);border-bottom:1px solid var(--border);color:var(--muted);font-size:9px;font-weight:600}#note-header span{padding:3px 2px;text-align:right;border-right:1px solid var(--border)}#note-header span:first-child,#note-header span:nth-last-child(-n+3){text-align:center}#note-rows{flex:1}.note-row{border-bottom:1px solid var(--border);align-items:center}.note-row:nth-child(2n){background:var(--note-alt)}.note-row>span{color:var(--muted);font-size:10px;text-align:center;padding:2px}.note-row input[type=number]{background:transparent;border:0;border-left:1px solid var(--border);color:var(--text);font-size:10px;padding:2px 3px;text-align:right;width:100%;outline:none;-moz-appearance:textfield}.note-row input[type=number]::-webkit-inner-spin-button,.note-row input[type=number]::-webkit-outer-spin-button{display:none}.note-row input[type=number]:focus{background:var(--input)}.check-cell{display:flex;justify-content:center;border-left:1px solid var(--border)}.check-cell input{accent-color:var(--accent)}.remove-btn{background:none;border:0;border-left:1px solid var(--border);color:var(--danger);cursor:pointer;font-size:13px;width:100%;height:100%}.remove-btn:hover:not(:disabled){background:var(--danger);color:#fff}#add-row{position:sticky;bottom:0;border-top:1px solid var(--border);padding:4px 8px;background:var(--bg)}#add-note-btn{width:100%}#modal-backdrop{position:fixed;top:0;right:0;bottom:0;left:0;z-index:100;display:flex;align-items:center;justify-content:center;background:#000000ad}#modal{width:330px;max-width:calc(100% - 32px);background:var(--surface);border:1px solid #4a4a50;box-shadow:0 12px 40px #0000008c;padding:12px}#modal-title{font-size:13px;margin-bottom:7px}#modal-message{color:var(--muted);line-height:1.4;white-space:pre-wrap}#modal-actions{display:flex;justify-content:flex-end;gap:6px;margin-top:12px}#debug-bar{position:fixed;left:0;right:0;bottom:0;height:20px;z-index:30;display:flex;align-items:center;gap:5px;padding:0 6px;border-top:1px solid var(--border);background:#101012;color:var(--muted);font-size:9px}#debug-indicator{color:#b0a050}#debug-indicator.ok{color:#70c070}#debug-indicator.error{color:#ff7066}#debug-summary{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#debug-toggle{border:0;background:transparent;color:var(--muted);cursor:pointer}#debug-panel{position:fixed;left:0;right:0;bottom:20px;z-index:29;display:none;max-height:160px;overflow:auto;padding:6px;border-top:1px solid var(--border);background:#080809f7;color:#c8c8ce;font:9px ui-monospace,SFMono-Regular,Menlo,monospace;white-space:pre-wrap;user-select:text}#debug-panel.open{display:block}#debug-panel.has-error{color:#ff8b82}@media(max-width:520px){#app{flex-direction:column}#left{width:100%;min-width:0;height:140px;border-right:0;border-bottom:1px solid var(--border)}#right{min-height:0}.property-grid{grid-template-columns:80px minmax(0,1fr)}.property-grid .wide{grid-column:2}.help{grid-column:1 / -1}}*{scrollbar-width:thin;scrollbar-color:#7a7a82 #141415}*::-webkit-scrollbar{width:16px}*::-webkit-scrollbar-track{background:#141415}*::-webkit-scrollbar-thumb{background-color:#7a7a82;border-radius:10px;border:3px none #000}
-</style></head><body><div id="app"><div id="left"><div id="search-row"><input id="search" type="text" placeholder="Search..." autocomplete="off" spellcheck="false"><button id="clear-search" title="Clear search">✕</button></div><div id="browser-list"></div><div id="browser-actions"><button class="btn" id="choose-btn" title="Choose and remember a library folder">Choose</button><button class="btn" id="refresh-btn" title="Reload the chosen library folder">Refresh</button></div><div id="library-path" title="No user library selected">Built-ins only</div></div><div id="right"><div id="meta"><div id="meta-row-1"><input class="field" id="name-edit" type="text" placeholder="(no motif selected)" readonly><button class="btn" id="edit-btn">Edit</button><button class="btn hidden" id="cancel-edit-btn">Cancel Edit</button></div><textarea class="field" id="description-edit" placeholder="Description" readonly></textarea><div id="stats-line">–</div><div id="edit-state"></div></div><div id="detail-actions"><select class="field" id="import-mode" title="Chromatic preserves the MIDI exactly; Scale and Hybrid encode relative scale degrees"><option value="chromatic">Exact / Chromatic</option><option value="hybrid">Hybrid</option><option value="scale">Scale</option></select><button class="btn accent" id="import-clip-btn">Import Clip</button><button class="btn" id="save-motif-btn">Save &amp; Finish</button></div><div id="panel-tabs"><button class="panel-tab active" data-panel="properties">Properties</button><button class="panel-tab" data-panel="notes">Notes</button></div><div class="panel" id="properties-panel"><div class="section"><div class="section-title">Identity</div><div class="property-grid"><label for="id-display">ID</label><input class="field identity" id="id-display" readonly><label for="schema-display">Schema</label><input class="field identity" id="schema-display" readonly><label for="length-display">Length</label><input class="field identity" id="length-display" readonly><div class="help">ID is generated once and remains stable. Length is recalculated from the final note end.</div></div></div><div class="section"><div class="section-title">MIDI Hot Keys</div><div class="property-grid"><label for="hotkey-input">Trigger note</label><div class="wide" id="hotkey-controls"><input class="field identity" id="hotkey-input" type="text" value="C1" placeholder="C3" autocomplete="off" spellcheck="false"><select class="field" id="hotkey-action"><option value="trigger">Trigger Motif</option><option value="select">Select Motif</option></select><button class="btn" id="assign-hotkey-btn">Assign to Motif</button></div><label>Assigned</label><div class="wide" id="hotkey-list"></div><div class="help">Trigger Motif plays this motif using the device’s current Trigger Mode. Select Motif makes it active for later trigger-zone notes. Enter a note name such as C3, F♯2, or Bb4; click an assignment to remove it.</div></div></div><div class="section"><div class="section-title">Pitch &amp; Timing</div><div class="property-grid"><label for="pitch-mode-edit">Pitch mode</label><select class="field editable-property" id="pitch-mode-edit" disabled><option value="scale">Scale</option><option value="chromatic">Chromatic</option><option value="hybrid">Hybrid</option></select><label for="default-gate-edit">Default gate</label><input class="field editable-property" id="default-gate-edit" type="number" min="0.01" step="0.01" placeholder="1" disabled><label for="meter-numerator-edit">Source meter</label><div id="source-meter-controls"><input class="field editable-property" id="meter-numerator-edit" type="number" min="1" step="1" disabled><select class="field editable-property" id="meter-denominator-edit" disabled><option>1</option><option>2</option><option>4</option><option>8</option><option>16</option><option>32</option></select></div></div></div><div class="section"><div class="section-title">Velocity Curve</div><div class="property-grid"><label for="curve-input-min">Input min</label><input class="field editable-property" id="curve-input-min" type="number" placeholder="default" disabled><label for="curve-input-max">Input max</label><input class="field editable-property" id="curve-input-max" type="number" placeholder="default" disabled><label for="curve-output-min">Output min</label><input class="field editable-property" id="curve-output-min" type="number" placeholder="default" disabled><label for="curve-output-max">Output max</label><input class="field editable-property" id="curve-output-max" type="number" placeholder="default" disabled><label for="curve-exponent">Exponent</label><input class="field editable-property" id="curve-exponent" type="number" min="0.01" step="0.01" placeholder="1" disabled></div></div></div><div class="panel hidden" id="notes-panel"><div id="note-table"><div id="note-header"><span>#</span><span>Pitch</span><span>Acc</span><span>Start</span><span>Duration</span><span>Gate</span><span>Vel</span><span>Vel +</span><span>Vel ×</span><span>Legato</span><span>Tie</span><span></span></div><div id="note-rows"></div><div id="add-row"><button class="btn" id="add-note-btn">+ Add Note</button></div></div></div></div></div><div id="modal-backdrop" class="hidden" role="dialog" aria-modal="true" aria-labelledby="modal-title"><div id="modal"><div id="modal-title"></div><div id="modal-message"></div><div id="modal-actions"><button class="btn" id="modal-cancel">Cancel</button><button class="btn" id="modal-confirm">Continue</button></div></div></div><div id="debug-panel" aria-live="polite"></div><div id="debug-bar"><span id="debug-indicator">●</span><span id="debug-summary">Loading jweb bridge...</span><button id="debug-toggle" type="button">Debug</button></div><script>"use strict";(()=>{var B="state-chunk";function A(e){let t=e,n=new Set;return{getState:()=>t,setState(a){t=typeof a=="function"?a(t):{...t,...a};for(let d of n)d(t)},subscribe(a){return n.add(a),()=>n.delete(a)}}}function k(e){return e instanceof Error?`${e.name}: ${e.message}`:String(e)}function $(e,t,n){return t.trim()===""&&n.has(e)}function R(e,t){let n=new Set(t);return n.has(e)?n.delete(e):n.add(e),n}function E(e){let t=e.trim();return t===""?null:Number(t)}function P(e){return typeof e=="object"&&e!==null&&e.kind===B}var ee="library",te=[{name:"pitch",type:"number",required:!0,step:"1"},{name:"accidental",type:"number",step:"1"},{name:"at",type:"number",required:!0,min:"0",step:"1"},{name:"duration",type:"number",required:!0,min:"1",step:"1"},{name:"gate",type:"number",min:"0.01",step:"0.01"},{name:"velocity",type:"number",min:"1",max:"127",step:"1"},{name:"velocityOffset",type:"number",step:"1"},{name:"velocityScale",type:"number",min:"0",step:"0.01"},{name:"legato",type:"checkbox"},{name:"tie",type:"checkbox"}],G=["name-edit","description-edit","pitch-mode-edit","default-gate-edit","meter-numerator-edit","meter-denominator-edit","curve-input-min","curve-input-max","curve-output-min","curve-output-max","curve-exponent"];function i(e){let t=document.getElementById(e);if(!t)throw new Error(`Library element is missing: ${e}`);return t}var w=window.max,C=w!==void 0&&typeof w.outlet=="function",J=new Map,S=C?w:{outlet:(...e)=>console.log("\u2192 Max:",...e),bindInlet:(e,t)=>J.set(e,t)};window.max=S;C||(window.__motifBrowserInlets=J);var u=A({server:null,modal:null,formDirty:!1,activePanel:"properties",collapsedFolders:new Set}),M=[],H=null,I="",f=null,F=0,ne=i("debug-indicator"),ie=i("debug-summary"),D=i("debug-panel");function L(e,t){let n=`${new Date().toLocaleTimeString()} [${e}] ${t}`;M.push(n),M.length>80&&M.shift(),ie.textContent=t,ne.className=e==="error"?"error":e==="ok"?"ok":"",D.classList.toggle("has-error",M.some(a=>a.includes("[error]"))),D.textContent=M.join(`
-`),C&&S.outlet("web_debug",ee,e,encodeURIComponent(t))}window.addEventListener("error",e=>{L("error",`${e.message} @ ${e.filename}:${e.lineno}`)});window.addEventListener("unhandledrejection",e=>{L("error",`Unhandled promise: ${k(e.reason)}`)});i("debug-toggle").addEventListener("click",()=>{D.classList.toggle("open")});function p(e){try{S.outlet("lib_action",encodeURIComponent(JSON.stringify(e))),L("info",`Action: ${e.type}`)}catch(t){L("error",`Action failed: ${k(t)}`)}}function ae(){var t;let e=u.getState();return!!(e.formDirty||(t=e.server)!=null&&t.editing.dirty)}function X(e){u.setState({modal:e})}function N(){u.setState({modal:null})}function x(e,t="Discard the unsaved changes to this motif?"){if(!ae()){e();return}X({title:"Discard unsaved changes?",message:t,confirmLabel:"Discard",onConfirm:e})}function oe(e){var n;let t=i("modal-backdrop");if(!e){t.classList.add("hidden");return}t.classList.remove("hidden"),i("modal-title").textContent=e.title,i("modal-message").textContent=e.message,i("modal-confirm").textContent=(n=e.confirmLabel)!=null?n:"Continue",i("modal-cancel").classList.toggle("hidden",!!e.dismissOnly)}function re(e){var c;let t=i("browser-list");if(t.innerHTML="",!e||e.items.length===0){let o=document.createElement("div");o.id="empty-list",o.textContent=e!=null&&e.query?"No matching motifs":"No motifs found",t.append(o);return}let n=null,a=!1,d=u.getState().collapsedFolders;for(let o of e.items){let l=o.folder||"Library";if(l!==n){n=l,a=$(l,e.query,d);let r=document.createElement("button");r.type="button",r.className="browser-folder",r.textContent=`${a?"\u25B8":"\u25BE"} ${l}`,r.setAttribute("aria-expanded",String(!a)),r.title=`${a?"Expand":"Collapse"} ${l}`,r.addEventListener("click",()=>{u.setState({collapsedFolders:R(l,u.getState().collapsedFolders)})}),t.append(r)}if(a)continue;let s=document.createElement("div");s.className=`browser-item${((c=e.selected)==null?void 0:c.id)===o.id?" selected":""}`;let b=document.createElement("div");if(b.className="browser-name",b.textContent=o.name,s.append(b),o.hotkeys.length>0){let r=document.createElement("div");r.className="hotkey-badge",r.textContent=o.hotkeys.map(T=>`${T.label} ${T.action==="select"?"\u21A6":"\u25B6"}`).join(" "),s.append(r)}if(o.showId){let r=document.createElement("div");r.className="browser-id",r.textContent=o.id,s.append(r)}s.title=o.showId?`${o.name}
-ID: ${o.id}`:o.name,s.addEventListener("click",()=>{var r;((r=e.selected)==null?void 0:r.id)!==o.id&&x(()=>p({type:"select_browser",id:o.id,discardChanges:!0}))}),t.append(s)}}function U(e){var o;let t=i("hotkey-input"),n=i("hotkey-action"),a=i("assign-hotkey-btn"),d=i("hotkey-list"),c=(o=e==null?void 0:e.hotkeys)!=null?o:[];if(t.disabled=!e,n.disabled=!e,a.disabled=!e,d.innerHTML="",!!e){if(c.length===0){let l=document.createElement("span");l.className="help",l.textContent="None",d.append(l);return}for(let l of c){let s=document.createElement("button");s.className="hotkey-chip";let b=l.action==="select"?"Select":"Trigger";s.title=`Remove ${l.label} \xB7 ${b}`,s.textContent=`${l.label} \xB7 ${b}  \xD7`,s.addEventListener("click",()=>{p({type:"unmap_trigger",pitch:l.pitch})}),d.append(s)}}}function O(e,t){var d,c;let n=(c=(d=e==null?void 0:e.selected)==null?void 0:d.notes)!=null?c:[],a=i("note-rows");a.innerHTML="",n.forEach((o,l)=>{var T;let s=document.createElement("div");s.className="note-row";let b=document.createElement("span");b.textContent=String(l+1),s.append(b);for(let y of te){if(y.type==="checkbox"){let h=document.createElement("label");h.className="check-cell";let v=document.createElement("input");v.type="checkbox",v.checked=!!o[y.name],v.disabled=!t,v.addEventListener("change",()=>{p({type:"edit_note_at",index:l,field:y.name,value:v.checked})}),h.append(v),s.append(h);continue}let g=document.createElement("input");g.type="number";let _=o[y.name];g.value=_==null?"":String(_),g.disabled=!t,y.min!==void 0&&(g.min=y.min),y.max!==void 0&&(g.max=y.max),y.step!==void 0&&(g.step=y.step),g.addEventListener("change",()=>{let h=g.value===""?null:Number(g.value);h!==null&&!Number.isFinite(h)||p({type:"edit_note_at",index:l,field:y.name,value:h})}),s.append(g)}let r=document.createElement("button");r.className="remove-btn",r.textContent="\u2715",r.title="Remove note",r.disabled=!((T=e==null?void 0:e.selected)!=null&&T.canRemoveNote),r.addEventListener("click",()=>p({type:"remove_note",index:l})),s.append(r),a.append(s)})}function m(e,t,n){let a=i(e);document.activeElement===a&&n||(typeof t=="string"?a.value=t:typeof t=="number"||typeof t=="boolean"?a.value=String(t):a.value="")}function q(e){for(let t of G){let n=i(t);if((n instanceof HTMLInputElement||n instanceof HTMLTextAreaElement)&&(t==="name-edit"||t==="description-edit")){n.readOnly=!e;continue}n.disabled=!e}}function V(e,t){var a,d,c,o;let n=e==null?void 0:e.velocityCurve;m("id-display",(a=e==null?void 0:e.id)!=null?a:"",!1),m("schema-display",e?`v${e.schemaVersion}`:"",!1),m("length-display",e?`${e.length} ticks`:"",!1),m("pitch-mode-edit",(d=e==null?void 0:e.pitchMode)!=null?d:"scale",t),m("default-gate-edit",e==null?void 0:e.defaultGate,t),m("meter-numerator-edit",(c=e==null?void 0:e.sourceMeter.numerator)!=null?c:"",t),m("meter-denominator-edit",(o=e==null?void 0:e.sourceMeter.denominator)!=null?o:4,t),m("curve-input-min",n==null?void 0:n.inputMin,t),m("curve-input-max",n==null?void 0:n.inputMax,t),m("curve-output-min",n==null?void 0:n.outputMin,t),m("curve-output-max",n==null?void 0:n.outputMax,t),m("curve-exponent",n==null?void 0:n.exponent,t)}function le(e,t){var s;let n=(s=e==null?void 0:e.selected)!=null?s:null,a=!!(e!=null&&e.actions.editing),d=i("edit-btn"),c=i("cancel-edit-btn"),o=i("save-motif-btn"),l=i("add-note-btn");if(i("import-clip-btn").disabled=!(e!=null&&e.actions.canImportClip),!n||!e){m("name-edit","",!1),m("description-edit","",!1),q(!1),V(null,!1),i("stats-line").textContent="\u2013",i("edit-state").textContent="",d.disabled=!0,c.classList.add("hidden"),o.disabled=!0,l.disabled=!0,O(e,!1),U(null);return}m("name-edit",n.name,a),m("description-edit",n.description,a),q(a),V(n,a),i("stats-line").textContent=n.stats,i("edit-state").textContent=a?`${e.editing.dirty||t.formDirty?"Unsaved changes":"Editing"} \xB7 ${n.id}`:n.isBuiltin?"Built-in \xB7 Edit creates a user copy":`${n.isPersisted?"Saved":"Not yet saved"} \xB7 ${n.id}`,d.classList.toggle("hidden",a),d.disabled=!e.actions.canEdit,c.classList.toggle("hidden",!a),c.disabled=!1,o.disabled=!e.actions.canSave,o.title=e.libraryLoaded?"Save changes and exit editing":"Choose a valid library folder before saving",l.disabled=!n.canAddNote,O(e,a),U(n)}function se(e){i("properties-panel").classList.toggle("hidden",e!=="properties"),i("notes-panel").classList.toggle("hidden",e!=="notes"),document.querySelectorAll(".panel-tab").forEach(t=>{t.classList.toggle("active",t.dataset.panel===e)})}function z(e){let{server:t}=e;re(t),le(t,e),oe(e.modal),se(e.activePanel);let n=i("search");t&&document.activeElement!==n&&(n.value=t.query);let a=i("library-path");a.textContent=t!=null&&t.libraryPath?`${t.libraryScanning?"Scanning \xB7 ":t.libraryLoaded?"":"Unavailable \xB7 "}${t.libraryPath}`:"Built-ins only",a.title=(t==null?void 0:t.libraryPath)||"No user library selected";let d=i("refresh-btn");d.disabled=!(t!=null&&t.actions.canRefreshLibrary),d.textContent=t!=null&&t.libraryScanning?"Scanning...":"Refresh"}function W(){return{name:i("name-edit").value,description:i("description-edit").value,pitchMode:i("pitch-mode-edit").value,sourceMeter:{numerator:Number(i("meter-numerator-edit").value),denominator:Number(i("meter-denominator-edit").value)},defaultGate:E(i("default-gate-edit").value),velocityCurve:{inputMin:E(i("curve-input-min").value),inputMax:E(i("curve-input-max").value),outputMin:E(i("curve-output-min").value),outputMax:E(i("curve-output-max").value),exponent:E(i("curve-exponent").value)}}}function K(){var e;(e=u.getState().server)!=null&&e.actions.editing&&p({type:"edit_motif",properties:W()})}function Q(e){var d,c,o,l,s,b,r;let t=u.getState(),n=((c=(d=t.server)==null?void 0:d.selected)==null?void 0:c.id)!==((o=e.selected)==null?void 0:o.id),a=!!((l=t.server)!=null&&l.editing.active&&!e.editing.active);u.setState({...t,server:e,formDirty:n||a?!1:t.formDirty}),(s=e.alert)!=null&&s.id&&e.alert.id!==((r=(b=t.server)==null?void 0:b.alert)==null?void 0:r.id)&&X({title:e.alert.title,message:e.alert.message,confirmLabel:"OK",dismissOnly:!0}),I="",H!==null&&(clearTimeout(H),H=null),L("ok",`State: ${e.items.length} motifs${e.libraryPath?` \xB7 ${e.libraryPath}`:""}`)}function de(e){let t=Number(e.transferId),n=Number(e.index),a=Number(e.total);if(!Number.isInteger(t)||t<F||!Number.isInteger(n)||!Number.isInteger(a)||n<0||n>=a||a<1||a>1e4||typeof e.data!="string")return;if(!f||f.id!==t){if(f&&t<f.id)return;f={id:t,total:a,parts:new Array(a),received:new Set}}if(f.total!==a||(f.parts[n]=e.data,f.received.add(n),f.received.size!==a))return;let d=f.parts.join("");F=t,f=null,Q(JSON.parse(decodeURIComponent(d)))}function Y(...e){let t=e[e.length-1];try{let n=JSON.parse(decodeURIComponent(String(t)));if(P(n)){de(n),I="";return}f=null,Q(n)}catch(n){let a=k(n);if(a===I)return;I=a,L("error",`Library data could not be displayed: ${a}`)}}u.subscribe(z);z(u.getState());document.querySelectorAll(".panel-tab").forEach(e=>{e.addEventListener("click",()=>{let t=e.dataset.panel;(t==="properties"||t==="notes")&&u.setState({activePanel:t})})});var j=i("search");j.addEventListener("input",()=>{p({type:"filter_motifs",query:j.value})});i("clear-search").addEventListener("click",()=>{p({type:"filter_motifs",query:""})});i("choose-btn").addEventListener("click",()=>{x(()=>{var e;(e=u.getState().server)!=null&&e.editing.active&&p({type:"cancel_edit"}),S.outlet("choose_library")},"Discard the current edits and choose another library folder?")});i("refresh-btn").addEventListener("click",()=>{x(()=>p({type:"refresh_library",discardChanges:!0}),"Discard the current edits and reload the library folder?")});i("edit-btn").addEventListener("click",()=>{p({type:"begin_edit"})});i("cancel-edit-btn").addEventListener("click",()=>{x(()=>p({type:"cancel_edit"}))});i("import-clip-btn").addEventListener("click",()=>{x(()=>p({type:"import_clip",pitchMode:i("import-mode").value}),"Discard the current edits and import the selected Live clip?")});i("save-motif-btn").addEventListener("click",()=>{p({type:"save_motif",properties:W()})});i("add-note-btn").addEventListener("click",()=>{p({type:"add_note"})});i("assign-hotkey-btn").addEventListener("click",()=>{var t;let e=(t=u.getState().server)==null?void 0:t.selected;e&&p({type:"map_trigger",pitch:i("hotkey-input").value,motifId:e.id,action:i("hotkey-action").value})});i("hotkey-input").addEventListener("keydown",e=>{e.key==="Enter"&&(e.preventDefault(),i("assign-hotkey-btn").click())});for(let e of G){let t=i(e);t.addEventListener("input",()=>u.setState({formDirty:!0})),t.addEventListener("change",K),(t.tagName==="TEXTAREA"||t instanceof HTMLInputElement&&t.type==="text")&&t.addEventListener("blur",K)}i("modal-cancel").addEventListener("click",N);i("modal-backdrop").addEventListener("click",e=>{e.target===e.currentTarget&&N()});i("modal-confirm").addEventListener("click",()=>{var t;let e=u.getState().modal;N(),(t=e==null?void 0:e.onConfirm)==null||t.call(e)});document.addEventListener("keydown",e=>{e.key==="Escape"&&u.getState().modal&&N()});C?typeof S.bindInlet!="function"?L("error","Max jweb bridge is missing bindInlet"):(S.bindInlet("receiveData",Y),L("info",`Bridge ready; waiting for library state (${location.href})`),S.outlet("library_ready"),H=setTimeout(()=>{u.getState().server||L("error","No library state received within 2 seconds")},2e3)):Y(encodeURIComponent(JSON.stringify({query:"",libraryPath:"/Users/example/Motifs",libraryLoaded:!0,libraryScanning:!1,scanProgress:null,editing:{active:!1,dirty:!1,created:!1,sourceId:null,targetId:null},actions:{editing:!1,canEdit:!0,canSave:!1,canImportClip:!0,canRefreshLibrary:!0},items:[{id:"chromatic-turn",name:"Chromatic Turn",showId:!1,folder:"Library",hotkeys:[]},{id:"scale-turn",name:"Scale Turn",showId:!1,folder:"Library",hotkeys:[]}],selectedIndex:0,selected:{schemaVersion:1,id:"chromatic-turn",name:"Chromatic Turn",description:"Fixed-interval phrase that ignores the selected scale.",pitchMode:"chromatic",sourceMeter:{numerator:4,denominator:4},length:3360,defaultGate:.82,velocityCurve:{inputMin:null,inputMax:null,outputMin:null,outputMax:null,exponent:null},stats:"7 notes \u2022 0.88 bars \u2022 4/4 source \u2022 chromatic",isBuiltin:!0,isPersisted:!1,folder:"Built-ins",hotkeys:[],noteCount:2,noteLimit:512,canAddNote:!1,canRemoveNote:!1,notes:[{pitch:0,accidental:null,at:0,duration:480,gate:null,velocity:null,velocityOffset:null,velocityScale:null,legato:!1,tie:!1},{pitch:2,accidental:null,at:480,duration:480,gate:null,velocity:null,velocityOffset:null,velocityScale:null,legato:!1,tie:!1}]},alert:null})));})();
-</script></body></html>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Motif Library</title>
+    <style>
+      *,
+      *:before,
+      *:after {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      :root {
+        --bg: #141415;
+        --surface: #1c1c1e;
+        --surface2: #18181a;
+        --border: #2e2e32;
+        --accent: #ff8c1f;
+        --text: #e0e0e6;
+        --muted: #7a7a82;
+        --input: #0e0e10;
+        --btn: #2a2a2e;
+        --btn-hover: #363638;
+        --danger: #d55549;
+        --note-alt: #1a1a1c;
+      }
+      html,
+      body {
+        height: 100%;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          11px Ableton Sans,
+          system-ui,
+          -apple-system,
+          sans-serif;
+        overflow: hidden;
+      }
+      button,
+      input,
+      textarea,
+      select {
+        font: inherit;
+      }
+      button:disabled,
+      input:disabled,
+      textarea:disabled,
+      select:disabled {
+        opacity: 0.42;
+        cursor: not-allowed !important;
+      }
+      .hidden {
+        display: none !important;
+      }
+      #app {
+        display: flex;
+        height: calc(100% - 20px);
+      }
+      #left {
+        width: clamp(170px, 30vw, 240px);
+        min-width: 150px;
+        flex-shrink: 0;
+        display: flex;
+        flex-direction: column;
+        border-right: 1px solid var(--border);
+      }
+      #right {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+      }
+      #search-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 6px 4px;
+      }
+      #search {
+        flex: 1;
+        min-width: 0;
+        background: var(--input);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 3px 6px;
+        outline: none;
+      }
+      #clear-search {
+        background: none;
+        border: 0;
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 13px;
+        padding: 0 2px;
+      }
+      #browser-list {
+        flex: 1;
+        overflow-y: auto;
+        border-top: 1px solid var(--border);
+      }
+      .browser-folder {
+        position: sticky;
+        top: 0;
+        z-index: 1;
+        width: 100%;
+        padding: 4px 8px 3px;
+        background: var(--surface2);
+        border: 0;
+        border-bottom: 1px solid var(--border);
+        color: var(--muted);
+        cursor: pointer;
+        font-size: 9px;
+        font-weight: 600;
+        text-align: left;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+      }
+      .browser-folder:hover {
+        background: var(--btn);
+        color: var(--text);
+      }
+      .browser-item {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 2px 5px;
+        padding: 5px 8px;
+        cursor: pointer;
+        border-bottom: 1px solid transparent;
+      }
+      .browser-item:hover {
+        background: var(--btn);
+      }
+      .browser-item.selected {
+        background: var(--accent);
+        color: #000;
+      }
+      .browser-name {
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .browser-id {
+        grid-column: 1 / -1;
+        margin-top: 1px;
+        color: var(--muted);
+        font:
+          9px ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .hotkey-badge {
+        align-self: center;
+        color: var(--accent);
+        font:
+          9px ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        white-space: nowrap;
+      }
+      .browser-item.selected .browser-id {
+        color: #0000009e;
+      }
+      .browser-item.selected .hotkey-badge {
+        color: #000;
+      }
+      #empty-list {
+        padding: 12px 8px;
+        color: var(--muted);
+        text-align: center;
+      }
+      #browser-actions {
+        border-top: 1px solid var(--border);
+        display: flex;
+        gap: 4px;
+        padding: 5px;
+      }
+      #library-path {
+        padding: 0 6px 5px;
+        color: var(--muted);
+        font:
+          9px ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .btn {
+        background: var(--btn);
+        border: 1px solid var(--border);
+        color: var(--text);
+        cursor: pointer;
+        padding: 3px 7px;
+        text-align: center;
+        white-space: nowrap;
+      }
+      .btn:hover:not(:disabled) {
+        background: var(--btn-hover);
+      }
+      .btn:active:not(:disabled),
+      .btn.accent {
+        background: var(--accent);
+        color: #000;
+        border-color: transparent;
+      }
+      #meta {
+        padding: 6px 8px 4px;
+        border-bottom: 1px solid var(--border);
+        display: flex;
+        flex-direction: column;
+        gap: 3px;
+      }
+      #meta-row-1 {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      #name-edit {
+        flex: 1;
+        min-width: 0;
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .field {
+        background: var(--input);
+        border: 1px solid var(--border);
+        color: var(--text);
+        padding: 3px 5px;
+        outline: none;
+        min-width: 0;
+      }
+      .field:focus {
+        border-color: var(--accent);
+      }
+      .field[readonly],
+      .field:disabled {
+        background: transparent;
+        border-color: transparent;
+        color: var(--muted);
+      }
+      #description-edit {
+        resize: none;
+        height: 34px;
+        width: 100%;
+      }
+      #stats-line {
+        color: var(--muted);
+        font-size: 10px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      #edit-state {
+        color: var(--accent);
+        font-size: 10px;
+        min-height: 12px;
+      }
+      #detail-actions {
+        display: flex;
+        gap: 4px;
+        padding: 4px 8px;
+        border-bottom: 1px solid var(--border);
+      }
+      #detail-actions .btn {
+        flex: 1;
+      }
+      #import-mode {
+        width: 104px;
+        flex: 0 0 auto;
+      }
+      #panel-tabs {
+        display: flex;
+        border-bottom: 1px solid var(--border);
+        background: var(--surface2);
+      }
+      .panel-tab {
+        flex: 1;
+        border: 0;
+        border-right: 1px solid var(--border);
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+        padding: 4px 8px;
+      }
+      .panel-tab:last-child {
+        border-right: 0;
+      }
+      .panel-tab.active {
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: inset 0 -2px var(--accent);
+      }
+      .panel {
+        flex: 1;
+        min-height: 0;
+        overflow: auto;
+      }
+      #properties-panel {
+        padding: 7px 8px 12px;
+      }
+      .section {
+        margin-bottom: 9px;
+      }
+      .section-title {
+        color: var(--muted);
+        font-size: 10px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        margin-bottom: 4px;
+      }
+      .property-grid {
+        display: grid;
+        grid-template-columns: 92px minmax(0, 1fr) 92px minmax(0, 1fr);
+        gap: 4px 6px;
+        align-items: center;
+      }
+      .property-grid .wide {
+        grid-column: 2 / 5;
+      }
+      .property-grid label {
+        color: var(--muted);
+        font-size: 10px;
+        text-align: right;
+      }
+      .property-grid input,
+      .property-grid select,
+      .property-grid textarea {
+        width: 100%;
+      }
+      .property-grid textarea {
+        min-height: 38px;
+        resize: vertical;
+      }
+      #source-meter-controls {
+        display: flex;
+        gap: 4px;
+      }
+      .identity {
+        font:
+          9px ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+      }
+      .help {
+        grid-column: 2 / 5;
+        color: var(--muted);
+        font-size: 9px;
+        line-height: 1.25;
+      }
+      #hotkey-controls {
+        display: flex;
+        gap: 4px;
+      }
+      #hotkey-input {
+        width: 72px;
+      }
+      #hotkey-action {
+        width: 112px;
+      }
+      #hotkey-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 4px;
+      }
+      .hotkey-chip {
+        background: var(--btn);
+        border: 1px solid var(--border);
+        color: var(--text);
+        cursor: pointer;
+        padding: 2px 5px;
+      }
+      .hotkey-chip:hover {
+        background: var(--danger);
+        border-color: var(--danger);
+        color: #fff;
+      }
+      #notes-panel {
+        overflow: auto;
+      }
+      #note-table {
+        min-width: 780px;
+        display: flex;
+        flex-direction: column;
+        min-height: 100%;
+      }
+      #note-header,
+      .note-row {
+        display: grid;
+        grid-template-columns: 28px 48px 38px 48px 54px 44px 48px 50px 50px 42px 42px 26px;
+      }
+      #note-header {
+        position: sticky;
+        top: 0;
+        z-index: 2;
+        background: var(--surface);
+        border-bottom: 1px solid var(--border);
+        color: var(--muted);
+        font-size: 9px;
+        font-weight: 600;
+      }
+      #note-header span {
+        padding: 3px 2px;
+        text-align: right;
+        border-right: 1px solid var(--border);
+      }
+      #note-header span:first-child,
+      #note-header span:nth-last-child(-n + 3) {
+        text-align: center;
+      }
+      #note-rows {
+        flex: 1;
+      }
+      .note-row {
+        border-bottom: 1px solid var(--border);
+        align-items: center;
+      }
+      .note-row:nth-child(2n) {
+        background: var(--note-alt);
+      }
+      .note-row > span {
+        color: var(--muted);
+        font-size: 10px;
+        text-align: center;
+        padding: 2px;
+      }
+      .note-row input[type="number"] {
+        background: transparent;
+        border: 0;
+        border-left: 1px solid var(--border);
+        color: var(--text);
+        font-size: 10px;
+        padding: 2px 3px;
+        text-align: right;
+        width: 100%;
+        outline: none;
+        -moz-appearance: textfield;
+      }
+      .note-row input[type="number"]::-webkit-inner-spin-button,
+      .note-row input[type="number"]::-webkit-outer-spin-button {
+        display: none;
+      }
+      .note-row input[type="number"]:focus {
+        background: var(--input);
+      }
+      .check-cell {
+        display: flex;
+        justify-content: center;
+        border-left: 1px solid var(--border);
+      }
+      .check-cell input {
+        accent-color: var(--accent);
+      }
+      .remove-btn {
+        background: none;
+        border: 0;
+        border-left: 1px solid var(--border);
+        color: var(--danger);
+        cursor: pointer;
+        font-size: 13px;
+        width: 100%;
+        height: 100%;
+      }
+      .remove-btn:hover:not(:disabled) {
+        background: var(--danger);
+        color: #fff;
+      }
+      #add-row {
+        position: sticky;
+        bottom: 0;
+        border-top: 1px solid var(--border);
+        padding: 4px 8px;
+        background: var(--bg);
+      }
+      #add-note-btn {
+        width: 100%;
+      }
+      #modal-backdrop {
+        position: fixed;
+        top: 0;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        z-index: 100;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #000000ad;
+      }
+      #modal {
+        width: 330px;
+        max-width: calc(100% - 32px);
+        background: var(--surface);
+        border: 1px solid #4a4a50;
+        box-shadow: 0 12px 40px #0000008c;
+        padding: 12px;
+      }
+      #modal-title {
+        font-size: 13px;
+        margin-bottom: 7px;
+      }
+      #modal-message {
+        color: var(--muted);
+        line-height: 1.4;
+        white-space: pre-wrap;
+      }
+      #modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 6px;
+        margin-top: 12px;
+      }
+      #debug-bar {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 20px;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 0 6px;
+        border-top: 1px solid var(--border);
+        background: #101012;
+        color: var(--muted);
+        font-size: 9px;
+      }
+      #debug-indicator {
+        color: #b0a050;
+      }
+      #debug-indicator.ok {
+        color: #70c070;
+      }
+      #debug-indicator.error {
+        color: #ff7066;
+      }
+      #debug-summary {
+        flex: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #debug-toggle {
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        cursor: pointer;
+      }
+      #debug-panel {
+        position: fixed;
+        left: 0;
+        right: 0;
+        bottom: 20px;
+        z-index: 29;
+        display: none;
+        max-height: 160px;
+        overflow: auto;
+        padding: 6px;
+        border-top: 1px solid var(--border);
+        background: #080809f7;
+        color: #c8c8ce;
+        font:
+          9px ui-monospace,
+          SFMono-Regular,
+          Menlo,
+          monospace;
+        white-space: pre-wrap;
+        user-select: text;
+      }
+      #debug-panel.open {
+        display: block;
+      }
+      #debug-panel.has-error {
+        color: #ff8b82;
+      }
+      @media (max-width: 520px) {
+        #app {
+          flex-direction: column;
+        }
+        #left {
+          width: 100%;
+          min-width: 0;
+          height: 140px;
+          border-right: 0;
+          border-bottom: 1px solid var(--border);
+        }
+        #right {
+          min-height: 0;
+        }
+        .property-grid {
+          grid-template-columns: 80px minmax(0, 1fr);
+        }
+        .property-grid .wide {
+          grid-column: 2;
+        }
+        .help {
+          grid-column: 1 / -1;
+        }
+      }
+      * {
+        scrollbar-width: thin;
+        scrollbar-color: #7a7a82 #141415;
+      }
+      *::-webkit-scrollbar {
+        width: 16px;
+      }
+      *::-webkit-scrollbar-track {
+        background: #141415;
+      }
+      *::-webkit-scrollbar-thumb {
+        background-color: #7a7a82;
+        border-radius: 10px;
+        border: 3px none #000;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="app">
+      <div id="left">
+        <div id="search-row">
+          <input
+            id="search"
+            type="text"
+            placeholder="Search..."
+            autocomplete="off"
+            spellcheck="false"
+          /><button id="clear-search" title="Clear search">✕</button>
+        </div>
+        <div id="browser-list"></div>
+        <div id="browser-actions">
+          <button class="btn" id="choose-btn" title="Choose and remember a library folder">
+            Choose</button
+          ><button class="btn" id="refresh-btn" title="Reload the chosen library folder">
+            Refresh
+          </button>
+        </div>
+        <div id="library-path" title="No user library selected">Built-ins only</div>
+      </div>
+      <div id="right">
+        <div id="meta">
+          <div id="meta-row-1">
+            <input
+              class="field"
+              id="name-edit"
+              type="text"
+              placeholder="(no motif selected)"
+              readonly
+            /><button class="btn" id="edit-btn">Edit</button
+            ><button class="btn hidden" id="cancel-edit-btn">Cancel Edit</button>
+          </div>
+          <textarea
+            class="field"
+            id="description-edit"
+            placeholder="Description"
+            readonly
+          ></textarea>
+          <div id="stats-line">–</div>
+          <div id="edit-state"></div>
+        </div>
+        <div id="detail-actions">
+          <select
+            class="field"
+            id="import-mode"
+            title="Chromatic preserves the MIDI exactly; Scale and Hybrid encode relative scale degrees"
+          >
+            <option value="chromatic">Exact / Chromatic</option>
+            <option value="hybrid">Hybrid</option>
+            <option value="scale">Scale</option></select
+          ><button class="btn accent" id="import-clip-btn">Import Clip</button
+          ><button class="btn" id="save-motif-btn">Save &amp; Finish</button>
+        </div>
+        <div id="panel-tabs">
+          <button class="panel-tab active" data-panel="properties">Properties</button
+          ><button class="panel-tab" data-panel="notes">Notes</button>
+        </div>
+        <div class="panel" id="properties-panel">
+          <div class="section">
+            <div class="section-title">Identity</div>
+            <div class="property-grid">
+              <label for="id-display">ID</label
+              ><input class="field identity" id="id-display" readonly /><label for="schema-display"
+                >Schema</label
+              ><input class="field identity" id="schema-display" readonly /><label
+                for="length-display"
+                >Length</label
+              ><input class="field identity" id="length-display" readonly />
+              <div class="help">
+                ID is generated once and remains stable. Length is recalculated from the final note
+                end.
+              </div>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-title">MIDI Hot Keys</div>
+            <div class="property-grid">
+              <label for="hotkey-input">Trigger note</label>
+              <div class="wide" id="hotkey-controls">
+                <input
+                  class="field identity"
+                  id="hotkey-input"
+                  type="text"
+                  value="C1"
+                  placeholder="C3"
+                  autocomplete="off"
+                  spellcheck="false"
+                /><select class="field" id="hotkey-action">
+                  <option value="trigger">Trigger Motif</option>
+                  <option value="select">Select Motif</option></select
+                ><button class="btn" id="assign-hotkey-btn">Assign to Motif</button>
+              </div>
+              <label>Assigned</label>
+              <div class="wide" id="hotkey-list"></div>
+              <div class="help">
+                Trigger Motif plays this motif using the device’s current Trigger Mode. Select Motif
+                makes it active for later trigger-zone notes. Enter a note name such as C3, F♯2, or
+                Bb4; click an assignment to remove it.
+              </div>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-title">Pitch &amp; Timing</div>
+            <div class="property-grid">
+              <label for="pitch-mode-edit">Pitch mode</label
+              ><select class="field editable-property" id="pitch-mode-edit" disabled>
+                <option value="scale">Scale</option>
+                <option value="chromatic">Chromatic</option>
+                <option value="hybrid">Hybrid</option></select
+              ><label for="default-gate-edit">Default gate</label
+              ><input
+                class="field editable-property"
+                id="default-gate-edit"
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="1"
+                disabled
+              /><label for="meter-numerator-edit">Source meter</label>
+              <div id="source-meter-controls">
+                <input
+                  class="field editable-property"
+                  id="meter-numerator-edit"
+                  type="number"
+                  min="1"
+                  step="1"
+                  disabled
+                /><select class="field editable-property" id="meter-denominator-edit" disabled>
+                  <option>1</option>
+                  <option>2</option>
+                  <option>4</option>
+                  <option>8</option>
+                  <option>16</option>
+                  <option>32</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          <div class="section">
+            <div class="section-title">Velocity Curve</div>
+            <div class="property-grid">
+              <label for="curve-input-min">Input min</label
+              ><input
+                class="field editable-property"
+                id="curve-input-min"
+                type="number"
+                placeholder="default"
+                disabled
+              /><label for="curve-input-max">Input max</label
+              ><input
+                class="field editable-property"
+                id="curve-input-max"
+                type="number"
+                placeholder="default"
+                disabled
+              /><label for="curve-output-min">Output min</label
+              ><input
+                class="field editable-property"
+                id="curve-output-min"
+                type="number"
+                placeholder="default"
+                disabled
+              /><label for="curve-output-max">Output max</label
+              ><input
+                class="field editable-property"
+                id="curve-output-max"
+                type="number"
+                placeholder="default"
+                disabled
+              /><label for="curve-exponent">Exponent</label
+              ><input
+                class="field editable-property"
+                id="curve-exponent"
+                type="number"
+                min="0.01"
+                step="0.01"
+                placeholder="1"
+                disabled
+              />
+            </div>
+          </div>
+        </div>
+        <div class="panel hidden" id="notes-panel">
+          <div id="note-table">
+            <div id="note-header">
+              <span>#</span><span>Pitch</span><span>Acc</span><span>Start</span><span>Duration</span
+              ><span>Gate</span><span>Vel</span><span>Vel +</span><span>Vel ×</span
+              ><span>Legato</span><span>Tie</span><span></span>
+            </div>
+            <div id="note-rows"></div>
+            <div id="add-row"><button class="btn" id="add-note-btn">+ Add Note</button></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div
+      id="modal-backdrop"
+      class="hidden"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+    >
+      <div id="modal">
+        <div id="modal-title"></div>
+        <div id="modal-message"></div>
+        <div id="modal-actions">
+          <button class="btn" id="modal-cancel">Cancel</button
+          ><button class="btn" id="modal-confirm">Continue</button>
+        </div>
+      </div>
+    </div>
+    <div id="debug-panel" aria-live="polite"></div>
+    <div id="debug-bar">
+      <span id="debug-indicator">●</span><span id="debug-summary">Loading jweb bridge...</span
+      ><button id="debug-toggle" type="button">Debug</button>
+    </div>
+    <script>
+      "use strict";
+      (() => {
+        var B = "state-chunk";
+        function A(e) {
+          let t = e,
+            n = new Set();
+          return {
+            getState: () => t,
+            setState(a) {
+              t = typeof a == "function" ? a(t) : { ...t, ...a };
+              for (let d of n) d(t);
+            },
+            subscribe(a) {
+              return (n.add(a), () => n.delete(a));
+            },
+          };
+        }
+        function k(e) {
+          return e instanceof Error ? `${e.name}: ${e.message}` : String(e);
+        }
+        function $(e, t, n) {
+          return t.trim() === "" && n.has(e);
+        }
+        function R(e, t) {
+          let n = new Set(t);
+          return (n.has(e) ? n.delete(e) : n.add(e), n);
+        }
+        function E(e) {
+          let t = e.trim();
+          return t === "" ? null : Number(t);
+        }
+        function P(e) {
+          return typeof e == "object" && e !== null && e.kind === B;
+        }
+        var ee = "library",
+          te = [
+            { name: "pitch", type: "number", required: !0, step: "1" },
+            { name: "accidental", type: "number", step: "1" },
+            { name: "at", type: "number", required: !0, min: "0", step: "1" },
+            { name: "duration", type: "number", required: !0, min: "1", step: "1" },
+            { name: "gate", type: "number", min: "0.01", step: "0.01" },
+            { name: "velocity", type: "number", min: "1", max: "127", step: "1" },
+            { name: "velocityOffset", type: "number", step: "1" },
+            { name: "velocityScale", type: "number", min: "0", step: "0.01" },
+            { name: "legato", type: "checkbox" },
+            { name: "tie", type: "checkbox" },
+          ],
+          G = [
+            "name-edit",
+            "description-edit",
+            "pitch-mode-edit",
+            "default-gate-edit",
+            "meter-numerator-edit",
+            "meter-denominator-edit",
+            "curve-input-min",
+            "curve-input-max",
+            "curve-output-min",
+            "curve-output-max",
+            "curve-exponent",
+          ];
+        function i(e) {
+          let t = document.getElementById(e);
+          if (!t) throw new Error(`Library element is missing: ${e}`);
+          return t;
+        }
+        var w = window.max,
+          C = w !== void 0 && typeof w.outlet == "function",
+          J = new Map(),
+          S = C
+            ? w
+            : {
+                outlet: (...e) => console.log("\u2192 Max:", ...e),
+                bindInlet: (e, t) => J.set(e, t),
+              };
+        window.max = S;
+        C || (window.__motifBrowserInlets = J);
+        var u = A({
+            server: null,
+            modal: null,
+            formDirty: !1,
+            activePanel: "properties",
+            collapsedFolders: new Set(),
+          }),
+          M = [],
+          H = null,
+          I = "",
+          f = null,
+          F = 0,
+          ne = i("debug-indicator"),
+          ie = i("debug-summary"),
+          D = i("debug-panel");
+        function L(e, t) {
+          let n = `${new Date().toLocaleTimeString()} [${e}] ${t}`;
+          (M.push(n),
+            M.length > 80 && M.shift(),
+            (ie.textContent = t),
+            (ne.className = e === "error" ? "error" : e === "ok" ? "ok" : ""),
+            D.classList.toggle(
+              "has-error",
+              M.some((a) => a.includes("[error]")),
+            ),
+            (D.textContent = M.join(`
+`)),
+            C && S.outlet("web_debug", ee, e, encodeURIComponent(t)));
+        }
+        window.addEventListener("error", (e) => {
+          L("error", `${e.message} @ ${e.filename}:${e.lineno}`);
+        });
+        window.addEventListener("unhandledrejection", (e) => {
+          L("error", `Unhandled promise: ${k(e.reason)}`);
+        });
+        i("debug-toggle").addEventListener("click", () => {
+          D.classList.toggle("open");
+        });
+        function p(e) {
+          try {
+            (S.outlet("lib_action", encodeURIComponent(JSON.stringify(e))),
+              L("info", `Action: ${e.type}`));
+          } catch (t) {
+            L("error", `Action failed: ${k(t)}`);
+          }
+        }
+        function ae() {
+          var t;
+          let e = u.getState();
+          return !!(e.formDirty || ((t = e.server) != null && t.editing.dirty));
+        }
+        function X(e) {
+          u.setState({ modal: e });
+        }
+        function N() {
+          u.setState({ modal: null });
+        }
+        function x(e, t = "Discard the unsaved changes to this motif?") {
+          if (!ae()) {
+            e();
+            return;
+          }
+          X({
+            title: "Discard unsaved changes?",
+            message: t,
+            confirmLabel: "Discard",
+            onConfirm: e,
+          });
+        }
+        function oe(e) {
+          var n;
+          let t = i("modal-backdrop");
+          if (!e) {
+            t.classList.add("hidden");
+            return;
+          }
+          (t.classList.remove("hidden"),
+            (i("modal-title").textContent = e.title),
+            (i("modal-message").textContent = e.message),
+            (i("modal-confirm").textContent = (n = e.confirmLabel) != null ? n : "Continue"),
+            i("modal-cancel").classList.toggle("hidden", !!e.dismissOnly));
+        }
+        function re(e) {
+          var c;
+          let t = i("browser-list");
+          if (((t.innerHTML = ""), !e || e.items.length === 0)) {
+            let o = document.createElement("div");
+            ((o.id = "empty-list"),
+              (o.textContent = e != null && e.query ? "No matching motifs" : "No motifs found"),
+              t.append(o));
+            return;
+          }
+          let n = null,
+            a = !1,
+            d = u.getState().collapsedFolders;
+          for (let o of e.items) {
+            let l = o.folder || "Library";
+            if (l !== n) {
+              ((n = l), (a = $(l, e.query, d)));
+              let r = document.createElement("button");
+              ((r.type = "button"),
+                (r.className = "browser-folder"),
+                (r.textContent = `${a ? "\u25B8" : "\u25BE"} ${l}`),
+                r.setAttribute("aria-expanded", String(!a)),
+                (r.title = `${a ? "Expand" : "Collapse"} ${l}`),
+                r.addEventListener("click", () => {
+                  u.setState({ collapsedFolders: R(l, u.getState().collapsedFolders) });
+                }),
+                t.append(r));
+            }
+            if (a) continue;
+            let s = document.createElement("div");
+            s.className = `browser-item${((c = e.selected) == null ? void 0 : c.id) === o.id ? " selected" : ""}`;
+            let b = document.createElement("div");
+            if (
+              ((b.className = "browser-name"),
+              (b.textContent = o.name),
+              s.append(b),
+              o.hotkeys.length > 0)
+            ) {
+              let r = document.createElement("div");
+              ((r.className = "hotkey-badge"),
+                (r.textContent = o.hotkeys
+                  .map((T) => `${T.label} ${T.action === "select" ? "\u21A6" : "\u25B6"}`)
+                  .join(" ")),
+                s.append(r));
+            }
+            if (o.showId) {
+              let r = document.createElement("div");
+              ((r.className = "browser-id"), (r.textContent = o.id), s.append(r));
+            }
+            ((s.title = o.showId
+              ? `${o.name}
+ID: ${o.id}`
+              : o.name),
+              s.addEventListener("click", () => {
+                var r;
+                ((r = e.selected) == null ? void 0 : r.id) !== o.id &&
+                  x(() => p({ type: "select_browser", id: o.id, discardChanges: !0 }));
+              }),
+              t.append(s));
+          }
+        }
+        function U(e) {
+          var o;
+          let t = i("hotkey-input"),
+            n = i("hotkey-action"),
+            a = i("assign-hotkey-btn"),
+            d = i("hotkey-list"),
+            c = (o = e == null ? void 0 : e.hotkeys) != null ? o : [];
+          if (((t.disabled = !e), (n.disabled = !e), (a.disabled = !e), (d.innerHTML = ""), !!e)) {
+            if (c.length === 0) {
+              let l = document.createElement("span");
+              ((l.className = "help"), (l.textContent = "None"), d.append(l));
+              return;
+            }
+            for (let l of c) {
+              let s = document.createElement("button");
+              s.className = "hotkey-chip";
+              let b = l.action === "select" ? "Select" : "Trigger";
+              ((s.title = `Remove ${l.label} \xB7 ${b}`),
+                (s.textContent = `${l.label} \xB7 ${b}  \xD7`),
+                s.addEventListener("click", () => {
+                  p({ type: "unmap_trigger", pitch: l.pitch });
+                }),
+                d.append(s));
+            }
+          }
+        }
+        function O(e, t) {
+          var d, c;
+          let n =
+              (c = (d = e == null ? void 0 : e.selected) == null ? void 0 : d.notes) != null
+                ? c
+                : [],
+            a = i("note-rows");
+          ((a.innerHTML = ""),
+            n.forEach((o, l) => {
+              var T;
+              let s = document.createElement("div");
+              s.className = "note-row";
+              let b = document.createElement("span");
+              ((b.textContent = String(l + 1)), s.append(b));
+              for (let y of te) {
+                if (y.type === "checkbox") {
+                  let h = document.createElement("label");
+                  h.className = "check-cell";
+                  let v = document.createElement("input");
+                  ((v.type = "checkbox"),
+                    (v.checked = !!o[y.name]),
+                    (v.disabled = !t),
+                    v.addEventListener("change", () => {
+                      p({ type: "edit_note_at", index: l, field: y.name, value: v.checked });
+                    }),
+                    h.append(v),
+                    s.append(h));
+                  continue;
+                }
+                let g = document.createElement("input");
+                g.type = "number";
+                let _ = o[y.name];
+                ((g.value = _ == null ? "" : String(_)),
+                  (g.disabled = !t),
+                  y.min !== void 0 && (g.min = y.min),
+                  y.max !== void 0 && (g.max = y.max),
+                  y.step !== void 0 && (g.step = y.step),
+                  g.addEventListener("change", () => {
+                    let h = g.value === "" ? null : Number(g.value);
+                    (h !== null && !Number.isFinite(h)) ||
+                      p({ type: "edit_note_at", index: l, field: y.name, value: h });
+                  }),
+                  s.append(g));
+              }
+              let r = document.createElement("button");
+              ((r.className = "remove-btn"),
+                (r.textContent = "\u2715"),
+                (r.title = "Remove note"),
+                (r.disabled = !((T = e == null ? void 0 : e.selected) != null && T.canRemoveNote)),
+                r.addEventListener("click", () => p({ type: "remove_note", index: l })),
+                s.append(r),
+                a.append(s));
+            }));
+        }
+        function m(e, t, n) {
+          let a = i(e);
+          (document.activeElement === a && n) ||
+            (typeof t == "string"
+              ? (a.value = t)
+              : typeof t == "number" || typeof t == "boolean"
+                ? (a.value = String(t))
+                : (a.value = ""));
+        }
+        function q(e) {
+          for (let t of G) {
+            let n = i(t);
+            if (
+              (n instanceof HTMLInputElement || n instanceof HTMLTextAreaElement) &&
+              (t === "name-edit" || t === "description-edit")
+            ) {
+              n.readOnly = !e;
+              continue;
+            }
+            n.disabled = !e;
+          }
+        }
+        function V(e, t) {
+          var a, d, c, o;
+          let n = e == null ? void 0 : e.velocityCurve;
+          (m("id-display", (a = e == null ? void 0 : e.id) != null ? a : "", !1),
+            m("schema-display", e ? `v${e.schemaVersion}` : "", !1),
+            m("length-display", e ? `${e.length} ticks` : "", !1),
+            m("pitch-mode-edit", (d = e == null ? void 0 : e.pitchMode) != null ? d : "scale", t),
+            m("default-gate-edit", e == null ? void 0 : e.defaultGate, t),
+            m(
+              "meter-numerator-edit",
+              (c = e == null ? void 0 : e.sourceMeter.numerator) != null ? c : "",
+              t,
+            ),
+            m(
+              "meter-denominator-edit",
+              (o = e == null ? void 0 : e.sourceMeter.denominator) != null ? o : 4,
+              t,
+            ),
+            m("curve-input-min", n == null ? void 0 : n.inputMin, t),
+            m("curve-input-max", n == null ? void 0 : n.inputMax, t),
+            m("curve-output-min", n == null ? void 0 : n.outputMin, t),
+            m("curve-output-max", n == null ? void 0 : n.outputMax, t),
+            m("curve-exponent", n == null ? void 0 : n.exponent, t));
+        }
+        function le(e, t) {
+          var s;
+          let n = (s = e == null ? void 0 : e.selected) != null ? s : null,
+            a = !!(e != null && e.actions.editing),
+            d = i("edit-btn"),
+            c = i("cancel-edit-btn"),
+            o = i("save-motif-btn"),
+            l = i("add-note-btn");
+          if (
+            ((i("import-clip-btn").disabled = !(e != null && e.actions.canImportClip)), !n || !e)
+          ) {
+            (m("name-edit", "", !1),
+              m("description-edit", "", !1),
+              q(!1),
+              V(null, !1),
+              (i("stats-line").textContent = "\u2013"),
+              (i("edit-state").textContent = ""),
+              (d.disabled = !0),
+              c.classList.add("hidden"),
+              (o.disabled = !0),
+              (l.disabled = !0),
+              O(e, !1),
+              U(null));
+            return;
+          }
+          (m("name-edit", n.name, a),
+            m("description-edit", n.description, a),
+            q(a),
+            V(n, a),
+            (i("stats-line").textContent = n.stats),
+            (i("edit-state").textContent = a
+              ? `${e.editing.dirty || t.formDirty ? "Unsaved changes" : "Editing"} \xB7 ${n.id}`
+              : n.isBuiltin
+                ? "Built-in \xB7 Edit creates a user copy"
+                : `${n.isPersisted ? "Saved" : "Not yet saved"} \xB7 ${n.id}`),
+            d.classList.toggle("hidden", a),
+            (d.disabled = !e.actions.canEdit),
+            c.classList.toggle("hidden", !a),
+            (c.disabled = !1),
+            (o.disabled = !e.actions.canSave),
+            (o.title = e.libraryLoaded
+              ? "Save changes and exit editing"
+              : "Choose a valid library folder before saving"),
+            (l.disabled = !n.canAddNote),
+            O(e, a),
+            U(n));
+        }
+        function se(e) {
+          (i("properties-panel").classList.toggle("hidden", e !== "properties"),
+            i("notes-panel").classList.toggle("hidden", e !== "notes"),
+            document.querySelectorAll(".panel-tab").forEach((t) => {
+              t.classList.toggle("active", t.dataset.panel === e);
+            }));
+        }
+        function z(e) {
+          let { server: t } = e;
+          (re(t), le(t, e), oe(e.modal), se(e.activePanel));
+          let n = i("search");
+          t && document.activeElement !== n && (n.value = t.query);
+          let a = i("library-path");
+          ((a.textContent =
+            t != null && t.libraryPath
+              ? `${t.libraryScanning ? "Scanning \xB7 " : t.libraryLoaded ? "" : "Unavailable \xB7 "}${t.libraryPath}`
+              : "Built-ins only"),
+            (a.title = (t == null ? void 0 : t.libraryPath) || "No user library selected"));
+          let d = i("refresh-btn");
+          ((d.disabled = !(t != null && t.actions.canRefreshLibrary)),
+            (d.textContent = t != null && t.libraryScanning ? "Scanning..." : "Refresh"));
+        }
+        function W() {
+          return {
+            name: i("name-edit").value,
+            description: i("description-edit").value,
+            pitchMode: i("pitch-mode-edit").value,
+            sourceMeter: {
+              numerator: Number(i("meter-numerator-edit").value),
+              denominator: Number(i("meter-denominator-edit").value),
+            },
+            defaultGate: E(i("default-gate-edit").value),
+            velocityCurve: {
+              inputMin: E(i("curve-input-min").value),
+              inputMax: E(i("curve-input-max").value),
+              outputMin: E(i("curve-output-min").value),
+              outputMax: E(i("curve-output-max").value),
+              exponent: E(i("curve-exponent").value),
+            },
+          };
+        }
+        function K() {
+          var e;
+          (e = u.getState().server) != null &&
+            e.actions.editing &&
+            p({ type: "edit_motif", properties: W() });
+        }
+        function Q(e) {
+          var d, c, o, l, s, b, r;
+          let t = u.getState(),
+            n =
+              ((c = (d = t.server) == null ? void 0 : d.selected) == null ? void 0 : c.id) !==
+              ((o = e.selected) == null ? void 0 : o.id),
+            a = !!((l = t.server) != null && l.editing.active && !e.editing.active);
+          (u.setState({ ...t, server: e, formDirty: n || a ? !1 : t.formDirty }),
+            (s = e.alert) != null &&
+              s.id &&
+              e.alert.id !==
+                ((r = (b = t.server) == null ? void 0 : b.alert) == null ? void 0 : r.id) &&
+              X({
+                title: e.alert.title,
+                message: e.alert.message,
+                confirmLabel: "OK",
+                dismissOnly: !0,
+              }),
+            (I = ""),
+            H !== null && (clearTimeout(H), (H = null)),
+            L(
+              "ok",
+              `State: ${e.items.length} motifs${e.libraryPath ? ` \xB7 ${e.libraryPath}` : ""}`,
+            ));
+        }
+        function de(e) {
+          let t = Number(e.transferId),
+            n = Number(e.index),
+            a = Number(e.total);
+          if (
+            !Number.isInteger(t) ||
+            t < F ||
+            !Number.isInteger(n) ||
+            !Number.isInteger(a) ||
+            n < 0 ||
+            n >= a ||
+            a < 1 ||
+            a > 1e4 ||
+            typeof e.data != "string"
+          )
+            return;
+          if (!f || f.id !== t) {
+            if (f && t < f.id) return;
+            f = { id: t, total: a, parts: new Array(a), received: new Set() };
+          }
+          if (f.total !== a || ((f.parts[n] = e.data), f.received.add(n), f.received.size !== a))
+            return;
+          let d = f.parts.join("");
+          ((F = t), (f = null), Q(JSON.parse(decodeURIComponent(d))));
+        }
+        function Y(...e) {
+          let t = e[e.length - 1];
+          try {
+            let n = JSON.parse(decodeURIComponent(String(t)));
+            if (P(n)) {
+              (de(n), (I = ""));
+              return;
+            }
+            ((f = null), Q(n));
+          } catch (n) {
+            let a = k(n);
+            if (a === I) return;
+            ((I = a), L("error", `Library data could not be displayed: ${a}`));
+          }
+        }
+        u.subscribe(z);
+        z(u.getState());
+        document.querySelectorAll(".panel-tab").forEach((e) => {
+          e.addEventListener("click", () => {
+            let t = e.dataset.panel;
+            (t === "properties" || t === "notes") && u.setState({ activePanel: t });
+          });
+        });
+        var j = i("search");
+        j.addEventListener("input", () => {
+          p({ type: "filter_motifs", query: j.value });
+        });
+        i("clear-search").addEventListener("click", () => {
+          p({ type: "filter_motifs", query: "" });
+        });
+        i("choose-btn").addEventListener("click", () => {
+          x(() => {
+            var e;
+            ((e = u.getState().server) != null && e.editing.active && p({ type: "cancel_edit" }),
+              S.outlet("choose_library"));
+          }, "Discard the current edits and choose another library folder?");
+        });
+        i("refresh-btn").addEventListener("click", () => {
+          x(
+            () => p({ type: "refresh_library", discardChanges: !0 }),
+            "Discard the current edits and reload the library folder?",
+          );
+        });
+        i("edit-btn").addEventListener("click", () => {
+          p({ type: "begin_edit" });
+        });
+        i("cancel-edit-btn").addEventListener("click", () => {
+          x(() => p({ type: "cancel_edit" }));
+        });
+        i("import-clip-btn").addEventListener("click", () => {
+          x(
+            () => p({ type: "import_clip", pitchMode: i("import-mode").value }),
+            "Discard the current edits and import the selected Live clip?",
+          );
+        });
+        i("save-motif-btn").addEventListener("click", () => {
+          p({ type: "save_motif", properties: W() });
+        });
+        i("add-note-btn").addEventListener("click", () => {
+          p({ type: "add_note" });
+        });
+        i("assign-hotkey-btn").addEventListener("click", () => {
+          var t;
+          let e = (t = u.getState().server) == null ? void 0 : t.selected;
+          e &&
+            p({
+              type: "map_trigger",
+              pitch: i("hotkey-input").value,
+              motifId: e.id,
+              action: i("hotkey-action").value,
+            });
+        });
+        i("hotkey-input").addEventListener("keydown", (e) => {
+          e.key === "Enter" && (e.preventDefault(), i("assign-hotkey-btn").click());
+        });
+        for (let e of G) {
+          let t = i(e);
+          (t.addEventListener("input", () => u.setState({ formDirty: !0 })),
+            t.addEventListener("change", K),
+            (t.tagName === "TEXTAREA" || (t instanceof HTMLInputElement && t.type === "text")) &&
+              t.addEventListener("blur", K));
+        }
+        i("modal-cancel").addEventListener("click", N);
+        i("modal-backdrop").addEventListener("click", (e) => {
+          e.target === e.currentTarget && N();
+        });
+        i("modal-confirm").addEventListener("click", () => {
+          var t;
+          let e = u.getState().modal;
+          (N(), (t = e == null ? void 0 : e.onConfirm) == null || t.call(e));
+        });
+        document.addEventListener("keydown", (e) => {
+          e.key === "Escape" && u.getState().modal && N();
+        });
+        C
+          ? typeof S.bindInlet != "function"
+            ? L("error", "Max jweb bridge is missing bindInlet")
+            : (S.bindInlet("receiveData", Y),
+              L("info", `Bridge ready; waiting for library state (${location.href})`),
+              S.outlet("library_ready"),
+              (H = setTimeout(() => {
+                u.getState().server || L("error", "No library state received within 2 seconds");
+              }, 2e3)))
+          : Y(
+              encodeURIComponent(
+                JSON.stringify({
+                  query: "",
+                  libraryPath: "/Users/example/Motifs",
+                  libraryLoaded: !0,
+                  libraryScanning: !1,
+                  scanProgress: null,
+                  editing: { active: !1, dirty: !1, created: !1, sourceId: null, targetId: null },
+                  actions: {
+                    editing: !1,
+                    canEdit: !0,
+                    canSave: !1,
+                    canImportClip: !0,
+                    canRefreshLibrary: !0,
+                  },
+                  items: [
+                    {
+                      id: "chromatic-turn",
+                      name: "Chromatic Turn",
+                      showId: !1,
+                      folder: "Library",
+                      hotkeys: [],
+                    },
+                    {
+                      id: "scale-turn",
+                      name: "Scale Turn",
+                      showId: !1,
+                      folder: "Library",
+                      hotkeys: [],
+                    },
+                  ],
+                  selectedIndex: 0,
+                  selected: {
+                    schemaVersion: 1,
+                    id: "chromatic-turn",
+                    name: "Chromatic Turn",
+                    description: "Fixed-interval phrase that ignores the selected scale.",
+                    pitchMode: "chromatic",
+                    sourceMeter: { numerator: 4, denominator: 4 },
+                    length: 3360,
+                    defaultGate: 0.82,
+                    velocityCurve: {
+                      inputMin: null,
+                      inputMax: null,
+                      outputMin: null,
+                      outputMax: null,
+                      exponent: null,
+                    },
+                    stats: "7 notes \u2022 0.88 bars \u2022 4/4 source \u2022 chromatic",
+                    isBuiltin: !0,
+                    isPersisted: !1,
+                    folder: "Built-ins",
+                    hotkeys: [],
+                    noteCount: 2,
+                    noteLimit: 512,
+                    canAddNote: !1,
+                    canRemoveNote: !1,
+                    notes: [
+                      {
+                        pitch: 0,
+                        accidental: null,
+                        at: 0,
+                        duration: 480,
+                        gate: null,
+                        velocity: null,
+                        velocityOffset: null,
+                        velocityScale: null,
+                        legato: !1,
+                        tie: !1,
+                      },
+                      {
+                        pitch: 2,
+                        accidental: null,
+                        at: 480,
+                        duration: 480,
+                        gate: null,
+                        velocity: null,
+                        velocityOffset: null,
+                        velocityScale: null,
+                        legato: !1,
+                        tie: !1,
+                      },
+                    ],
+                  },
+                  alert: null,
+                }),
+              ),
+            );
+      })();
+    </script>
+  </body>
+</html>

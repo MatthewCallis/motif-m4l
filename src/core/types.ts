@@ -19,28 +19,22 @@ export const MOTIF_SCHEMA_VERSION = 1;
  * - `chromatic` - semitone offsets from the trigger
  * - `hybrid` - scale degrees plus optional `accidental` semitones
  */
-export type PitchMode = 'scale' | 'chromatic' | 'hybrid';
+export type PitchMode = "scale" | "chromatic" | "hybrid";
 
 /** Whether phrase timing keeps source meter or stretches to the Live bar length. */
-export type MeterMode = 'preserve' | 'fit-bar';
+export type MeterMode = "preserve" | "fit-bar";
 
 /** Behavior when a new trigger starts while another instance is still sounding. */
-export type RetriggerMode = 'replace' | 'overlap';
+export type RetriggerMode = "replace" | "overlap";
 
 /** How keyboard triggers start, stop, or repeat motif instances. */
-export type TriggerMode =
-  | 'one-shot'
-  | 'hold'
-  | 'hold-repeat'
-  | 'toggle'
-  | 'latch'
-  | 'release-tail';
+export type TriggerMode = "one-shot" | "hold" | "hold-repeat" | "toggle" | "latch" | "release-tail";
 
 /** Delay trigger start to the next Live song-time grid boundary. */
-export type LaunchQuantization = 'immediate' | '1/16' | '1/8' | '1/4' | 'bar';
+export type LaunchQuantization = "immediate" | "1/16" | "1/8" | "1/4" | "bar";
 
 /** Which incoming MIDI notes bypass motif triggering and pass through. */
-export type PassThroughPolicy = 'none' | 'non-triggers' | 'all';
+export type PassThroughPolicy = "none" | "non-triggers" | "all";
 
 /** Meter as numerator/denominator (e.g. 4/4, 6/8). */
 export interface TimeSignature {

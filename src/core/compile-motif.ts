@@ -3,9 +3,9 @@
  * the current Live host context (tempo, scale, meter) and trigger options.
  */
 
-import { clamp } from './math.js';
-import { transposeByScaleDegree, transposeChromatically, transposeHybrid } from './pitch.js';
-import { barLengthTicks, ticksToMilliseconds } from './timing.js';
+import { clamp } from "./math.js";
+import { transposeByScaleDegree, transposeChromatically, transposeHybrid } from "./pitch.js";
+import { barLengthTicks, ticksToMilliseconds } from "./timing.js";
 import type {
   CompileOptions,
   HostContext,
@@ -13,7 +13,7 @@ import type {
   MotifNote,
   ScheduledMidiEvent,
   VelocityCurve,
-} from './types.js';
+} from "./types.js";
 
 /**
  * Apply a velocity curve to a value, clamped to the output range.
@@ -68,10 +68,10 @@ export function resolveMotifPitch(
   const pitchMode = options.pitchMode ?? motif.pitchMode;
 
   switch (pitchMode) {
-    case 'chromatic': {
+    case "chromatic": {
       return transposeChromatically(options.triggerPitch, note.pitch + (note.accidental ?? 0));
     }
-    case 'hybrid': {
+    case "hybrid": {
       return transposeHybrid(
         options.triggerPitch,
         note.pitch,
@@ -99,7 +99,11 @@ export function resolveMotifPitch(
  * @param {Motif} motif The motif.
  * @returns {number} The effective duration in ticks.
  */
-export function effectiveDuration(note: MotifNote, next: MotifNote | undefined, motif: Motif): number {
+export function effectiveDuration(
+  note: MotifNote,
+  next: MotifNote | undefined,
+  motif: Motif,
+): number {
   const gate = Math.max(0.01, note.gate ?? motif.defaultGate ?? 1);
   let duration = note.duration * gate;
 
@@ -138,7 +142,7 @@ export function compileMotif(
 ): ScheduledMidiEvent[] {
   const targetBar = barLengthTicks(host.timeSignature);
   const sourceBar = barLengthTicks(motif.sourceMeter);
-  const timeScale = options.meterMode === 'fit-bar' ? targetBar / sourceBar : 1;
+  const timeScale = options.meterMode === "fit-bar" ? targetBar / sourceBar : 1;
   const channel = Math.round(clamp(options.channel, 1, 16));
   const launchOffsetTicks = Math.max(0, options.launchOffsetTicks ?? 0);
   const instanceId = options.instanceId ?? 0;

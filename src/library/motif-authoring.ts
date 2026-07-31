@@ -1,24 +1,19 @@
-import { convertMotifPitchMode } from '../core/import-notes.js';
-import {
-  hasOwn,
-  isRecord,
-  jsonValuesEqual,
-  primitiveText,
-} from '../core/type-guards.js';
-import type { HostContext, Motif, MotifNote, PitchMode } from '../core/types.js';
+import { convertMotifPitchMode } from "../core/import-notes.js";
+import { hasOwn, isRecord, jsonValuesEqual, primitiveText } from "../core/type-guards.js";
+import type { HostContext, Motif, MotifNote, PitchMode } from "../core/types.js";
 
 /** Motif-note properties accepted by indexed Library edits. */
 export const NOTE_EDIT_FIELDS = [
-  'pitch',
-  'accidental',
-  'at',
-  'duration',
-  'gate',
-  'velocity',
-  'velocityOffset',
-  'velocityScale',
-  'legato',
-  'tie',
+  "pitch",
+  "accidental",
+  "at",
+  "duration",
+  "gate",
+  "velocity",
+  "velocityOffset",
+  "velocityScale",
+  "legato",
+  "tie",
 ] as const;
 
 /** Editable motif-note property name. */
@@ -29,7 +24,7 @@ export interface AuthoringContext {
   /** MIDI pitch currently anchoring previews and conversions. */
   triggerPitch: number;
   /** Live scale context used to preserve sounding pitches. */
-  host: Pick<HostContext, 'rootNote' | 'scaleIntervals'>;
+  host: Pick<HostContext, "rootNote" | "scaleIntervals">;
 }
 
 /** Immutable motif-property mutation outcome. */
@@ -49,7 +44,7 @@ export type NoteMutationResult =
  * @returns {MutationResult<string>} Parsed text or validation error.
  */
 function requiredText(value: unknown, field: string): MutationResult<string> {
-  if (!['string', 'number', 'boolean'].includes(typeof value)) {
+  if (!["string", "number", "boolean"].includes(typeof value)) {
     return { ok: false, error: `${field} must be text` };
   }
   const text = primitiveText(value).trim();
@@ -70,9 +65,9 @@ function optionalFiniteNumber(
   value: unknown,
   field: string,
   predicate: (number: number) => boolean = () => true,
-  requirement = 'a finite number',
+  requirement = "a finite number",
 ): MutationResult<number | undefined> {
-  if (value === null || value === undefined || value === '') {
+  if (value === null || value === undefined || value === "") {
     return { ok: true, value: undefined, changed: false };
   }
   const numeric = Number(value);
@@ -94,93 +89,93 @@ export function applyMotifProperties(
   context: AuthoringContext,
 ): MutationResult<Motif> {
   const record = isRecord(value) ? value : undefined;
-  if (!record) return { ok: false, error: 'Motif properties must be an object' };
+  if (!record) return { ok: false, error: "Motif properties must be an object" };
 
-  if (hasOwn(record, 'id') && primitiveText(record.id) !== editable.id) {
-    return { ok: false, error: 'Motif ID is generated and cannot be changed' };
+  if (hasOwn(record, "id") && primitiveText(record.id) !== editable.id) {
+    return { ok: false, error: "Motif ID is generated and cannot be changed" };
   }
-  if (hasOwn(record, 'schemaVersion') && Number(record.schemaVersion) !== editable.schemaVersion) {
-    return { ok: false, error: 'schemaVersion is read-only' };
+  if (hasOwn(record, "schemaVersion") && Number(record.schemaVersion) !== editable.schemaVersion) {
+    return { ok: false, error: "schemaVersion is read-only" };
   }
-  if (hasOwn(record, 'length') && Number(record.length) !== editable.length) {
+  if (hasOwn(record, "length") && Number(record.length) !== editable.length) {
     return {
       ok: false,
-      error: 'Motif length is derived from note timing and cannot be changed directly',
+      error: "Motif length is derived from note timing and cannot be changed directly",
     };
   }
 
   let name = editable.name;
-  if (hasOwn(record, 'name')) {
-    const parsed = requiredText(record.name, 'Motif name');
+  if (hasOwn(record, "name")) {
+    const parsed = requiredText(record.name, "Motif name");
     if (!parsed.ok) return parsed;
     name = parsed.value;
   }
 
   let description = editable.description;
-  if (hasOwn(record, 'description')) {
-    const parsed = requiredText(record.description, 'Motif description');
+  if (hasOwn(record, "description")) {
+    const parsed = requiredText(record.description, "Motif description");
     if (!parsed.ok) return parsed;
     description = parsed.value;
   }
 
   let pitchMode: PitchMode = editable.pitchMode;
-  if (hasOwn(record, 'pitchMode')) {
+  if (hasOwn(record, "pitchMode")) {
     const parsed = primitiveText(record.pitchMode);
-    if (parsed !== 'scale' && parsed !== 'chromatic' && parsed !== 'hybrid') {
-      return { ok: false, error: 'pitchMode must be scale, chromatic, or hybrid' };
+    if (parsed !== "scale" && parsed !== "chromatic" && parsed !== "hybrid") {
+      return { ok: false, error: "pitchMode must be scale, chromatic, or hybrid" };
     }
     pitchMode = parsed;
   }
 
   let sourceMeter = editable.sourceMeter;
-  if (hasOwn(record, 'sourceMeter')) {
+  if (hasOwn(record, "sourceMeter")) {
     const meter = isRecord(record.sourceMeter) ? record.sourceMeter : undefined;
-    if (!meter) return { ok: false, error: 'sourceMeter must be an object' };
+    if (!meter) return { ok: false, error: "sourceMeter must be an object" };
     const numerator = Number(meter.numerator);
     const denominator = Number(meter.denominator);
     if (!Number.isInteger(numerator) || numerator < 1) {
-      return { ok: false, error: 'sourceMeter.numerator must be a positive integer' };
+      return { ok: false, error: "sourceMeter.numerator must be a positive integer" };
     }
     if (![1, 2, 4, 8, 16, 32].includes(denominator)) {
       return {
         ok: false,
-        error: 'sourceMeter.denominator must be 1, 2, 4, 8, 16, or 32',
+        error: "sourceMeter.denominator must be 1, 2, 4, 8, 16, or 32",
       };
     }
     sourceMeter = { numerator, denominator };
   }
 
   let defaultGate = editable.defaultGate;
-  if (hasOwn(record, 'defaultGate')) {
+  if (hasOwn(record, "defaultGate")) {
     const parsed = optionalFiniteNumber(
       record.defaultGate,
-      'defaultGate',
+      "defaultGate",
       (number) => number > 0,
-      'greater than zero',
+      "greater than zero",
     );
     if (!parsed.ok) return parsed;
     defaultGate = parsed.value;
   }
 
   let velocityCurve = editable.velocityCurve;
-  if (hasOwn(record, 'velocityCurve')) {
+  if (hasOwn(record, "velocityCurve")) {
     const rawCurve = record.velocityCurve;
     if (rawCurve === null || rawCurve === undefined) {
       velocityCurve = undefined;
     } else {
       const curve = isRecord(rawCurve) ? rawCurve : undefined;
-      if (!curve) return { ok: false, error: 'velocityCurve must be an object' };
+      if (!curve) return { ok: false, error: "velocityCurve must be an object" };
       const parsed: Record<string, number> = {};
-      for (const field of ['inputMin', 'inputMax', 'outputMin', 'outputMax'] as const) {
+      for (const field of ["inputMin", "inputMax", "outputMin", "outputMax"] as const) {
         const number = optionalFiniteNumber(curve[field], `velocityCurve.${field}`);
         if (!number.ok) return number;
         if (number.value !== undefined) parsed[field] = number.value;
       }
       const exponent = optionalFiniteNumber(
         curve.exponent,
-        'velocityCurve.exponent',
+        "velocityCurve.exponent",
         (number) => number > 0,
-        'greater than zero',
+        "greater than zero",
       );
       if (!exponent.ok) return exponent;
       if (exponent.value !== undefined) parsed.exponent = exponent.value;
@@ -188,18 +183,15 @@ export function applyMotifProperties(
     }
   }
 
-  const pitchConverted = pitchMode === editable.pitchMode
-    ? editable
-    : convertMotifPitchMode(editable, pitchMode, {
-        triggerPitch: context.triggerPitch,
-        rootNote: context.host.rootNote,
-        scaleIntervals: context.host.scaleIntervals,
-      });
-  const {
-    defaultGate: _defaultGate,
-    velocityCurve: _velocityCurve,
-    ...required
-  } = pitchConverted;
+  const pitchConverted =
+    pitchMode === editable.pitchMode
+      ? editable
+      : convertMotifPitchMode(editable, pitchMode, {
+          triggerPitch: context.triggerPitch,
+          rootNote: context.host.rootNote,
+          scaleIntervals: context.host.scaleIntervals,
+        });
+  const { defaultGate: _defaultGate, velocityCurve: _velocityCurve, ...required } = pitchConverted;
   const candidate: Motif = {
     ...required,
     name,
@@ -243,65 +235,65 @@ export function updateMotifNote(
   const next: MotifNote = { ...current };
   let statusValue: unknown = value;
 
-  if (field === 'legato' || field === 'tie') {
-    const enabled = value === true || value === 1 || value === '1' || value === 'true';
+  if (field === "legato" || field === "tie") {
+    const enabled = value === true || value === 1 || value === "1" || value === "true";
     if (enabled) next[field] = true;
     else delete next[field];
     statusValue = enabled;
   } else {
-    const optional = value === null || value === undefined || value === '';
+    const optional = value === null || value === undefined || value === "";
     const numeric = optional ? undefined : Number(value);
     if (numeric !== undefined && !Number.isFinite(numeric)) {
       return { ok: false, error: `Invalid ${field} value` };
     }
 
     switch (field) {
-      case 'pitch':
-        if (numeric === undefined) return { ok: false, error: 'pitch cannot be empty' };
+      case "pitch":
+        if (numeric === undefined) return { ok: false, error: "pitch cannot be empty" };
         next.pitch = Math.round(numeric);
         statusValue = next.pitch;
         break;
-      case 'accidental':
+      case "accidental":
         if (numeric === undefined || numeric === 0) delete next.accidental;
         else next.accidental = Math.round(numeric);
         statusValue = next.accidental ?? null;
         break;
-      case 'at':
+      case "at":
         if (numeric === undefined || numeric < 0) {
-          return { ok: false, error: 'at must be zero or greater' };
+          return { ok: false, error: "at must be zero or greater" };
         }
         next.at = Math.round(numeric);
         statusValue = next.at;
         break;
-      case 'duration':
+      case "duration":
         if (numeric === undefined || numeric <= 0) {
-          return { ok: false, error: 'duration must be greater than zero' };
+          return { ok: false, error: "duration must be greater than zero" };
         }
         next.duration = Math.round(numeric);
         statusValue = next.duration;
         break;
-      case 'gate':
+      case "gate":
         if (numeric === undefined) delete next.gate;
-        else if (numeric <= 0) return { ok: false, error: 'gate must be greater than zero' };
+        else if (numeric <= 0) return { ok: false, error: "gate must be greater than zero" };
         else next.gate = numeric;
         statusValue = next.gate ?? null;
         break;
-      case 'velocity':
+      case "velocity":
         if (numeric === undefined) delete next.velocity;
         else if (!Number.isInteger(numeric) || numeric < 1 || numeric > 127) {
-          return { ok: false, error: 'velocity must be an integer between 1 and 127' };
+          return { ok: false, error: "velocity must be an integer between 1 and 127" };
         } else next.velocity = numeric;
         statusValue = next.velocity ?? null;
         break;
-      case 'velocityOffset':
+      case "velocityOffset":
         if (numeric === undefined || numeric === 0) delete next.velocityOffset;
         else next.velocityOffset = numeric;
         statusValue = next.velocityOffset ?? null;
         break;
-      case 'velocityScale':
+      case "velocityScale":
         if (numeric === undefined) delete next.velocityScale;
         else if (numeric < 0) {
-          return { ok: false, error: 'velocityScale must be zero or greater' };
+          return { ok: false, error: "velocityScale must be zero or greater" };
         } else next.velocityScale = numeric;
         statusValue = next.velocityScale ?? null;
         break;
@@ -329,10 +321,7 @@ export function appendMotifNote(motif: Motif, limit: number): NoteMutationResult
   const lastDuration = motif.notes.at(-1)?.duration ?? 240;
   return {
     ok: true,
-    notes: [
-      ...motif.notes,
-      { pitch: 0, at: lastAt + lastDuration, duration: 240 },
-    ],
+    notes: [...motif.notes, { pitch: 0, at: lastAt + lastDuration, duration: 240 }],
     statusValue: null,
   };
 }

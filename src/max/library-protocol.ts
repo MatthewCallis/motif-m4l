@@ -1,7 +1,7 @@
-import type { HotkeyAction } from './hotkey-map.js';
+import type { HotkeyAction } from "./hotkey-map.js";
 
 /** Discriminator used by bounded Library state envelopes. */
-export const LIBRARY_STATE_CHUNK_KIND = 'state-chunk';
+export const LIBRARY_STATE_CHUNK_KIND = "state-chunk";
 /** Maximum URL-encoded state size sent to jweb as one Max atom. */
 export const MAX_INLINE_LIBRARY_STATE_CHARACTERS = 6_000;
 /** Encoded state characters carried by each bounded transport envelope. */

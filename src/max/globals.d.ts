@@ -76,7 +76,7 @@ declare class Task {
  * @see https://docs.cycling74.com/apiref/js/file/
  */
 declare class File {
-  constructor(filename?: string, access?: 'read' | 'write' | 'readwrite', typelist?: string[]);
+  constructor(filename?: string, access?: "read" | "write" | "readwrite", typelist?: string[]);
   readonly isopen: boolean;
   eof: number;
   readonly foldername: string;

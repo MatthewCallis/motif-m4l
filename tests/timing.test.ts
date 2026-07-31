@@ -1,32 +1,32 @@
-import assert from 'node:assert/strict';
-import { describe, it } from 'node:test';
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
 import {
   barLengthTicks,
   quantizationTicks,
   ticksToMilliseconds,
   ticksUntilNextBoundary,
-} from '../src/core/timing.js';
-import { PPQ } from '../src/core/types.js';
+} from "../src/core/timing.js";
+import { PPQ } from "../src/core/types.js";
 
-describe('timing utilities', () => {
-  it('computes bar length for common and compound meters', () => {
+describe("timing utilities", () => {
+  it("computes bar length for common and compound meters", () => {
     assert.equal(barLengthTicks({ numerator: 4, denominator: 4 }), PPQ * 4);
     assert.equal(barLengthTicks({ numerator: 6, denominator: 8 }), PPQ * 3);
   });
 
-  it('computes launch grids and next boundaries', () => {
+  it("computes launch grids and next boundaries", () => {
     const signature = { numerator: 4, denominator: 4 };
-    assert.equal(quantizationTicks('1/16', signature), 240);
-    assert.equal(quantizationTicks('bar', signature), 3840);
+    assert.equal(quantizationTicks("1/16", signature), 240);
+    assert.equal(quantizationTicks("bar", signature), 3840);
     assert.equal(ticksUntilNextBoundary(1000, 960), 920);
     assert.equal(ticksUntilNextBoundary(1920, 960), 0);
   });
 
-  it('covers every quantization and safely handles invalid timing inputs', () => {
+  it("covers every quantization and safely handles invalid timing inputs", () => {
     const signature = { numerator: 3, denominator: 4 };
-    assert.equal(quantizationTicks('1/8', signature), PPQ / 2);
-    assert.equal(quantizationTicks('1/4', signature), PPQ);
-    assert.equal(quantizationTicks('immediate', signature), 0);
+    assert.equal(quantizationTicks("1/8", signature), PPQ / 2);
+    assert.equal(quantizationTicks("1/4", signature), PPQ);
+    assert.equal(quantizationTicks("immediate", signature), 0);
     assert.equal(ticksToMilliseconds(PPQ, 60), 1000);
     assert.equal(ticksToMilliseconds(PPQ, 0), 500);
     assert.equal(ticksToMilliseconds(PPQ, Number.NaN), 500);

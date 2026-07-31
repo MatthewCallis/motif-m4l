@@ -13,7 +13,7 @@ import {
   type LibrarySelectedMotifData,
   type LibraryServerState,
   type LibraryStateChunk,
-} from './library-protocol.js';
+} from "./library-protocol.js";
 import {
   createStore,
   errorText,
@@ -21,21 +21,21 @@ import {
   isLibraryStateChunk,
   optionalNumberValue,
   toggleCollapsedFolder,
-} from './library-logic.js';
+} from "./library-logic.js";
 
-type PanelName = 'properties' | 'notes';
-type DebugLevel = 'info' | 'ok' | 'error';
+type PanelName = "properties" | "notes";
+type DebugLevel = "info" | "ok" | "error";
 type NoteFieldName =
-  | 'pitch'
-  | 'accidental'
-  | 'at'
-  | 'duration'
-  | 'gate'
-  | 'velocity'
-  | 'velocityOffset'
-  | 'velocityScale'
-  | 'legato'
-  | 'tie';
+  | "pitch"
+  | "accidental"
+  | "at"
+  | "duration"
+  | "gate"
+  | "velocity"
+  | "velocityOffset"
+  | "velocityScale"
+  | "legato"
+  | "tie";
 
 interface MaxBridge {
   outlet: (...args: unknown[]) => void;
@@ -51,7 +51,7 @@ declare global {
 
 interface NoteField {
   name: NoteFieldName;
-  type: 'number' | 'checkbox';
+  type: "number" | "checkbox";
   required?: boolean;
   min?: string;
   max?: string;
@@ -89,33 +89,33 @@ interface PendingStateTransfer {
 type ValueControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
 /** Diagnostic source label forwarded to the Max console. */
-const PAGE = 'library';
+const PAGE = "library";
 /** Editable note schema used to generate rows and coerce outgoing field values. */
 const NOTE_FIELDS: readonly NoteField[] = [
-  { name: 'pitch', type: 'number', required: true, step: '1' },
-  { name: 'accidental', type: 'number', step: '1' },
-  { name: 'at', type: 'number', required: true, min: '0', step: '1' },
-  { name: 'duration', type: 'number', required: true, min: '1', step: '1' },
-  { name: 'gate', type: 'number', min: '0.01', step: '0.01' },
-  { name: 'velocity', type: 'number', min: '1', max: '127', step: '1' },
-  { name: 'velocityOffset', type: 'number', step: '1' },
-  { name: 'velocityScale', type: 'number', min: '0', step: '0.01' },
-  { name: 'legato', type: 'checkbox' },
-  { name: 'tie', type: 'checkbox' },
+  { name: "pitch", type: "number", required: true, step: "1" },
+  { name: "accidental", type: "number", step: "1" },
+  { name: "at", type: "number", required: true, min: "0", step: "1" },
+  { name: "duration", type: "number", required: true, min: "1", step: "1" },
+  { name: "gate", type: "number", min: "0.01", step: "0.01" },
+  { name: "velocity", type: "number", min: "1", max: "127", step: "1" },
+  { name: "velocityOffset", type: "number", step: "1" },
+  { name: "velocityScale", type: "number", min: "0", step: "0.01" },
+  { name: "legato", type: "checkbox" },
+  { name: "tie", type: "checkbox" },
 ];
 /** Motif property controls that participate in dirty-state and edit-message handling. */
 const PROPERTY_INPUT_IDS = [
-  'name-edit',
-  'description-edit',
-  'pitch-mode-edit',
-  'default-gate-edit',
-  'meter-numerator-edit',
-  'meter-denominator-edit',
-  'curve-input-min',
-  'curve-input-max',
-  'curve-output-min',
-  'curve-output-max',
-  'curve-exponent',
+  "name-edit",
+  "description-edit",
+  "pitch-mode-edit",
+  "default-gate-edit",
+  "meter-numerator-edit",
+  "meter-denominator-edit",
+  "curve-input-min",
+  "curve-input-max",
+  "curve-output-min",
+  "curve-output-max",
+  "curve-exponent",
 ] as const;
 
 /**
@@ -131,12 +131,12 @@ function $<T extends HTMLElement>(id: string): T {
 
 const nativeMax = window.max;
 /** Whether the page is running inside Max's jweb bridge instead of a normal browser. */
-const isMax = nativeMax !== undefined && typeof nativeMax.outlet === 'function';
+const isMax = nativeMax !== undefined && typeof nativeMax.outlet === "function";
 const browserInlets = new Map<string, (...values: unknown[]) => void>();
 const maxBridge: MaxBridge = isMax
   ? nativeMax
   : {
-      outlet: (...args: unknown[]) => console.log('→ Max:', ...args),
+      outlet: (...args: unknown[]) => console.log("→ Max:", ...args),
       bindInlet: (name, handler) => browserInlets.set(name, handler),
     };
 window.max = maxBridge;
@@ -146,17 +146,17 @@ const store = createStore<LibraryPageState>({
   server: null,
   modal: null,
   formDirty: false,
-  activePanel: 'properties',
+  activePanel: "properties",
   collapsedFolders: new Set<string>(),
 });
 const debugEntries: string[] = [];
 let stateDeadline: ReturnType<typeof setTimeout> | null = null;
-let payloadErrorSignature = '';
+let payloadErrorSignature = "";
 let pendingStateTransfer: PendingStateTransfer | null = null;
 let latestStateTransferId = 0;
-const debugIndicator = $<HTMLSpanElement>('debug-indicator');
-const debugSummary = $<HTMLSpanElement>('debug-summary');
-const debugPanel = $<HTMLDivElement>('debug-panel');
+const debugIndicator = $<HTMLSpanElement>("debug-indicator");
+const debugSummary = $<HTMLSpanElement>("debug-summary");
+const debugPanel = $<HTMLDivElement>("debug-panel");
 
 /**
  * Record a local diagnostic and mirror it to Max when embedded.
@@ -168,20 +168,23 @@ function debug(level: DebugLevel, message: string): void {
   debugEntries.push(line);
   if (debugEntries.length > 80) debugEntries.shift();
   debugSummary.textContent = message;
-  debugIndicator.className = level === 'error' ? 'error' : level === 'ok' ? 'ok' : '';
-  debugPanel.classList.toggle('has-error', debugEntries.some((entry) => entry.includes('[error]')));
-  debugPanel.textContent = debugEntries.join('\n');
-  if (isMax) maxBridge.outlet('web_debug', PAGE, level, encodeURIComponent(message));
+  debugIndicator.className = level === "error" ? "error" : level === "ok" ? "ok" : "";
+  debugPanel.classList.toggle(
+    "has-error",
+    debugEntries.some((entry) => entry.includes("[error]")),
+  );
+  debugPanel.textContent = debugEntries.join("\n");
+  if (isMax) maxBridge.outlet("web_debug", PAGE, level, encodeURIComponent(message));
 }
 
-window.addEventListener('error', (event) => {
-  debug('error', `${event.message} @ ${event.filename}:${event.lineno}`);
+window.addEventListener("error", (event) => {
+  debug("error", `${event.message} @ ${event.filename}:${event.lineno}`);
 });
-window.addEventListener('unhandledrejection', (event) => {
-  debug('error', `Unhandled promise: ${errorText(event.reason)}`);
+window.addEventListener("unhandledrejection", (event) => {
+  debug("error", `Unhandled promise: ${errorText(event.reason)}`);
 });
-$<HTMLButtonElement>('debug-toggle').addEventListener('click', () => {
-  debugPanel.classList.toggle('open');
+$<HTMLButtonElement>("debug-toggle").addEventListener("click", () => {
+  debugPanel.classList.toggle("open");
 });
 
 /**
@@ -190,10 +193,10 @@ $<HTMLButtonElement>('debug-toggle').addEventListener('click', () => {
  */
 function send(action: LibraryAction): void {
   try {
-    maxBridge.outlet('lib_action', encodeURIComponent(JSON.stringify(action)));
-    debug('info', `Action: ${action.type}`);
+    maxBridge.outlet("lib_action", encodeURIComponent(JSON.stringify(action)));
+    debug("info", `Action: ${action.type}`);
   } catch (reason) {
-    debug('error', `Action failed: ${errorText(reason)}`);
+    debug("error", `Action failed: ${errorText(reason)}`);
   }
 }
 
@@ -226,16 +229,16 @@ function closeModal(): void {
  */
 function confirmDiscard(
   onConfirm: () => void,
-  message = 'Discard the unsaved changes to this motif?',
+  message = "Discard the unsaved changes to this motif?",
 ): void {
   if (!hasUnsavedChanges()) {
     onConfirm();
     return;
   }
   openModal({
-    title: 'Discard unsaved changes?',
+    title: "Discard unsaved changes?",
     message,
-    confirmLabel: 'Discard',
+    confirmLabel: "Discard",
     onConfirm,
   });
 }
@@ -245,16 +248,16 @@ function confirmDiscard(
  * @param {ModalState | null} modal Modal state.
  */
 function renderModal(modal: ModalState | null): void {
-  const backdrop = $<HTMLDivElement>('modal-backdrop');
+  const backdrop = $<HTMLDivElement>("modal-backdrop");
   if (!modal) {
-    backdrop.classList.add('hidden');
+    backdrop.classList.add("hidden");
     return;
   }
-  backdrop.classList.remove('hidden');
-  $<HTMLDivElement>('modal-title').textContent = modal.title;
-  $<HTMLDivElement>('modal-message').textContent = modal.message;
-  $<HTMLButtonElement>('modal-confirm').textContent = modal.confirmLabel ?? 'Continue';
-  $<HTMLButtonElement>('modal-cancel').classList.toggle('hidden', Boolean(modal.dismissOnly));
+  backdrop.classList.remove("hidden");
+  $<HTMLDivElement>("modal-title").textContent = modal.title;
+  $<HTMLDivElement>("modal-message").textContent = modal.message;
+  $<HTMLButtonElement>("modal-confirm").textContent = modal.confirmLabel ?? "Continue";
+  $<HTMLButtonElement>("modal-cancel").classList.toggle("hidden", Boolean(modal.dismissOnly));
 }
 
 /**
@@ -262,12 +265,12 @@ function renderModal(modal: ModalState | null): void {
  * @param {LibraryServerState | null} server Current device state.
  */
 function renderBrowser(server: LibraryServerState | null): void {
-  const list = $<HTMLDivElement>('browser-list');
-  list.innerHTML = '';
+  const list = $<HTMLDivElement>("browser-list");
+  list.innerHTML = "";
   if (!server || server.items.length === 0) {
-    const empty = document.createElement('div');
-    empty.id = 'empty-list';
-    empty.textContent = server?.query ? 'No matching motifs' : 'No motifs found';
+    const empty = document.createElement("div");
+    empty.id = "empty-list";
+    empty.textContent = server?.query ? "No matching motifs" : "No motifs found";
     list.append(empty);
     return;
   }
@@ -276,56 +279,55 @@ function renderBrowser(server: LibraryServerState | null): void {
   let folderCollapsed = false;
   const collapsedFolders = store.getState().collapsedFolders;
   for (const item of server.items) {
-    const folder = item.folder || 'Library';
+    const folder = item.folder || "Library";
     if (folder !== currentFolder) {
       currentFolder = folder;
       folderCollapsed = isFolderCollapsed(folder, server.query, collapsedFolders);
-      const heading = document.createElement('button');
-      heading.type = 'button';
-      heading.className = 'browser-folder';
-      heading.textContent = `${folderCollapsed ? '▸' : '▾'} ${folder}`;
-      heading.setAttribute('aria-expanded', String(!folderCollapsed));
-      heading.title = `${folderCollapsed ? 'Expand' : 'Collapse'} ${folder}`;
-      heading.addEventListener('click', () => {
+      const heading = document.createElement("button");
+      heading.type = "button";
+      heading.className = "browser-folder";
+      heading.textContent = `${folderCollapsed ? "▸" : "▾"} ${folder}`;
+      heading.setAttribute("aria-expanded", String(!folderCollapsed));
+      heading.title = `${folderCollapsed ? "Expand" : "Collapse"} ${folder}`;
+      heading.addEventListener("click", () => {
         store.setState({
-          collapsedFolders: toggleCollapsedFolder(
-            folder,
-            store.getState().collapsedFolders,
-          ),
+          collapsedFolders: toggleCollapsedFolder(folder, store.getState().collapsedFolders),
         });
       });
       list.append(heading);
     }
     if (folderCollapsed) continue;
 
-    const row = document.createElement('div');
-    row.className = `browser-item${server.selected?.id === item.id ? ' selected' : ''}`;
-    const name = document.createElement('div');
-    name.className = 'browser-name';
+    const row = document.createElement("div");
+    row.className = `browser-item${server.selected?.id === item.id ? " selected" : ""}`;
+    const name = document.createElement("div");
+    name.className = "browser-name";
     name.textContent = item.name;
     row.append(name);
     if (item.hotkeys.length > 0) {
-      const badge = document.createElement('div');
-      badge.className = 'hotkey-badge';
+      const badge = document.createElement("div");
+      badge.className = "hotkey-badge";
       badge.textContent = item.hotkeys
-        .map((mapping) => `${mapping.label} ${mapping.action === 'select' ? '↦' : '▶'}`)
-        .join(' ');
+        .map((mapping) => `${mapping.label} ${mapping.action === "select" ? "↦" : "▶"}`)
+        .join(" ");
       row.append(badge);
     }
     if (item.showId) {
-      const id = document.createElement('div');
-      id.className = 'browser-id';
+      const id = document.createElement("div");
+      id.className = "browser-id";
       id.textContent = item.id;
       row.append(id);
     }
     row.title = item.showId ? `${item.name}\nID: ${item.id}` : item.name;
-    row.addEventListener('click', () => {
+    row.addEventListener("click", () => {
       if (server.selected?.id === item.id) return;
-      confirmDiscard(() => send({
-        type: 'select_browser',
-        id: item.id,
-        discardChanges: true,
-      }));
+      confirmDiscard(() =>
+        send({
+          type: "select_browser",
+          id: item.id,
+          discardChanges: true,
+        }),
+      );
     });
     list.append(row);
   }
@@ -336,32 +338,32 @@ function renderBrowser(server: LibraryServerState | null): void {
  * @param {LibrarySelectedMotifData | null} selected Selected motif.
  */
 function renderHotkeys(selected: LibrarySelectedMotifData | null): void {
-  const input = $<HTMLInputElement>('hotkey-input');
-  const action = $<HTMLSelectElement>('hotkey-action');
-  const assign = $<HTMLButtonElement>('assign-hotkey-btn');
-  const list = $<HTMLDivElement>('hotkey-list');
+  const input = $<HTMLInputElement>("hotkey-input");
+  const action = $<HTMLSelectElement>("hotkey-action");
+  const assign = $<HTMLButtonElement>("assign-hotkey-btn");
+  const list = $<HTMLDivElement>("hotkey-list");
   const mappings = selected?.hotkeys ?? [];
   input.disabled = !selected;
   action.disabled = !selected;
   assign.disabled = !selected;
-  list.innerHTML = '';
+  list.innerHTML = "";
   if (!selected) return;
   if (mappings.length === 0) {
-    const empty = document.createElement('span');
-    empty.className = 'help';
-    empty.textContent = 'None';
+    const empty = document.createElement("span");
+    empty.className = "help";
+    empty.textContent = "None";
     list.append(empty);
     return;
   }
 
   for (const mapping of mappings) {
-    const chip = document.createElement('button');
-    chip.className = 'hotkey-chip';
-    const actionLabel = mapping.action === 'select' ? 'Select' : 'Trigger';
+    const chip = document.createElement("button");
+    chip.className = "hotkey-chip";
+    const actionLabel = mapping.action === "select" ? "Select" : "Trigger";
     chip.title = `Remove ${mapping.label} · ${actionLabel}`;
     chip.textContent = `${mapping.label} · ${actionLabel}  ×`;
-    chip.addEventListener('click', () => {
-      send({ type: 'unmap_trigger', pitch: mapping.pitch });
+    chip.addEventListener("click", () => {
+      send({ type: "unmap_trigger", pitch: mapping.pitch });
     });
     list.append(chip);
   }
@@ -374,26 +376,26 @@ function renderHotkeys(selected: LibrarySelectedMotifData | null): void {
  */
 function renderNoteRows(server: LibraryServerState | null, editing: boolean): void {
   const notes = server?.selected?.notes ?? [];
-  const container = $<HTMLDivElement>('note-rows');
-  container.innerHTML = '';
+  const container = $<HTMLDivElement>("note-rows");
+  container.innerHTML = "";
   notes.forEach((note, index) => {
-    const row = document.createElement('div');
-    row.className = 'note-row';
-    const label = document.createElement('span');
+    const row = document.createElement("div");
+    row.className = "note-row";
+    const label = document.createElement("span");
     label.textContent = String(index + 1);
     row.append(label);
 
     for (const field of NOTE_FIELDS) {
-      if (field.type === 'checkbox') {
-        const cell = document.createElement('label');
-        cell.className = 'check-cell';
-        const input = document.createElement('input');
-        input.type = 'checkbox';
+      if (field.type === "checkbox") {
+        const cell = document.createElement("label");
+        cell.className = "check-cell";
+        const input = document.createElement("input");
+        input.type = "checkbox";
         input.checked = Boolean(note[field.name]);
         input.disabled = !editing;
-        input.addEventListener('change', () => {
+        input.addEventListener("change", () => {
           send({
-            type: 'edit_note_at',
+            type: "edit_note_at",
             index,
             field: field.name,
             value: input.checked,
@@ -404,28 +406,28 @@ function renderNoteRows(server: LibraryServerState | null, editing: boolean): vo
         continue;
       }
 
-      const input = document.createElement('input');
-      input.type = 'number';
+      const input = document.createElement("input");
+      input.type = "number";
       const fieldValue = note[field.name];
-      input.value = fieldValue == null ? '' : String(fieldValue);
+      input.value = fieldValue == null ? "" : String(fieldValue);
       input.disabled = !editing;
       if (field.min !== undefined) input.min = field.min;
       if (field.max !== undefined) input.max = field.max;
       if (field.step !== undefined) input.step = field.step;
-      input.addEventListener('change', () => {
-        const value = input.value === '' ? null : Number(input.value);
+      input.addEventListener("change", () => {
+        const value = input.value === "" ? null : Number(input.value);
         if (value !== null && !Number.isFinite(value)) return;
-        send({ type: 'edit_note_at', index, field: field.name, value });
+        send({ type: "edit_note_at", index, field: field.name, value });
       });
       row.append(input);
     }
 
-    const remove = document.createElement('button');
-    remove.className = 'remove-btn';
-    remove.textContent = '✕';
-    remove.title = 'Remove note';
+    const remove = document.createElement("button");
+    remove.className = "remove-btn";
+    remove.textContent = "✕";
+    remove.title = "Remove note";
     remove.disabled = !server?.selected?.canRemoveNote;
-    remove.addEventListener('click', () => send({ type: 'remove_note', index }));
+    remove.addEventListener("click", () => send({ type: "remove_note", index }));
     row.append(remove);
     container.append(row);
   });
@@ -442,12 +444,12 @@ function setValue(id: string, value: unknown, editing: boolean): void {
   if (document.activeElement === input && editing) {
     return;
   }
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     input.value = value;
-  } else if (typeof value === 'number' || typeof value === 'boolean') {
+  } else if (typeof value === "number" || typeof value === "boolean") {
     input.value = String(value);
   } else {
-    input.value = '';
+    input.value = "";
   }
 }
 
@@ -459,7 +461,7 @@ function setEditable(editing: boolean): void {
   for (const id of PROPERTY_INPUT_IDS) {
     const input = $<ValueControl>(id);
     if (input instanceof HTMLInputElement || input instanceof HTMLTextAreaElement) {
-      if (id === 'name-edit' || id === 'description-edit') {
+      if (id === "name-edit" || id === "description-edit") {
         input.readOnly = !editing;
         continue;
       }
@@ -475,18 +477,18 @@ function setEditable(editing: boolean): void {
  */
 function renderProperties(selected: LibrarySelectedMotifData | null, editing: boolean): void {
   const curve = selected?.velocityCurve;
-  setValue('id-display', selected?.id ?? '', false);
-  setValue('schema-display', selected ? `v${selected.schemaVersion}` : '', false);
-  setValue('length-display', selected ? `${selected.length} ticks` : '', false);
-  setValue('pitch-mode-edit', selected?.pitchMode ?? 'scale', editing);
-  setValue('default-gate-edit', selected?.defaultGate, editing);
-  setValue('meter-numerator-edit', selected?.sourceMeter.numerator ?? '', editing);
-  setValue('meter-denominator-edit', selected?.sourceMeter.denominator ?? 4, editing);
-  setValue('curve-input-min', curve?.inputMin, editing);
-  setValue('curve-input-max', curve?.inputMax, editing);
-  setValue('curve-output-min', curve?.outputMin, editing);
-  setValue('curve-output-max', curve?.outputMax, editing);
-  setValue('curve-exponent', curve?.exponent, editing);
+  setValue("id-display", selected?.id ?? "", false);
+  setValue("schema-display", selected ? `v${selected.schemaVersion}` : "", false);
+  setValue("length-display", selected ? `${selected.length} ticks` : "", false);
+  setValue("pitch-mode-edit", selected?.pitchMode ?? "scale", editing);
+  setValue("default-gate-edit", selected?.defaultGate, editing);
+  setValue("meter-numerator-edit", selected?.sourceMeter.numerator ?? "", editing);
+  setValue("meter-denominator-edit", selected?.sourceMeter.denominator ?? 4, editing);
+  setValue("curve-input-min", curve?.inputMin, editing);
+  setValue("curve-input-max", curve?.inputMax, editing);
+  setValue("curve-output-min", curve?.outputMin, editing);
+  setValue("curve-output-max", curve?.outputMax, editing);
+  setValue("curve-exponent", curve?.exponent, editing);
 }
 
 /**
@@ -497,21 +499,21 @@ function renderProperties(selected: LibrarySelectedMotifData | null, editing: bo
 function renderDetail(server: LibraryServerState | null, local: LibraryPageState): void {
   const selected = server?.selected ?? null;
   const editing = Boolean(server?.actions.editing);
-  const edit = $<HTMLButtonElement>('edit-btn');
-  const cancel = $<HTMLButtonElement>('cancel-edit-btn');
-  const save = $<HTMLButtonElement>('save-motif-btn');
-  const add = $<HTMLButtonElement>('add-note-btn');
-  $<HTMLButtonElement>('import-clip-btn').disabled = !server?.actions.canImportClip;
+  const edit = $<HTMLButtonElement>("edit-btn");
+  const cancel = $<HTMLButtonElement>("cancel-edit-btn");
+  const save = $<HTMLButtonElement>("save-motif-btn");
+  const add = $<HTMLButtonElement>("add-note-btn");
+  $<HTMLButtonElement>("import-clip-btn").disabled = !server?.actions.canImportClip;
 
   if (!selected || !server) {
-    setValue('name-edit', '', false);
-    setValue('description-edit', '', false);
+    setValue("name-edit", "", false);
+    setValue("description-edit", "", false);
     setEditable(false);
     renderProperties(null, false);
-    $<HTMLDivElement>('stats-line').textContent = '–';
-    $<HTMLDivElement>('edit-state').textContent = '';
+    $<HTMLDivElement>("stats-line").textContent = "–";
+    $<HTMLDivElement>("edit-state").textContent = "";
     edit.disabled = true;
-    cancel.classList.add('hidden');
+    cancel.classList.add("hidden");
     save.disabled = true;
     add.disabled = true;
     renderNoteRows(server, false);
@@ -519,24 +521,24 @@ function renderDetail(server: LibraryServerState | null, local: LibraryPageState
     return;
   }
 
-  setValue('name-edit', selected.name, editing);
-  setValue('description-edit', selected.description, editing);
+  setValue("name-edit", selected.name, editing);
+  setValue("description-edit", selected.description, editing);
   setEditable(editing);
   renderProperties(selected, editing);
-  $<HTMLDivElement>('stats-line').textContent = selected.stats;
-  $<HTMLDivElement>('edit-state').textContent = editing
-    ? `${server.editing.dirty || local.formDirty ? 'Unsaved changes' : 'Editing'} · ${selected.id}`
+  $<HTMLDivElement>("stats-line").textContent = selected.stats;
+  $<HTMLDivElement>("edit-state").textContent = editing
+    ? `${server.editing.dirty || local.formDirty ? "Unsaved changes" : "Editing"} · ${selected.id}`
     : selected.isBuiltin
-      ? 'Built-in · Edit creates a user copy'
-      : `${selected.isPersisted ? 'Saved' : 'Not yet saved'} · ${selected.id}`;
-  edit.classList.toggle('hidden', editing);
+      ? "Built-in · Edit creates a user copy"
+      : `${selected.isPersisted ? "Saved" : "Not yet saved"} · ${selected.id}`;
+  edit.classList.toggle("hidden", editing);
   edit.disabled = !server.actions.canEdit;
-  cancel.classList.toggle('hidden', !editing);
+  cancel.classList.toggle("hidden", !editing);
   cancel.disabled = false;
   save.disabled = !server.actions.canSave;
   save.title = server.libraryLoaded
-    ? 'Save changes and exit editing'
-    : 'Choose a valid library folder before saving';
+    ? "Save changes and exit editing"
+    : "Choose a valid library folder before saving";
   add.disabled = !selected.canAddNote;
   renderNoteRows(server, editing);
   renderHotkeys(selected);
@@ -547,16 +549,10 @@ function renderDetail(server: LibraryServerState | null, local: LibraryPageState
  * @param {PanelName} activePanel Panel selected by the user.
  */
 function renderPanels(activePanel: PanelName): void {
-  $<HTMLDivElement>('properties-panel').classList.toggle(
-    'hidden',
-    activePanel !== 'properties',
-  );
-  $<HTMLDivElement>('notes-panel').classList.toggle(
-    'hidden',
-    activePanel !== 'notes',
-  );
-  document.querySelectorAll<HTMLButtonElement>('.panel-tab').forEach((tab) => {
-    tab.classList.toggle('active', tab.dataset['panel'] === activePanel);
+  $<HTMLDivElement>("properties-panel").classList.toggle("hidden", activePanel !== "properties");
+  $<HTMLDivElement>("notes-panel").classList.toggle("hidden", activePanel !== "notes");
+  document.querySelectorAll<HTMLButtonElement>(".panel-tab").forEach((tab) => {
+    tab.classList.toggle("active", tab.dataset["panel"] === activePanel);
   });
 }
 
@@ -570,16 +566,16 @@ function render(state: LibraryPageState): void {
   renderDetail(server, state);
   renderModal(state.modal);
   renderPanels(state.activePanel);
-  const search = $<HTMLInputElement>('search');
+  const search = $<HTMLInputElement>("search");
   if (server && document.activeElement !== search) search.value = server.query;
-  const libraryPath = $<HTMLDivElement>('library-path');
+  const libraryPath = $<HTMLDivElement>("library-path");
   libraryPath.textContent = server?.libraryPath
-    ? `${server.libraryScanning ? 'Scanning · ' : server.libraryLoaded ? '' : 'Unavailable · '}${server.libraryPath}`
-    : 'Built-ins only';
-  libraryPath.title = server?.libraryPath || 'No user library selected';
-  const refresh = $<HTMLButtonElement>('refresh-btn');
+    ? `${server.libraryScanning ? "Scanning · " : server.libraryLoaded ? "" : "Unavailable · "}${server.libraryPath}`
+    : "Built-ins only";
+  libraryPath.title = server?.libraryPath || "No user library selected";
+  const refresh = $<HTMLButtonElement>("refresh-btn");
   refresh.disabled = !server?.actions.canRefreshLibrary;
-  refresh.textContent = server?.libraryScanning ? 'Scanning...' : 'Refresh';
+  refresh.textContent = server?.libraryScanning ? "Scanning..." : "Refresh";
 }
 
 /**
@@ -588,20 +584,20 @@ function render(state: LibraryPageState): void {
  */
 function readProperties(): Record<string, unknown> {
   return {
-    name: $<HTMLInputElement>('name-edit').value,
-    description: $<HTMLTextAreaElement>('description-edit').value,
-    pitchMode: $<HTMLSelectElement>('pitch-mode-edit').value,
+    name: $<HTMLInputElement>("name-edit").value,
+    description: $<HTMLTextAreaElement>("description-edit").value,
+    pitchMode: $<HTMLSelectElement>("pitch-mode-edit").value,
     sourceMeter: {
-      numerator: Number($<HTMLInputElement>('meter-numerator-edit').value),
-      denominator: Number($<HTMLSelectElement>('meter-denominator-edit').value),
+      numerator: Number($<HTMLInputElement>("meter-numerator-edit").value),
+      denominator: Number($<HTMLSelectElement>("meter-denominator-edit").value),
     },
-    defaultGate: optionalNumberValue($<HTMLInputElement>('default-gate-edit').value),
+    defaultGate: optionalNumberValue($<HTMLInputElement>("default-gate-edit").value),
     velocityCurve: {
-      inputMin: optionalNumberValue($<HTMLInputElement>('curve-input-min').value),
-      inputMax: optionalNumberValue($<HTMLInputElement>('curve-input-max').value),
-      outputMin: optionalNumberValue($<HTMLInputElement>('curve-output-min').value),
-      outputMax: optionalNumberValue($<HTMLInputElement>('curve-output-max').value),
-      exponent: optionalNumberValue($<HTMLInputElement>('curve-exponent').value),
+      inputMin: optionalNumberValue($<HTMLInputElement>("curve-input-min").value),
+      inputMax: optionalNumberValue($<HTMLInputElement>("curve-input-max").value),
+      outputMin: optionalNumberValue($<HTMLInputElement>("curve-output-min").value),
+      outputMax: optionalNumberValue($<HTMLInputElement>("curve-output-max").value),
+      exponent: optionalNumberValue($<HTMLInputElement>("curve-exponent").value),
     },
   };
 }
@@ -609,7 +605,7 @@ function readProperties(): Record<string, unknown> {
 /** Submit property changes when an edit session is active. */
 function pushProperties(): void {
   if (!store.getState().server?.actions.editing) return;
-  send({ type: 'edit_motif', properties: readProperties() });
+  send({ type: "edit_motif", properties: readProperties() });
 }
 
 /**
@@ -629,18 +625,18 @@ function applyServerState(server: LibraryServerState): void {
     openModal({
       title: server.alert.title,
       message: server.alert.message,
-      confirmLabel: 'OK',
+      confirmLabel: "OK",
       dismissOnly: true,
     });
   }
-  payloadErrorSignature = '';
+  payloadErrorSignature = "";
   if (stateDeadline !== null) {
     clearTimeout(stateDeadline);
     stateDeadline = null;
   }
   debug(
-    'ok',
-    `State: ${server.items.length} motifs${server.libraryPath ? ` · ${server.libraryPath}` : ''}`,
+    "ok",
+    `State: ${server.items.length} motifs${server.libraryPath ? ` · ${server.libraryPath}` : ""}`,
   );
 }
 
@@ -653,16 +649,17 @@ function receiveStateChunk(payload: LibraryStateChunk): void {
   const index = Number(payload.index);
   const total = Number(payload.total);
   if (
-    !Number.isInteger(transferId)
-    || transferId < latestStateTransferId
-    || !Number.isInteger(index)
-    || !Number.isInteger(total)
-    || index < 0
-    || index >= total
-    || total < 1
-    || total > MAX_LIBRARY_STATE_CHUNKS
-    || typeof payload.data !== 'string'
-  ) return;
+    !Number.isInteger(transferId) ||
+    transferId < latestStateTransferId ||
+    !Number.isInteger(index) ||
+    !Number.isInteger(total) ||
+    index < 0 ||
+    index >= total ||
+    total < 1 ||
+    total > MAX_LIBRARY_STATE_CHUNKS ||
+    typeof payload.data !== "string"
+  )
+    return;
 
   if (!pendingStateTransfer || pendingStateTransfer.id !== transferId) {
     if (pendingStateTransfer && transferId < pendingStateTransfer.id) return;
@@ -679,12 +676,10 @@ function receiveStateChunk(payload: LibraryStateChunk): void {
   pendingStateTransfer.received.add(index);
   if (pendingStateTransfer.received.size !== total) return;
 
-  const encodedState = pendingStateTransfer.parts.join('');
+  const encodedState = pendingStateTransfer.parts.join("");
   latestStateTransferId = transferId;
   pendingStateTransfer = null;
-  applyServerState(
-    JSON.parse(decodeURIComponent(encodedState)) as LibraryServerState,
-  );
+  applyServerState(JSON.parse(decodeURIComponent(encodedState)) as LibraryServerState);
 }
 
 /**
@@ -697,7 +692,7 @@ function receiveData(...values: unknown[]): void {
     const payload = JSON.parse(decodeURIComponent(String(encoded))) as unknown;
     if (isLibraryStateChunk(payload)) {
       receiveStateChunk(payload);
-      payloadErrorSignature = '';
+      payloadErrorSignature = "";
       return;
     }
     pendingStateTransfer = null;
@@ -706,208 +701,216 @@ function receiveData(...values: unknown[]): void {
     const detail = errorText(reason);
     if (detail === payloadErrorSignature) return;
     payloadErrorSignature = detail;
-    debug('error', `Library data could not be displayed: ${detail}`);
+    debug("error", `Library data could not be displayed: ${detail}`);
   }
 }
 
 store.subscribe(render);
 render(store.getState());
 
-document.querySelectorAll<HTMLButtonElement>('.panel-tab').forEach((tab) => {
-  tab.addEventListener('click', () => {
-    const panel = tab.dataset['panel'];
-    if (panel === 'properties' || panel === 'notes') {
+document.querySelectorAll<HTMLButtonElement>(".panel-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    const panel = tab.dataset["panel"];
+    if (panel === "properties" || panel === "notes") {
       store.setState({ activePanel: panel });
     }
   });
 });
-const searchInput = $<HTMLInputElement>('search');
-searchInput.addEventListener('input', () => {
-  send({ type: 'filter_motifs', query: searchInput.value });
+const searchInput = $<HTMLInputElement>("search");
+searchInput.addEventListener("input", () => {
+  send({ type: "filter_motifs", query: searchInput.value });
 });
-$<HTMLButtonElement>('clear-search').addEventListener('click', () => {
-  send({ type: 'filter_motifs', query: '' });
+$<HTMLButtonElement>("clear-search").addEventListener("click", () => {
+  send({ type: "filter_motifs", query: "" });
 });
-$<HTMLButtonElement>('choose-btn').addEventListener('click', () => {
+$<HTMLButtonElement>("choose-btn").addEventListener("click", () => {
   confirmDiscard(() => {
-    if (store.getState().server?.editing.active) send({ type: 'cancel_edit' });
-    maxBridge.outlet('choose_library');
-  }, 'Discard the current edits and choose another library folder?');
+    if (store.getState().server?.editing.active) send({ type: "cancel_edit" });
+    maxBridge.outlet("choose_library");
+  }, "Discard the current edits and choose another library folder?");
 });
-$<HTMLButtonElement>('refresh-btn').addEventListener('click', () => {
+$<HTMLButtonElement>("refresh-btn").addEventListener("click", () => {
   confirmDiscard(
-    () => send({ type: 'refresh_library', discardChanges: true }),
-    'Discard the current edits and reload the library folder?',
+    () => send({ type: "refresh_library", discardChanges: true }),
+    "Discard the current edits and reload the library folder?",
   );
 });
-$<HTMLButtonElement>('edit-btn').addEventListener('click', () => {
-  send({ type: 'begin_edit' });
+$<HTMLButtonElement>("edit-btn").addEventListener("click", () => {
+  send({ type: "begin_edit" });
 });
-$<HTMLButtonElement>('cancel-edit-btn').addEventListener('click', () => {
-  confirmDiscard(() => send({ type: 'cancel_edit' }));
+$<HTMLButtonElement>("cancel-edit-btn").addEventListener("click", () => {
+  confirmDiscard(() => send({ type: "cancel_edit" }));
 });
-$<HTMLButtonElement>('import-clip-btn').addEventListener('click', () => {
+$<HTMLButtonElement>("import-clip-btn").addEventListener("click", () => {
   confirmDiscard(
-    () => send({
-      type: 'import_clip',
-      pitchMode: $<HTMLSelectElement>('import-mode').value,
-    }),
-    'Discard the current edits and import the selected Live clip?',
+    () =>
+      send({
+        type: "import_clip",
+        pitchMode: $<HTMLSelectElement>("import-mode").value,
+      }),
+    "Discard the current edits and import the selected Live clip?",
   );
 });
-$<HTMLButtonElement>('save-motif-btn').addEventListener('click', () => {
-  send({ type: 'save_motif', properties: readProperties() });
+$<HTMLButtonElement>("save-motif-btn").addEventListener("click", () => {
+  send({ type: "save_motif", properties: readProperties() });
 });
-$<HTMLButtonElement>('add-note-btn').addEventListener('click', () => {
-  send({ type: 'add_note' });
+$<HTMLButtonElement>("add-note-btn").addEventListener("click", () => {
+  send({ type: "add_note" });
 });
-$<HTMLButtonElement>('assign-hotkey-btn').addEventListener('click', () => {
+$<HTMLButtonElement>("assign-hotkey-btn").addEventListener("click", () => {
   const selected = store.getState().server?.selected;
   if (!selected) return;
   send({
-    type: 'map_trigger',
-    pitch: $<HTMLInputElement>('hotkey-input').value,
+    type: "map_trigger",
+    pitch: $<HTMLInputElement>("hotkey-input").value,
     motifId: selected.id,
-    action: $<HTMLSelectElement>('hotkey-action').value,
+    action: $<HTMLSelectElement>("hotkey-action").value,
   });
 });
-$<HTMLInputElement>('hotkey-input').addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') {
+$<HTMLInputElement>("hotkey-input").addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
     event.preventDefault();
-    $<HTMLButtonElement>('assign-hotkey-btn').click();
+    $<HTMLButtonElement>("assign-hotkey-btn").click();
   }
 });
 
 /** Attach event listeners to property input elements. */
 for (const id of PROPERTY_INPUT_IDS) {
   const input = $<ValueControl>(id);
-  input.addEventListener('input', () => store.setState({ formDirty: true }));
-  input.addEventListener('change', pushProperties);
-  if (input.tagName === 'TEXTAREA' || input instanceof HTMLInputElement && input.type === 'text') {
-    input.addEventListener('blur', pushProperties);
+  input.addEventListener("input", () => store.setState({ formDirty: true }));
+  input.addEventListener("change", pushProperties);
+  if (
+    input.tagName === "TEXTAREA" ||
+    (input instanceof HTMLInputElement && input.type === "text")
+  ) {
+    input.addEventListener("blur", pushProperties);
   }
 }
 
-$<HTMLButtonElement>('modal-cancel').addEventListener('click', closeModal);
-$<HTMLDivElement>('modal-backdrop').addEventListener('click', (event) => {
+$<HTMLButtonElement>("modal-cancel").addEventListener("click", closeModal);
+$<HTMLDivElement>("modal-backdrop").addEventListener("click", (event) => {
   if (event.target === event.currentTarget) {
     closeModal();
   }
 });
-$<HTMLButtonElement>('modal-confirm').addEventListener('click', () => {
+$<HTMLButtonElement>("modal-confirm").addEventListener("click", () => {
   const modal = store.getState().modal;
   closeModal();
   modal?.onConfirm?.();
 });
-document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && store.getState().modal) {
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && store.getState().modal) {
     closeModal();
   }
 });
 
 if (isMax) {
-  if (typeof maxBridge.bindInlet !== 'function') {
-    debug('error', 'Max jweb bridge is missing bindInlet');
+  if (typeof maxBridge.bindInlet !== "function") {
+    debug("error", "Max jweb bridge is missing bindInlet");
   } else {
-    maxBridge.bindInlet('receiveData', receiveData);
-    debug('info', `Bridge ready; waiting for library state (${location.href})`);
-    maxBridge.outlet('library_ready');
+    maxBridge.bindInlet("receiveData", receiveData);
+    debug("info", `Bridge ready; waiting for library state (${location.href})`);
+    maxBridge.outlet("library_ready");
     stateDeadline = setTimeout(() => {
       if (!store.getState().server) {
-        debug('error', 'No library state received within 2 seconds');
+        debug("error", "No library state received within 2 seconds");
       }
     }, 2_000);
   }
 } else {
-  receiveData(encodeURIComponent(JSON.stringify({
-    query: '',
-    libraryPath: '/Users/example/Motifs',
-    libraryLoaded: true,
-    libraryScanning: false,
-    scanProgress: null,
-    editing: {
-      active: false,
-      dirty: false,
-      created: false,
-      sourceId: null,
-      targetId: null,
-    },
-    actions: {
-      editing: false,
-      canEdit: true,
-      canSave: false,
-      canImportClip: true,
-      canRefreshLibrary: true,
-    },
-    items: [
-      {
-        id: 'chromatic-turn',
-        name: 'Chromatic Turn',
-        showId: false,
-        folder: 'Library',
-        hotkeys: [],
-      },
-      {
-        id: 'scale-turn',
-        name: 'Scale Turn',
-        showId: false,
-        folder: 'Library',
-        hotkeys: [],
-      },
-    ],
-    selectedIndex: 0,
-    selected: {
-      schemaVersion: 1,
-      id: 'chromatic-turn',
-      name: 'Chromatic Turn',
-      description: 'Fixed-interval phrase that ignores the selected scale.',
-      pitchMode: 'chromatic',
-      sourceMeter: { numerator: 4, denominator: 4 },
-      length: 3360,
-      defaultGate: 0.82,
-      velocityCurve: {
-        inputMin: null,
-        inputMax: null,
-        outputMin: null,
-        outputMax: null,
-        exponent: null,
-      },
-      stats: '7 notes • 0.88 bars • 4/4 source • chromatic',
-      isBuiltin: true,
-      isPersisted: false,
-      folder: 'Built-ins',
-      hotkeys: [],
-      noteCount: 2,
-      noteLimit: 512,
-      canAddNote: false,
-      canRemoveNote: false,
-      notes: [
-        {
-          pitch: 0,
-          accidental: null,
-          at: 0,
-          duration: 480,
-          gate: null,
-          velocity: null,
-          velocityOffset: null,
-          velocityScale: null,
-          legato: false,
-          tie: false,
+  receiveData(
+    encodeURIComponent(
+      JSON.stringify({
+        query: "",
+        libraryPath: "/Users/example/Motifs",
+        libraryLoaded: true,
+        libraryScanning: false,
+        scanProgress: null,
+        editing: {
+          active: false,
+          dirty: false,
+          created: false,
+          sourceId: null,
+          targetId: null,
         },
-        {
-          pitch: 2,
-          accidental: null,
-          at: 480,
-          duration: 480,
-          gate: null,
-          velocity: null,
-          velocityOffset: null,
-          velocityScale: null,
-          legato: false,
-          tie: false,
+        actions: {
+          editing: false,
+          canEdit: true,
+          canSave: false,
+          canImportClip: true,
+          canRefreshLibrary: true,
         },
-      ],
-    },
-    alert: null,
-  } satisfies LibraryServerState)));
+        items: [
+          {
+            id: "chromatic-turn",
+            name: "Chromatic Turn",
+            showId: false,
+            folder: "Library",
+            hotkeys: [],
+          },
+          {
+            id: "scale-turn",
+            name: "Scale Turn",
+            showId: false,
+            folder: "Library",
+            hotkeys: [],
+          },
+        ],
+        selectedIndex: 0,
+        selected: {
+          schemaVersion: 1,
+          id: "chromatic-turn",
+          name: "Chromatic Turn",
+          description: "Fixed-interval phrase that ignores the selected scale.",
+          pitchMode: "chromatic",
+          sourceMeter: { numerator: 4, denominator: 4 },
+          length: 3360,
+          defaultGate: 0.82,
+          velocityCurve: {
+            inputMin: null,
+            inputMax: null,
+            outputMin: null,
+            outputMax: null,
+            exponent: null,
+          },
+          stats: "7 notes • 0.88 bars • 4/4 source • chromatic",
+          isBuiltin: true,
+          isPersisted: false,
+          folder: "Built-ins",
+          hotkeys: [],
+          noteCount: 2,
+          noteLimit: 512,
+          canAddNote: false,
+          canRemoveNote: false,
+          notes: [
+            {
+              pitch: 0,
+              accidental: null,
+              at: 0,
+              duration: 480,
+              gate: null,
+              velocity: null,
+              velocityOffset: null,
+              velocityScale: null,
+              legato: false,
+              tie: false,
+            },
+            {
+              pitch: 2,
+              accidental: null,
+              at: 480,
+              duration: 480,
+              gate: null,
+              velocity: null,
+              velocityOffset: null,
+              velocityScale: null,
+              legato: false,
+              tie: false,
+            },
+          ],
+        },
+        alert: null,
+      } satisfies LibraryServerState),
+    ),
+  );
 }

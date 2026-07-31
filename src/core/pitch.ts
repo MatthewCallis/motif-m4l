@@ -6,7 +6,7 @@
  * an accidental after scale-degree resolution.
  */
 
-import { clamp, floorDiv, mod } from './math.js';
+import { clamp, floorDiv, mod } from "./math.js";
 
 /**
  * Normalize a scale's intervals to ensure the root note is included and the intervals are sorted.
@@ -110,9 +110,9 @@ export function transposeHybrid(
   scaleIntervals: readonly number[],
 ): number {
   return clamp(
-    triggerPitch
-      + scaleDegreeSemitoneOffset(triggerPitch, degreeOffset, rootNote, scaleIntervals)
-      + accidental,
+    triggerPitch +
+      scaleDegreeSemitoneOffset(triggerPitch, degreeOffset, rootNote, scaleIntervals) +
+      accidental,
     0,
     127,
   );

@@ -12,10 +12,10 @@
  * @see https://docs.cycling74.com/reference/pipe
  */
 
-import type { ScheduledMidiEvent } from '../../src/core/types.js';
+import type { ScheduledMidiEvent } from "../../src/core/types.js";
 
 /** Time unit used by the in-process test scheduler. */
-export type ScheduleUnit = 'ticks' | 'ms';
+export type ScheduleUnit = "ticks" | "ms";
 
 /**
  * Relative MIDI event returned after queue rebuild (delay from `now`).
@@ -50,7 +50,7 @@ function noteKey(pitch: number, channel: number): string {
 }
 
 function parseNoteKey(key: string): NoteKeyParts {
-  const [channel = '1', pitch = '0'] = key.split(':');
+  const [channel = "1", pitch = "0"] = key.split(":");
   return { channel: Number(channel), pitch: Number(pitch) };
 }
 
@@ -83,7 +83,7 @@ export class RuntimeScheduler {
       .filter(([, count]) => count > 0)
       .map(([key]) => {
         const { pitch, channel } = parseNoteKey(key);
-        return { pitch, velocity: 0, channel, delay: 0, unit: 'ms' as const, instanceId: -1 };
+        return { pitch, velocity: 0, channel, delay: 0, unit: "ms" as const, instanceId: -1 };
       });
 
     this.#queue = [];
@@ -134,14 +134,10 @@ export class RuntimeScheduler {
    * @param {ScheduleUnit} unit The unit used by the schedule.
    * @returns {RuntimeMidiEvent[]} The rebuilt schedule relative to `now`.
    */
-  add(
-    events: readonly ScheduledMidiEvent[],
-    now: number,
-    unit: ScheduleUnit,
-  ): RuntimeMidiEvent[] {
+  add(events: readonly ScheduledMidiEvent[], now: number, unit: ScheduleUnit): RuntimeMidiEvent[] {
     this.advance(now, unit);
     for (const event of events) {
-      const offset = unit === 'ticks' ? event.offsetTicks : event.offsetMs;
+      const offset = unit === "ticks" ? event.offsetTicks : event.offsetMs;
       this.#queue.push({ ...event, due: now + offset, unit });
     }
     this.#queue.sort((left, right) => left.due - right.due || left.velocity - right.velocity);
@@ -191,7 +187,7 @@ export class RuntimeScheduler {
         this.#activeTotals.set(key, total);
         if (total === 0) {
           const { pitch, channel } = parseNoteKey(key);
-          releases.push({ pitch, velocity: 0, channel, delay: 0, unit: 'ms', instanceId });
+          releases.push({ pitch, velocity: 0, channel, delay: 0, unit: "ms", instanceId });
         }
       }
       this.#activeByInstance.delete(instanceId);
@@ -222,7 +218,10 @@ export class RuntimeScheduler {
       const after = Math.max(0, before + (event.velocity > 0 ? 1 : -1));
       simulatedTotals.set(key, after);
 
-      if ((event.velocity > 0 && before === 0) || (event.velocity === 0 && after === 0 && before > 0)) {
+      if (
+        (event.velocity > 0 && before === 0) ||
+        (event.velocity === 0 && after === 0 && before > 0)
+      ) {
         output.push({
           pitch: event.pitch,
           velocity: event.velocity,

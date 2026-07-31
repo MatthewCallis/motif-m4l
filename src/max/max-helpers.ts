@@ -20,7 +20,7 @@ export function emit(...values: unknown[]): void {
  * @returns {void}
  */
 export function emitStatus(...values: unknown[]): void {
-  emit('status', ...values);
+  emit("status", ...values);
 }
 
 /**
@@ -29,7 +29,7 @@ export function emitStatus(...values: unknown[]): void {
  * @returns {void}
  */
 export function emitError(message: string): void {
-  emit('error', message);
+  emit("error", message);
   error(`Motif: ${message}\n`);
 }
 
@@ -53,9 +53,9 @@ export function flattenValues(values: readonly unknown[]): unknown[] {
  * @param {string} fallback Value returned for arrays and objects.
  * @returns {string} Primitive text or the fallback.
  */
-export function stringAtom(value: unknown, fallback = ''): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+export function stringAtom(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
   return fallback;
 }
 
@@ -65,9 +65,7 @@ export function stringAtom(value: unknown, fallback = ''): string {
  * @returns {number[]} Finite numeric values.
  */
 export function numbers(values: readonly unknown[]): number[] {
-  return flattenValues(values)
-    .map(Number)
-    .filter(Number.isFinite);
+  return flattenValues(values).map(Number).filter(Number.isFinite);
 }
 
 /**
@@ -77,7 +75,7 @@ export function numbers(values: readonly unknown[]): number[] {
  * @returns {string} Complete Max path.
  */
 export function joinMaxPath(folder: string, filename: string): string {
-  const separator = folder.endsWith('/') || folder.endsWith(':') ? '' : '/';
+  const separator = folder.endsWith("/") || folder.endsWith(":") ? "" : "/";
   return `${folder}${separator}${filename}`;
 }
 
@@ -101,8 +99,8 @@ export function writeTextChunks(file: File, text: string): void {
  * @throws {Error} When the file cannot be opened or parsed.
  */
 export function readJsonFile(filename: string): unknown {
-  const file = new File(filename, 'read');
-  if (!file.isopen) throw new Error('could not open file');
+  const file = new File(filename, "read");
+  if (!file.isopen) throw new Error("could not open file");
   try {
     return JSON.parse(file.readstring(file.eof));
   } finally {
@@ -118,8 +116,8 @@ export function readJsonFile(filename: string): unknown {
  * @throws {Error} When the file cannot be opened for writing.
  */
 export function writeJsonFile(filename: string, value: unknown): void {
-  const file = new File(filename, 'write');
-  if (!file.isopen) throw new Error('could not open file for write');
+  const file = new File(filename, "write");
+  if (!file.isopen) throw new Error("could not open file for write");
   try {
     file.writestring(`${JSON.stringify(value, null, 2)}\n`);
   } finally {
@@ -133,7 +131,7 @@ export function writeJsonFile(filename: string, value: unknown): void {
  * @returns {boolean} Whether the file exists and is readable.
  */
 export function fileExists(filename: string): boolean {
-  const file = new File(filename, 'read');
+  const file = new File(filename, "read");
   const exists = file.isopen;
   if (exists) file.close();
   return exists;
@@ -145,7 +143,10 @@ export function fileExists(filename: string): boolean {
  * @returns {string} Slash-normalized lowercase path.
  */
 export function canonicalMaxPath(filename: string): string {
-  return filename.replace(/\\/g, '/').replace(/\/{2,}/g, '/').toLowerCase();
+  return filename
+    .replace(/\\/g, "/")
+    .replace(/\/{2,}/g, "/")
+    .toLowerCase();
 }
 
 /**
@@ -157,9 +158,9 @@ export function pathFromAtoms(values: readonly unknown[]): string {
   return flattenValues(values)
     .map((value) => stringAtom(value))
     .filter(Boolean)
-    .join(' ')
+    .join(" ")
     .trim()
-    .replace(/^"|"$/g, '');
+    .replace(/^"|"$/g, "");
 }
 
 /**
@@ -168,7 +169,7 @@ export function pathFromAtoms(values: readonly unknown[]): string {
  * @returns {boolean} Whether the toggle is enabled.
  */
 export function toggleEnabled(value: string | number | boolean): boolean {
-  return value === true || value === 1 || value === '1' || value === 'true' || value === 'on';
+  return value === true || value === 1 || value === "1" || value === "true" || value === "on";
 }
 
 /**
@@ -196,7 +197,7 @@ export function prepareLibraryPage(pageName: string, html: string): string {
   let output: File | undefined;
 
   try {
-    output = new File(temporaryPath, 'write');
+    output = new File(temporaryPath, "write");
     if (!output.isopen) throw new Error(`could not create ${temporaryPath}`);
 
     output.eof = 0;
@@ -206,7 +207,7 @@ export function prepareLibraryPage(pageName: string, html: string): string {
     output.close();
     output = undefined;
 
-    const verification = new File(absolutePath, 'read');
+    const verification = new File(absolutePath, "read");
     if (!verification.isopen) throw new Error(`could not reopen ${absolutePath}`);
     const byteLength = verification.eof;
     verification.close();
@@ -226,11 +227,7 @@ export function prepareLibraryPage(pageName: string, html: string): string {
  * @param {string} encodedMessage URL-encoded diagnostic text.
  * @returns {void}
  */
-export function mirrorWebDebug(
-  page: string,
-  level: string,
-  encodedMessage: string,
-): void {
+export function mirrorWebDebug(page: string, level: string, encodedMessage: string): void {
   let message = String(encodedMessage);
   try {
     message = decodeURIComponent(message);
@@ -239,6 +236,6 @@ export function mirrorWebDebug(
   }
 
   const line = `Motif jweb ${String(page)} [${String(level)}] ${message}\n`;
-  if (String(level).toLowerCase() === 'error') error(line);
+  if (String(level).toLowerCase() === "error") error(line);
   else post(line);
 }

@@ -3,7 +3,7 @@
  * compilation or preview rendering.
  */
 
-import type { Motif, MotifNote } from './types.js';
+import type { Motif, MotifNote } from "./types.js";
 
 /** Performance transforms controlled by the main device UI. */
 export interface MotifTransformOptions {
@@ -33,10 +33,7 @@ function invertOffset(value: number): number {
  * @param {MotifTransformOptions} options Enabled performance transforms.
  * @returns {Motif} The original motif when unchanged, otherwise a transformed copy.
  */
-export function transformMotif(
-  motif: Motif,
-  options: MotifTransformOptions,
-): Motif {
+export function transformMotif(motif: Motif, options: MotifTransformOptions): Motif {
   if (!options.invert && !options.reverse) {
     return motif;
   }

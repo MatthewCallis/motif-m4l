@@ -1,4 +1,4 @@
-import type { MotifStore } from '../library/store.js';
+import type { MotifStore } from "../library/store.js";
 import type {
   LaunchQuantization,
   MeterMode,
@@ -6,8 +6,8 @@ import type {
   PitchMode,
   RetriggerMode,
   TriggerMode,
-} from '../core/types.js';
-import { LibraryCompletionStatus } from './user-library.js';
+} from "../core/types.js";
+import { LibraryCompletionStatus } from "./user-library.js";
 
 /**
  * Symbolic messages the Max patch may send to `v8` (via `prepend <name>`).
@@ -155,7 +155,7 @@ export interface TriggerMotifOptions {
 }
 
 /** Built-in selected on first load and after invalid selection repair. */
-export const DEFAULT_MOTIF_ID = 'scale-turn';
+export const DEFAULT_MOTIF_ID = "scale-turn";
 /** Filesystem entries processed before yielding to Max's UI thread. */
 export const LIBRARY_SCAN_BATCH_SIZE = 32;
 /** Maximum nested folder depth below the selected library root. */
@@ -167,31 +167,35 @@ export const TEMPO_MULTIPLIERS = [0.5, 1, 1.5, 2] as const;
 /** Maximum editable/importable notes in one motif. */
 export const MAX_MOTIF_NOTES = 512;
 /** Valid device-level motif pitch-mode overrides. */
-export const PITCH_MODE_OVERRIDES = ['scale', 'chromatic', 'hybrid'] as const satisfies readonly PitchMode[];
+export const PITCH_MODE_OVERRIDES = [
+  "scale",
+  "chromatic",
+  "hybrid",
+] as const satisfies readonly PitchMode[];
 /** Valid meter scaling behaviors. */
-export const METER_MODES = ['preserve', 'fit-bar'] as const satisfies readonly MeterMode[];
+export const METER_MODES = ["preserve", "fit-bar"] as const satisfies readonly MeterMode[];
 /** Valid retrigger collision behaviors. */
-export const RETRIGGER_MODES = ['replace', 'overlap'] as const satisfies readonly RetriggerMode[];
+export const RETRIGGER_MODES = ["replace", "overlap"] as const satisfies readonly RetriggerMode[];
 /** Valid global trigger lifecycles. */
 export const TRIGGER_MODES = [
-  'one-shot',
-  'hold',
-  'hold-repeat',
-  'toggle',
-  'latch',
-  'release-tail',
+  "one-shot",
+  "hold",
+  "hold-repeat",
+  "toggle",
+  "latch",
+  "release-tail",
 ] as const satisfies readonly TriggerMode[];
 /** Valid launch quantization grids. */
 export const LAUNCH_QUANTIZATIONS = [
-  'immediate',
-  '1/16',
-  '1/8',
-  '1/4',
-  'bar',
+  "immediate",
+  "1/16",
+  "1/8",
+  "1/4",
+  "bar",
 ] as const satisfies readonly LaunchQuantization[];
 /** Valid dry-MIDI pass-through behaviors. */
 export const PASS_THROUGH_POLICIES = [
-  'none',
-  'non-triggers',
-  'all',
+  "none",
+  "non-triggers",
+  "all",
 ] as const satisfies readonly PassThroughPolicy[];

@@ -1,10 +1,10 @@
-import type { MotifPreview } from '../core/preview.js';
+import type { MotifPreview } from "../core/preview.js";
 import {
   barLengthTicks,
   quantizationTicks,
   ticksToMilliseconds,
   ticksUntilNextBoundary,
-} from '../core/timing.js';
+} from "../core/timing.js";
 import {
   PPQ,
   type HostContext,
@@ -13,13 +13,9 @@ import {
   type Motif,
   type RetriggerMode,
   type TimeSignature,
-} from '../core/types.js';
-import {
-  MIN_REPEAT_DELAY_MS,
-  RETRIGGER_MODES,
-  TEMPO_MULTIPLIERS,
-} from './device-types.js';
-import { flattenValues } from './max-helpers.js';
+} from "../core/types.js";
+import { MIN_REPEAT_DELAY_MS, RETRIGGER_MODES, TEMPO_MULTIPLIERS } from "./device-types.js";
+import { flattenValues } from "./max-helpers.js";
 
 /**
  * Determine whether a string belongs to one readonly string enum.
@@ -41,16 +37,16 @@ export function isStringEnumValue<T extends string>(
  * @returns {string} Note, bar, meter, and pitch-mode summary.
  */
 export function formatLibraryMotifStats(
-  preview: Pick<MotifPreview, 'notes' | 'bars' | 'effectivePitchMode'>,
+  preview: Pick<MotifPreview, "notes" | "bars" | "effectivePitchMode">,
   sourceMeter: TimeSignature,
 ): string {
   const meter = `${sourceMeter.numerator}/${sourceMeter.denominator}`;
   // Preserve meaningful half-bar values without displaying redundant decimal zeros.
   const barCount = Number.isInteger(preview.bars)
     ? String(preview.bars)
-    : preview.bars.toFixed(1).replace(/\.0$/, '');
-  const notes = `${preview.notes.length} ${preview.notes.length === 1 ? 'note' : 'notes'}`;
-  const bars = `${barCount} ${preview.bars === 1 ? 'bar' : 'bars'}`;
+    : preview.bars.toFixed(1).replace(/\.0$/, "");
+  const notes = `${preview.notes.length} ${preview.notes.length === 1 ? "note" : "notes"}`;
+  const bars = `${barCount} ${preview.bars === 1 ? "bar" : "bars"}`;
   return `${notes}  •  ${bars}  •  ${meter} source  •  ${preview.effectivePitchMode}`;
 }
 
@@ -64,7 +60,7 @@ export function launchOffsetTicksFor(
   host: HostContext,
   launchQuantization: LaunchQuantization,
 ): number {
-  if (!host.isPlaying || launchQuantization === 'immediate') return 0;
+  if (!host.isPlaying || launchQuantization === "immediate") return 0;
   const grid = quantizationTicks(launchQuantization, host.timeSignature);
   return ticksUntilNextBoundary(Math.max(0, host.currentSongTime * PPQ), grid);
 }
@@ -83,17 +79,13 @@ export function motifRepeatDelayFor(
   host: HostContext,
   tempoMultiplier: number,
 ): number {
-  const effectiveLength = meterMode === 'preserve'
-    ? motif.length
-    : motif.length * (
-        barLengthTicks(host.timeSignature) / barLengthTicks(motif.sourceMeter)
-      );
+  const effectiveLength =
+    meterMode === "preserve"
+      ? motif.length
+      : motif.length * (barLengthTicks(host.timeSignature) / barLengthTicks(motif.sourceMeter));
   return Math.max(
     MIN_REPEAT_DELAY_MS,
-    ticksToMilliseconds(
-      effectiveLength,
-      host.tempo * tempoMultiplier,
-    ),
+    ticksToMilliseconds(effectiveLength, host.tempo * tempoMultiplier),
   );
 }
 
@@ -107,7 +99,7 @@ export function libraryQueryFromAtoms(values: readonly unknown[]): string {
     .map(String)
     .map((part) => part.trim())
     .filter(Boolean)
-    .join(' ')
+    .join(" ")
     .trim();
 }
 
@@ -117,12 +109,8 @@ export function libraryQueryFromAtoms(values: readonly unknown[]): string {
  * @returns {number | undefined} Supported ratio or undefined.
  */
 export function parseTempoMultiplier(value: string | number): number | undefined {
-  const parsed = typeof value === 'number'
-    ? value
-    : Number(String(value).replace(/x$/i, ''));
-  return TEMPO_MULTIPLIERS.some((candidate) => candidate === parsed)
-    ? parsed
-    : undefined;
+  const parsed = typeof value === "number" ? value : Number(String(value).replace(/x$/i, ""));
+  return TEMPO_MULTIPLIERS.some((candidate) => candidate === parsed) ? parsed : undefined;
 }
 
 /**
@@ -133,7 +121,5 @@ export function parseTempoMultiplier(value: string | number): number | undefined
 export function parseRetriggerMode(value: string | number): RetriggerMode | undefined {
   if (value === 1) return RETRIGGER_MODES[0];
   if (value === 0) return RETRIGGER_MODES[1];
-  return typeof value === 'string' && isStringEnumValue(value, RETRIGGER_MODES)
-    ? value
-    : undefined;
+  return typeof value === "string" && isStringEnumValue(value, RETRIGGER_MODES) ? value : undefined;
 }

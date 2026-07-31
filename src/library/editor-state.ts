@@ -1,5 +1,5 @@
-import type { Motif } from '../core/types.js';
-import { MotifStore, uniqueMotifId } from './store.js';
+import type { Motif } from "../core/types.js";
+import { MotifStore, uniqueMotifId } from "./store.js";
 
 export interface EditSnapshot {
   readonly active: boolean;

@@ -179,7 +179,7 @@ export interface MaxPanelOptions {
 }
 
 /** Optional chrome for {@link MaxPatchBuilder.addJsuiPreview}. */
-export interface MaxJsuiPreviewOptions extends Pick<MaxUiOptions, 'hidden'> {
+export interface MaxJsuiPreviewOptions extends Pick<MaxUiOptions, "hidden"> {
   filename?: string;
   /** Draw a border in motif-preview.js (jsui's built-in border is always square). */
   border?: MaxBoolean;
@@ -236,8 +236,8 @@ export interface MaxSavedAttributeAttributes extends MaxJsonObject {
  * @throws {TypeError} If either help string is empty.
  */
 export function createHelpAttributes(help: MaxHelpInfo): MaxHelpAttributes {
-  assertNonEmptyString(help.name, 'help.name');
-  assertNonEmptyString(help.description, 'help.description');
+  assertNonEmptyString(help.name, "help.name");
+  assertNonEmptyString(help.description, "help.description");
   return {
     annotation_name: help.name,
     annotation: help.description,
@@ -257,8 +257,8 @@ export function createHelpAttributes(help: MaxHelpInfo): MaxHelpAttributes {
 export function createMenuItems(values: readonly string[]): string[] {
   const items: string[] = [];
   for (const value of values) {
-    assertNonEmptyString(value, 'menu item');
-    if (items.length > 0) items.push(',');
+    assertNonEmptyString(value, "menu item");
+    if (items.length > 0) items.push(",");
     items.push(value);
   }
   return items;
@@ -286,12 +286,12 @@ export function createEnumParameterAttributes(
   initial = 0,
 ): MaxSavedAttributeAttributes {
   assertParameterNames(longName, shortName);
-  if (values.length === 0) throw new RangeError('enum parameter values must not be empty');
+  if (values.length === 0) throw new RangeError("enum parameter values must not be empty");
   const parameterEnum = values.map((value) => {
-    assertNonEmptyString(value, 'enum parameter value');
+    assertNonEmptyString(value, "enum parameter value");
     return value;
   });
-  assertIntegerInRange(initial, 0, values.length - 1, 'enum initial index');
+  assertIntegerInRange(initial, 0, values.length - 1, "enum initial index");
   return {
     valueof: {
       parameter_enum: parameterEnum,
@@ -327,10 +327,10 @@ export function createIntegerParameterAttributes(
   maximum: number,
 ): MaxSavedAttributeAttributes {
   assertParameterNames(longName, shortName);
-  assertFiniteNumber(minimum, 'integer parameter minimum');
-  assertFiniteNumber(maximum, 'integer parameter maximum');
-  if (minimum > maximum) throw new RangeError('integer parameter minimum must not exceed maximum');
-  assertIntegerInRange(initial, minimum, maximum, 'integer parameter initial value');
+  assertFiniteNumber(minimum, "integer parameter minimum");
+  assertFiniteNumber(maximum, "integer parameter maximum");
+  if (minimum > maximum) throw new RangeError("integer parameter minimum must not exceed maximum");
+  assertIntegerInRange(initial, minimum, maximum, "integer parameter initial value");
   return {
     valueof: {
       parameter_initial: [initial],
@@ -383,8 +383,9 @@ export class MaxPatchBuilder {
    * @throws {TypeError} If the font name or any RGBA color is invalid.
    */
   constructor(options: MaxPatchBuilderOptions, allocator = new MaxObjectIdAllocator()) {
-    assertNonEmptyString(options.fontName, 'fontName');
-    for (const [name, color] of Object.entries(options.colors)) validateColor(color, `colors.${name}`);
+    assertNonEmptyString(options.fontName, "fontName");
+    for (const [name, color] of Object.entries(options.colors))
+      validateColor(color, `colors.${name}`);
     this.fontName = options.fontName;
     this.colors = options.colors;
     this.allocator = allocator;
@@ -395,10 +396,14 @@ export class MaxPatchBuilder {
    *
    * @returns {MaxPatchBuilder} An empty builder with the same fonts/colors and a local name table.
    */
-  readonly createChild = (): MaxPatchBuilder => new MaxPatchBuilder({
-    fontName: this.fontName,
-    colors: this.colors,
-  }, this.allocator);
+  readonly createChild = (): MaxPatchBuilder =>
+    new MaxPatchBuilder(
+      {
+        fontName: this.fontName,
+        colors: this.colors,
+      },
+      this.allocator,
+    );
 
   /**
    * Add a generic Max object box.
@@ -417,9 +422,9 @@ export class MaxPatchBuilder {
     patchingRect: MaxRect,
     options: MaxBoxAttributes = {},
   ): string => {
-    assertNonEmptyString(name, 'box name');
-    assertNonEmptyString(maxclass, 'maxclass');
-    validateRect(patchingRect, 'patchingRect');
+    assertNonEmptyString(name, "box name");
+    assertNonEmptyString(maxclass, "maxclass");
+    validateRect(patchingRect, "patchingRect");
     if (this.ids.has(name)) throw new Error(`Duplicate Max box name: ${name}`);
 
     const id = this.allocator.allocate();
@@ -456,8 +461,8 @@ export class MaxPatchBuilder {
     width = 120,
     options: MaxBoxAttributes = {},
   ): string => {
-    assertNonEmptyString(text, 'object text');
-    return this.addBox(name, 'newobj', [x, y, width, 22], { text, ...options });
+    assertNonEmptyString(text, "object text");
+    return this.addBox(name, "newobj", [x, y, width, 22], { text, ...options });
   };
 
   /**
@@ -472,8 +477,8 @@ export class MaxPatchBuilder {
    * @see https://docs.cycling74.com/reference/message/
    */
   readonly addMessage = (name: string, text: string, x: number, y: number, width = 90): string => {
-    assertNonEmptyString(text, 'message text');
-    return this.addBox(name, 'message', [x, y, width, 22], { text });
+    assertNonEmptyString(text, "message text");
+    return this.addBox(name, "message", [x, y, width, 22], { text });
   };
 
   /**
@@ -485,11 +490,8 @@ export class MaxPatchBuilder {
    * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/panel/
    */
-  readonly addPanel = (name: string, rect: MaxRect, options: MaxPanelOptions = {}): string => this.addBox(
-    name,
-    'panel',
-    rect,
-    {
+  readonly addPanel = (name: string, rect: MaxRect, options: MaxPanelOptions = {}): string =>
+    this.addBox(name, "panel", rect, {
       background: 1,
       border: 0,
       bgcolor: options.bgcolor ?? this.colors.panel,
@@ -498,8 +500,7 @@ export class MaxPatchBuilder {
       presentation_rect: [...rect] as MaxRect,
       varname: name,
       hidden: options.hidden ?? 0,
-    },
-  );
+    });
 
   /**
    * Add a presentation-mode `comment` label.
@@ -516,21 +517,22 @@ export class MaxPatchBuilder {
     text: string,
     rect: MaxRect,
     options: MaxCommentOptions = {},
-  ): string => this.addBox(name, 'comment', rect, {
-    text,
-    fontname: this.fontName,
-    fontsize: options.fontsize ?? 10,
-    fontface: options.fontface ?? 0,
-    textcolor: options.textcolor ?? this.colors.text,
-    textjustification: options.justification ?? 0,
-    linecount: options.linecount,
-    presentation: 1,
-    presentation_rect: [...rect] as MaxRect,
-    varname: name,
-    ignoreclick: options.ignoreclick ?? 1,
-    hidden: options.hidden ?? 0,
-    ...(options.help === undefined ? {} : createHelpAttributes(options.help)),
-  });
+  ): string =>
+    this.addBox(name, "comment", rect, {
+      text,
+      fontname: this.fontName,
+      fontsize: options.fontsize ?? 10,
+      fontface: options.fontface ?? 0,
+      textcolor: options.textcolor ?? this.colors.text,
+      textjustification: options.justification ?? 0,
+      linecount: options.linecount,
+      presentation: 1,
+      presentation_rect: [...rect] as MaxRect,
+      varname: name,
+      ignoreclick: options.ignoreclick ?? 1,
+      hidden: options.hidden ?? 0,
+      ...(options.help === undefined ? {} : createHelpAttributes(options.help)),
+    });
 
   /**
    * Add a dynamically populated `umenu` presentation control.
@@ -549,21 +551,22 @@ export class MaxPatchBuilder {
     rect: MaxRect,
     help: MaxHelpInfo,
     options: MaxUiOptions = {},
-  ): string => this.addBox(name, 'umenu', rect, {
-    items: createMenuItems(items),
-    fontname: this.fontName,
-    fontsize: options.fontsize ?? 10,
-    bgcolor: this.colors.previewBg,
-    textcolor: this.colors.text,
-    bordercolor: this.colors.previewBorder,
-    hltcolor: this.colors.accent,
-    ignoreclick: options.ignoreclick ?? 0,
-    presentation: 1,
-    presentation_rect: [...rect] as MaxRect,
-    varname: name,
-    hidden: options.hidden ?? 0,
-    ...createHelpAttributes(help),
-  });
+  ): string =>
+    this.addBox(name, "umenu", rect, {
+      items: createMenuItems(items),
+      fontname: this.fontName,
+      fontsize: options.fontsize ?? 10,
+      bgcolor: this.colors.previewBg,
+      textcolor: this.colors.text,
+      bordercolor: this.colors.previewBorder,
+      hltcolor: this.colors.accent,
+      ignoreclick: options.ignoreclick ?? 0,
+      presentation: 1,
+      presentation_rect: [...rect] as MaxRect,
+      varname: name,
+      hidden: options.hidden ?? 0,
+      ...createHelpAttributes(help),
+    });
 
   /**
    * Add an enumerated `live.menu` parameter.
@@ -588,19 +591,25 @@ export class MaxPatchBuilder {
     initial: number,
     help: MaxHelpInfo,
     options: MaxUiOptions & { parameter_enable?: MaxBoolean } = {},
-  ): string => this.addBox(name, 'live.menu', rect, {
-    appearance: 0,
-    parameter_enable: options.parameter_enable ?? 1,
-    presentation: 1,
-    presentation_rect: [...rect] as MaxRect,
-    saved_attribute_attributes: createEnumParameterAttributes(longName, shortName, values, initial),
-    varname: name,
-    valuepopup: 1,
-    valuepopuplabel: 3 satisfies MaxValuePopupLabel,
-    ignoreclick: options.ignoreclick ?? 0,
-    hidden: options.hidden ?? 0,
-    ...createHelpAttributes(help),
-  });
+  ): string =>
+    this.addBox(name, "live.menu", rect, {
+      appearance: 0,
+      parameter_enable: options.parameter_enable ?? 1,
+      presentation: 1,
+      presentation_rect: [...rect] as MaxRect,
+      saved_attribute_attributes: createEnumParameterAttributes(
+        longName,
+        shortName,
+        values,
+        initial,
+      ),
+      varname: name,
+      valuepopup: 1,
+      valuepopuplabel: 3 satisfies MaxValuePopupLabel,
+      ignoreclick: options.ignoreclick ?? 0,
+      hidden: options.hidden ?? 0,
+      ...createHelpAttributes(help),
+    });
 
   /**
    * Add a theme-owned `live.comment` presentation label.
@@ -616,14 +625,15 @@ export class MaxPatchBuilder {
     name: string,
     text: string,
     rect: MaxRect,
-    options: Pick<MaxUiOptions, 'hidden'> = {},
-  ): string => this.addBox(name, 'live.comment', rect, {
-    text,
-    presentation: 1,
-    presentation_rect: [...rect] as MaxRect,
-    varname: name,
-    hidden: options.hidden ?? 0,
-  });
+    options: Pick<MaxUiOptions, "hidden"> = {},
+  ): string =>
+    this.addBox(name, "live.comment", rect, {
+      text,
+      presentation: 1,
+      presentation_rect: [...rect] as MaxRect,
+      varname: name,
+      hidden: options.hidden ?? 0,
+    });
 
   /**
    * Add an enumerated `live.tab` parameter.
@@ -647,25 +657,31 @@ export class MaxPatchBuilder {
     shortName: string,
     initial: number,
     help: MaxHelpInfo,
-    options: Pick<MaxUiOptions, 'hidden'> = {},
-  ): string => this.addBox(name, 'live.tab', rect, {
-    fontname: this.fontName,
-    fontsize: 9,
-    mode: 0,
-    livemode: 1,
-    multiline: 0,
-    num_lines_patching: 1,
-    num_lines_presentation: 1,
-    parameter_enable: 1,
-    presentation: 1,
-    presentation_rect: [...rect] as MaxRect,
-    saved_attribute_attributes: createEnumParameterAttributes(longName, shortName, values, initial),
-    varname: name,
-    valuepopup: 1,
-    valuepopuplabel: 3 satisfies MaxValuePopupLabel,
-    hidden: options.hidden ?? 0,
-    ...createHelpAttributes(help),
-  });
+    options: Pick<MaxUiOptions, "hidden"> = {},
+  ): string =>
+    this.addBox(name, "live.tab", rect, {
+      fontname: this.fontName,
+      fontsize: 9,
+      mode: 0,
+      livemode: 1,
+      multiline: 0,
+      num_lines_patching: 1,
+      num_lines_presentation: 1,
+      parameter_enable: 1,
+      presentation: 1,
+      presentation_rect: [...rect] as MaxRect,
+      saved_attribute_attributes: createEnumParameterAttributes(
+        longName,
+        shortName,
+        values,
+        initial,
+      ),
+      varname: name,
+      valuepopup: 1,
+      valuepopuplabel: 3 satisfies MaxValuePopupLabel,
+      hidden: options.hidden ?? 0,
+      ...createHelpAttributes(help),
+    });
 
   /**
    * Add a bounded integer `live.numbox` parameter.
@@ -687,27 +703,28 @@ export class MaxPatchBuilder {
     shortName: string,
     initial: number,
     help: MaxHelpInfo,
-    options: Pick<MaxUiOptions, 'hidden'> & { minimum?: number; maximum?: number } = {},
-  ): string => this.addBox(name, 'live.numbox', rect, {
-    appearance: 4,
-    fontname: this.fontName,
-    fontsize: 10,
-    parameter_enable: 1,
-    presentation: 1,
-    presentation_rect: [...rect] as MaxRect,
-    saved_attribute_attributes: createIntegerParameterAttributes(
-      longName,
-      shortName,
-      initial,
-      options.minimum ?? 0,
-      options.maximum ?? 127,
-    ),
-    varname: name,
-    valuepopup: 1,
-    valuepopuplabel: 3 satisfies MaxValuePopupLabel,
-    hidden: options.hidden ?? 0,
-    ...createHelpAttributes(help),
-  });
+    options: Pick<MaxUiOptions, "hidden"> & { minimum?: number; maximum?: number } = {},
+  ): string =>
+    this.addBox(name, "live.numbox", rect, {
+      appearance: 4,
+      fontname: this.fontName,
+      fontsize: 10,
+      parameter_enable: 1,
+      presentation: 1,
+      presentation_rect: [...rect] as MaxRect,
+      saved_attribute_attributes: createIntegerParameterAttributes(
+        longName,
+        shortName,
+        initial,
+        options.minimum ?? 0,
+        options.maximum ?? 127,
+      ),
+      varname: name,
+      valuepopup: 1,
+      valuepopuplabel: 3 satisfies MaxValuePopupLabel,
+      hidden: options.hidden ?? 0,
+      ...createHelpAttributes(help),
+    });
 
   /**
    * Add a `live.text` button that is momentary by default and optionally toggles.
@@ -725,25 +742,26 @@ export class MaxPatchBuilder {
     text: string,
     rect: MaxRect,
     help: MaxHelpInfo,
-    options: Pick<MaxUiOptions, 'hidden' | 'fontsize' | 'mode' | 'outputmode'> = {},
-  ): string => this.addBox(name, 'live.text', rect, {
-    appearance: 0,
-    fontname: this.fontName,
-    fontsize: options.fontsize ?? 10,
-    mode: options.mode ?? 0,
-    // Toggle controls must emit their newly latched value on mouse-down.
-    // Mouse-up mode reports the release interaction and can resend 1 instead
-    // of the off state, leaving runtime transforms stuck on.
-    outputmode: options.outputmode ?? 0,
-    parameter_enable: 0,
-    text,
-    texton: text,
-    presentation: 1,
-    presentation_rect: [...rect] as MaxRect,
-    varname: name,
-    hidden: options.hidden ?? 0,
-    ...createHelpAttributes(help),
-  });
+    options: Pick<MaxUiOptions, "hidden" | "fontsize" | "mode" | "outputmode"> = {},
+  ): string =>
+    this.addBox(name, "live.text", rect, {
+      appearance: 0,
+      fontname: this.fontName,
+      fontsize: options.fontsize ?? 10,
+      mode: options.mode ?? 0,
+      // Toggle controls must emit their newly latched value on mouse-down.
+      // Mouse-up mode reports the release interaction and can resend 1 instead
+      // of the off state, leaving runtime transforms stuck on.
+      outputmode: options.outputmode ?? 0,
+      parameter_enable: 0,
+      text,
+      texton: text,
+      presentation: 1,
+      presentation_rect: [...rect] as MaxRect,
+      varname: name,
+      hidden: options.hidden ?? 0,
+      ...createHelpAttributes(help),
+    });
 
   /**
    * Add a bold patching-view-only section label.
@@ -756,18 +774,20 @@ export class MaxPatchBuilder {
    * @returns {string} The generated Max object id.
    * @see https://docs.cycling74.com/reference/comment/
    */
-  readonly addPatchComment = (name: string, text: string, x: number, y: number, width = 240): string => this.addBox(
-    name,
-    'comment',
-    [x, y, width, 20],
-    {
+  readonly addPatchComment = (
+    name: string,
+    text: string,
+    x: number,
+    y: number,
+    width = 240,
+  ): string =>
+    this.addBox(name, "comment", [x, y, width, 20], {
       text,
       fontname: this.fontName,
       fontsize: 12,
       fontface: 1,
       presentation: 0,
-    },
-  );
+    });
 
   /**
    * Add Motif's native `jsui` note-preview surface.
@@ -790,22 +810,21 @@ export class MaxPatchBuilder {
   ): string => {
     const rounded = Math.max(0, options.rounded ?? 0);
     const border = options.border ?? 0;
-    const jsarguments = rounded > 0 || border > 0
-      ? [rounded > 0 ? rounded : 6, border > 0 ? 1 : 0]
-      : undefined;
+    const jsarguments =
+      rounded > 0 || border > 0 ? [rounded > 0 ? rounded : 6, border > 0 ? 1 : 0] : undefined;
 
-    return this.addBox(name, 'jsui', rect, {
-      filename: options.filename ?? 'motif-preview.js',
+    return this.addBox(name, "jsui", rect, {
+      filename: options.filename ?? "motif-preview.js",
       // Avoid Max's stock radial-dial template if the frozen dependency is
       // unavailable during jsui's first construction.
-      template: options.filename ?? 'motif-preview.js',
+      template: options.filename ?? "motif-preview.js",
       // Rounded chrome is drawn in motif-preview.js; keep the native jsui border off.
       border: 0,
       ...(jsarguments === undefined ? {} : { jsarguments }),
       ignoreclick: 0,
       numinlets: 1,
       numoutlets: 1,
-      outlettype: [''],
+      outlettype: [""],
       parameter_enable: 0,
       presentation: 1,
       presentation_rect: [...rect] as MaxRect,
@@ -838,9 +857,9 @@ export class MaxPatchBuilder {
     destinationInlet: number,
     order?: number,
   ): void => {
-    assertNonNegativeInteger(sourceOutlet, 'source outlet');
-    assertNonNegativeInteger(destinationInlet, 'destination inlet');
-    if (order !== undefined) assertNonNegativeInteger(order, 'patchline order');
+    assertNonNegativeInteger(sourceOutlet, "source outlet");
+    assertNonNegativeInteger(destinationInlet, "destination inlet");
+    if (order !== undefined) assertNonNegativeInteger(order, "patchline order");
 
     const patchline: MaxPatchline = {
       source: [this.resolveObjectReference(source), sourceOutlet],
@@ -874,15 +893,15 @@ export class MaxPatchBuilder {
     baseY: number,
   ): void => {
     const count = hideNames.length + showNames.length;
-    if (count === 0) throw new RangeError('tab visibility requires at least one target');
-    const bangs = Array.from({ length: count }, () => 'b').join(' ');
+    if (count === 0) throw new RangeError("tab visibility requires at least one target");
+    const bangs = Array.from({ length: count }, () => "b").join(" ");
     const fanName = `${triggerName}-fan`;
     this.addObject(fanName, `t ${bangs}`, baseX, baseY, Math.max(80, count * 14));
     this.connect(triggerName, 0, fanName, 0);
 
     const names = [
-      ...hideNames.map((name) => ({ name, hidden: 1, action: 'hide' })),
-      ...showNames.map((name) => ({ name, hidden: 0, action: 'show' })),
+      ...hideNames.map((name) => ({ name, hidden: 1, action: "hide" })),
+      ...showNames.map((name) => ({ name, hidden: 0, action: "show" })),
     ];
     const rowPitch = 70;
     const colPitch = 320;
@@ -897,12 +916,12 @@ export class MaxPatchBuilder {
       const messageName = `${triggerName}-${action}-${name}`;
       this.addMessage(messageName, `script sendbox ${name} hidden ${hidden}`, x, y, 260);
       this.connect(fanName, outlet, messageName, 0);
-      this.connect(messageName, 0, 'thispatcher', 0);
+      this.connect(messageName, 0, "thispatcher", 0);
     });
   };
 
   private resolveObjectReference(reference: string): string {
-    assertNonEmptyString(reference, 'object reference');
+    assertNonEmptyString(reference, "object reference");
     const namedId = this.ids.get(reference);
     if (namedId !== undefined) return namedId;
     if (this.objectIds.has(reference)) return reference;
@@ -911,7 +930,8 @@ export class MaxPatchBuilder {
 }
 
 function assertNonEmptyString(value: string, label: string): void {
-  if (typeof value !== 'string' || value.trim().length === 0) throw new TypeError(`${label} must be a non-empty string`);
+  if (typeof value !== "string" || value.trim().length === 0)
+    throw new TypeError(`${label} must be a non-empty string`);
 }
 
 function assertFiniteNumber(value: number, label: string): void {
@@ -919,27 +939,35 @@ function assertFiniteNumber(value: number, label: string): void {
 }
 
 function assertNonNegativeInteger(value: number, label: string): void {
-  if (!Number.isInteger(value) || value < 0) throw new RangeError(`${label} must be a non-negative integer`);
+  if (!Number.isInteger(value) || value < 0)
+    throw new RangeError(`${label} must be a non-negative integer`);
 }
 
-function assertIntegerInRange(value: number, minimum: number, maximum: number, label: string): void {
+function assertIntegerInRange(
+  value: number,
+  minimum: number,
+  maximum: number,
+  label: string,
+): void {
   if (!Number.isInteger(value) || value < minimum || value > maximum) {
     throw new RangeError(`${label} must be an integer between ${minimum} and ${maximum}`);
   }
 }
 
 function assertParameterNames(longName: string, shortName: string): void {
-  assertNonEmptyString(longName, 'parameter long name');
-  assertNonEmptyString(shortName, 'parameter short name');
+  assertNonEmptyString(longName, "parameter long name");
+  assertNonEmptyString(shortName, "parameter short name");
 }
 
 function validateRect(rect: MaxRect, label: string): void {
   rect.forEach((value, index) => assertFiniteNumber(value, `${label}[${index}]`));
-  if (rect[2] < 0 || rect[3] < 0) throw new RangeError(`${label} width and height must be non-negative`);
+  if (rect[2] < 0 || rect[3] < 0)
+    throw new RangeError(`${label} width and height must be non-negative`);
 }
 
 function validateColor(color: MaxRgba, label: string): void {
-  if (!Array.isArray(color) || color.length !== 4) throw new TypeError(`${label} must contain four RGBA values`);
+  if (!Array.isArray(color) || color.length !== 4)
+    throw new TypeError(`${label} must contain four RGBA values`);
   color.forEach((value, index) => {
     assertFiniteNumber(value, `${label}[${index}]`);
     if (value < 0 || value > 1) throw new RangeError(`${label}[${index}] must be between 0 and 1`);

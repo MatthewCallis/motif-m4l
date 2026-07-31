@@ -1,20 +1,20 @@
-import { MotifStore, uniqueMotifId } from '../library/store.js';
-import { validateMotif } from '../library/validate.js';
+import { MotifStore, uniqueMotifId } from "../library/store.js";
+import { validateMotif } from "../library/validate.js";
 import {
   LIBRARY_SCAN_BATCH_SIZE,
   MAX_LIBRARY_DEPTH,
   type LibraryScanState,
-} from './device-types.js';
+} from "./device-types.js";
 import {
   canonicalMaxPath,
   fileExists,
   joinMaxPath,
   readJsonFile,
   writeJsonFile,
-} from './max-helpers.js';
+} from "./max-helpers.js";
 
 /** Status emitted after an initial scan or explicit refresh commits. */
-export type LibraryCompletionStatus = 'library' | 'library-refreshed' | 'unavailable';
+export type LibraryCompletionStatus = "library" | "library-refreshed" | "unavailable";
 
 interface MaxUserLibraryCallbacks {
   /** Report a user-facing diagnostic. */
@@ -35,7 +35,7 @@ interface MaxUserLibraryCallbacks {
  */
 export class MaxUserLibrary {
   /** Selected absolute library root. */
-  path = '';
+  path = "";
   /** Whether the selected root completed a successful scan. */
   loaded = false;
   /** Whether an incremental scan is active. */
@@ -68,18 +68,18 @@ export class MaxUserLibrary {
    * @returns {string} `Built-ins`, `Library`, or a nested relative folder.
    */
   browserFolder(id: string): string {
-    if (this.store.isBuiltin(id)) return 'Built-ins';
+    if (this.store.isBuiltin(id)) return "Built-ins";
     const filename = this.files.get(id);
-    if (!filename || !this.path) return 'Library';
+    if (!filename || !this.path) return "Library";
 
-    const root = this.path.replace(/\\/g, '/').replace(/\/+$/, '');
-    const normalized = filename.replace(/\\/g, '/');
+    const root = this.path.replace(/\\/g, "/").replace(/\/+$/, "");
+    const normalized = filename.replace(/\\/g, "/");
     const prefix = `${root}/`;
-    if (!normalized.toLowerCase().startsWith(prefix.toLowerCase())) return 'Library';
+    if (!normalized.toLowerCase().startsWith(prefix.toLowerCase())) return "Library";
 
     const relative = normalized.slice(prefix.length);
-    const separator = relative.lastIndexOf('/');
-    return separator < 0 ? 'Library' : relative.slice(0, separator);
+    const separator = relative.lastIndexOf("/");
+    return separator < 0 ? "Library" : relative.slice(0, separator);
   }
 
   /**
@@ -88,7 +88,7 @@ export class MaxUserLibrary {
    * @returns {string} Absolute Max path.
    */
   filePath(id: string): string {
-    const separator = this.path.endsWith('/') || this.path.endsWith(':') ? '' : '/';
+    const separator = this.path.endsWith("/") || this.path.endsWith(":") ? "" : "/";
     return `${this.path}${separator}${id}.json`;
   }
 
@@ -116,11 +116,9 @@ export class MaxUserLibrary {
    * @param {string} fallback Fallback when normalization is empty.
    * @returns {string} Available stable id.
    */
-  uniqueId(baseValue: string, fallback = 'motif'): string {
-    return this.store.uniqueId(
-      uniqueMotifId(baseValue, fallback),
-      undefined,
-      (candidate) => Boolean(this.path && this.isOccupied(this.filePath(candidate))),
+  uniqueId(baseValue: string, fallback = "motif"): string {
+    return this.store.uniqueId(uniqueMotifId(baseValue, fallback), undefined, (candidate) =>
+      Boolean(this.path && this.isOccupied(this.filePath(candidate))),
     );
   }
 
@@ -158,7 +156,7 @@ export class MaxUserLibrary {
       return false;
     }
     this.path = path;
-    return this.load('library');
+    return this.load("library");
   }
 
   /**
@@ -196,8 +194,8 @@ export class MaxUserLibrary {
       this.files.clear();
       this.occupiedPaths.clear();
       this.callbacks.onError(`Library folder not found: ${this.path}`);
-      this.callbacks.onContentsChanged('unavailable');
-      this.callbacks.onStatus('library-unavailable', this.path);
+      this.callbacks.onContentsChanged("unavailable");
+      this.callbacks.onStatus("library-unavailable", this.path);
       return false;
     }
 
@@ -207,10 +205,8 @@ export class MaxUserLibrary {
       generation: this.scanGeneration,
       completionStatus,
       pending: [],
-      current: { pathname: this.path, relativePath: '', depth: 0, folder: root },
-      visited: new Set<string>([
-        canonicalMaxPath(this.path).replace(/\/+$/, ''),
-      ]),
+      current: { pathname: this.path, relativePath: "", depth: 0, folder: root },
+      visited: new Set<string>([canonicalMaxPath(this.path).replace(/\/+$/, "")]),
       candidateStore: new MotifStore(),
       candidateFiles: new Map<string, string>(),
       candidateOccupiedPaths: new Set<string>(),
@@ -218,7 +214,7 @@ export class MaxUserLibrary {
       loadedMotifs: 0,
     };
     this.callbacks.onStateChange();
-    this.callbacks.onStatus('library-scanning', this.path);
+    this.callbacks.onStatus("library-scanning", this.path);
     this.scanTask = new Task(() => this.processBatch());
     this.scanTask.schedule(0);
     return true;
@@ -230,16 +226,12 @@ export class MaxUserLibrary {
    * @param {string} displayPath Root-relative diagnostic path.
    * @param {LibraryScanState} scan Active candidate scan.
    */
-  loadMotifFile(
-    fullPath: string,
-    displayPath: string,
-    scan: LibraryScanState,
-  ): void {
+  loadMotifFile(fullPath: string, displayPath: string, scan: LibraryScanState): void {
     scan.candidateOccupiedPaths.add(canonicalMaxPath(fullPath));
     try {
       const result = validateMotif(readJsonFile(fullPath));
       if (!result.valid || !result.motif) {
-        this.callbacks.onError(`${displayPath}: ${result.errors.join('; ')}`);
+        this.callbacks.onError(`${displayPath}: ${result.errors.join("; ")}`);
       } else if (scan.candidateStore.isBuiltin(result.motif.id)) {
         this.callbacks.onError(
           `${displayPath}: id “${result.motif.id}” conflicts with a built-in and was skipped`,
@@ -251,7 +243,7 @@ export class MaxUserLibrary {
       } else {
         const errors = scan.candidateStore.add(result.motif);
         if (errors.length > 0) {
-          this.callbacks.onError(`${displayPath}: ${errors.join('; ')}`);
+          this.callbacks.onError(`${displayPath}: ${errors.join("; ")}`);
         } else {
           scan.candidateFiles.set(result.motif.id, fullPath);
           scan.loadedMotifs += 1;
@@ -293,10 +285,10 @@ export class MaxUserLibrary {
     }
 
     this.callbacks.onContentsChanged(scan.completionStatus);
-    if (scan.completionStatus === 'library') {
-      this.callbacks.onStatus('library', this.path);
+    if (scan.completionStatus === "library") {
+      this.callbacks.onStatus("library", this.path);
     } else {
-      this.callbacks.onStatus('library-refreshed', this.store.list().length);
+      this.callbacks.onStatus("library-refreshed", this.store.list().length);
     }
   }
 
@@ -318,7 +310,7 @@ export class MaxUserLibrary {
           return;
         }
 
-        const canonical = canonicalMaxPath(next.pathname).replace(/\/+$/, '');
+        const canonical = canonicalMaxPath(next.pathname).replace(/\/+$/, "");
         if (scan.visited.has(canonical)) {
           continue;
         }
@@ -343,10 +335,10 @@ export class MaxUserLibrary {
 
       const filename = active.folder.filename;
       const filetype = active.folder.filetype;
-      if (filename && filename !== '.' && filename !== '..') {
+      if (filename && filename !== "." && filename !== "..") {
         const fullPath = joinMaxPath(active.folder.pathname, filename);
         const displayPath = active.relativePath ? `${active.relativePath}/${filename}` : filename;
-        if (filetype === 'fold') {
+        if (filetype === "fold") {
           if (active.depth < MAX_LIBRARY_DEPTH) {
             scan.pending.push({
               pathname: fullPath,
@@ -356,7 +348,7 @@ export class MaxUserLibrary {
           } else {
             this.callbacks.onError(`${displayPath}: maximum library folder depth exceeded`);
           }
-        } else if (filename.toLowerCase().endsWith('.json')) {
+        } else if (filename.toLowerCase().endsWith(".json")) {
           this.loadMotifFile(fullPath, displayPath, scan);
         }
         scan.processedEntries += 1;

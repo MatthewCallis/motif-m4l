@@ -1,6 +1,6 @@
-import { midiNoteName } from '../core/preview.js';
-import type { MotifNote } from '../core/types.js';
-import type { HotkeyAction } from './hotkey-map.js';
+import { midiNoteName } from "../core/preview.js";
+import type { MotifNote } from "../core/types.js";
+import type { HotkeyAction } from "./hotkey-map.js";
 import {
   LIBRARY_STATE_CHUNK_CHARACTERS,
   LIBRARY_STATE_CHUNK_KIND,
@@ -8,7 +8,7 @@ import {
   type LibraryHotkeyData,
   type LibraryNoteData,
   type LibraryStateChunk,
-} from './library-protocol.js';
+} from "./library-protocol.js";
 
 /**
  * Convert a sparse stored note into the complete shape expected by form controls.
@@ -35,9 +35,10 @@ export function toLibraryNoteData(note: MotifNote): LibraryNoteData {
  * @param {{ pitch: number; action: HotkeyAction }} mapping Stored hot-key mapping.
  * @returns {LibraryHotkeyData} Mapping with its Ableton-style note label.
  */
-export function toLibraryHotkeyData(
-  mapping: { pitch: number; action: HotkeyAction },
-): LibraryHotkeyData {
+export function toLibraryHotkeyData(mapping: {
+  pitch: number;
+  action: HotkeyAction;
+}): LibraryHotkeyData {
   return {
     ...mapping,
     label: midiNoteName(mapping.pitch),

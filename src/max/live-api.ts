@@ -1,7 +1,7 @@
-import type { AbsoluteNote } from '../core/import-notes.js';
-import { clamp } from '../core/math.js';
-import { isRecord } from '../core/type-guards.js';
-import { PPQ } from '../core/types.js';
+import type { AbsoluteNote } from "../core/import-notes.js";
+import { clamp } from "../core/math.js";
+import { isRecord } from "../core/type-guards.js";
+import { PPQ } from "../core/types.js";
 
 // Clip import is the device's only LiveAPI use. Continuous Song context stays
 // on native live.path/live.observer objects in the Max patch.
@@ -24,11 +24,13 @@ function isLiveApiValid(api: LiveAPI | undefined): api is LiveAPI {
  */
 function liveTruthy(value: unknown): boolean {
   if (Array.isArray(value)) return liveTruthy(value[0]);
-  if (typeof value === 'boolean') return value;
-  if (typeof value === 'number') return value !== 0;
-  if (typeof value === 'string') {
+  if (typeof value === "boolean") return value;
+  if (typeof value === "number") return value !== 0;
+  if (typeof value === "string") {
     const normalized = value.trim().toLowerCase();
-    return normalized !== '' && normalized !== '0' && normalized !== 'false' && normalized !== 'id 0';
+    return (
+      normalized !== "" && normalized !== "0" && normalized !== "false" && normalized !== "id 0"
+    );
   }
   return Boolean(value);
 }
@@ -40,8 +42,8 @@ function liveTruthy(value: unknown): boolean {
  */
 function isMidiClip(api: LiveAPI): boolean {
   try {
-    if (liveTruthy(api.get('is_midi_clip'))) return true;
-    if (liveTruthy(api.get('is_audio_clip'))) return false;
+    if (liveTruthy(api.get("is_midi_clip"))) return true;
+    if (liveTruthy(api.get("is_audio_clip"))) return false;
   } catch {
     // Property missing: let the subsequent note read fail soft.
   }
@@ -53,19 +55,19 @@ function isMidiClip(api: LiveAPI): boolean {
  * @returns {LiveAPI | undefined} Selected MIDI clip, when available.
  */
 export function resolveDetailClip(): LiveAPI | undefined {
-  if (typeof LiveAPI === 'undefined') return undefined;
+  if (typeof LiveAPI === "undefined") return undefined;
 
   try {
-    const detail = new LiveAPI(undefined, 'live_set view detail_clip');
+    const detail = new LiveAPI(undefined, "live_set view detail_clip");
     if (isLiveApiValid(detail) && isMidiClip(detail)) return detail;
   } catch {
     // detail_clip path unavailable
   }
 
   try {
-    const slot = new LiveAPI(undefined, 'live_set view highlighted_clip_slot');
-    if (!isLiveApiValid(slot) || !liveTruthy(slot.get('has_clip'))) return undefined;
-    const clip = new LiveAPI(undefined, 'live_set view highlighted_clip_slot clip');
+    const slot = new LiveAPI(undefined, "live_set view highlighted_clip_slot");
+    if (!isLiveApiValid(slot) || !liveTruthy(slot.get("has_clip"))) return undefined;
+    const clip = new LiveAPI(undefined, "live_set view highlighted_clip_slot clip");
     if (isLiveApiValid(clip) && isMidiClip(clip)) return clip;
   } catch {
     // No highlighted clip slot / empty slot.
@@ -80,7 +82,7 @@ export function resolveDetailClip(): LiveAPI | undefined {
  * @returns {unknown} Parsed payload or undefined after a parse failure.
  */
 function coerceNotesPayload(raw: unknown): unknown {
-  if (typeof raw === 'string') {
+  if (typeof raw === "string") {
     const trimmed = raw.trim();
     if (!trimmed) return undefined;
     try {
@@ -91,7 +93,7 @@ function coerceNotesPayload(raw: unknown): unknown {
   }
 
   const dictLike = raw as { stringify?: () => string } | null;
-  if (dictLike && typeof dictLike.stringify === 'function') {
+  if (dictLike && typeof dictLike.stringify === "function") {
     try {
       return JSON.parse(dictLike.stringify());
     } catch {
@@ -121,7 +123,8 @@ export function parseClipNotesExtended(raw: unknown): AbsoluteNote[] {
     const startTime = Number(note.start_time ?? note.startTime);
     const duration = Number(note.duration);
     const velocity = Number(note.velocity ?? 100);
-    if (!Number.isFinite(pitch) || !Number.isFinite(startTime) || !Number.isFinite(duration)) continue;
+    if (!Number.isFinite(pitch) || !Number.isFinite(startTime) || !Number.isFinite(duration))
+      continue;
     if (note.mute === 1 || note.muted === 1 || note.mute === true) continue;
     notes.push({
       at: Math.round(startTime * PPQ),
@@ -141,6 +144,6 @@ export function parseClipNotesExtended(raw: unknown): AbsoluteNote[] {
  * @see https://docs.cycling74.com/apiref/lom/clip/#get_notes_extended
  */
 export function readClipNotes(clip: LiveAPI): AbsoluteNote[] {
-  const payload = clip.call('get_notes_extended', 0, 128, 0, 4096);
+  const payload = clip.call("get_notes_extended", 0, 128, 0, 4096);
   return parseClipNotesExtended(payload);
 }

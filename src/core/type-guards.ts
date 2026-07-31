@@ -4,7 +4,7 @@
  * @returns {boolean} Whether the value is a non-null, non-array object.
  */
 export function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value);
+  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /**
@@ -23,9 +23,9 @@ export function hasOwn(record: Record<string, unknown>, key: string): boolean {
  * @param {string} fallback Value returned for objects, arrays, null, and undefined.
  * @returns {string} Primitive text or fallback.
  */
-export function primitiveText(value: unknown, fallback = ''): string {
-  if (typeof value === 'string') return value;
-  if (typeof value === 'number' || typeof value === 'boolean') return String(value);
+export function primitiveText(value: unknown, fallback = ""): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
   return fallback;
 }
 
@@ -38,15 +38,19 @@ export function primitiveText(value: unknown, fallback = ''): string {
 export function jsonValuesEqual(left: unknown, right: unknown): boolean {
   if (left === right) return true;
   if (Array.isArray(left) || Array.isArray(right)) {
-    return Array.isArray(left)
-      && Array.isArray(right)
-      && left.length === right.length
-      && left.every((value, index) => jsonValuesEqual(value, right[index]));
+    return (
+      Array.isArray(left) &&
+      Array.isArray(right) &&
+      left.length === right.length &&
+      left.every((value, index) => jsonValuesEqual(value, right[index]))
+    );
   }
   if (!isRecord(left) || !isRecord(right)) return false;
 
   const leftKeys = Object.keys(left);
   const rightKeys = Object.keys(right);
-  return leftKeys.length === rightKeys.length
-    && leftKeys.every((key) => hasOwn(right, key) && jsonValuesEqual(left[key], right[key]));
+  return (
+    leftKeys.length === rightKeys.length &&
+    leftKeys.every((key) => hasOwn(right, key) && jsonValuesEqual(left[key], right[key]))
+  );
 }

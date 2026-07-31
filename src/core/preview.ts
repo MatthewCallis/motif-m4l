@@ -5,9 +5,9 @@
  * @see https://docs.cycling74.com/apiref/js/mgraphics/
  */
 
-import { barLengthTicks } from './timing.js';
-import { resolveMotifPitch } from './compile-motif.js';
-import type { HostContext, MeterMode, Motif, PitchMode } from './types.js';
+import { barLengthTicks } from "./timing.js";
+import { resolveMotifPitch } from "./compile-motif.js";
+import type { HostContext, MeterMode, Motif, PitchMode } from "./types.js";
 
 /** One preview step after pitch mapping and meter scaling. */
 export interface PreviewNote {
@@ -34,10 +34,10 @@ export interface MotifPreview {
  */
 export function midiNoteName(pitchValue: number): string {
   const pitch = Math.max(0, Math.min(127, Math.round(pitchValue)));
-  const names = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];
+  const names = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
   // Ableton Live labels MIDI 60 as C3.
   const octave = Math.floor(pitch / 12) - 2;
-  return `${names[pitch % 12] ?? 'C'}${octave}`;
+  return `${names[pitch % 12] ?? "C"}${octave}`;
 }
 
 /**
@@ -59,14 +59,15 @@ export function parseMidiNoteName(value: string): number | undefined {
     A: 9,
     B: 11,
   };
-  const letter = match[1]?.toUpperCase() ?? '';
+  const letter = match[1]?.toUpperCase() ?? "";
   const accidental = match[2];
   const octave = Number(match[3]);
-  const offset = accidental === '#' || accidental === '♯'
-    ? 1
-    : accidental === 'b' || accidental === '♭'
-      ? -1
-      : 0;
+  const offset =
+    accidental === "#" || accidental === "♯"
+      ? 1
+      : accidental === "b" || accidental === "♭"
+        ? -1
+        : 0;
   const pitch = (octave + 2) * 12 + (pitchClasses[letter] ?? 0) + offset;
   return pitch >= 0 && pitch <= 127 ? pitch : undefined;
 }
@@ -93,7 +94,7 @@ export function buildMotifPreview(
   const effectivePitchMode = pitchModeOverride ?? motif.pitchMode;
   const sourceBarTicks = barLengthTicks(motif.sourceMeter);
   const targetBarTicks = barLengthTicks(host.timeSignature);
-  const timeScale = meterMode === 'fit-bar' ? targetBarTicks / sourceBarTicks : 1;
+  const timeScale = meterMode === "fit-bar" ? targetBarTicks / sourceBarTicks : 1;
 
   const notes = motif.notes.slice(0, maxNotes).map((note) => ({
     pitch: resolveMotifPitch(note, motif, host, {
@@ -113,7 +114,7 @@ export function buildMotifPreview(
   const lowPitch = minimum === maximum ? minimum - 1 : minimum;
   const highPitch = minimum === maximum ? maximum + 1 : maximum;
   const totalTicks = Math.max(1, motif.length * timeScale);
-  const bars = totalTicks / Math.max(1, meterMode === 'fit-bar' ? targetBarTicks : sourceBarTicks);
+  const bars = totalTicks / Math.max(1, meterMode === "fit-bar" ? targetBarTicks : sourceBarTicks);
 
   return {
     notes,

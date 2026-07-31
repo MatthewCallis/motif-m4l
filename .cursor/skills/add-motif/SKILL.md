@@ -11,10 +11,10 @@ description: >-
 
 ## Source of truth
 
-| Kind | Path | How it ships |
-|------|------|----------------|
-| Built-in | `motifs/builtin/<id>.json` | `npm run generate` → `src/generated/builtins.ts` → bundled into `motif-device-<hash>.js` |
-| User library | any `.json` Motif file | Live Library/Info Choose path at runtime (not generated) |
+| Kind         | Path                       | How it ships                                                                             |
+| ------------ | -------------------------- | ---------------------------------------------------------------------------------------- |
+| Built-in     | `motifs/builtin/<id>.json` | `npm run generate` → `src/generated/builtins.ts` → bundled into `motif-device-<hash>.js` |
+| User library | any `.json` Motif file     | Live Library/Info Choose path at runtime (not generated)                                 |
 
 **Never edit `src/generated/builtins.ts` by hand.** Always add/edit JSON under `motifs/builtin/`, then regenerate.
 
@@ -44,14 +44,14 @@ In Live, open a MIDI clip in Detail View and use **Import Clip** in the floating
 
 `at` / `duration` / `length` are **source ticks**. Rests = gaps between notes.
 
-| Grid | Ticks |
-|------|------:|
-| 1/16 | 240 |
-| 1/8 | 480 |
-| 1/4 | 960 |
-| 1/2 | 1920 |
-| 1 bar (4/4) | 3840 |
-| 2 bars (4/4) | 7680 |
+| Grid         | Ticks |
+| ------------ | ----: |
+| 1/16         |   240 |
+| 1/8          |   480 |
+| 1/4          |   960 |
+| 1/2          |  1920 |
+| 1 bar (4/4)  |  3840 |
+| 2 bars (4/4) |  7680 |
 
 `length` must be **≥ max(at + duration)** for every note or validation fails.
 
@@ -61,11 +61,11 @@ In Live, open a MIDI clip in Detail View and use **Import Clip** in the floating
 
 Trigger note = anchor. `pitch` is **relative**:
 
-| `pitchMode` | `pitch` means | Typical use |
-|-------------|---------------|-------------|
-| `chromatic` | semitone offset from trigger | Fixed-interval phrases |
-| `scale` | scale-degree steps from trigger’s degree | Diatonic turns that follow Live’s scale |
-| `hybrid` | scale degrees + optional `accidental` semitones | Imported MIDI with blue notes |
+| `pitchMode` | `pitch` means                                   | Typical use                             |
+| ----------- | ----------------------------------------------- | --------------------------------------- |
+| `chromatic` | semitone offset from trigger                    | Fixed-interval phrases                  |
+| `scale`     | scale-degree steps from trigger’s degree        | Diatonic turns that follow Live’s scale |
+| `hybrid`    | scale degrees + optional `accidental` semitones | Imported MIDI with blue notes           |
 
 Device UI Pitch Mode `motif` = use the phrase’s stored `pitchMode` (not an override).
 

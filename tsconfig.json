@@ -8,24 +8,9 @@
     "exactOptionalPropertyTypes": true,
     "noEmit": true,
     "skipLibCheck": true,
-    "lib": [
-      "ES2020"
-    ],
-    "types": [
-      "node"
-    ]
+    "lib": ["ES2020"],
+    "types": ["node"]
   },
-  "include": [
-    "src/**/*.ts",
-    "tests/**/*.ts",
-    "scripts/**/*.ts"
-  ],
-  "exclude": [
-    "node_modules",
-    "dist",
-    "max",
-    "src/max/library.ts",
-    "**/__MACOSX/**",
-    "**/._*"
-  ]
+  "include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"],
+  "exclude": ["node_modules", "dist", "max", "src/max/library.ts", "**/__MACOSX/**", "**/._*"]
 }

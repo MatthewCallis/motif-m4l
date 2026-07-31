@@ -1,9 +1,9 @@
-import { clamp } from '../core/math.js';
-import { parseMidiNoteName } from '../core/preview.js';
-import type { MotifStore } from '../library/store.js';
+import { clamp } from "../core/math.js";
+import { parseMidiNoteName } from "../core/preview.js";
+import type { MotifStore } from "../library/store.js";
 
 /** Behavior assigned to one MIDI hot key. */
-export type HotkeyAction = 'trigger' | 'select';
+export type HotkeyAction = "trigger" | "select";
 
 /** A MIDI hot key's stable motif target and note-on behavior. */
 export interface HotkeyMapping {
@@ -34,7 +34,7 @@ export type HotkeyAssignmentResult =
  * @returns {number | undefined} Rounded, clamped pitch or undefined for invalid input.
  */
 export function hotkeyPitch(value: number | string): number | undefined {
-  if (typeof value === 'string') {
+  if (typeof value === "string") {
     const named = parseMidiNoteName(value);
     if (named !== undefined) {
       return named;
@@ -83,7 +83,7 @@ export class MotifHotkeyMap {
   assign(
     pitchValue: number | string,
     motifValue: string,
-    actionValue = 'trigger',
+    actionValue = "trigger",
   ): HotkeyAssignmentResult {
     const pitch = hotkeyPitch(pitchValue);
     if (pitch === undefined) {
@@ -93,7 +93,7 @@ export class MotifHotkeyMap {
     if (!motif) {
       return { ok: false, error: `Cannot map ${pitch}: unknown motif ${motifValue}` };
     }
-    if (actionValue !== 'trigger' && actionValue !== 'select') {
+    if (actionValue !== "trigger" && actionValue !== "select") {
       return { ok: false, error: `Cannot map ${pitch}: unknown hot-key action ${actionValue}` };
     }
 
