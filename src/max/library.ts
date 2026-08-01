@@ -86,6 +86,8 @@ type ValueControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 
 /** Diagnostic source label forwarded to the Max console. */
 const PAGE = "library";
+/** Same-origin development message used by the Vite Library workbench. */
+const WORKBENCH_STATE_MESSAGE = "motif-library-workbench-state";
 /** Editable note schema used to generate rows and coerce outgoing field values. */
 const NOTE_FIELDS: readonly NoteField[] = [
   { name: "pitch", type: "number", required: true, step: "1" },
@@ -473,9 +475,6 @@ function setEditable(editing: boolean): void {
  */
 function renderProperties(selected: LibrarySelectedMotifData | null, editing: boolean): void {
   const curve = selected?.velocityCurve;
-  setValue("id-display", selected?.id ?? "", false);
-  setValue("schema-display", selected ? `v${selected.schemaVersion}` : "", false);
-  setValue("length-display", selected ? `${selected.length} ticks` : "", false);
   setValue("pitch-mode-edit", selected?.pitchMode ?? "scale", editing);
   setValue("default-gate-edit", selected?.defaultGate, editing);
   setValue("meter-numerator-edit", selected?.sourceMeter.numerator ?? "", editing);
@@ -506,7 +505,7 @@ function renderDetail(server: LibraryServerState | null, local: LibraryPageState
     setValue("description-edit", "", false);
     setEditable(false);
     renderProperties(null, false);
-    $<HTMLDivElement>("stats-line").textContent = "–";
+    $<HTMLDivElement>("stats-line").textContent = "-";
     $<HTMLDivElement>("edit-state").textContent = "";
     edit.disabled = true;
     cancel.classList.add("hidden");
@@ -814,6 +813,14 @@ if (isMax) {
     }, 2_000);
   }
 } else {
+  window.addEventListener("message", (event) => {
+    if (event.source !== window.parent || event.origin !== location.origin) return;
+    if (!event.data || typeof event.data !== "object") return;
+    const message = event.data as { type?: unknown; payload?: unknown };
+    if (message.type === WORKBENCH_STATE_MESSAGE && typeof message.payload === "string") {
+      receiveData(message.payload);
+    }
+  });
   receiveData(
     encodeURIComponent(
       JSON.stringify({

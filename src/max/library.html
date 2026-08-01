@@ -38,33 +38,11 @@
       </div>
 
       <div id="right">
-        <div id="meta">
-          <div id="meta-row-1">
-            <input
-              class="field"
-              id="name-edit"
-              type="text"
-              placeholder="(no motif selected)"
-              readonly
-            />
-            <button class="btn" id="edit-btn">Edit</button>
-            <button class="btn hidden" id="cancel-edit-btn">Cancel Edit</button>
-          </div>
-          <textarea
-            class="field"
-            id="description-edit"
-            placeholder="Description"
-            readonly
-          ></textarea>
-          <div id="stats-line">–</div>
-          <div id="edit-state"></div>
-        </div>
-
         <div id="detail-actions">
           <select
             class="field"
             id="import-mode"
-            title="Chromatic preserves the MIDI exactly; Scale and Hybrid encode relative scale degrees"
+            title="Chromatic preserves the MIDI exactly; Scale & Hybrid encode relative scale degrees"
           >
             <option value="chromatic">Exact / Chromatic</option>
             <option value="hybrid">Hybrid</option>
@@ -74,28 +52,35 @@
           <button class="btn" id="save-motif-btn">Save &amp; Finish</button>
         </div>
 
+        <div id="meta">
+          <div id="meta-row-1">
+            <input
+              class="field"
+              id="name-edit"
+              type="text"
+              placeholder="(no motif selected)"
+              readonly
+            />
+
+            <button class="btn" id="edit-btn">Edit</button>
+            <button class="btn hidden" id="cancel-edit-btn">Cancel Edit</button>
+          </div>
+          <textarea
+            class="field"
+            id="description-edit"
+            placeholder="Description"
+            readonly
+          ></textarea>
+          <div id="stats-line">-</div>
+          <div id="edit-state"></div>
+        </div>
+
         <div id="panel-tabs">
           <button class="panel-tab active" data-panel="properties">Properties</button>
-          <button class="panel-tab" data-panel="notes">Notes</button>
+          <button class="panel-tab" data-panel="notes">Notes <span id="note-count">(0)</span></button>
         </div>
 
         <div class="panel" id="properties-panel">
-          <div class="section">
-            <div class="section-title">Identity</div>
-            <div class="property-grid">
-              <label for="id-display">ID</label
-              ><input class="field identity" id="id-display" readonly />
-              <label for="schema-display">Schema</label
-              ><input class="field identity" id="schema-display" readonly />
-              <label for="length-display">Length</label
-              ><input class="field identity" id="length-display" readonly />
-              <div class="help">
-                ID is generated once and remains stable. Length is recalculated from the final note
-                end.
-              </div>
-            </div>
-          </div>
-
           <div class="section">
             <div class="section-title">MIDI Hot Keys</div>
             <div class="property-grid">
@@ -253,6 +238,6 @@
       <button id="debug-toggle" type="button">Debug</button>
     </div>
 
-    <script src="library.ts" data-motif-build></script>
+    <script type="module" src="./library.ts" data-motif-build></script>
   </body>
 </html>

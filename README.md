@@ -29,6 +29,18 @@ Use `npm run clean && npm run build` to remove and recreate every generated runt
 
 Before distribution, freeze and save the device in Max, then run `npm run verify:release`. The release check inspects the packaged `.amxd` as well as the generated patch and refuses stale embedded hashes, retired handlers, or obsolete Live API calls.
 
+## Library workbench
+
+Run the Library UI directly in a browser while editing its production HTML, CSS, and TypeScript:
+
+```bash
+npm run dev:library
+```
+
+The workbench opens the real Library page in an isolated, resizable viewport. Its fixture menu covers normal, editing, large-table, long-content, scanning, empty, and warning states; common authoring actions are handled locally and recorded in the action log.
+
+Use **Save to source** to persist the current viewport dimensions to `config/library-window.json`. The Max patch generator reads the same configuration for the floating patcher, `jweb`, and window-size messages. Run `npm run build` after saving to regenerate `max/Motif.maxpat` with the new size.
+
 ## Development files
 
 Keep these files together while editing the device:

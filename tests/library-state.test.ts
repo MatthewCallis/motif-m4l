@@ -7,6 +7,7 @@ import { DeviceSettingsState } from "../src/max/device-settings.js";
 import { MotifHotkeyMap } from "../src/max/hotkey-map.js";
 import {
   buildLibraryServerState,
+  formatLibraryMotifStats,
   type LibraryProjectionRepository,
 } from "../src/max/library-state.js";
 
@@ -38,6 +39,36 @@ function setup() {
   };
   return { store, editor, hotkeys, settings, library };
 }
+
+describe("formatLibraryMotifStats", () => {
+  it("formats Library stats for singular, integer, and fractional bars", () => {
+    assert.equal(
+      formatLibraryMotifStats(
+        {
+          notes: [{ pitch: 60, atTicks: 0, durationTicks: 480, velocity: 100 }],
+          bars: 1,
+          effectivePitchMode: "chromatic",
+        },
+        { numerator: 4, denominator: 4 },
+      ),
+      "1 note • 1 bar • 4/4 source • chromatic",
+    );
+    assert.equal(
+      formatLibraryMotifStats(
+        {
+          notes: [
+            { pitch: 60, atTicks: 0, durationTicks: 480, velocity: 80 },
+            { pitch: 62, atTicks: 480, durationTicks: 480, velocity: 120 },
+          ],
+          bars: 1.5,
+          effectivePitchMode: "scale",
+        },
+        { numerator: 6, denominator: 8 },
+      ),
+      "2 notes • 1.5 bars • 6/8 source • scale",
+    );
+  });
+});
 
 describe("Library state projection", () => {
   it("projects selection, transforms, hot keys, and actions without mutation", () => {

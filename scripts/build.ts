@@ -54,7 +54,7 @@ const MAX_BRIDGE =
 
 const HASH_LENGTH = 12;
 const LIBRARY_STYLE_TAG = '<link rel="stylesheet" href="library.css" data-motif-build />';
-const LIBRARY_SCRIPT_TAG = '<script src="library.ts" data-motif-build></script>';
+const LIBRARY_SCRIPT_TAG = '<script type="module" src="./library.ts" data-motif-build></script>';
 
 /**
  * Build a content-addressed JavaScript filename.

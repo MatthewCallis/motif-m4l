@@ -55,7 +55,7 @@ In Live, open a MIDI clip in Detail View and use **Import Clip** in the floating
 
 `length` must be **≥ max(at + duration)** for every note or validation fails.
 
-`defaultGate` / per-note `gate` scale sounding length (0–1-ish multipliers; keep `> 0`).
+`defaultGate` / per-note `gate` scale sounding length (0-1-ish multipliers; keep `> 0`).
 
 ## Pitch encoding
 
@@ -91,14 +91,14 @@ Device UI Pitch Mode `motif` = use the phrase’s stored `pitchMode` (not an ove
 ### Note fields (common)
 
 - Required: `at`, `duration`, `pitch`
-- Optional: `accidental`, `velocity` (absolute 1–127), `velocityOffset`, `velocityScale`, `gate`, `legato`, `tie`
+- Optional: `accidental`, `velocity` (absolute 1-127), `velocityOffset`, `velocityScale`, `gate`, `legato`, `tie`
 - Prefer relative `velocityOffset` + motif `velocityCurve` over hard-coded `velocity` so trigger dynamics still matter
 
 ## Authoring heuristics
 
 - **Famous lick** → usually `chromatic`, trigger = first/anchor pitch, short description of rhythm + intervals.
 - **Scale toy / demo** → `scale`, pitches as degree steps (`0,1,2,4...`).
-- Keep phrases playable as one-shots: 1–2 bars is the sweet spot unless the user asks for longer.
+- Keep phrases playable as one-shots: 1-2 bars is the sweet spot unless the user asks for longer.
 - Preview in Live: pick the motif, hit a trigger in-zone; contour updates from native Song observers.
 
 ## Do not

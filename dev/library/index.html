@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Motif Library Workbench</title>
+    <link rel="stylesheet" href="./workbench.css" />
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <p class="eyebrow">Motif development tool</p>
+          <h1>Library Workbench</h1>
+          <p class="lede">The production Library page, isolated at its exact Max viewport size.</p>
+        </div>
+        <div id="save-status" class="status" role="status">Loading saved size…</div>
+      </header>
+
+      <section class="toolbar" aria-label="Library workbench controls">
+        <div class="control-group dimensions">
+          <label for="width-input">Width</label>
+          <input id="width-input" type="number" inputmode="numeric" />
+          <span>×</span>
+          <label for="height-input">Height</label>
+          <input id="height-input" type="number" inputmode="numeric" />
+          <span>px</span>
+        </div>
+
+        <div class="control-group presets" aria-label="Size presets">
+          <button type="button" data-size="640x460">Default</button>
+        </div>
+
+        <div class="control-group">
+          <label for="fixture-select">State</label>
+          <select id="fixture-select">
+            <option value="normal">Normal</option>
+            <option value="editing">Editing</option>
+            <option value="large">Large note table</option>
+            <option value="long">Long content</option>
+            <option value="scanning">Scanning</option>
+            <option value="empty">Empty library</option>
+            <option value="warning">Warning modal</option>
+          </select>
+        </div>
+
+        <div class="toolbar-actions">
+          <button id="reset-button" type="button">Reset</button>
+          <button id="save-button" class="primary" type="button">Save to source</button>
+        </div>
+      </section>
+
+      <section class="workspace" aria-label="Resizable Library viewport">
+        <div class="ruler" aria-live="polite">
+          <strong id="size-readout">— × —</strong>
+          <span>Drag the lower-right corner to resize</span>
+        </div>
+        <div id="library-window" class="library-window">
+          <iframe
+            id="library-frame"
+            title="Motif Library production page"
+            src="/src/max/library.html?workbench=1"
+          ></iframe>
+        </div>
+      </section>
+
+      <details class="event-panel">
+        <summary>Library action log</summary>
+        <div class="event-panel-header">
+          <span>Messages emitted through the simulated Max bridge</span>
+          <button id="clear-log-button" type="button">Clear</button>
+        </div>
+        <pre id="action-log">Waiting for the Library page…</pre>
+      </details>
+    </main>
+
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

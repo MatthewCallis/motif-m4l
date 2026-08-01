@@ -36,6 +36,7 @@ import {
   type MaxPatchDocument,
   type MaxPatcher,
 } from "./max-patch-builder.js";
+import { readLibraryWindowConfig } from "./library-window-config.js";
 
 const WIDTH = 475;
 const FONT = "Ableton Sans";
@@ -114,6 +115,8 @@ const LIVE_ROOT_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "
  * @see https://docs.cycling74.com/apiref/js/patcher/
  */
 export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<void> {
+  const libraryWindow = await readLibraryWindowConfig();
+  const libraryWindowSizeMessage = `window size ${libraryWindow.width} ${libraryWindow.height}`;
   const builder = new MaxPatchBuilder({ fontName: FONT, colors: COLORS });
   const { boxes, lines } = builder;
   const {
@@ -447,10 +450,10 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   function buildLibrarySubpatcher(): MaxPatcher {
     const nestedBuilder = builder.createChild();
     const { addBox: nadd, addObject: nobject, connect: nconnect } = nestedBuilder;
-    const POP_W = 640;
-    const POP_H = 460;
+    const POP_W = libraryWindow.width;
+    const POP_H = libraryWindow.height;
 
-    // jweb fills the documented, fixed 640×460 Presentation view. Avoid
+    // jweb fills the configured fixed-size Presentation view. Avoid
     // relying on undocumented jweb sizing attributes.
     // This separate window has no overlapping Max UI, so onscreen rendering is
     // both faster and avoids offscreen-rendering issues with HTML form controls.
@@ -473,7 +476,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     nobject("lib-readfile-prepend", "prepend readfile", LX + 190, LY - LROW, 120);
     // loadmess fires on load to configure the floating window before it is first opened.
     nobject("lib-force-pres", "loadmess presentation 1", LX + 120, LY, 160);
-    nobject("lib-force-size", "loadmess window size 640 460", LX + 300, LY, 180);
+    nobject("lib-force-size", `loadmess ${libraryWindowSizeMessage}`, LX + 300, LY, 180);
     nobject("lib-force-title", 'loadmess title "Motif Library"', LX + 500, LY, 210);
     nconnect("lib-force-pres", 0, "lib-thispatcher", 0);
     nconnect("lib-force-size", 0, "lib-thispatcher", 0);
@@ -493,7 +496,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     //   outlet 1 (library_ready): send selector directly to v8 so state is resent after load
     //   outlet 2 (web_debug): forward browser diagnostics to v8
     //   outlet 3 (lib_action): explicitly tagged encoded JSON action
-    //   outlets 4–5 (url/title): print documented page-load metadata to the Max Console
+    //   outlets 4-5 (url/title): print documented page-load metadata to the Max Console
     //   outlet 6 (no match): print undocumented lifecycle messages; never execute them
     // @see https://docs.cycling74.com/reference/jweb/#readfile
     nobject(
@@ -810,8 +813,8 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   // materialization/readfile until jweb is visible → size again.
   object("library-open-trigger", "t b b b b b b", COL.library + 200, LIB_Y, 120);
   message("library-flags", "window flags float nogrow close zoom", COL.library + 200, LIB_Y, 230);
-  message("library-size", "window size 640 460", COL.library + 200, LIB_Y + ROW, 150);
-  message("library-size-again", "window size 640 460", COL.library + 200, LIB_Y + ROW * 2, 150);
+  message("library-size", libraryWindowSizeMessage, COL.library + 200, LIB_Y + ROW, 150);
+  message("library-size-again", libraryWindowSizeMessage, COL.library + 200, LIB_Y + ROW * 2, 150);
   message("library-exec", "window exec", COL.library + 200, LIB_Y + ROW * 3, 110);
   message("library-open", "open", COL.library + 200, LIB_Y + ROW * 4, 60);
   object("library-prepare-defer", "deferlow", COL.library + 320, LIB_Y + ROW * 4, 80);

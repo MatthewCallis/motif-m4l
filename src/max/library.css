@@ -266,7 +266,7 @@ select:disabled {
   flex: 1;
 }
 #import-mode {
-  width: 104px;
+  width: 128px;
   flex: 0 0 auto;
 }
 #panel-tabs {
@@ -381,7 +381,6 @@ select:disabled {
   overflow: auto;
 }
 #note-table {
-  min-width: 780px;
   display: flex;
   flex-direction: column;
   min-height: 100%;

@@ -201,7 +201,7 @@ function normalizeData(value) {
     totalTicks: Math.max(1, Number(value.totalTicks) || 1),
     lowPitch: lowPitch,
     highPitch: highPitch,
-    noteNames: String(value.noteNames || "–"),
+    noteNames: String(value.noteNames || "-"),
   };
 }
 
@@ -320,7 +320,7 @@ function paint() {
   }
 
   strokeLine(0, rollHeight, width, rollHeight, COLORS.grid, 1);
-  var names = currentData ? currentData.noteNames : "–";
+  var names = currentData ? currentData.noteNames : "-";
   drawText(truncateText(names, width - 12, 11), 6, height - 4, 11, COLORS.text);
   drawStatus(width);
 

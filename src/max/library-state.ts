@@ -1,8 +1,7 @@
-import { buildMotifPreview } from "../core/preview.js";
-import type { HostContext } from "../core/types.js";
+import { buildMotifPreview, MotifPreview } from "../core/preview.js";
+import type { HostContext, TimeSignature } from "../core/types.js";
 import type { MotifEditorState } from "../library/editor-state.js";
 import type { MotifStore } from "../library/store.js";
-import { formatLibraryMotifStats } from "./device-logic.js";
 import type { DeviceSettingsState } from "./device-settings.js";
 import type { MotifHotkeyMap } from "./hotkey-map.js";
 import type {
@@ -11,6 +10,26 @@ import type {
   LibraryServerState,
 } from "./library-protocol.js";
 import { toLibraryHotkeyData, toLibraryNoteData } from "./library-view.js";
+
+/**
+ * Format the selected motif summary rendered by the Library.
+ * @param {Pick<MotifPreview, 'notes' | 'bars' | 'effectivePitchMode'>} preview Preview aggregates.
+ * @param {TimeSignature} sourceMeter Stored source meter.
+ * @returns {string} Note, bar, meter, and pitch-mode summary.
+ */
+export function formatLibraryMotifStats(
+  preview: Pick<MotifPreview, "notes" | "bars" | "effectivePitchMode">,
+  sourceMeter: TimeSignature,
+): string {
+  const meter = `${sourceMeter.numerator}/${sourceMeter.denominator}`;
+  // Preserve meaningful half-bar values without displaying redundant decimal zeros.
+  const barCount = Number.isInteger(preview.bars)
+    ? String(preview.bars)
+    : preview.bars.toFixed(1).replace(/\.0$/, "");
+  const notes = `${preview.notes.length} ${preview.notes.length === 1 ? "note" : "notes"}`;
+  const bars = `${barCount} ${preview.bars === 1 ? "bar" : "bars"}`;
+  return `${notes} • ${bars} • ${meter} source • ${preview.effectivePitchMode}`;
+}
 
 /** Repository fields needed by the pure Library projection. */
 export interface LibraryProjectionRepository {

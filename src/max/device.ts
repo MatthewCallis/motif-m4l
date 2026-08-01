@@ -101,14 +101,17 @@ const library = new MaxUserLibrary(store, {
 
 /** MIDI pitch to Library-configured motif/action assignments. */
 const hotkeys = new MotifHotkeyMap(store);
+
 /** Performance controls restored from ordinary Live parameters. */
 const settings = new DeviceSettingsState();
+
 let initialized = false;
 let previewTriggerPitch = 60;
 let previewWasTriggered = false;
 let browserQuery = "";
 let libraryAlert: LibraryAlert | undefined;
 let libraryAlertCounter = 0;
+
 /** Monotonic identity used to discard stale state chunks in the Library page. */
 let libraryStateTransferCounter = 0;
 /** Saved selection and hotkeys waiting for the asynchronous library scan. */
@@ -228,7 +231,7 @@ function emitPreviewState(): void {
     totalTicks,
     lowPitch: preview.lowPitch,
     highPitch: preview.highPitch,
-    noteNames: preview.noteNames.join("  ·  "),
+    noteNames: preview.noteNames.join(" ·  "),
   };
   emit("ui", "preview", encodeURIComponent(JSON.stringify(state)));
 }
@@ -331,7 +334,9 @@ function listMotifs(): void {
   store.ensureCurrent(DEFAULT_MOTIF_ID);
   const labels = store.labels();
   emit("motifs-reset");
-  for (const item of store.list()) emit("motif-item", labels.get(item.id) ?? item.name);
+  for (const item of store.list()) {
+    emit("motif-item", labels.get(item.id) ?? item.name);
+  }
   emit("motif-selected", labels.get(store.currentId) ?? store.current?.name ?? store.currentId);
   emitSelectedMotifUi();
 }
@@ -614,7 +619,9 @@ function unmap_trigger(pitchValue: number | string): void {
  * Clear the trigger map.
  */
 function clear_trigger_map(): void {
-  for (const pitch of hotkeys.clear()) playback.stopHeldRepeat(pitch, false);
+  for (const pitch of hotkeys.clear()) {
+    playback.stopHeldRepeat(pitch, false);
+  }
   emitLibraryState();
   emitPersistedState();
   emitStatus("map-cleared");
@@ -633,7 +640,9 @@ function pruneTriggerMap(): void {
  */
 function library_path(...pathParts: unknown[]): void {
   const nextPath = pathFromAtoms(pathParts);
-  if (!nextPath) return;
+  if (!nextPath) {
+    return;
+  }
   if (editor.isDirty()) {
     emitError("Finish or cancel editing before changing the library folder");
     emitLibraryState();

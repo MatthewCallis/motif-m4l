@@ -52,7 +52,7 @@ export interface TimeSignature {
 export interface HostContext {
   /** BPM (may already include the device-local tempo multiplier). */
   tempo: number;
-  /** Song root note pitch class (0–11), from Song.root_note. */
+  /** Song root note pitch class (0-11), from Song.root_note. */
   rootNote: number;
   /** Song.scale_name display string. */
   scaleName: string;
@@ -89,7 +89,7 @@ export interface MotifNote {
   accidental?: number;
   /** Absolute velocity. When omitted, the curved trigger velocity is used. */
   velocity?: number;
-  /** Added after scale/absolute velocity resolution (before clamp to 1–127). */
+  /** Added after scale/absolute velocity resolution (before clamp to 1-127). */
   velocityOffset?: number;
   /** Multiplier applied to the base velocity (default 1). */
   velocityScale?: number;

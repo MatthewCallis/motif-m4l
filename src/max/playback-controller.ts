@@ -1,10 +1,14 @@
 import { compileMotif } from "../core/compile-motif.js";
 import { clamp } from "../core/math.js";
-import { ticksToMilliseconds } from "../core/timing.js";
-import type { CompileOptions, HostContext } from "../core/types.js";
+import {
+  barLengthTicks,
+  quantizationTicks,
+  ticksToMilliseconds,
+  ticksUntilNextBoundary,
+} from "../core/timing.js";
+import { MeterMode, Motif, PPQ, type CompileOptions, type HostContext, type LaunchQuantization } from "../core/types.js";
 import type { MotifStore } from "../library/store.js";
 import { MIN_REPEAT_DELAY_MS } from "./device-types.js";
-import { launchOffsetTicksFor, motifRepeatDelayFor } from "./device-logic.js";
 import type { DeviceSettingsState } from "./device-settings.js";
 import type { MotifHotkeyMap } from "./hotkey-map.js";
 
@@ -47,6 +51,45 @@ export interface PlaybackControllerCallbacks {
   onPreviewTrigger: (pitch: number) => void;
   /** Select a motif through the device's guarded selection workflow. */
   onSelectMotif: (id: string) => void;
+}
+
+/**
+ * Convert one effective motif cycle to a safe repeat-task delay.
+ * @param {Motif} motif Motif that will repeat.
+ * @param {MeterMode} meterMode Current meter scaling behavior.
+ * @param {HostContext} host Observed Song context.
+ * @param {number} tempoMultiplier Device-local tempo ratio.
+ * @returns {number} Repeat interval in milliseconds.
+ */
+export function motifRepeatDelayFor(
+  motif: Motif,
+  meterMode: MeterMode,
+  host: HostContext,
+  tempoMultiplier: number,
+): number {
+  const effectiveLength =
+    meterMode === "preserve"
+      ? motif.length
+      : motif.length * (barLengthTicks(host.timeSignature) / barLengthTicks(motif.sourceMeter));
+  return Math.max(
+    MIN_REPEAT_DELAY_MS,
+    ticksToMilliseconds(effectiveLength, host.tempo * tempoMultiplier),
+  );
+}
+
+/**
+ * Calculate a quantized launch offset from the observed Song position.
+ * @param {HostContext} host Observed Song context.
+ * @param {LaunchQuantization} launchQuantization Selected launch grid.
+ * @returns {number} Non-negative launch offset in PPQ ticks.
+ */
+export function launchOffsetTicksFor(
+  host: HostContext,
+  launchQuantization: LaunchQuantization,
+): number {
+  if (!host.isPlaying || launchQuantization === "immediate") return 0;
+  const grid = quantizationTicks(launchQuantization, host.timeSignature);
+  return ticksUntilNextBoundary(Math.max(0, host.currentSongTime * PPQ), grid);
 }
 
 /**

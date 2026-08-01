@@ -84,7 +84,7 @@ export function transposeByScaleDegree(
 }
 
 /**
- * Add chromatic semitones to the trigger pitch (clamped 0–127).
+ * Add chromatic semitones to the trigger pitch (clamped 0-127).
  * @param {number} triggerPitch The pitch to transpose.
  * @param {number} semitones The number of semitones to add.
  * @returns {number} The transposed pitch.

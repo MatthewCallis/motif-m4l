@@ -132,8 +132,8 @@ function createElementForId(id: string): FakeElement {
   return new FakeElement(id.endsWith("btn") ? "BUTTON" : "DIV");
 }
 
-describe("Library browser runtime", () => {
-  it("boots the typed controller, renders state, assembles chunks, and emits actions", async () => {
+void describe("Library browser runtime", () => {
+  void it("boots the typed controller, renders state, assembles chunks, and emits actions", async () => {
     const elements = new Map<string, FakeElement>();
     const panelTabs = [
       Object.assign(new FakeElement("BUTTON"), { dataset: { panel: "properties" } }),

@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import type { HostContext } from "../src/core/types.js";
+import type { HostContext, Motif } from "../src/core/types.js";
 import { MotifStore } from "../src/library/store.js";
 import { DeviceSettingsState } from "../src/max/device-settings.js";
 import { MotifHotkeyMap } from "../src/max/hotkey-map.js";
 import {
+  launchOffsetTicksFor,
+  motifRepeatDelayFor,
   PlaybackController,
   type PlaybackControllerCallbacks,
 } from "../src/max/playback-controller.js";
@@ -101,6 +103,48 @@ function createPlayback(): PlaybackHarness {
     scheduled,
   };
 }
+
+const launchHost: HostContext = {
+  tempo: 120,
+  rootNote: 0,
+  scaleName: "Major",
+  scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+  scaleMode: true,
+  timeSignature: { numerator: 3, denominator: 4 },
+  isPlaying: true,
+  currentSongTime: 0.5,
+};
+
+const repeatMotif: Motif = {
+  schemaVersion: 1,
+  id: "playback-repeat",
+  name: "Playback Repeat",
+  description: "Repeat delay fixture.",
+  pitchMode: "chromatic",
+  sourceMeter: { numerator: 4, denominator: 4 },
+  length: 3840,
+  notes: [
+    { at: 0, duration: 480, pitch: -2 },
+    { at: 960, duration: 480, pitch: 4 },
+  ],
+};
+
+describe("launchOffsetTicksFor", () => {
+  it("calculates launch offsets from song position and quantization", () => {
+    assert.equal(launchOffsetTicksFor(launchHost, "1/4"), 480);
+    assert.equal(launchOffsetTicksFor({ ...launchHost, isPlaying: false }, "1/4"), 0);
+    assert.equal(launchOffsetTicksFor(launchHost, "immediate"), 0);
+  });
+});
+
+describe("motifRepeatDelayFor", () => {
+  it("calculates preserve/fit repeat delays", () => {
+    assert.equal(motifRepeatDelayFor(repeatMotif, "preserve", launchHost, 1), 2000);
+    assert.equal(motifRepeatDelayFor(repeatMotif, "fit-bar", launchHost, 1), 1500);
+    assert.equal(motifRepeatDelayFor(repeatMotif, "fit-bar", launchHost, 2), 750);
+    assert.equal(motifRepeatDelayFor({ ...repeatMotif, length: 0 }, "preserve", launchHost, 1), 1);
+  });
+});
 
 describe("PlaybackController", () => {
   it("routes pass-through notes and select-mode hot keys", () => {

@@ -12,7 +12,7 @@ This plan starts from the production build measured on July 29, 2026. It priorit
 
 The current build emits one stable engine in `dist/` for VM tests and only the two content-addressed, minified runtimes referenced by `Motif.maxpat` in `max/`.
 
-An esbuild contribution report attributes 73.5 KB of the 86.7 KB generated engine body to `src/max/device.ts`. That number includes the injected 46.6 KB Library HTML page, so the embedded authoring surface is the largest known size contributor. The next largest individual modules are validation (2.8 KB), store/import/compile/editor state (1.4–1.6 KB each), and preview (1.0 KB).
+An esbuild contribution report attributes 73.5 KB of the 86.7 KB generated engine body to `src/max/device.ts`. That number includes the injected 46.6 KB Library HTML page, so the embedded authoring surface is the largest known size contributor. The next largest individual modules are validation (2.8 KB), store/import/compile/editor state (1.4-1.6 KB each), and preview (1.0 KB).
 
 ## Phase 1: Measure the real-time path
 

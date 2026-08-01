@@ -7,7 +7,8 @@
   "scripts": {
     "build": "tsx scripts/build.ts",
     "clean": "tsx scripts/clean.ts",
-    "check": "tsc --noEmit && tsc --noEmit -p tsconfig.library.json",
+    "check": "tsc --noEmit && tsc --noEmit -p tsconfig.library.json && tsc --noEmit -p tsconfig.dev.json",
+    "dev:library": "vite --config dev/library/vite.config.ts",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "lint": "oxlint",
@@ -28,6 +29,7 @@
     "oxlint": "^1.73.0",
     "oxlint-tsgolint": "^0.24.0",
     "tsx": "^4.20.6",
-    "typescript": "^5.8.3"
+    "typescript": "^5.8.3",
+    "vite": "^8.2.0"
   }
 }

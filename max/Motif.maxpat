@@ -275,8 +275,8 @@
       },
       {
         "box": {
-          "filename": "motif-preview-dbc919c772c6.js",
-          "template": "motif-preview-dbc919c772c6.js",
+          "filename": "motif-preview-a182d4c515de.js",
+          "template": "motif-preview-a182d4c515de.js",
           "border": 0,
           "jsarguments": [
             6,
@@ -1367,7 +1367,7 @@
       },
       {
         "box": {
-          "text": "§ Engine - v8 motif-device-d76573be9cdc.js + event pipe / panic / clear",
+          "text": "§ Engine - v8 motif-device-1b2599fe233f.js + event pipe / panic / clear",
           "fontname": "Ableton Sans",
           "fontsize": 12,
           "fontface": 1,
@@ -1384,7 +1384,7 @@
       },
       {
         "box": {
-          "text": "v8 motif-device-d76573be9cdc.js",
+          "text": "v8 motif-device-1b2599fe233f.js",
           "numinlets": 1,
           "numoutlets": 1,
           "outlettype": [
@@ -1627,7 +1627,7 @@
       },
       {
         "box": {
-          "text": "jsfile motif-preview-dbc919c772c6.js, loadbang",
+          "text": "jsfile motif-preview-a182d4c515de.js, loadbang",
           "id": "obj-62",
           "maxclass": "message",
           "patching_rect": [
@@ -3282,8 +3282,8 @@
             "rect": [
               100,
               100,
-              640,
-              460
+              800,
+              550
             ],
             "bglocked": 0,
             "openinpresentation": 1,
@@ -3306,8 +3306,8 @@
                   "presentation_rect": [
                     0,
                     0,
-                    640,
-                    460
+                    800,
+                    550
                   ],
                   "rendermode": 1,
                   "varname": "jweb-library",
@@ -3316,8 +3316,8 @@
                   "patching_rect": [
                     0,
                     0,
-                    640,
-                    460
+                    800,
+                    550
                   ]
                 }
               },
@@ -3387,7 +3387,7 @@
               },
               {
                 "box": {
-                  "text": "loadmess window size 640 460",
+                  "text": "loadmess window size 800 550",
                   "id": "obj-193",
                   "maxclass": "newobj",
                   "patching_rect": [
@@ -3927,7 +3927,7 @@
       },
       {
         "box": {
-          "text": "window size 640 460",
+          "text": "window size 800 550",
           "id": "obj-214",
           "maxclass": "message",
           "patching_rect": [
@@ -3940,7 +3940,7 @@
       },
       {
         "box": {
-          "text": "window size 640 460",
+          "text": "window size 800 550",
           "id": "obj-215",
           "maxclass": "message",
           "patching_rect": [
@@ -8480,14 +8480,14 @@
     ],
     "dependency_cache": [
       {
-        "name": "motif-device-d76573be9cdc.js",
+        "name": "motif-device-1b2599fe233f.js",
         "bootpath": ".",
         "patcherrelativepath": ".",
         "type": "TEXT",
         "implicit": 1
       },
       {
-        "name": "motif-preview-dbc919c772c6.js",
+        "name": "motif-preview-a182d4c515de.js",
         "bootpath": ".",
         "patcherrelativepath": ".",
         "type": "TEXT",

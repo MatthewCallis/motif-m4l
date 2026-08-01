@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 import vm from "node:vm";
+import { readLibraryWindowConfig } from "../scripts/library-window-config.js";
 
 type Box = {
   id: string;
@@ -40,6 +41,7 @@ type Box = {
     };
   };
   patcher?: {
+    rect?: [number, number, number, number];
     boxes: Array<{ box: Box }>;
     lines: Array<{ patchline: PatchLine }>;
   };
@@ -100,6 +102,8 @@ function allBoxes(boxes: Array<{ box: Box }>): Box[] {
 
 describe("Motif Max patch integration", () => {
   it("generates a compact Max 9 device with Motif/Settings tabs and native preview", async () => {
+    const libraryWindow = await readLibraryWindowConfig();
+    const libraryWindowSizeMessage = `window size ${libraryWindow.width} ${libraryWindow.height}`;
     const patcher = await readPatch();
     const { boxes, lines } = patcher;
     const dependencyNames = patcher.dependency_cache.map(({ name }) => name);
@@ -220,11 +224,11 @@ describe("Motif Max patch integration", () => {
       texts.includes("route lib preview transforms"),
       "ui-route must handle library, preview, and transform state",
     );
-    assert.ok(texts.includes("window size 640 460"));
+    assert.ok(texts.includes(libraryWindowSizeMessage));
     assert.ok(texts.includes("window flags float nogrow close zoom"));
     assert.ok(!texts.includes("window flags float grow close zoom"));
     assert.ok(
-      texts.filter((text) => text === "window size 640 460").length >= 2,
+      texts.filter((text) => text === libraryWindowSizeMessage).length >= 2,
       "size must be applied before and after open",
     );
     assert.ok(texts.includes("receive ---motif_author"));
@@ -552,6 +556,14 @@ describe("Motif Max patch integration", () => {
     const jwebLibrary = nested.find((box) => box.varname === "jweb-library");
     assert.ok(jwebLibrary, "library subpatcher must contain a jweb-library object");
     assert.equal(jwebLibrary?.maxclass, "jweb", "jweb-library must be a jweb object");
+    assert.deepEqual(jwebLibrary?.patching_rect, [0, 0, libraryWindow.width, libraryWindow.height]);
+    assert.deepEqual(jwebLibrary?.presentation_rect, [
+      0,
+      0,
+      libraryWindow.width,
+      libraryWindow.height,
+    ]);
+    assert.deepEqual(libraryPatcher.rect, [100, 100, libraryWindow.width, libraryWindow.height]);
     assert.equal(
       jwebLibrary.url,
       undefined,
@@ -687,7 +699,7 @@ describe("Motif Max patch integration", () => {
     );
     for (const text of [
       "window flags float nogrow close zoom",
-      "window size 640 460",
+      libraryWindowSizeMessage,
       "window exec",
     ]) {
       for (const { box } of boxes.filter(({ box }) => box.text === text)) {
@@ -789,7 +801,10 @@ describe("Motif Max patch integration", () => {
     const script = libraryHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 
     assert.match(template, /<link rel="stylesheet" href="library\.css" data-motif-build \/>/);
-    assert.match(template, /<script src="library\.ts" data-motif-build><\/script>/);
+    assert.match(
+      template,
+      /<script type="module" src="\.\/library\.ts" data-motif-build><\/script>/,
+    );
     assert.doesNotMatch(template, /<style>|<script>(?!<\/script>)/);
     assert.ok(script, "production Library HTML must contain the compiled inline script");
     assert.match(libraryHtml, /<style>[\s\S]+<\/style>/);
