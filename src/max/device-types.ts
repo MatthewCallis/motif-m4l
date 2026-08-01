@@ -132,26 +132,6 @@ export interface LibraryScanState {
   loadedMotifs: number;
 }
 
-/** One trigger held in global `hold-repeat` mode. */
-export interface HeldRepeat {
-  /** Stable motif id captured on note-on. */
-  motifId: string;
-  /** Original trigger velocity. */
-  velocity: number;
-  /** Original one-based MIDI channel. */
-  channel: number;
-  /** Max low-priority repeat task. */
-  task: Task;
-}
-
-/** Optional overrides for launching an already-resolved motif. */
-export interface TriggerMotifOptions {
-  /** Pre-resolved motif id override. */
-  motifId?: string;
-  /** Explicit launch delay in PPQ ticks. */
-  launchOffsetTicks?: number;
-}
-
 /** Built-in selected on first load and after invalid selection repair. */
 export const DEFAULT_MOTIF_ID = "scale-turn";
 /** Filesystem entries processed before yielding to Max's UI thread. */

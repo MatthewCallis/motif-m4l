@@ -9,7 +9,6 @@
  */
 
 import type { Motif, MotifNote } from "../core/types.js";
-import { transformMotif } from "../core/transform-motif.js";
 import { BUILTIN_MOTIFS } from "../generated/builtins.js";
 import { validateMotif } from "./validate.js";
 
@@ -36,10 +35,6 @@ export class MotifStore {
   builtinIds = new Set<string>(BUILTIN_MOTIFS.map((motif) => motif.id));
   sortedList: Motif[] | null = null;
   currentId: string;
-  /** Mirror encoded pitch offsets around zero before preview or playback. */
-  invert = false;
-  /** Mirror note spans across the motif length before preview or playback. */
-  reverse = false;
 
   /**
    * Create a store and select the requested motif when it exists.
@@ -173,37 +168,6 @@ export class MotifStore {
    */
   get current(): Motif | undefined {
     return this.get(this.currentId);
-  }
-
-  /**
-   * Apply the store's performance transforms to a stored motif.
-   * @param {Motif} motif The stored motif to transform.
-   * @returns {Motif} A transient transformed copy, or the original when unchanged.
-   */
-  transformed(motif: Motif): Motif {
-    return transformMotif(motif, {
-      invert: this.invert,
-      reverse: this.reverse,
-    });
-  }
-
-  /**
-   * Return the currently selected motif with performance transforms applied.
-   * @returns {Motif | undefined} The transformed motif, or undefined when nothing is selected.
-   */
-  get currentTransformed(): Motif | undefined {
-    const motif = this.current;
-    return motif ? this.transformed(motif) : undefined;
-  }
-
-  /**
-   * Resolve a motif label or id and apply performance transforms.
-   * @param {string} value The stable id, menu label, or display name to resolve.
-   * @returns {Motif | undefined} The transformed motif, or undefined when the value is unknown.
-   */
-  resolveTransformed(value: string): Motif | undefined {
-    const motif = this.resolve(value);
-    return motif ? this.transformed(motif) : undefined;
   }
 
   /**

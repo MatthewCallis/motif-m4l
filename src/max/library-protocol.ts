@@ -1,5 +1,65 @@
 import type { HotkeyAction } from "./hotkey-map.js";
 
+/** Typed command envelope sent from the embedded Library page to the device. */
+export type LibraryAction =
+  | {
+      type: "select_browser";
+      id: string;
+      discardChanges?: number | boolean;
+    }
+  | {
+      type: "filter_motifs";
+      query: unknown;
+    }
+  | {
+      type: "import_clip";
+      pitchMode?: string;
+    }
+  | {
+      type: "save_motif";
+      properties?: unknown;
+    }
+  | {
+      type: "refresh_library";
+      discardChanges?: number | boolean;
+    }
+  | {
+      type: "map_trigger";
+      pitch: number | string;
+      motifId: string;
+      action?: string;
+    }
+  | {
+      type: "unmap_trigger";
+      pitch: number | string;
+    }
+  | {
+      type: "clear_trigger_map";
+    }
+  | {
+      type: "begin_edit";
+    }
+  | {
+      type: "cancel_edit";
+    }
+  | {
+      type: "edit_motif";
+      properties: unknown;
+    }
+  | {
+      type: "add_note";
+    }
+  | {
+      type: "remove_note";
+      index: number;
+    }
+  | {
+      type: "edit_note_at";
+      index: number;
+      field: string;
+      value: unknown;
+    };
+
 /** Discriminator used by bounded Library state envelopes. */
 export const LIBRARY_STATE_CHUNK_KIND = "state-chunk";
 /** Maximum URL-encoded state size sent to jweb as one Max atom. */

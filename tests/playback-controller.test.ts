@@ -1,0 +1,155 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import type { HostContext } from "../src/core/types.js";
+import { MotifStore } from "../src/library/store.js";
+import { DeviceSettingsState } from "../src/max/device-settings.js";
+import { MotifHotkeyMap } from "../src/max/hotkey-map.js";
+import {
+  PlaybackController,
+  type PlaybackControllerCallbacks,
+} from "../src/max/playback-controller.js";
+
+interface PlaybackHarness {
+  playback: PlaybackController;
+  store: MotifStore;
+  hotkeys: MotifHotkeyMap;
+  settings: DeviceSettingsState;
+  events: number[][];
+  statuses: unknown[][];
+  errors: string[];
+  previews: number[];
+  selections: string[];
+  clears: number;
+  scheduled: Array<{ delay: number; run: () => void }>;
+}
+
+function createPlayback(): PlaybackHarness {
+  const scheduled: Array<{ delay: number; run: () => void }> = [];
+  class MockTask {
+    #cancelled = false;
+    constructor(
+      readonly callback: (...args: unknown[]) => void,
+      readonly context?: object,
+      readonly args: unknown[] = [],
+    ) {}
+    cancel(): void {
+      this.#cancelled = true;
+    }
+    freepeer(): void {
+      this.#cancelled = true;
+    }
+    schedule(delay = 0): void {
+      scheduled.push({
+        delay,
+        run: () => {
+          if (!this.#cancelled) this.callback.apply(this.context, this.args);
+        },
+      });
+    }
+  }
+  Object.assign(globalThis, { Task: MockTask });
+
+  const store = new MotifStore("scale-turn");
+  const hotkeys = new MotifHotkeyMap(store);
+  const settings = new DeviceSettingsState();
+  const events: number[][] = [];
+  const statuses: unknown[][] = [];
+  const errors: string[] = [];
+  const previews: number[] = [];
+  const selections: string[] = [];
+  const state = { clears: 0 };
+  const callbacks: PlaybackControllerCallbacks = {
+    emitScheduledEvent: (pitch, velocity, channel, delay) => {
+      events.push([pitch, velocity, channel, delay]);
+    },
+    emitClearScheduledNotes: () => {
+      state.clears += 1;
+    },
+    emitError: (message) => errors.push(message),
+    emitStatus: (...values) => statuses.push(values),
+    onPreviewTrigger: (pitch) => previews.push(pitch),
+    onSelectMotif: (id) => {
+      selections.push(id);
+      store.select(id);
+    },
+  };
+  const host: HostContext = {
+    tempo: 120,
+    rootNote: 0,
+    scaleName: "Major",
+    scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+    scaleMode: true,
+    timeSignature: { numerator: 4, denominator: 4 },
+    isPlaying: false,
+    currentSongTime: 0,
+  };
+  const playback = new PlaybackController(store, hotkeys, settings, host, callbacks);
+
+  return {
+    playback,
+    store,
+    hotkeys,
+    settings,
+    events,
+    statuses,
+    errors,
+    previews,
+    selections,
+    get clears() {
+      return state.clears;
+    },
+    scheduled,
+  };
+}
+
+describe("PlaybackController", () => {
+  it("routes pass-through notes and select-mode hot keys", () => {
+    const harness = createPlayback();
+    harness.playback.note(20, 100, 1);
+    assert.deepEqual(harness.events, [[20, 100, 1, 0]]);
+
+    harness.events.length = 0;
+    harness.hotkeys.assign(20, "chromatic-turn", "select");
+    harness.playback.note(20, 100, 1);
+    assert.deepEqual(harness.selections, ["chromatic-turn"]);
+    assert.equal(harness.store.currentId, "chromatic-turn");
+    assert.equal(harness.events.length, 0);
+  });
+
+  it("compiles triggers and owns hold/sustain cleanup state", () => {
+    const harness = createPlayback();
+    harness.settings.triggerMode = "hold";
+    harness.playback.note(60, 100, 2);
+    assert.ok(harness.events.some((event) => (event[1] ?? 0) > 0));
+    assert.deepEqual(harness.previews, [60]);
+    assert.equal(harness.playback.activeTriggers.has(60), true);
+
+    harness.playback.sustain(127);
+    harness.playback.note(60, 0, 2);
+    assert.equal(harness.playback.sustainedReleases.has(60), true);
+    harness.playback.sustain(0);
+    assert.equal(harness.playback.sustainedReleases.size, 0);
+    assert.ok(harness.clears > 0);
+  });
+
+  it("schedules one held repeat and cancels it on release and panic", () => {
+    const harness = createPlayback();
+    harness.settings.triggerMode = "hold-repeat";
+    harness.playback.note(60, 100, 1);
+    harness.playback.note(60, 80, 1);
+    assert.equal(harness.playback.heldRepeats.size, 1);
+    assert.equal(harness.scheduled.length, 1);
+    assert.equal(harness.scheduled[0]?.delay, 1750);
+
+    harness.scheduled.shift()?.run();
+    assert.ok(harness.statuses.filter(([selector]) => selector === "trigger").length >= 2);
+    harness.playback.note(60, 0, 1);
+    assert.equal(harness.playback.heldRepeats.size, 0);
+
+    harness.playback.note(60, 100, 1);
+    harness.playback.panic();
+    assert.equal(harness.playback.heldRepeats.size, 0);
+    assert.ok(harness.statuses.some(([selector]) => selector === "panic"));
+    assert.deepEqual(harness.errors, []);
+  });
+});

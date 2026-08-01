@@ -8,7 +8,6 @@
 /**
  * Send a list through the device's single Max outlet.
  * @param {unknown[]} values Message atoms.
- * @returns {void}
  */
 export function emit(...values: unknown[]): void {
   outlet(0, ...values);
@@ -17,7 +16,6 @@ export function emit(...values: unknown[]): void {
 /**
  * Emit a status message through the device's single Max outlet.
  * @param {unknown[]} values Status atoms following the selector.
- * @returns {void}
  */
 export function emitStatus(...values: unknown[]): void {
   emit("status", ...values);
@@ -26,7 +24,6 @@ export function emitStatus(...values: unknown[]): void {
 /**
  * Emit an error both to the patch and the Max Console.
  * @param {string} message User-facing diagnostic.
- * @returns {void}
  */
 export function emitError(message: string): void {
   emit("error", message);
@@ -83,7 +80,6 @@ export function joinMaxPath(folder: string, filename: string): string {
  * Write text without crossing Max's per-call string limit.
  * @param {File} file Open output file.
  * @param {string} text Complete content.
- * @returns {void}
  */
 export function writeTextChunks(file: File, text: string): void {
   const chunkSize = 8_192;
@@ -112,7 +108,6 @@ export function readJsonFile(filename: string): unknown {
  * Serialize a value as formatted JSON through Max's File API.
  * @param {string} filename Absolute Max path.
  * @param {unknown} value JSON-compatible value.
- * @returns {void}
  * @throws {Error} When the file cannot be opened for writing.
  */
 export function writeJsonFile(filename: string, value: unknown): void {
@@ -198,7 +193,9 @@ export function prepareLibraryPage(pageName: string, html: string): string {
 
   try {
     output = new File(temporaryPath, "write");
-    if (!output.isopen) throw new Error(`could not create ${temporaryPath}`);
+    if (!output.isopen) {
+      throw new Error(`could not create ${temporaryPath}`);
+    }
 
     output.eof = 0;
     output.position = 0;
@@ -208,7 +205,9 @@ export function prepareLibraryPage(pageName: string, html: string): string {
     output = undefined;
 
     const verification = new File(absolutePath, "read");
-    if (!verification.isopen) throw new Error(`could not reopen ${absolutePath}`);
+    if (!verification.isopen) {
+      throw new Error(`could not reopen ${absolutePath}`);
+    }
     const byteLength = verification.eof;
     verification.close();
     if (byteLength < html.length) {
@@ -216,7 +215,9 @@ export function prepareLibraryPage(pageName: string, html: string): string {
     }
     return absolutePath;
   } finally {
-    if (output?.isopen) output.close();
+    if (output?.isopen) {
+      output.close();
+    }
   }
 }
 
@@ -225,7 +226,6 @@ export function prepareLibraryPage(pageName: string, html: string): string {
  * @param {string} page Embedded page identifier.
  * @param {string} level Diagnostic severity; `error` uses Max's red error stream.
  * @param {string} encodedMessage URL-encoded diagnostic text.
- * @returns {void}
  */
 export function mirrorWebDebug(page: string, level: string, encodedMessage: string): void {
   let message = String(encodedMessage);
@@ -236,6 +236,9 @@ export function mirrorWebDebug(page: string, level: string, encodedMessage: stri
   }
 
   const line = `Motif jweb ${String(page)} [${String(level)}] ${message}\n`;
-  if (String(level).toLowerCase() === "error") error(line);
-  else post(line);
+  if (String(level).toLowerCase() === "error") {
+    error(line);
+  } else {
+    post(line);
+  }
 }

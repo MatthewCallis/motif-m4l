@@ -116,7 +116,16 @@ describe("Motif Max patch integration", () => {
     const engineSource = await readFile(`max/${engineFilename}`, "utf8");
     const previewSource = await readFile(`max/${previewFilename}`, "utf8");
     const previewCanonicalSource = await readFile("src/max/motif-preview.js", "utf8");
-    const deviceCanonicalSource = await readFile("src/max/device.ts", "utf8");
+    const deviceCanonicalSources = await Promise.all(
+      [
+        "device.ts",
+        "authoring-controller.ts",
+        "device-settings.ts",
+        "library-action.ts",
+        "library-state.ts",
+        "playback-controller.ts",
+      ].map((filename) => readFile(`src/max/${filename}`, "utf8")),
+    );
     const libraryCanonicalSources = await Promise.all([
       readFile("src/max/library.html", "utf8"),
       readFile("src/max/library.ts", "utf8"),
@@ -135,7 +144,7 @@ describe("Motif Max patch integration", () => {
     );
     assert.ok(
       engineSource.length <
-        deviceCanonicalSource.length +
+        deviceCanonicalSources.reduce((length, source) => length + source.length, 0) +
           libraryCanonicalSources.reduce((length, source) => length + source.length, 0),
       "production engine must be minified",
     );

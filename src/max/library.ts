@@ -10,6 +10,7 @@
 
 import {
   MAX_LIBRARY_STATE_CHUNKS,
+  type LibraryAction,
   type LibrarySelectedMotifData,
   type LibraryServerState,
   type LibraryStateChunk,
@@ -56,11 +57,6 @@ interface NoteField {
   min?: string;
   max?: string;
   step?: string;
-}
-
-interface LibraryAction {
-  type: string;
-  [key: string]: unknown;
 }
 
 interface ModalState {

@@ -107,37 +107,6 @@ describe("MotifStore", () => {
     assert.equal(store.get(clone.id)?.length, 240, "invalid empty updates must preserve the motif");
   });
 
-  it("applies performance transforms through transformed getters", () => {
-    const store = new MotifStore("chromatic-turn");
-    const source = store.current;
-    assert.ok(source);
-
-    assert.equal(store.currentTransformed, source);
-    assert.equal(store.resolveTransformed("chromatic-turn"), source);
-
-    store.invert = true;
-    const inverted = store.currentTransformed;
-    assert.ok(inverted);
-    assert.notEqual(inverted, source);
-    assert.deepEqual(
-      inverted.notes.map(({ pitch }) => pitch),
-      source.notes.map(({ pitch }) => (pitch === 0 ? 0 : -pitch)),
-    );
-    assert.deepEqual(
-      source.notes.map(({ pitch }) => pitch),
-      store.get("chromatic-turn")?.notes.map(({ pitch }) => pitch),
-      "stored motif notes must remain unchanged",
-    );
-
-    store.reverse = true;
-    const transformed = store.resolveTransformed("chromatic-turn");
-    assert.ok(transformed);
-    assert.notDeepEqual(
-      transformed.notes.map(({ at, pitch }) => [at, pitch]),
-      inverted.notes.map(({ at, pitch }) => [at, pitch]),
-    );
-  });
-
   it("normalizes ids and safely handles unknown or invalid values", () => {
     assert.equal(uniqueMotifId("  Déjà Vu!  "), "deja-vu");
     assert.equal(uniqueMotifId("🎵", "fallback"), "fallback");

@@ -250,7 +250,7 @@ function lastPersistedState(outlets: OutletArgs[]): string | undefined {
   return message?.[1] as string | undefined;
 }
 
-describe("Max authoring runtime", () => {
+describe("Max device runtime integration", () => {
   it("round-trips selected motif and MIDI hot keys through Live-stored state", async () => {
     const first = await createEngine();
     first.dispatch("initialize");
