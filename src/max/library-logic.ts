@@ -1,4 +1,37 @@
 import { LIBRARY_STATE_CHUNK_KIND, type LibraryStateChunk } from "./library-protocol.js";
+import libraryWindowConfig from "../../config/library-window.json";
+
+/** Source-controlled dimensions that govern the Library sidebar. */
+export interface LibrarySidebarLayout {
+  sidebarMinWidth: number;
+  sidebarMaxWidth: number;
+  detailMinWidth: number;
+  sidebarResizerWidth: number;
+}
+
+/** Sidebar dimensions loaded from the workbench-editable Library JSON. */
+export const LIBRARY_SIDEBAR_LAYOUT: LibrarySidebarLayout = {
+  sidebarMinWidth: libraryWindowConfig.sidebarMinWidth,
+  sidebarMaxWidth: libraryWindowConfig.sidebarMaxWidth,
+  detailMinWidth: libraryWindowConfig.detailMinWidth,
+  sidebarResizerWidth: libraryWindowConfig.sidebarResizerWidth,
+};
+
+/** Narrow a workbench message to a complete, positive-integer sidebar layout. */
+export function isLibrarySidebarLayout(value: unknown): value is LibrarySidebarLayout {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+  const candidate = value as Record<keyof LibrarySidebarLayout, unknown>;
+  return (
+    Number.isInteger(candidate.sidebarMinWidth) &&
+    Number(candidate.sidebarMinWidth) > 0 &&
+    Number.isInteger(candidate.sidebarMaxWidth) &&
+    Number(candidate.sidebarMaxWidth) >= Number(candidate.sidebarMinWidth) &&
+    Number.isInteger(candidate.detailMinWidth) &&
+    Number(candidate.detailMinWidth) > 0 &&
+    Number.isInteger(candidate.sidebarResizerWidth) &&
+    Number(candidate.sidebarResizerWidth) > 0
+  );
+}
 
 /** Minimal synchronous store used by the Library renderer. */
 export interface Store<T> {
@@ -66,6 +99,52 @@ export function toggleCollapsedFolder(folder: string, collapsedFolders: Set<stri
   if (next.has(folder)) next.delete(folder);
   else next.add(folder);
   return next;
+}
+
+/**
+ * Remove a redundant `Folder Name - ` prefix from one browser-row label.
+ * Stored motif names, search data, details, and tooltips remain unchanged.
+ * @param {string} name Complete stored motif name.
+ * @param {string} folder Root-relative Library folder.
+ * @returns {string} Compact browser label.
+ */
+export function libraryBrowserDisplayName(name: string, folder: string): string {
+  const folderSegments = folder.split(/[\\/]/);
+  const folderName = folderSegments[folderSegments.length - 1]?.trim() ?? "";
+  const prefix = `${folderName} - `;
+  if (
+    folderName === "" ||
+    name.length <= prefix.length ||
+    name.slice(0, prefix.length).toLocaleLowerCase() !== prefix.toLocaleLowerCase()
+  ) {
+    return name;
+  }
+  const suffix = name.slice(prefix.length).trim();
+  return suffix === "" ? name : suffix;
+}
+
+/**
+ * Keep the draggable Library sidebar useful without crowding the detail pane.
+ * @param {number} requestedWidth Requested sidebar width in pixels.
+ * @param {number} viewportWidth Current Library content width in pixels.
+ * @param {LibrarySidebarLayout} layout Active sidebar constraints.
+ * @returns {number} Bounded whole-pixel sidebar width.
+ */
+export function clampLibrarySidebarWidth(
+  requestedWidth: number,
+  viewportWidth: number,
+  layout: LibrarySidebarLayout = LIBRARY_SIDEBAR_LAYOUT,
+): number {
+  const availableWidth = Number.isFinite(viewportWidth) ? viewportWidth : 800;
+  const maximum = Math.max(
+    layout.sidebarMinWidth,
+    Math.min(
+      layout.sidebarMaxWidth,
+      Math.floor(availableWidth - layout.detailMinWidth - layout.sidebarResizerWidth),
+    ),
+  );
+  const width = Number.isFinite(requestedWidth) ? Math.round(requestedWidth) : 240;
+  return Math.max(layout.sidebarMinWidth, Math.min(maximum, width));
 }
 
 /**

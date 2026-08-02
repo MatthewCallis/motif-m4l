@@ -911,7 +911,7 @@ describe("Max device runtime integration", () => {
     assert.equal(selected["noteCount"], 24);
     assert.equal(selected["noteLimit"], 512);
     assert.equal((selected["notes"] as unknown[]).length, 24);
-    assert.match(String(selected["stats"]), /^24 notes/);
+    assert.match(String(selected["previewBars"]), /^[\d.]+$/);
     assert.equal((selected["notes"] as Array<Record<string, unknown>>)[16]?.["pitch"], 4);
   });
 

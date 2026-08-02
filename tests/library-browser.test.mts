@@ -38,6 +38,7 @@ class FakeElement {
   readonly children: FakeElement[] = [];
   readonly listeners = new Map<string, Listener[]>();
   readonly dataset: Record<string, string> = {};
+  readonly style: Record<string, string> = {};
   id = "";
   className = "";
   textContent = "";
@@ -75,6 +76,11 @@ class FakeElement {
     const listeners = this.listeners.get(name) ?? [];
     listeners.push(listener);
     this.listeners.set(name, listeners);
+  }
+
+  getBoundingClientRect(): { left: number; width: number } {
+    const fallback = this.id === "app" ? 800 : this.id === "left" ? 240 : 0;
+    return { left: 0, width: Number.parseFloat(this.style["width"] ?? "") || fallback };
   }
 
   dispatch(name: string, event: Partial<Parameters<Listener>[0]> = {}): void {
@@ -169,6 +175,7 @@ void describe("Library browser runtime", () => {
       },
     };
     const fakeWindow = {
+      innerWidth: 800,
       max: {
         outlet: (...args: unknown[]) => outlets.push(args),
         bindInlet: (name: string, handler: (...values: unknown[]) => void) => {
@@ -219,7 +226,7 @@ void describe("Library browser runtime", () => {
       items: [
         {
           id: "browser-test",
-          name: "Browser Test",
+          name: "Tests - Browser Test",
           showId: false,
           folder: "Tests",
           hotkeys: [{ pitch: 60, label: "C3", action: "trigger" }],
@@ -242,7 +249,8 @@ void describe("Library browser runtime", () => {
           outputMax: null,
           exponent: null,
         },
-        stats: "2 notes",
+        previewBars: 1,
+        effectivePitchMode: "chromatic",
         isBuiltin: false,
         isPersisted: true,
         hotkeys: [{ pitch: 60, label: "C3", action: "trigger" }],
@@ -284,6 +292,12 @@ void describe("Library browser runtime", () => {
     assert.equal(elements.get("name-edit")?.value, "Browser Test");
     assert.equal(elements.get("note-rows")?.children.length, 2);
     assert.equal(elements.get("browser-list")?.children.length, 2);
+    assert.equal(
+      elements.get("browser-list")?.children[1]?.children[0]?.textContent,
+      "Browser Test",
+    );
+    assert.ok(elements.get("library-resizer")?.listeners.has("pointerdown"));
+    assert.ok(elements.get("library-resizer")?.listeners.has("keydown"));
 
     const chunkedState = {
       ...state,

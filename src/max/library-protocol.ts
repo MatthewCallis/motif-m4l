@@ -1,3 +1,4 @@
+import type { PitchMode } from "../core/types.js";
 import type { HotkeyAction } from "./hotkey-map.js";
 
 /** Typed command envelope sent from the embedded Library page to the device. */
@@ -181,8 +182,10 @@ export interface LibrarySelectedMotifData {
     /** Optional curve exponent. */
     exponent: number | null;
   };
-  /** Preformatted note, meter, bar, and pitch-mode summary. */
-  stats: string;
+  /** Preview bar count under current device settings. */
+  previewBars: number;
+  /** Effective pitch mode under current device settings. */
+  effectivePitchMode: PitchMode;
   /** Whether this motif ships with the device. */
   isBuiltin: boolean;
   /** Whether this motif currently has a user-library file. */

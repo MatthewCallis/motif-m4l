@@ -15,6 +15,7 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import vm from "node:vm";
+import { readLibraryWindowConfig } from "./library-window-config.js";
 
 type Rect = [number, number, number, number];
 
@@ -62,6 +63,8 @@ type Patcher = {
 };
 
 const DEVICE_HEIGHT = 169;
+const libraryWindow = await readLibraryWindowConfig();
+const libraryWindowSizeMessage = `window size ${libraryWindow.width} ${libraryWindow.height}`;
 const patch = (JSON.parse(await readFile("max/Motif.maxpat", "utf8")) as { patcher: Patcher })
   .patcher;
 const boxes = patch.boxes.map(({ box }) => box);
@@ -220,7 +223,10 @@ assert.equal(
 );
 assert.ok(byText("p library-info")?.patcher, "Library/Authoring floating subpatcher is required");
 assert.ok(byText("pcontrol"), "floating window must use pcontrol");
-assert.ok(byText("window size 640 460"), "authoring float window must start at 640×460");
+assert.ok(
+  byText(libraryWindowSizeMessage),
+  `authoring float window must start at ${libraryWindow.width}×${libraryWindow.height}`,
+);
 assert.ok(
   byText("window flags float nogrow close zoom"),
   "authoring float window must use documented fixed sizing",
@@ -342,13 +348,13 @@ assert.ok(
 );
 assert.equal(
   byText("p library-info")?.patcher?.rect?.[2],
-  640,
-  "library float patcher width must be 640",
+  libraryWindow.width,
+  "library float patcher width must match its JSON configuration",
 );
 assert.equal(
   byText("p library-info")?.patcher?.rect?.[3],
-  460,
-  "library float patcher height must be 460",
+  libraryWindow.height,
+  "library float patcher height must match its JSON configuration",
 );
 assert.ok(
   (byVarname("motif-preview")?.presentation_rect?.[3] ?? 0) >= 60,
@@ -421,7 +427,11 @@ assert.ok(
   "resolved page path must reach the library subpatch",
 );
 assert.ok(hasLine(openMessage, 0, pcontrol, 0), "open must be sent to pcontrol");
-for (const text of ["window flags float nogrow close zoom", "window size 640 460", "window exec"]) {
+for (const text of [
+  "window flags float nogrow close zoom",
+  libraryWindowSizeMessage,
+  "window exec",
+]) {
   for (const box of boxes.filter((item) => item.text === text)) {
     assert.ok(hasLine(box, 0, libraryInfo, 0), `${text} must be sent to the library subpatch`);
     assert.ok(!hasLine(box, 0, pcontrol, 0), `${text} must not be sent to pcontrol`);

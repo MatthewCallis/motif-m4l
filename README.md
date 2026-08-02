@@ -39,7 +39,7 @@ npm run dev:library
 
 The workbench opens the real Library page in an isolated, resizable viewport. Its fixture menu covers normal, editing, large-table, long-content, scanning, empty, and warning states; common authoring actions are handled locally and recorded in the action log.
 
-Use **Save to source** to persist the current viewport dimensions to `config/library-window.json`. The Max patch generator reads the same configuration for the floating patcher, `jweb`, and window-size messages. Run `npm run build` after saving to regenerate `max/Motif.maxpat` with the new size.
+Use **Save to JSON** to persist the current viewport dimensions and sidebar constraints to `config/library-window.json`. Sidebar edits are previewed immediately in the iframe. The Max build reads the same configuration for the Library layout, floating patcher, `jweb`, and window-size messages. Run `npm run build` after saving to regenerate the production artifacts.
 
 ## Development files
 

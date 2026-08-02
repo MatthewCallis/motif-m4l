@@ -20,15 +20,11 @@
       <section class="toolbar" aria-label="Library workbench controls">
         <div class="control-group dimensions">
           <label for="width-input">Width</label>
-          <input id="width-input" type="number" inputmode="numeric" />
+          <input id="width-input" data-config-key="width" type="number" inputmode="numeric" />
           <span>×</span>
           <label for="height-input">Height</label>
-          <input id="height-input" type="number" inputmode="numeric" />
+          <input id="height-input" data-config-key="height" type="number" inputmode="numeric" />
           <span>px</span>
-        </div>
-
-        <div class="control-group presets" aria-label="Size presets">
-          <button type="button" data-size="640x460">Default</button>
         </div>
 
         <div class="control-group">
@@ -44,9 +40,45 @@
           </select>
         </div>
 
+        <div class="control-group layout-settings" aria-label="Sidebar layout settings">
+          <label for="sidebar-min-width-input">Sidebar min</label>
+          <input
+            id="sidebar-min-width-input"
+            data-config-key="sidebarMinWidth"
+            type="number"
+            inputmode="numeric"
+            title="Smallest browser sidebar width"
+          />
+          <label for="sidebar-max-width-input">max</label>
+          <input
+            id="sidebar-max-width-input"
+            data-config-key="sidebarMaxWidth"
+            type="number"
+            inputmode="numeric"
+            title="Largest browser sidebar width"
+          />
+          <label for="detail-min-width-input">Detail min</label>
+          <input
+            id="detail-min-width-input"
+            data-config-key="detailMinWidth"
+            type="number"
+            inputmode="numeric"
+            title="Detail-pane width preserved while resizing"
+          />
+          <label for="sidebar-resizer-width-input">Divider</label>
+          <input
+            id="sidebar-resizer-width-input"
+            data-config-key="sidebarResizerWidth"
+            type="number"
+            inputmode="numeric"
+            title="Visible sidebar divider width"
+          />
+          <span>px</span>
+        </div>
+
         <div class="toolbar-actions">
           <button id="reset-button" type="button">Reset</button>
-          <button id="save-button" class="primary" type="button">Save to source</button>
+          <button id="save-button" class="primary" type="button">Save to JSON</button>
         </div>
       </section>
 

@@ -145,9 +145,14 @@ h1 {
   font-size: 11px;
 }
 
-.dimensions input {
+.dimensions input,
+.layout-settings input {
   width: 74px;
   padding: 4px 7px;
+}
+
+.layout-settings {
+  flex-wrap: wrap;
 }
 
 select {

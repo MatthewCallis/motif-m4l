@@ -1,17 +1,10 @@
 import type { LibraryAction, LibraryServerState } from "../../src/max/library-protocol.js";
+import sourceConfig from "../../config/library-window.json";
+import type { LibraryWindowConfig } from "../../scripts/library-window-config.js";
 import { applyFixtureAction, createFixture, type FixtureName } from "./fixtures.js";
 
-interface WindowConfig {
-  width: number;
-  height: number;
-}
-
-interface WindowLimits {
-  minWidth: number;
-  maxWidth: number;
-  minHeight: number;
-  maxHeight: number;
-}
+type WindowConfig = LibraryWindowConfig;
+type WindowLimits = Record<keyof WindowConfig, { min: number; max: number }>;
 
 interface ConfigResponse {
   config: WindowConfig;
@@ -29,6 +22,7 @@ declare global {
 
 const API_PATH = "/__motif/library-window";
 const WORKBENCH_STATE_MESSAGE = "motif-library-workbench-state";
+const WORKBENCH_LAYOUT_MESSAGE = "motif-library-workbench-layout";
 
 function element<T extends HTMLElement>(id: string): T {
   const value = document.getElementById(id);
@@ -40,6 +34,10 @@ const windowElement = element<HTMLDivElement>("library-window");
 const frame = element<HTMLIFrameElement>("library-frame");
 const widthInput = element<HTMLInputElement>("width-input");
 const heightInput = element<HTMLInputElement>("height-input");
+const sidebarMinWidthInput = element<HTMLInputElement>("sidebar-min-width-input");
+const sidebarMaxWidthInput = element<HTMLInputElement>("sidebar-max-width-input");
+const detailMinWidthInput = element<HTMLInputElement>("detail-min-width-input");
+const sidebarResizerWidthInput = element<HTMLInputElement>("sidebar-resizer-width-input");
 const sizeReadout = element<HTMLElement>("size-readout");
 const status = element<HTMLDivElement>("save-status");
 const saveButton = element<HTMLButtonElement>("save-button");
@@ -47,13 +45,13 @@ const resetButton = element<HTMLButtonElement>("reset-button");
 const fixtureSelect = element<HTMLSelectElement>("fixture-select");
 const actionLog = element<HTMLPreElement>("action-log");
 
-let savedConfig: WindowConfig = { width: 640, height: 460 };
+let savedConfig: WindowConfig = { ...sourceConfig };
 let currentConfig: WindowConfig = { ...savedConfig };
 let currentState: LibraryServerState = createFixture("normal");
 const events: string[] = [];
 
-function sameSize(left: WindowConfig, right: WindowConfig): boolean {
-  return left.width === right.width && left.height === right.height;
+function sameConfig(left: WindowConfig, right: WindowConfig): boolean {
+  return (Object.keys(left) as Array<keyof WindowConfig>).every((key) => left[key] === right[key]);
 }
 
 function setStatus(message: string, kind: "" | "dirty" | "saved" | "error" = ""): void {
@@ -61,31 +59,65 @@ function setStatus(message: string, kind: "" | "dirty" | "saved" | "error" = "")
   status.className = `status${kind ? ` ${kind}` : ""}`;
 }
 
-function refreshDimensionUi(): void {
+function refreshConfigurationUi(): void {
   widthInput.value = String(currentConfig.width);
   heightInput.value = String(currentConfig.height);
+  sidebarMinWidthInput.value = String(currentConfig.sidebarMinWidth);
+  sidebarMaxWidthInput.value = String(currentConfig.sidebarMaxWidth);
+  detailMinWidthInput.value = String(currentConfig.detailMinWidth);
+  sidebarResizerWidthInput.value = String(currentConfig.sidebarResizerWidth);
   sizeReadout.textContent = `${currentConfig.width} × ${currentConfig.height}`;
-  const clean = sameSize(currentConfig, savedConfig);
+  const clean = sameConfig(currentConfig, savedConfig);
   saveButton.disabled = clean;
   resetButton.disabled = clean;
-  if (clean) setStatus(`Source size: ${savedConfig.width} × ${savedConfig.height}`, "saved");
-  else setStatus(`Unsaved size: ${currentConfig.width} × ${currentConfig.height}`, "dirty");
+  if (clean) setStatus("Source configuration loaded", "saved");
+  else setStatus("Unsaved configuration", "dirty");
 }
 
-function setDimensions(config: WindowConfig): void {
+function sendLayout(): void {
+  frame.contentWindow?.postMessage(
+    {
+      type: WORKBENCH_LAYOUT_MESSAGE,
+      payload: {
+        sidebarMinWidth: currentConfig.sidebarMinWidth,
+        sidebarMaxWidth: currentConfig.sidebarMaxWidth,
+        detailMinWidth: currentConfig.detailMinWidth,
+        sidebarResizerWidth: currentConfig.sidebarResizerWidth,
+      },
+    },
+    window.location.origin,
+  );
+}
+
+function setConfiguration(config: WindowConfig): void {
   currentConfig = {
     width: Math.round(config.width),
     height: Math.round(config.height),
+    sidebarMinWidth: Math.round(config.sidebarMinWidth),
+    sidebarMaxWidth: Math.round(config.sidebarMaxWidth),
+    detailMinWidth: Math.round(config.detailMinWidth),
+    sidebarResizerWidth: Math.round(config.sidebarResizerWidth),
   };
   windowElement.style.width = `${currentConfig.width}px`;
   windowElement.style.height = `${currentConfig.height}px`;
-  refreshDimensionUi();
+  refreshConfigurationUi();
+  sendLayout();
 }
 
-function inputDimensions(): WindowConfig | null {
-  const width = Number(widthInput.value);
-  const height = Number(heightInput.value);
-  return Number.isInteger(width) && Number.isInteger(height) ? { width, height } : null;
+function setDimensions(width: number, height: number): void {
+  setConfiguration({ ...currentConfig, width, height });
+}
+
+function inputConfiguration(): WindowConfig | null {
+  const config: WindowConfig = {
+    width: Number(widthInput.value),
+    height: Number(heightInput.value),
+    sidebarMinWidth: Number(sidebarMinWidthInput.value),
+    sidebarMaxWidth: Number(sidebarMaxWidthInput.value),
+    detailMinWidth: Number(detailMinWidthInput.value),
+    sidebarResizerWidth: Number(sidebarResizerWidthInput.value),
+  };
+  return Object.values(config).every(Number.isInteger) ? config : null;
 }
 
 function sendState(): void {
@@ -133,6 +165,7 @@ function attachFrameBridge(): void {
   if (target?.max) target.max.outlet = handleLibraryOutlet;
   appendEvent(["workbench_ready", "Library fixture channel attached"]);
   sendState();
+  sendLayout();
 }
 
 new ResizeObserver((entries) => {
@@ -141,19 +174,28 @@ new ResizeObserver((entries) => {
   const width = Math.round(entry.contentRect.width);
   const height = Math.round(entry.contentRect.height);
   if (width === currentConfig.width && height === currentConfig.height) return;
-  currentConfig = { width, height };
-  refreshDimensionUi();
+  currentConfig = { ...currentConfig, width, height };
+  refreshConfigurationUi();
 }).observe(windowElement);
 
-for (const input of [widthInput, heightInput]) {
+const configurationInputs = [
+  widthInput,
+  heightInput,
+  sidebarMinWidthInput,
+  sidebarMaxWidthInput,
+  detailMinWidthInput,
+  sidebarResizerWidthInput,
+];
+
+for (const input of configurationInputs) {
   input.addEventListener("change", () => {
-    const dimensions = inputDimensions();
-    if (dimensions) setDimensions(dimensions);
+    const config = inputConfiguration();
+    if (config) setConfiguration(config);
   });
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
-      const dimensions = inputDimensions();
-      if (dimensions) setDimensions(dimensions);
+      const config = inputConfiguration();
+      if (config) setConfiguration(config);
     }
   });
 }
@@ -161,8 +203,7 @@ for (const input of [widthInput, heightInput]) {
 document.querySelectorAll<HTMLButtonElement>("[data-size]").forEach((button) => {
   button.addEventListener("click", () => {
     const match = button.dataset["size"]?.match(/^(\d+)x(\d+)$/);
-    if (match?.[1] && match[2])
-      setDimensions({ width: Number(match[1]), height: Number(match[2]) });
+    if (match?.[1] && match[2]) setDimensions(Number(match[1]), Number(match[2]));
   });
 });
 
@@ -172,11 +213,11 @@ fixtureSelect.addEventListener("change", () => {
   sendState();
 });
 
-resetButton.addEventListener("click", () => setDimensions(savedConfig));
+resetButton.addEventListener("click", () => setConfiguration(savedConfig));
 
-async function saveDimensions(): Promise<void> {
+async function saveConfiguration(): Promise<void> {
   saveButton.disabled = true;
-  setStatus("Saving size to source…");
+  setStatus("Saving configuration to source…");
   try {
     const response = await fetch(API_PATH, {
       method: "PUT",
@@ -187,15 +228,15 @@ async function saveDimensions(): Promise<void> {
     if (!response.ok) throw new Error(payload.error ?? "The size could not be saved");
     savedConfig = payload.config;
     currentConfig = { ...payload.config };
-    refreshDimensionUi();
-    setStatus(`Saved ${savedConfig.width} × ${savedConfig.height} to source`, "saved");
+    refreshConfigurationUi();
+    setStatus("Saved configuration to source", "saved");
   } catch (reason) {
     setStatus(reason instanceof Error ? reason.message : String(reason), "error");
     saveButton.disabled = false;
   }
 }
 
-saveButton.addEventListener("click", () => void saveDimensions());
+saveButton.addEventListener("click", () => void saveConfiguration());
 
 element<HTMLButtonElement>("clear-log-button").addEventListener("click", () => {
   events.length = 0;
@@ -211,19 +252,21 @@ async function initialize(): Promise<void> {
     if (!response.ok) throw new Error(payload.error ?? "Could not load the saved size");
     savedConfig = payload.config;
     if (payload.limits) {
-      widthInput.min = String(payload.limits.minWidth);
-      widthInput.max = String(payload.limits.maxWidth);
-      heightInput.min = String(payload.limits.minHeight);
-      heightInput.max = String(payload.limits.maxHeight);
-      windowElement.style.minWidth = `${payload.limits.minWidth}px`;
-      windowElement.style.maxWidth = `${payload.limits.maxWidth}px`;
-      windowElement.style.minHeight = `${payload.limits.minHeight}px`;
-      windowElement.style.maxHeight = `${payload.limits.maxHeight}px`;
+      for (const input of configurationInputs) {
+        const key = input.dataset["configKey"] as keyof WindowConfig | undefined;
+        if (!key) continue;
+        input.min = String(payload.limits[key].min);
+        input.max = String(payload.limits[key].max);
+      }
+      windowElement.style.minWidth = `${payload.limits.width.min}px`;
+      windowElement.style.maxWidth = `${payload.limits.width.max}px`;
+      windowElement.style.minHeight = `${payload.limits.height.min}px`;
+      windowElement.style.maxHeight = `${payload.limits.height.max}px`;
     }
-    setDimensions(savedConfig);
+    setConfiguration(savedConfig);
   } catch (reason) {
     setStatus(reason instanceof Error ? reason.message : String(reason), "error");
-    setDimensions(savedConfig);
+    setConfiguration(savedConfig);
   }
 }
 

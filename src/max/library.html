@@ -37,6 +37,14 @@
         <div id="library-path" title="No user library selected">Built-ins only</div>
       </div>
 
+      <div
+        id="library-resizer"
+        role="separator"
+        aria-label="Resize Library browser"
+        aria-orientation="vertical"
+        tabindex="0"
+      ></div>
+
       <div id="right">
         <div id="detail-actions">
           <select
@@ -71,16 +79,25 @@
             placeholder="Description"
             readonly
           ></textarea>
-          <div id="stats-line">-</div>
           <div id="edit-state"></div>
         </div>
 
         <div id="panel-tabs">
           <button class="panel-tab active" data-panel="properties">Properties</button>
-          <button class="panel-tab" data-panel="notes">Notes <span id="note-count">(0)</span></button>
+          <button class="panel-tab" data-panel="notes">Notes</button>
         </div>
 
         <div class="panel" id="properties-panel">
+          <div class="section">
+            <div class="section-title">Motif</div>
+            <div class="property-grid">
+              <label for="notes-summary">Notes</label
+              ><input class="field" id="notes-summary" type="text" readonly disabled />
+              <label for="bars-summary">Bars</label
+              ><input class="field" id="bars-summary" type="text" readonly disabled />
+            </div>
+          </div>
+
           <div class="section">
             <div class="section-title">MIDI Hot Keys</div>
             <div class="property-grid">

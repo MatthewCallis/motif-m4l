@@ -16,13 +16,19 @@ import {
   type LibraryStateChunk,
 } from "./library-protocol.js";
 import {
+  clampLibrarySidebarWidth,
   createStore,
   errorText,
   isFolderCollapsed,
+  isLibrarySidebarLayout,
   isLibraryStateChunk,
+  LIBRARY_SIDEBAR_LAYOUT,
+  libraryBrowserDisplayName,
   optionalNumberValue,
   toggleCollapsedFolder,
+  type LibrarySidebarLayout,
 } from "./library-logic.js";
+import { formatPreviewBarCount } from "./library-view.js";
 
 type PanelName = "properties" | "notes";
 type DebugLevel = "info" | "ok" | "error";
@@ -88,6 +94,12 @@ type ValueControl = HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
 const PAGE = "library";
 /** Same-origin development message used by the Vite Library workbench. */
 const WORKBENCH_STATE_MESSAGE = "motif-library-workbench-state";
+/** Same-origin development message used for live sidebar layout previews. */
+const WORKBENCH_LAYOUT_MESSAGE = "motif-library-workbench-layout";
+/** Browser-local key for the user's preferred Library browser width. */
+const SIDEBAR_WIDTH_STORAGE_KEY = "motif-library-sidebar-width";
+/** Keyboard resize increment in pixels. */
+const SIDEBAR_KEYBOARD_STEP = 12;
 /** Editable note schema used to generate rows and coerce outgoing field values. */
 const NOTE_FIELDS: readonly NoteField[] = [
   { name: "pitch", type: "number", required: true, step: "1" },
@@ -300,7 +312,7 @@ function renderBrowser(server: LibraryServerState | null): void {
     row.className = `browser-item${server.selected?.id === item.id ? " selected" : ""}`;
     const name = document.createElement("div");
     name.className = "browser-name";
-    name.textContent = item.name;
+    name.textContent = libraryBrowserDisplayName(item.name, folder);
     row.append(name);
     if (item.hotkeys.length > 0) {
       const badge = document.createElement("div");
@@ -484,6 +496,16 @@ function renderProperties(selected: LibrarySelectedMotifData | null, editing: bo
   setValue("curve-output-min", curve?.outputMin, editing);
   setValue("curve-output-max", curve?.outputMax, editing);
   setValue("curve-exponent", curve?.exponent, editing);
+
+  const notesSummary = $<HTMLInputElement>("notes-summary");
+  const barsSummary = $<HTMLInputElement>("bars-summary");
+  if (!selected) {
+    notesSummary.value = "";
+    barsSummary.value = "";
+    return;
+  }
+  notesSummary.value = String(selected.noteCount);
+  barsSummary.value = formatPreviewBarCount(selected.previewBars);
 }
 
 /**
@@ -505,7 +527,6 @@ function renderDetail(server: LibraryServerState | null, local: LibraryPageState
     setValue("description-edit", "", false);
     setEditable(false);
     renderProperties(null, false);
-    $<HTMLDivElement>("stats-line").textContent = "-";
     $<HTMLDivElement>("edit-state").textContent = "";
     edit.disabled = true;
     cancel.classList.add("hidden");
@@ -520,7 +541,6 @@ function renderDetail(server: LibraryServerState | null, local: LibraryPageState
   setValue("description-edit", selected.description, editing);
   setEditable(editing);
   renderProperties(selected, editing);
-  $<HTMLDivElement>("stats-line").textContent = selected.stats;
   $<HTMLDivElement>("edit-state").textContent = editing
     ? `${server.editing.dirty || local.formDirty ? "Unsaved changes" : "Editing"} · ${selected.id}`
     : selected.isBuiltin
@@ -703,6 +723,98 @@ function receiveData(...values: unknown[]): void {
 store.subscribe(render);
 render(store.getState());
 
+const app = $<HTMLDivElement>("app");
+const librarySidebar = $<HTMLDivElement>("left");
+const libraryResizer = $<HTMLDivElement>("library-resizer");
+let librarySidebarLayout: LibrarySidebarLayout = { ...LIBRARY_SIDEBAR_LAYOUT };
+
+function libraryContentWidth(): number {
+  return app.getBoundingClientRect().width || window.innerWidth || 800;
+}
+
+function storedLibrarySidebarWidth(): number | undefined {
+  try {
+    const value = Number(window.localStorage?.getItem(SIDEBAR_WIDTH_STORAGE_KEY));
+    return Number.isFinite(value) && value > 0 ? value : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function applyLibrarySidebarWidth(requestedWidth: number, persist: boolean): void {
+  const width = clampLibrarySidebarWidth(
+    requestedWidth,
+    libraryContentWidth(),
+    librarySidebarLayout,
+  );
+  librarySidebar.style.width = `${width}px`;
+  libraryResizer.setAttribute("aria-valuemin", String(librarySidebarLayout.sidebarMinWidth));
+  libraryResizer.setAttribute(
+    "aria-valuemax",
+    String(
+      clampLibrarySidebarWidth(
+        Number.MAX_SAFE_INTEGER,
+        libraryContentWidth(),
+        librarySidebarLayout,
+      ),
+    ),
+  );
+  libraryResizer.setAttribute("aria-valuenow", String(width));
+  if (!persist) return;
+  try {
+    window.localStorage?.setItem(SIDEBAR_WIDTH_STORAGE_KEY, String(width));
+  } catch {
+    // Max jweb may disable localStorage for file pages; resizing still works for the open window.
+  }
+}
+
+function applyLibrarySidebarLayout(layout: LibrarySidebarLayout, requestedWidth?: number): void {
+  librarySidebarLayout = { ...layout };
+  librarySidebar.style.minWidth = `${layout.sidebarMinWidth}px`;
+  librarySidebar.style.maxWidth = `${layout.sidebarMaxWidth}px`;
+  libraryResizer.style.width = `${layout.sidebarResizerWidth}px`;
+  applyLibrarySidebarWidth(
+    requestedWidth ?? (librarySidebar.getBoundingClientRect().width || 240),
+    false,
+  );
+}
+
+applyLibrarySidebarLayout(LIBRARY_SIDEBAR_LAYOUT, storedLibrarySidebarWidth());
+
+libraryResizer.addEventListener("pointerdown", (event) => {
+  if (event.button !== 0) return;
+  event.preventDefault();
+  libraryResizer.classList.add("dragging");
+  libraryResizer.setPointerCapture(event.pointerId);
+});
+libraryResizer.addEventListener("pointermove", (event) => {
+  if (!libraryResizer.hasPointerCapture(event.pointerId)) return;
+  const left = app.getBoundingClientRect().left;
+  applyLibrarySidebarWidth(event.clientX - left, false);
+});
+function finishLibrarySidebarResize(event: PointerEvent): void {
+  if (!libraryResizer.hasPointerCapture(event.pointerId)) return;
+  libraryResizer.releasePointerCapture(event.pointerId);
+  libraryResizer.classList.remove("dragging");
+  applyLibrarySidebarWidth(librarySidebar.getBoundingClientRect().width, true);
+}
+libraryResizer.addEventListener("pointerup", finishLibrarySidebarResize);
+libraryResizer.addEventListener("pointercancel", finishLibrarySidebarResize);
+libraryResizer.addEventListener("keydown", (event) => {
+  const currentWidth = librarySidebar.getBoundingClientRect().width;
+  if (event.key === "ArrowLeft")
+    applyLibrarySidebarWidth(currentWidth - SIDEBAR_KEYBOARD_STEP, true);
+  else if (event.key === "ArrowRight") {
+    applyLibrarySidebarWidth(currentWidth + SIDEBAR_KEYBOARD_STEP, true);
+  } else if (event.key === "Home") applyLibrarySidebarWidth(0, true);
+  else if (event.key === "End") applyLibrarySidebarWidth(Number.MAX_SAFE_INTEGER, true);
+  else return;
+  event.preventDefault();
+});
+window.addEventListener("resize", () => {
+  applyLibrarySidebarWidth(librarySidebar.getBoundingClientRect().width, false);
+});
+
 document.querySelectorAll<HTMLButtonElement>(".panel-tab").forEach((tab) => {
   tab.addEventListener("click", () => {
     const panel = tab.dataset["panel"];
@@ -819,6 +931,11 @@ if (isMax) {
     const message = event.data as { type?: unknown; payload?: unknown };
     if (message.type === WORKBENCH_STATE_MESSAGE && typeof message.payload === "string") {
       receiveData(message.payload);
+    } else if (
+      message.type === WORKBENCH_LAYOUT_MESSAGE &&
+      isLibrarySidebarLayout(message.payload)
+    ) {
+      applyLibrarySidebarLayout(message.payload);
     }
   });
   receiveData(
@@ -876,7 +993,8 @@ if (isMax) {
             outputMax: null,
             exponent: null,
           },
-          stats: "7 notes • 0.88 bars • 4/4 source • chromatic",
+          previewBars: 0.88,
+          effectivePitchMode: "chromatic",
           isBuiltin: true,
           isPersisted: false,
           folder: "Built-ins",

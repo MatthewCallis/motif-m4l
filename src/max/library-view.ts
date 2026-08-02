@@ -46,6 +46,15 @@ export function toLibraryHotkeyData(mapping: {
 }
 
 /**
+ * Format a preview bar count for read-only Library property fields.
+ * @param {number} bars Preview bar count.
+ * @returns {string} Bar count without redundant decimal zeros.
+ */
+export function formatPreviewBarCount(bars: number): string {
+  return Number.isInteger(bars) ? String(bars) : bars.toFixed(1).replace(/\.0$/, "");
+}
+
+/**
  * Encode one authoritative Library state into Max-safe jweb messages.
  *
  * URL encoding expands punctuation enough that an otherwise small motif can

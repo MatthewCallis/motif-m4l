@@ -65,9 +65,13 @@ export class MotifAuthoringController {
       this.callbacks.emitError(`Unknown motif: ${value}`);
       return;
     }
-    if (selected.id === this.store.currentId) return;
+    if (selected.id === this.store.currentId) {
+      return;
+    }
 
+    // If the user is editing a motif, cancel the edit and select the new motif.
     if (this.editor.isEditing()) {
+      // If the edit is dirty, prompt the user to save or cancel.
       if (this.editor.isDirty()) {
         this.callbacks.emitError("Save or cancel the current edits before selecting another motif");
         this.callbacks.emitMotifSelected(
@@ -77,7 +81,9 @@ export class MotifAuthoringController {
         this.callbacks.emitLibraryState();
         return;
       }
+      // Cancel the edit and select the new motif.
       this.editor.cancel(this.store);
+      // Re-resolve the selected motif to ensure it's still valid.
       selected = this.store.resolve(value);
       if (!selected) {
         this.callbacks.emitError(`Unknown motif after cancelling edit: ${value}`);
@@ -86,10 +92,15 @@ export class MotifAuthoringController {
       }
     }
 
+    // Select the new motif.
     this.store.select(selected.id);
+    // Update the Max menu selection label.
     this.callbacks.emitMotifSelected(selected.id, selected.name);
+    // Rebuild the selected motif views.
     this.callbacks.emitSelectedMotifUi();
+    // Update the persisted state.
     this.callbacks.emitPersistedState();
+    // Update the Max status message.
     this.callbacks.emitStatus("Motif", selected.name);
   }
 

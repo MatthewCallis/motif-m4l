@@ -1,4 +1,8 @@
 {
   "width": 800,
-  "height": 550
+  "height": 550,
+  "sidebarMinWidth": 160,
+  "sidebarMaxWidth": 420,
+  "detailMinWidth": 320,
+  "sidebarResizerWidth": 2
 }

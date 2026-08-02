@@ -7,9 +7,9 @@ import { DeviceSettingsState } from "../src/max/device-settings.js";
 import { MotifHotkeyMap } from "../src/max/hotkey-map.js";
 import {
   buildLibraryServerState,
-  formatLibraryMotifStats,
   type LibraryProjectionRepository,
 } from "../src/max/library-state.js";
+import { formatPreviewBarCount } from "../src/max/library-view.js";
 
 const hostContext: HostContext = {
   tempo: 120,
@@ -40,33 +40,11 @@ function setup() {
   return { store, editor, hotkeys, settings, library };
 }
 
-describe("formatLibraryMotifStats", () => {
-  it("formats Library stats for singular, integer, and fractional bars", () => {
-    assert.equal(
-      formatLibraryMotifStats(
-        {
-          notes: [{ pitch: 60, atTicks: 0, durationTicks: 480, velocity: 100 }],
-          bars: 1,
-          effectivePitchMode: "chromatic",
-        },
-        { numerator: 4, denominator: 4 },
-      ),
-      "1 note • 1 bar • 4/4 source • chromatic",
-    );
-    assert.equal(
-      formatLibraryMotifStats(
-        {
-          notes: [
-            { pitch: 60, atTicks: 0, durationTicks: 480, velocity: 80 },
-            { pitch: 62, atTicks: 480, durationTicks: 480, velocity: 120 },
-          ],
-          bars: 1.5,
-          effectivePitchMode: "scale",
-        },
-        { numerator: 6, denominator: 8 },
-      ),
-      "2 notes • 1.5 bars • 6/8 source • scale",
-    );
+describe("formatPreviewBarCount", () => {
+  it("formats integer and fractional preview bars without redundant zeros", () => {
+    assert.equal(formatPreviewBarCount(1), "1");
+    assert.equal(formatPreviewBarCount(1.5), "1.5");
+    assert.equal(formatPreviewBarCount(2.0), "2");
   });
 });
 
@@ -90,7 +68,9 @@ describe("Library state projection", () => {
     assert.deepEqual(state.selected?.hotkeys, [{ pitch: 36, action: "trigger", label: "C1" }]);
     assert.equal(state.actions.canEdit, true);
     assert.equal(state.actions.canSave, false);
-    assert.match(state.selected?.stats ?? "", /notes/);
+    assert.equal(state.selected?.noteCount, model.store.current?.notes.length);
+    assert.ok(typeof state.selected?.previewBars === "number");
+    assert.equal(state.selected?.effectivePitchMode, "scale");
     assert.deepEqual(
       model.store.current?.notes.map(({ pitch }) => pitch),
       storedPitches,

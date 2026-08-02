@@ -41,7 +41,7 @@ button:disabled,
 input:disabled,
 textarea:disabled,
 select:disabled {
-  opacity: 0.42;
+  /* opacity: 0.42; */
   cursor: not-allowed !important;
 }
 .hidden {
@@ -53,11 +53,29 @@ select:disabled {
 }
 #left {
   width: clamp(170px, 30vw, 240px);
-  min-width: 150px;
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  border-right: 1px solid var(--border);
+}
+#library-resizer {
+  position: relative;
+  z-index: 2;
+  flex: 0 0 auto;
+  background: var(--border);
+  cursor: col-resize;
+  touch-action: none;
+  user-select: none;
+}
+#library-resizer::after {
+  position: absolute;
+  inset: 0 -3px;
+  content: "";
+}
+#library-resizer:hover,
+#library-resizer.dragging,
+#library-resizer:focus-visible {
+  background: var(--accent);
+  outline: 0;
 }
 #right {
   flex: 1;
@@ -188,15 +206,18 @@ select:disabled {
 }
 .btn {
   background: var(--btn);
+  border-radius: 4px;
   border: 1px solid var(--border);
   color: var(--text);
   cursor: pointer;
-  padding: 3px 7px;
+  padding: 4px 8px;
   text-align: center;
   white-space: nowrap;
+  transition: box-shadow 0.1s ease-in-out;
 }
 .btn:hover:not(:disabled) {
   background: var(--btn-hover);
+  box-shadow: 0 0 4px rgba(0, 0, 0, 0.55);
 }
 .btn:active:not(:disabled),
 .btn.accent {
@@ -237,21 +258,16 @@ select:disabled {
 .field:disabled {
   background: transparent;
   border-color: transparent;
-  color: var(--muted);
+  /* color: var(--muted); */
 }
 #description-edit {
   resize: none;
   height: 34px;
   width: 100%;
 }
-#stats-line {
-  color: var(--muted);
-  font-size: 10px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
 #edit-state {
+  display: flex;
+  justify-content: flex-end;
   color: var(--accent);
   font-size: 10px;
   min-height: 12px;
@@ -486,19 +502,21 @@ select:disabled {
   background: rgba(0, 0, 0, 0.68);
 }
 #modal {
-  width: 330px;
+  width: 420px;
   max-width: calc(100% - 32px);
   background: var(--surface);
+  border-radius: 8px;
   border: 1px solid #4a4a50;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.55);
   padding: 12px;
 }
 #modal-title {
   font-size: 13px;
+  font-weight: 600;
   margin-bottom: 7px;
 }
 #modal-message {
-  color: var(--muted);
+  color: var(--text);
   line-height: 1.4;
   white-space: pre-wrap;
 }
@@ -577,11 +595,15 @@ select:disabled {
     flex-direction: column;
   }
   #left {
-    width: 100%;
+    width: 100% !important;
+    max-width: none;
     min-width: 0;
     height: 140px;
     border-right: 0;
     border-bottom: 1px solid var(--border);
+  }
+  #library-resizer {
+    display: none;
   }
   #right {
     min-height: 0;
