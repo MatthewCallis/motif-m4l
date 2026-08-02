@@ -104,6 +104,33 @@ describe("motif validation", () => {
     }
   });
 
+  it("validates source pitch context without changing schema version", () => {
+    const result = validateMotif({
+      schemaVersion: 1,
+      id: "invalid-source",
+      name: "Invalid Source",
+      description: "Invalid source pitch context.",
+      pitchMode: "chromatic",
+      sourcePitchContext: {
+        anchorPitch: 128,
+        scaleRootNote: -1,
+        scaleName: "",
+        scaleIntervals: [2, 0, 2],
+      },
+      sourceMeter: { numerator: 4, denominator: 4 },
+      length: 1,
+      notes: [{ at: 0, duration: 1, pitch: 0 }],
+    });
+
+    assert.equal(result.valid, false);
+    for (const field of ["anchorPitch", "scaleRootNote", "scaleName", "scaleIntervals"]) {
+      assert.ok(
+        result.errors.some((error) => error.includes(field)),
+        `missing ${field}`,
+      );
+    }
+  });
+
   it("returns a typed motif for complete valid input and catches notes beyond its length", () => {
     const motif = {
       schemaVersion: 1,
@@ -111,6 +138,12 @@ describe("motif validation", () => {
       name: "Complete",
       description: "A complete valid motif.",
       pitchMode: "scale",
+      sourcePitchContext: {
+        anchorPitch: 60,
+        scaleRootNote: 0,
+        scaleName: "Major",
+        scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+      },
       sourceMeter: { numerator: 7, denominator: 8 },
       length: 960,
       defaultGate: 0.9,

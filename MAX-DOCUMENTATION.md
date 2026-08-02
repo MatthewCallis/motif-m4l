@@ -65,11 +65,12 @@ This is the production Max surface used by Motif. Every generated object, Max Ja
 | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | `window.max.bindInlet` and `window.max.outlet`                                    | [Web Browser and jweb: JavaScript Communication](https://docs.cycling74.com/userguide/web_browser/#javascript-communication) |
 | `LiveAPI(callback?, path?)`, `id`, `get`, `getstring`, `call`                     | [LiveAPI](https://docs.cycling74.com/apiref/js/liveapi/)                                                                     |
+| `Song.root_note`, `scale_name`, `scale_intervals`, and `scale_mode`               | [Song](https://docs.cycling74.com/apiref/lom/song/)                                                                          |
 | `live_set view detail_clip` and `highlighted_clip_slot`                           | [Song.View](https://docs.cycling74.com/apiref/lom/song_view/)                                                                |
 | `ClipSlot.has_clip` and `ClipSlot.clip`                                           | [ClipSlot](https://docs.cycling74.com/apiref/lom/clipslot/)                                                                  |
 | `Clip.is_midi_clip`, `Clip.is_audio_clip`, `Clip.name`, `Clip.get_notes_extended` | [Clip](https://docs.cycling74.com/apiref/lom/clip/)                                                                          |
 
-The clip importer targets the current Live 11+ note API. It does not call the retired `get_notes` method. Continuous Song synchronization remains on native `live.path` and `live.observer`; `LiveAPI` is created only in response to the user’s Import Clip action.
+The clip importer targets the current Live 11+ note API. It does not call the retired `get_notes` method. Imports always preserve exact Chromatic offsets and snapshot the current observed Song root, scale name, and interval list as the motif's source pitch context. Continuous Song synchronization remains on native `live.path` and `live.observer`; `LiveAPI` is created only in response to the user’s Import Clip action.
 
 ## Live Set persistence
 

@@ -901,11 +901,16 @@ describe("Motif Max patch integration", () => {
     assert.ok(client.includes("kind === LIBRARY_STATE_CHUNK_KIND"));
     assert.ok(client.includes("notes.forEach((note, index) => {"));
     assert.match(client, /type:\s*["']edit_note_at["']/);
-    assert.match(template, /id="import-mode"/);
-    assert.match(template, /<option value="chromatic">Exact \/ Chromatic<\/option>/);
+    assert.doesNotMatch(template, /id="import-mode"/);
     assert.match(client, /type:\s*["']import_clip["']/);
     for (const field of [
       "pitch-mode-edit",
+      "source-anchor-edit",
+      "source-anchor-name",
+      "source-root-edit",
+      "source-root-name",
+      "source-scale-name-edit",
+      "source-scale-intervals-edit",
       "meter-numerator-edit",
       "default-gate-edit",
       "curve-exponent",

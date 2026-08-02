@@ -39,6 +39,12 @@ function selectedMotif(notes: LibraryNoteData[]): LibrarySelectedMotifData {
     name: "Chromatic Turn",
     description: "Fixed-interval phrase that ignores the selected scale.",
     pitchMode: "chromatic",
+    sourcePitchContext: {
+      anchorPitch: 60,
+      scaleRootNote: 0,
+      scaleName: "Major",
+      scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+    },
     sourceMeter: { numerator: 4, denominator: 4 },
     length: Math.max(
       960,

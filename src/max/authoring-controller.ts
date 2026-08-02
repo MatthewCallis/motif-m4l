@@ -16,8 +16,6 @@ import type { MaxUserLibrary } from "./user-library.js";
 
 /** View, persistence, and diagnostic effects requested by authoring workflows. */
 export interface AuthoringControllerCallbacks {
-  /** Current pitch used when re-encoding motif properties. */
-  getPreviewTriggerPitch: () => number;
   /** Report a user-facing diagnostic. */
   emitError: (message: string) => void;
   /** Report an actionable Library modal warning. */
@@ -106,9 +104,8 @@ export class MotifAuthoringController {
 
   /**
    * Import the selected Detail View MIDI clip as a dirty new draft.
-   * @param {string} pitchModeValue Relative pitch-analysis mode.
    */
-  importClip(pitchModeValue = "chromatic"): void {
+  importClip(): void {
     if (this.library.scanning) {
       this.callbacks.emitError("Wait for the library scan to finish before importing a clip");
       this.callbacks.emitLibraryState();
@@ -120,16 +117,17 @@ export class MotifAuthoringController {
       return;
     }
 
-    const mode = String(pitchModeValue || "chromatic");
-    if (mode !== "scale" && mode !== "chromatic" && mode !== "hybrid") {
-      this.callbacks.emitError(`Unknown import pitch mode: ${mode}`);
-      return;
-    }
-
     const clip = resolveDetailClip();
     if (!clip) {
       this.callbacks.emitError(
         "No clip selected - open a MIDI clip in Detail View, then Import Clip",
+      );
+      return;
+    }
+    if (!this.library.path || !this.library.loaded) {
+      this.callbacks.emitLibraryAlert(
+        "Library folder required",
+        "Choose a valid Library folder before importing a clip so the new motif can be saved.",
       );
       return;
     }
@@ -167,11 +165,11 @@ export class MotifAuthoringController {
       imported = absoluteNotesToMotif(absoluteNotes, {
         id: "pending-import",
         name: clipName,
-        pitchMode: mode,
         scaleRootNote: this.hostContext.rootNote,
+        scaleName: this.hostContext.scaleName,
         scaleIntervals: this.hostContext.scaleIntervals,
         sourceMeter: { ...this.hostContext.timeSignature },
-        description: `Imported from Live clip “${clipName}” using ${mode} relative analysis.`,
+        description: `Imported from Live clip “${clipName}” as exact chromatic offsets.`,
       });
     } catch (reason) {
       this.callbacks.emitError(
@@ -236,11 +234,15 @@ export class MotifAuthoringController {
     const editable = this.editableMotif();
     if (!editable) return false;
 
-    const result = buildMotifProperties(editable, value, {
-      triggerPitch: this.callbacks.getPreviewTriggerPitch(),
-      host: this.hostContext,
-    });
+    const result = buildMotifProperties(editable, value);
     if (!result.ok) {
+      if (result.error.includes("source scale intervals are unresolved")) {
+        this.callbacks.emitLibraryAlert(
+          "Source scale required",
+          `${result.error}. Enter source intervals before changing Pitch Mode.`,
+        );
+        return false;
+      }
       this.callbacks.emitError(result.error);
       this.callbacks.emitLibraryState();
       return false;

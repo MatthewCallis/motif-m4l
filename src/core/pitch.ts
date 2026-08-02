@@ -27,6 +27,36 @@ export function normalizeScaleIntervals(intervals: readonly number[]): number[] 
 }
 
 /**
+ * Resolve a MIDI pitch to the nearest note in a scale.
+ * Exact matches are unchanged; equidistant ties prefer the lower note.
+ * @param {number} pitch MIDI pitch to resolve.
+ * @param {number} rootNote Scale root pitch class.
+ * @param {readonly number[]} scaleIntervals Scale intervals from the root.
+ * @returns {number} A MIDI-range pitch belonging to the scale.
+ */
+export function quantizePitchToScale(
+  pitch: number,
+  rootNote: number,
+  scaleIntervals: readonly number[],
+): number {
+  const rounded = Math.round(clamp(pitch, 0, 127));
+  const rootPitchClass = mod(rootNote, 12);
+  const pitchClasses = new Set(
+    normalizeScaleIntervals(scaleIntervals).map((interval) => mod(rootPitchClass + interval, 12)),
+  );
+  const belongs = (candidate: number): boolean => pitchClasses.has(mod(candidate, 12));
+  if (belongs(rounded)) return rounded;
+
+  for (let distance = 1; distance <= 127; distance += 1) {
+    const lower = rounded - distance;
+    if (lower >= 0 && belongs(lower)) return lower;
+    const upper = rounded + distance;
+    if (upper <= 127 && belongs(upper)) return upper;
+  }
+  return rounded;
+}
+
+/**
  * Resolve a scale-degree offset into an unclamped semitone offset from the trigger.
  * Keeping this separate from MIDI-range clamping makes import and mode conversion
  * exact even when the source phrase contains large positive or negative intervals.

@@ -47,16 +47,13 @@
 
       <div id="right">
         <div id="detail-actions">
-          <select
-            class="field"
-            id="import-mode"
-            title="Chromatic preserves the MIDI exactly; Scale & Hybrid encode relative scale degrees"
+          <button
+            class="btn accent"
+            id="import-clip-btn"
+            title="Import the selected clip as exact chromatic offsets"
           >
-            <option value="chromatic">Exact / Chromatic</option>
-            <option value="hybrid">Hybrid</option>
-            <option value="scale">Scale</option>
-          </select>
-          <button class="btn accent" id="import-clip-btn">Import Clip</button>
+            Import Clip
+          </button>
           <button class="btn" id="save-motif-btn">Save &amp; Finish</button>
         </div>
 
@@ -137,6 +134,55 @@
                 <option value="chromatic">Chromatic</option>
                 <option value="hybrid">Hybrid</option>
               </select>
+              <label for="source-anchor-edit">Source anchor</label>
+              <div class="source-pitch-controls" id="source-anchor-controls">
+                <input
+                  class="field editable-property"
+                  id="source-anchor-edit"
+                  type="number"
+                  min="0"
+                  max="127"
+                  step="1"
+                  aria-describedby="source-anchor-name"
+                  disabled
+                />
+                <output id="source-anchor-name" for="source-anchor-edit" aria-live="polite"
+                  >—</output
+                >
+              </div>
+              <label for="source-root-edit">Source root</label>
+              <div class="source-pitch-controls" id="source-root-controls">
+                <input
+                  class="field editable-property"
+                  id="source-root-edit"
+                  type="number"
+                  min="0"
+                  max="11"
+                  step="1"
+                  aria-describedby="source-root-name"
+                  disabled
+                />
+                <output id="source-root-name" for="source-root-edit" aria-live="polite">—</output>
+              </div>
+              <label for="source-scale-name-edit">Source scale</label
+              ><input
+                class="field editable-property"
+                id="source-scale-name-edit"
+                type="text"
+                disabled
+              />
+              <label for="source-scale-intervals-edit">Source intervals</label
+              ><input
+                class="field editable-property"
+                id="source-scale-intervals-edit"
+                type="text"
+                placeholder="0, 2, 4, 5, 7, 9, 11"
+                disabled
+              />
+              <div class="help wide">
+                Imports are exact Chromatic motifs. Changing Pitch Mode analyzes notes against this
+                saved source scale; Live's current scale is the playback target.
+              </div>
               <label for="default-gate-edit">Default gate</label
               ><input
                 class="field editable-property"

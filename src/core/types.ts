@@ -15,7 +15,7 @@ export const MOTIF_SCHEMA_VERSION = 1;
 
 /**
  * How `MotifNote.pitch` is interpreted relative to the trigger note and Live scale.
- * - `scale` - scale-degree offsets through Song scale intervals
+ * - `scale` - scale-degree offsets through Song scale intervals; retained accidentals are ignored
  * - `chromatic` - semitone offsets from the trigger
  * - `hybrid` - scale degrees plus optional `accidental` semitones
  */
@@ -77,6 +77,21 @@ export interface VelocityCurve {
   exponent?: number;
 }
 
+/** Original pitch reference used to encode and later re-analyze a motif. */
+export interface SourcePitchContext {
+  /** Absolute MIDI note used as relative pitch offset zero. */
+  anchorPitch: number;
+  /** Original scale root pitch class (0-11). */
+  scaleRootNote: number;
+  /** Original Live scale label, retained for display and provenance. */
+  scaleName: string;
+  /**
+   * Authoritative semitone intervals of the original scale. `null` means the
+   * import was preserved chromatically but its source scale could not be resolved.
+   */
+  scaleIntervals: readonly number[] | null;
+}
+
 /** One note (or rest gap) inside a motif phrase. */
 export interface MotifNote {
   /** Start position in source PPQ ticks. Gaps between notes represent rests. */
@@ -85,7 +100,7 @@ export interface MotifNote {
   duration: number;
   /** Scale-degree or semitone offset, depending on pitchMode. */
   pitch: number;
-  /** Hybrid-mode chromatic alteration applied after scale-degree mapping. */
+  /** Retained source alteration; ignored by Scale and applied by Hybrid. */
   accidental?: number;
   /** Absolute velocity. When omitted, the curved trigger velocity is used. */
   velocity?: number;
@@ -111,6 +126,8 @@ export interface Motif {
   name: string;
   description: string;
   pitchMode: PitchMode;
+  /** Pitch and scale context under which the motif was authored or imported. */
+  sourcePitchContext: SourcePitchContext;
   sourceMeter: TimeSignature;
   /** Phrase length in PPQ ticks (usually last note end). */
   length: number;
@@ -122,7 +139,7 @@ export interface Motif {
 
 /** Options for compiling a motif into scheduled MIDI note-on/off events. */
 export interface CompileOptions {
-  /** Overrides the motif's stored pitchMode for this compile. */
+  /** Source-aware override of the motif's stored pitchMode for this compile. */
   pitchMode?: PitchMode;
   meterMode: MeterMode;
   channel: number;

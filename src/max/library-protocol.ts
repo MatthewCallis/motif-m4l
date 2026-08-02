@@ -14,7 +14,6 @@ export type LibraryAction =
     }
   | {
       type: "import_clip";
-      pitchMode?: string;
     }
   | {
       type: "save_motif";
@@ -74,7 +73,7 @@ export const MAX_LIBRARY_STATE_CHUNKS = 10_000;
 export interface LibraryNoteData {
   /** Relative pitch offset or scale degree. */
   pitch: number;
-  /** Optional hybrid-mode chromatic adjustment. */
+  /** Retained source alteration, sounded only in Hybrid mode. */
   accidental: number | null;
   /** Note start in motif PPQ ticks. */
   at: number;
@@ -158,6 +157,17 @@ export interface LibrarySelectedMotifData {
   description: string;
   /** Stored pitch interpretation. */
   pitchMode: string;
+  /** Original anchor and scale used for pitch-mode analysis. */
+  sourcePitchContext: {
+    /** Absolute MIDI note used as relative offset zero. */
+    anchorPitch: number;
+    /** Original scale root pitch class. */
+    scaleRootNote: number;
+    /** Original Live scale display name. */
+    scaleName: string;
+    /** Authoritative original intervals, or null when unresolved. */
+    scaleIntervals: number[] | null;
+  };
   /** Meter used when the motif was authored. */
   sourceMeter: {
     /** Beats per source bar. */

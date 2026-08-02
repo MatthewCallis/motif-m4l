@@ -25,6 +25,12 @@ const MOTIF: Motif = {
   name: "Test",
   description: "Test motif",
   pitchMode: "scale",
+  sourcePitchContext: {
+    anchorPitch: 60,
+    scaleRootNote: 0,
+    scaleName: "Major",
+    scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+  },
   sourceMeter: { numerator: 4, denominator: 4 },
   length: PPQ,
   notes: [{ at: 0, duration: PPQ, pitch: 2 }],
@@ -63,7 +69,7 @@ describe("compileMotif", () => {
     assert.equal(events[1]?.offsetMs, 375);
   });
 
-  it("can override a scale motif with chromatic intervals", () => {
+  it("source-aware override converts scale degrees back to chromatic offsets", () => {
     const events = compileMotif(MOTIF, HOST, {
       channel: 1,
       meterMode: "preserve",
@@ -72,7 +78,7 @@ describe("compileMotif", () => {
       triggerVelocity: 100,
     });
 
-    assert.equal(events[0]?.pitch, 50);
+    assert.equal(events[0]?.pitch, 52);
   });
 
   it("resolves hybrid scale degrees with chromatic accidentals", () => {
@@ -91,6 +97,44 @@ describe("compileMotif", () => {
       },
     );
     assert.equal(events[0]?.pitch, 63);
+  });
+
+  it("retargets C-major degrees into C minor while Scale ignores retained accidentals", () => {
+    const events = compileMotif(
+      {
+        ...MOTIF,
+        notes: [
+          { at: 0, duration: 120, pitch: 0 },
+          { at: 120, duration: 120, pitch: 2, accidental: 1 },
+          { at: 240, duration: 120, pitch: 4 },
+        ],
+      },
+      { ...HOST, scaleName: "Minor", scaleIntervals: [0, 2, 3, 5, 7, 8, 10] },
+      {
+        channel: 1,
+        meterMode: "preserve",
+        triggerPitch: 60,
+        triggerVelocity: 100,
+      },
+    );
+    assert.deepEqual(
+      events.filter(({ velocity }) => velocity > 0).map(({ pitch }) => pitch),
+      [60, 63, 67],
+    );
+  });
+
+  it("quantizes off-scale triggers before applying Scale degrees", () => {
+    const events = compileMotif(
+      MOTIF,
+      { ...HOST, rootNote: 2, scaleName: "Major" },
+      {
+        channel: 1,
+        meterMode: "preserve",
+        triggerPitch: 60,
+        triggerVelocity: 100,
+      },
+    );
+    assert.equal(events[0]?.pitch, 62);
   });
 
   it("adds a quantized launch offset without altering phrase timing", () => {

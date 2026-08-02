@@ -46,6 +46,7 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 
 - [x] Expand the Library/Info floating window into a searchable browser (favorites deferred).
 - [x] Import selected Live MIDI clip notes into a motif (`import_clip` via LiveAPI).
+- [x] Exact Chromatic import with saved source key/scale/anchor and reversible Scale/Hybrid analysis.
 - [x] Per-note editing of degree, accidental, timing, gate, and velocity.
 - [ ] Record a played phrase and convert it into a motif.
 - [ ] Favorites in the library browser.

@@ -6,7 +6,14 @@ import {
   ticksToMilliseconds,
   ticksUntilNextBoundary,
 } from "../core/timing.js";
-import { MeterMode, Motif, PPQ, type CompileOptions, type HostContext, type LaunchQuantization } from "../core/types.js";
+import {
+  MeterMode,
+  Motif,
+  PPQ,
+  type CompileOptions,
+  type HostContext,
+  type LaunchQuantization,
+} from "../core/types.js";
 import type { MotifStore } from "../library/store.js";
 import { MIN_REPEAT_DELAY_MS } from "./device-types.js";
 import type { DeviceSettingsState } from "./device-settings.js";
@@ -187,14 +194,22 @@ export class PlaybackController {
       options.pitchMode = this.settings.pitchModeOverride;
     }
 
-    for (const event of compileMotif(
-      selected,
-      {
-        ...this.hostContext,
-        tempo: this.hostContext.tempo * this.settings.tempoMultiplier,
-      },
-      options,
-    )) {
+    let events;
+    try {
+      events = compileMotif(
+        selected,
+        {
+          ...this.hostContext,
+          tempo: this.hostContext.tempo * this.settings.tempoMultiplier,
+        },
+        options,
+      );
+    } catch (reason) {
+      this.callbacks.emitError(reason instanceof Error ? reason.message : String(reason));
+      return undefined;
+    }
+
+    for (const event of events) {
       this.callbacks.emitScheduledEvent(event.pitch, event.velocity, event.channel, event.offsetMs);
     }
 

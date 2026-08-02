@@ -30,7 +30,6 @@ function createAuthoring() {
     currentSongTime: 0,
   };
   const callbacks: AuthoringControllerCallbacks = {
-    getPreviewTriggerPitch: () => 60,
     emitError: (message) => effects.push(`error:${message}`),
     emitLibraryAlert: (title, message) => effects.push(`alert:${title}:${message}`),
     emitStatus: (...values) => effects.push(`status:${values.join(":")}`),

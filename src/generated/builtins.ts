@@ -8,6 +8,20 @@ export const BUILTIN_MOTIFS = [
     "name": "Chromatic Turn",
     "description": "Fixed-interval phrase that ignores the selected scale.",
     "pitchMode": "chromatic",
+    "sourcePitchContext": {
+      "anchorPitch": 60,
+      "scaleRootNote": 0,
+      "scaleName": "Major",
+      "scaleIntervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ]
+    },
     "sourceMeter": {
       "numerator": 4,
       "denominator": 4
@@ -60,6 +74,20 @@ export const BUILTIN_MOTIFS = [
     "name": "Scale Turn",
     "description": "Compact scale-aware turn used to validate one-key phrase triggering.",
     "pitchMode": "scale",
+    "sourcePitchContext": {
+      "anchorPitch": 60,
+      "scaleRootNote": 0,
+      "scaleName": "Major",
+      "scaleIntervals": [
+        0,
+        2,
+        4,
+        5,
+        7,
+        9,
+        11
+      ]
+    },
     "sourceMeter": {
       "numerator": 4,
       "denominator": 4

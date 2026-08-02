@@ -11,7 +11,7 @@ describe("Library action boundary", () => {
     const cases = [
       [{ type: "select_browser", id: "scale-turn", discardChanges: true }, "select_browser"],
       [{ type: "filter_motifs", query: "bass" }, "filter_motifs"],
-      [{ type: "import_clip", pitchMode: "hybrid" }, "import_clip"],
+      [{ type: "import_clip" }, "import_clip"],
       [{ type: "save_motif", properties: { name: "Saved" } }, "save_motif"],
       [{ type: "refresh_library", discardChanges: 1 }, "refresh_library"],
       [

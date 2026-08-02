@@ -13,8 +13,7 @@ describe("MIDI conversion", () => {
     const imported = midiBytesToMotif(bytes, {
       id: "roundtrip",
       name: "Roundtrip",
-      pitchMode: "chromatic",
-      rootNote: 60,
+      anchorPitch: 60,
     });
 
     assert.deepEqual(
@@ -36,7 +35,7 @@ describe("MIDI conversion", () => {
     });
 
     assert.equal(imported.pitchMode, "chromatic");
-    assert.match(imported.description, /chromatic relative analysis/);
+    assert.match(imported.description, /exact chromatic offsets/);
     assert.deepEqual(
       imported.notes.map(({ pitch, accidental }) => ({ pitch, accidental })),
       [

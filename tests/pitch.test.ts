@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   normalizeScaleIntervals,
+  quantizePitchToScale,
   transposeByScaleDegree,
   transposeHybrid,
 } from "../src/core/pitch.js";
@@ -9,6 +10,12 @@ import {
 const MAJOR = [0, 2, 4, 5, 7, 9, 11];
 
 describe("pitch mapping", () => {
+  it("quantizePitchToScale keeps members and resolves ties downward", () => {
+    assert.equal(quantizePitchToScale(60, 0, MAJOR), 60);
+    assert.equal(quantizePitchToScale(61, 0, MAJOR), 60);
+    assert.equal(quantizePitchToScale(60, 2, MAJOR), 59);
+  });
+
   it("normalizeScaleIntervals: keeps an explicit root without duplicating it", () => {
     assert.deepEqual(normalizeScaleIntervals([0, 2, 4, 5, 7, 9, 11]), [0, 2, 4, 5, 7, 9, 11]);
   });

@@ -1,6 +1,4 @@
-import {
-  type RetriggerMode,
-} from "../core/types.js";
+import { type RetriggerMode } from "../core/types.js";
 import { RETRIGGER_MODES, TEMPO_MULTIPLIERS } from "./device-types.js";
 import { flattenValues } from "./max-helpers.js";
 

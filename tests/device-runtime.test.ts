@@ -581,10 +581,14 @@ describe("Max device runtime integration", () => {
       }
     }
 
-    const engine = await createEngine({ liveApi: MockLiveAPI });
+    const engine = await createEngine({ liveApi: MockLiveAPI, folders: { "/Motifs": [] } });
+    engine.dispatch("library_path", "/Motifs");
     engine.dispatch("initialize");
+    engine.dispatch("song_context", "root_note", 2);
+    engine.dispatch("song_context", "scale_name", "Minor");
+    engine.dispatch("song_context", "scale_intervals", 0, 2, 3, 5, 7, 8, 10);
     engine.outlets.length = 0;
-    engine.dispatch("import_clip", "hybrid");
+    engine.dispatch("import_clip");
 
     assert.ok(!engine.errors.some((message) => message.includes("No clip selected")));
     const status = engine.outlets.find(
@@ -598,6 +602,14 @@ describe("Max device runtime integration", () => {
     const selected = lib["selected"] as Record<string, unknown>;
     assert.ok(selected, "selected motif must be present after import");
     assert.equal(String(selected["name"]), "Clip Phrase");
+    assert.equal(selected["pitchMode"], "chromatic");
+    assert.deepEqual(selected["sourcePitchContext"], {
+      anchorPitch: 60,
+      scaleRootNote: 2,
+      scaleName: "Minor",
+      scaleIntervals: [0, 2, 3, 5, 7, 8, 10],
+    });
+    assert.equal((lib["actions"] as Record<string, unknown>)["canSave"], true);
     assert.deepEqual(constructorCalls[0], [undefined, "live_set view detail_clip"]);
     assert.deepEqual(methodCalls[0], ["get_notes_extended", 0, 128, 0, 4096]);
   });
@@ -628,16 +640,49 @@ describe("Max device runtime integration", () => {
       }
     }
 
-    const engine = await createEngine({ liveApi: MockLiveAPI });
+    const engine = await createEngine({ liveApi: MockLiveAPI, folders: { "/Motifs": [] } });
+    engine.dispatch("library_path", "/Motifs");
     engine.dispatch("initialize");
     engine.outlets.length = 0;
-    engine.dispatch("import_clip", "chromatic");
+    engine.dispatch("import_clip");
 
     const status = engine.outlets.find(
       (args) => args[0] === "status" && args[1] === "imported-clip",
     );
     assert.ok(status);
     assert.equal(status[3], 2);
+  });
+
+  it("requires a loaded Library folder before creating an imported draft", async () => {
+    class MockLiveAPI {
+      id: number;
+      constructor(_callback?: (args: unknown[]) => void, path?: string) {
+        this.id = path?.includes("detail_clip") ? 42 : 0;
+      }
+      get(property: string): number {
+        return property === "is_midi_clip" ? 1 : 0;
+      }
+      getstring(property: string): string {
+        return property === "name" ? "Unsavable Clip" : "";
+      }
+      call(): unknown {
+        throw new Error("notes must not be read without a save destination");
+      }
+    }
+
+    const engine = await createEngine({ liveApi: MockLiveAPI, folders: { "/Motifs": [] } });
+    engine.dispatch("import_clip");
+
+    const lib = lastLibState(engine.outlets);
+    assert.ok(lib);
+    assert.deepEqual(lib["alert"], {
+      id: 1,
+      title: "Library folder required",
+      message:
+        "Choose a valid Library folder before importing a clip so the new motif can be saved.",
+    });
+    assert.equal((lib["editing"] as Record<string, unknown>)["active"], false);
+    assert.ok(!engine.outlets.some((args) => args[0] === "status" && args[1] === "imported-clip"));
   });
 
   it("rejects oversized MIDI clips with an actionable Library warning before creating a large payload", async () => {
@@ -666,7 +711,8 @@ describe("Max device runtime integration", () => {
       }
     }
 
-    const engine = await createEngine({ liveApi: MockLiveAPI });
+    const engine = await createEngine({ liveApi: MockLiveAPI, folders: { "/Motifs": [] } });
+    engine.dispatch("library_path", "/Motifs");
     engine.dispatch("initialize");
     engine.outlets.length = 0;
     engine.dispatch("import_clip");
@@ -715,7 +761,8 @@ describe("Max device runtime integration", () => {
       }
     }
 
-    const engine = await createEngine({ liveApi: MockLiveAPI });
+    const engine = await createEngine({ liveApi: MockLiveAPI, folders: { "/Motifs": [] } });
+    engine.dispatch("library_path", "/Motifs");
     engine.dispatch("import_clip");
 
     assert.ok(
@@ -747,6 +794,12 @@ describe("Max device runtime integration", () => {
       name,
       description: `${name} description`,
       pitchMode: "chromatic",
+      sourcePitchContext: {
+        anchorPitch: 60,
+        scaleRootNote: 0,
+        scaleName: "Major",
+        scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+      },
       sourceMeter: { numerator: 4, denominator: 4 },
       length: 480,
       notes: [{ at: 0, duration: 480, pitch }],
@@ -779,7 +832,8 @@ describe("Max device runtime integration", () => {
       }
     }
 
-    const engine = await createEngine({ liveApi: MockLiveAPI });
+    const engine = await createEngine({ liveApi: MockLiveAPI, folders: { "/Motifs": [] } });
+    engine.dispatch("library_path", "/Motifs");
     engine.dispatch("initialize");
     engine.outlets.length = 0;
     engine.dispatch("import_clip");
@@ -1479,6 +1533,12 @@ describe("Max device runtime integration", () => {
       name: "Complete Motif",
       description: "Exercises every editable motif property.",
       pitchMode: "hybrid",
+      sourcePitchContext: {
+        anchorPitch: 62,
+        scaleRootNote: 2,
+        scaleName: "Minor",
+        scaleIntervals: [0, 2, 3, 5, 7, 8, 10],
+      },
       sourceMeter: { numerator: 3, denominator: 8 },
       defaultGate: 0.75,
       velocityCurve: { inputMin: 5, inputMax: 120, outputMin: 20, outputMax: 110, exponent: 1.25 },
@@ -1511,6 +1571,7 @@ describe("Max device runtime integration", () => {
     let selected = lib["selected"] as Record<string, unknown>;
     assert.equal(selected["name"], "Complete Motif");
     assert.equal(selected["pitchMode"], "hybrid");
+    assert.deepEqual(selected["sourcePitchContext"], properties.sourcePitchContext);
     assert.deepEqual(selected["sourceMeter"], { numerator: 3, denominator: 8 });
     assert.equal(selected["defaultGate"], 0.75);
     assert.deepEqual(selected["velocityCurve"], properties.velocityCurve);

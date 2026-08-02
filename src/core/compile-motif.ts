@@ -4,7 +4,13 @@
  */
 
 import { clamp } from "./math.js";
-import { transposeByScaleDegree, transposeChromatically, transposeHybrid } from "./pitch.js";
+import { convertMotifPitchMode } from "./import-notes.js";
+import {
+  quantizePitchToScale,
+  transposeByScaleDegree,
+  transposeChromatically,
+  transposeHybrid,
+} from "./pitch.js";
 import { barLengthTicks, ticksToMilliseconds } from "./timing.js";
 import type {
   CompileOptions,
@@ -72,8 +78,13 @@ export function resolveMotifPitch(
       return transposeChromatically(options.triggerPitch, note.pitch + (note.accidental ?? 0));
     }
     case "hybrid": {
-      return transposeHybrid(
+      const targetAnchor = quantizePitchToScale(
         options.triggerPitch,
+        host.rootNote,
+        host.scaleIntervals,
+      );
+      return transposeHybrid(
+        targetAnchor,
         note.pitch,
         note.accidental ?? 0,
         host.rootNote,
@@ -81,12 +92,18 @@ export function resolveMotifPitch(
       );
     }
     default: {
-      return transposeByScaleDegree(
+      const targetAnchor = quantizePitchToScale(
         options.triggerPitch,
+        host.rootNote,
+        host.scaleIntervals,
+      );
+      const targetPitch = transposeByScaleDegree(
+        targetAnchor,
         note.pitch,
         host.rootNote,
         host.scaleIntervals,
       );
+      return quantizePitchToScale(targetPitch, host.rootNote, host.scaleIntervals);
     }
   }
 }
@@ -140,25 +157,32 @@ export function compileMotif(
   host: HostContext,
   options: CompileOptions,
 ): ScheduledMidiEvent[] {
+  const compiledMotif =
+    options.pitchMode && options.pitchMode !== motif.pitchMode
+      ? convertMotifPitchMode(motif, options.pitchMode)
+      : motif;
   const targetBar = barLengthTicks(host.timeSignature);
-  const sourceBar = barLengthTicks(motif.sourceMeter);
+  const sourceBar = barLengthTicks(compiledMotif.sourceMeter);
   const timeScale = options.meterMode === "fit-bar" ? targetBar / sourceBar : 1;
   const channel = Math.round(clamp(options.channel, 1, 16));
   const launchOffsetTicks = Math.max(0, options.launchOffsetTicks ?? 0);
   const instanceId = options.instanceId ?? 0;
   const events: ScheduledMidiEvent[] = [];
 
-  for (let index = 0; index < motif.notes.length; index += 1) {
-    const note = motif.notes[index];
+  for (let index = 0; index < compiledMotif.notes.length; index += 1) {
+    const note = compiledMotif.notes[index];
     if (!note) {
       continue;
     }
 
-    const next = motif.notes[index + 1];
-    const pitch = resolveMotifPitch(note, motif, host, options);
-    const velocity = resolveVelocity(note, motif, options.triggerVelocity);
+    const next = compiledMotif.notes[index + 1];
+    const pitch = resolveMotifPitch(note, compiledMotif, host, {
+      ...options,
+      pitchMode: compiledMotif.pitchMode,
+    });
+    const velocity = resolveVelocity(note, compiledMotif, options.triggerVelocity);
     const noteOnTicks = launchOffsetTicks + Math.max(0, note.at * timeScale);
-    const duration = effectiveDuration(note, next, motif) * timeScale;
+    const duration = effectiveDuration(note, next, compiledMotif) * timeScale;
     const noteOffTicks = Math.max(noteOnTicks, noteOnTicks + duration);
 
     events.push({

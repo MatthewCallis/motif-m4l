@@ -8,6 +8,7 @@ import {
   type Motif,
   type MotifNote,
   type PitchMode,
+  type SourcePitchContext,
   type TimeSignature,
 } from "../core/types.js";
 
@@ -45,6 +46,60 @@ function validateMeter(value: unknown, path: string, errors: string[]): value is
   if (![1, 2, 4, 8, 16, 32].includes(Number(value.denominator))) {
     errors.push(`${path}.denominator must be 1, 2, 4, 8, 16, or 32`);
     valid = false;
+  }
+
+  return valid;
+}
+
+function validateSourcePitchContext(value: unknown, errors: string[]): value is SourcePitchContext {
+  const path = "sourcePitchContext";
+  if (!isRecord(value)) {
+    errors.push(`${path} must be an object`);
+    return false;
+  }
+
+  let valid = true;
+  if (
+    !Number.isInteger(value.anchorPitch) ||
+    Number(value.anchorPitch) < 0 ||
+    Number(value.anchorPitch) > 127
+  ) {
+    errors.push(`${path}.anchorPitch must be an integer between 0 and 127`);
+    valid = false;
+  }
+  if (
+    !Number.isInteger(value.scaleRootNote) ||
+    Number(value.scaleRootNote) < 0 ||
+    Number(value.scaleRootNote) > 11
+  ) {
+    errors.push(`${path}.scaleRootNote must be an integer between 0 and 11`);
+    valid = false;
+  }
+  if (typeof value.scaleName !== "string" || value.scaleName.trim().length === 0) {
+    errors.push(`${path}.scaleName must be a non-empty string`);
+    valid = false;
+  }
+
+  const intervals = value.scaleIntervals;
+  if (intervals !== null) {
+    if (!Array.isArray(intervals) || intervals.length < 1 || intervals.length > 12) {
+      errors.push(`${path}.scaleIntervals must be null or contain 1 to 12 integers`);
+      valid = false;
+    } else {
+      const normalized = intervals.every(
+        (interval, index) =>
+          Number.isInteger(interval) &&
+          interval >= 0 &&
+          interval <= 11 &&
+          (index === 0 ? interval === 0 : interval > Number(intervals[index - 1])),
+      );
+      if (!normalized) {
+        errors.push(
+          `${path}.scaleIntervals must be sorted, unique integers from 0 to 11 starting at 0`,
+        );
+        valid = false;
+      }
+    }
   }
 
   return valid;
@@ -159,6 +214,7 @@ export function validateMotif(value: unknown): ValidationResult {
   if (!isPitchMode(value.pitchMode)) {
     errors.push("pitchMode must be scale, chromatic, or hybrid");
   }
+  validateSourcePitchContext(value.sourcePitchContext, errors);
   validateMeter(value.sourceMeter, "sourceMeter", errors);
   if (!isFiniteNumber(value.length) || value.length <= 0) {
     errors.push("length must be greater than zero");

@@ -119,6 +119,14 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
       name: selected.name,
       description: selected.description ?? "",
       pitchMode: selected.pitchMode,
+      sourcePitchContext: {
+        anchorPitch: selected.sourcePitchContext.anchorPitch,
+        scaleRootNote: selected.sourcePitchContext.scaleRootNote,
+        scaleName: selected.sourcePitchContext.scaleName,
+        scaleIntervals: selected.sourcePitchContext.scaleIntervals
+          ? [...selected.sourcePitchContext.scaleIntervals]
+          : null,
+      },
       sourceMeter: { ...selected.sourceMeter },
       length: selected.length,
       defaultGate: selected.defaultGate ?? null,

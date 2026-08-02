@@ -2,8 +2,9 @@
  * Convert absolute MIDI notes (clip import, MIDI files) into relative Motif JSON.
  */
 
-import { scaleDegreeSemitoneOffset } from "./pitch.js";
-import type { Motif, MotifNote, PitchMode, TimeSignature } from "./types.js";
+import { normalizeScaleIntervals, scaleDegreeSemitoneOffset } from "./pitch.js";
+import { knownScaleIntervals } from "./scales.js";
+import type { Motif, MotifNote, PitchMode, SourcePitchContext, TimeSignature } from "./types.js";
 
 /** Absolute MIDI note in motif PPQ ticks. */
 export interface AbsoluteNote {
@@ -19,14 +20,14 @@ export interface AbsoluteNotesImportOptions {
   id: string;
   /** The motif name. */
   name: string;
-  /** The pitch mode to use for the motif. */
-  pitchMode: PitchMode;
   /** MIDI pitch used as the relative phrase anchor. Defaults to the first note. */
-  rootNote?: number;
-  /** Live scale root pitch class used by `scale` / `hybrid` analysis. Defaults to C. */
+  anchorPitch?: number;
+  /** Original Live scale root pitch class. Defaults to C. */
   scaleRootNote?: number;
-  /** Scale intervals for `scale` / `hybrid` analysis. Defaults to major. */
-  scaleIntervals?: readonly number[];
+  /** Original Live scale label. Defaults to Major. */
+  scaleName?: string;
+  /** Original scale intervals. A known-name fallback is used when omitted. */
+  scaleIntervals?: readonly number[] | null;
   /** Stored source meter; defaults to 4/4. */
   sourceMeter?: TimeSignature;
   /** The motif description. */
@@ -40,6 +41,11 @@ export interface PitchModeConversionContext {
   rootNote: number;
   /** Scale intervals. */
   scaleIntervals: readonly number[];
+}
+
+/** Return the resolved scale intervals stored with a motif, if available. */
+function sourceScaleIntervals(context: SourcePitchContext): readonly number[] | null {
+  return context.scaleIntervals ?? knownScaleIntervals(context.scaleName) ?? null;
 }
 
 /**
@@ -114,7 +120,7 @@ export function encodeSemitoneOffset(
     context.triggerPitch,
     context.rootNote,
   );
-  if (pitchMode === "hybrid" && analyzed.accidental !== 0) {
+  if (analyzed.accidental !== 0) {
     return { pitch: analyzed.degree, accidental: analyzed.accidental };
   }
   return { pitch: analyzed.degree };
@@ -142,7 +148,7 @@ export function decodeSemitoneOffset(
     context.rootNote,
     context.scaleIntervals,
   );
-  return scaleOffset + (pitchMode === "hybrid" ? (note.accidental ?? 0) : 0);
+  return scaleOffset + (note.accidental ?? 0);
 }
 
 /**
@@ -151,24 +157,38 @@ export function decodeSemitoneOffset(
  * Merely changing `pitchMode` reinterprets every existing `pitch` value and can
  * silently corrupt the phrase (for example hybrid degree -1 becoming chromatic
  * -1 instead of the original -2 semitones). This conversion preserves sounding
- * offsets whenever the target mode can represent them exactly. `scale` mode may
- * intentionally snap chromatic notes to the nearest scale degree.
+ * offsets exactly by retaining chromatic alterations on the shared Scale/Hybrid
+ * degree representation. Scale playback ignores those retained alterations.
  * @param {Motif} motif The motif to convert.
  * @param {PitchMode} targetMode The target pitch mode.
- * @param {PitchModeConversionContext} context The pitch mode conversion context.
  * @returns {Motif} The converted motif.
  */
-export function convertMotifPitchMode(
-  motif: Motif,
-  targetMode: PitchMode,
-  context: PitchModeConversionContext,
-): Motif {
+export function convertMotifPitchMode(motif: Motif, targetMode: PitchMode): Motif {
   if (motif.pitchMode === targetMode) {
     return motif;
   }
 
+  // Scale and Hybrid intentionally share one lossless degree + accidental
+  // representation. The mode only controls whether playback sounds alterations.
+  if (motif.pitchMode !== "chromatic" && targetMode !== "chromatic") {
+    return { ...motif, pitchMode: targetMode };
+  }
+
+  const intervals = sourceScaleIntervals(motif.sourcePitchContext);
+  if (!intervals) {
+    throw new Error(`Cannot convert ${motif.name}: source scale intervals are unresolved`);
+  }
+  const context: PitchModeConversionContext = {
+    triggerPitch: motif.sourcePitchContext.anchorPitch,
+    rootNote: motif.sourcePitchContext.scaleRootNote,
+    scaleIntervals: intervals,
+  };
+
   const notes = motif.notes.map((note) => {
-    const semitoneOffset = decodeSemitoneOffset(note, motif.pitchMode, context);
+    const semitoneOffset =
+      motif.pitchMode === "chromatic"
+        ? note.pitch + (note.accidental ?? 0)
+        : decodeSemitoneOffset(note, motif.pitchMode, context);
     const encoded = encodeSemitoneOffset(semitoneOffset, targetMode, context);
     const { pitch: _pitch, accidental: _accidental, ...rest } = note;
     return { ...rest, ...encoded };
@@ -178,7 +198,7 @@ export function convertMotifPitchMode(
 }
 
 /**
- * Convert absolute MIDI notes into a relative Motif using chromatic, scale, or hybrid analysis.
+ * Convert absolute MIDI notes into a lossless relative Chromatic Motif.
  * Notes are sorted by time, `length` is the end of the last note.
  * @param {readonly AbsoluteNote[]} absoluteNotes The absolute MIDI notes to convert.
  * @param {AbsoluteNotesImportOptions} options The import options.
@@ -201,18 +221,28 @@ export function absoluteNotesToMotif(
     throw new Error("No completed notes to import");
   }
 
-  const anchor = options.rootNote ?? completed[0]?.pitch ?? 60;
-  const context: PitchModeConversionContext = {
-    triggerPitch: anchor,
-    rootNote: options.scaleRootNote ?? 0,
-    scaleIntervals: options.scaleIntervals ?? [0, 2, 4, 5, 7, 9, 11],
-  };
+  const anchor = options.anchorPitch ?? completed[0]?.pitch ?? 60;
+  if (!Number.isInteger(anchor) || anchor < 0 || anchor > 127) {
+    throw new Error("Source anchor pitch must be an integer from 0 to 127");
+  }
+  const scaleRootNote = options.scaleRootNote ?? 0;
+  if (!Number.isInteger(scaleRootNote) || scaleRootNote < 0 || scaleRootNote > 11) {
+    throw new Error("Source scale root must be an integer from 0 to 11");
+  }
+  const scaleName = options.scaleName?.trim() || "Major";
+  const providedIntervals =
+    options.scaleIntervals === null
+      ? null
+      : (options.scaleIntervals ?? knownScaleIntervals(scaleName) ?? null);
+  const resolvedScaleIntervals = providedIntervals
+    ? normalizeScaleIntervals(providedIntervals)
+    : null;
   const notes: MotifNote[] = completed.map((note) => {
     const semitoneOffset = note.pitch - anchor;
     return {
       at: note.at,
       duration: note.duration,
-      ...encodeSemitoneOffset(semitoneOffset, options.pitchMode, context),
+      pitch: semitoneOffset,
       velocity: note.velocity,
     };
   });
@@ -222,8 +252,14 @@ export function absoluteNotesToMotif(
     schemaVersion: 1,
     id: options.id,
     name: options.name,
-    description: options.description ?? `Imported using ${options.pitchMode} relative analysis.`,
-    pitchMode: options.pitchMode,
+    description: options.description ?? "Imported as exact chromatic offsets.",
+    pitchMode: "chromatic",
+    sourcePitchContext: {
+      anchorPitch: anchor,
+      scaleRootNote,
+      scaleName,
+      scaleIntervals: resolvedScaleIntervals,
+    },
     sourceMeter: options.sourceMeter ?? { numerator: 4, denominator: 4 },
     length,
     notes,

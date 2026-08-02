@@ -8,6 +8,7 @@
  * @see https://docs.cycling74.com/userguide/web_browser/#javascript-communication
  */
 
+import { midiNoteName } from "../core/preview.js";
 import {
   MAX_LIBRARY_STATE_CHUNKS,
   type LibraryAction,
@@ -100,6 +101,8 @@ const WORKBENCH_LAYOUT_MESSAGE = "motif-library-workbench-layout";
 const SIDEBAR_WIDTH_STORAGE_KEY = "motif-library-sidebar-width";
 /** Keyboard resize increment in pixels. */
 const SIDEBAR_KEYBOARD_STEP = 12;
+/** Canonical pitch-class labels used for the numeric source-root field. */
+const PITCH_CLASS_NAMES = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
 /** Editable note schema used to generate rows and coerce outgoing field values. */
 const NOTE_FIELDS: readonly NoteField[] = [
   { name: "pitch", type: "number", required: true, step: "1" },
@@ -118,6 +121,10 @@ const PROPERTY_INPUT_IDS = [
   "name-edit",
   "description-edit",
   "pitch-mode-edit",
+  "source-anchor-edit",
+  "source-root-edit",
+  "source-scale-name-edit",
+  "source-scale-intervals-edit",
   "default-gate-edit",
   "meter-numerator-edit",
   "meter-denominator-edit",
@@ -463,6 +470,22 @@ function setValue(id: string, value: unknown, editing: boolean): void {
   }
 }
 
+/** Keep the readable source-anchor label synchronized with its numeric MIDI value. */
+function renderSourceAnchorName(): void {
+  const raw = $<HTMLInputElement>("source-anchor-edit").value.trim();
+  const value = raw === "" ? Number.NaN : Number(raw);
+  $<HTMLOutputElement>("source-anchor-name").textContent =
+    Number.isInteger(value) && value >= 0 && value <= 127 ? midiNoteName(value) : "—";
+}
+
+/** Keep the readable source-root label synchronized with its numeric value. */
+function renderSourceRootName(): void {
+  const raw = $<HTMLInputElement>("source-root-edit").value.trim();
+  const value = raw === "" ? Number.NaN : Number(raw);
+  $<HTMLOutputElement>("source-root-name").textContent =
+    Number.isInteger(value) && value >= 0 && value <= 11 ? (PITCH_CLASS_NAMES[value] ?? "—") : "—";
+}
+
 /**
  * Apply read-only state to every motif property control.
  * @param {boolean} editing Whether controls are editable.
@@ -487,7 +510,14 @@ function setEditable(editing: boolean): void {
  */
 function renderProperties(selected: LibrarySelectedMotifData | null, editing: boolean): void {
   const curve = selected?.velocityCurve;
+  const source = selected?.sourcePitchContext;
   setValue("pitch-mode-edit", selected?.pitchMode ?? "scale", editing);
+  setValue("source-anchor-edit", source?.anchorPitch ?? "", editing);
+  renderSourceAnchorName();
+  setValue("source-root-edit", source?.scaleRootNote ?? "", editing);
+  renderSourceRootName();
+  setValue("source-scale-name-edit", source?.scaleName ?? "", editing);
+  setValue("source-scale-intervals-edit", source?.scaleIntervals?.join(", ") ?? "", editing);
   setValue("default-gate-edit", selected?.defaultGate, editing);
   setValue("meter-numerator-edit", selected?.sourceMeter.numerator ?? "", editing);
   setValue("meter-denominator-edit", selected?.sourceMeter.denominator ?? 4, editing);
@@ -520,7 +550,13 @@ function renderDetail(server: LibraryServerState | null, local: LibraryPageState
   const cancel = $<HTMLButtonElement>("cancel-edit-btn");
   const save = $<HTMLButtonElement>("save-motif-btn");
   const add = $<HTMLButtonElement>("add-note-btn");
-  $<HTMLButtonElement>("import-clip-btn").disabled = !server?.actions.canImportClip;
+  const importClip = $<HTMLButtonElement>("import-clip-btn");
+  importClip.disabled = !server?.actions.canImportClip;
+  importClip.title = server?.libraryScanning
+    ? "Wait for the Library scan to finish"
+    : server?.libraryLoaded
+      ? "Import the selected clip as exact chromatic offsets"
+      : "Choose a valid Library folder before importing a clip";
 
   if (!selected || !server) {
     setValue("name-edit", "", false);
@@ -541,8 +577,9 @@ function renderDetail(server: LibraryServerState | null, local: LibraryPageState
   setValue("description-edit", selected.description, editing);
   setEditable(editing);
   renderProperties(selected, editing);
+  const libraryRequired = editing && !server.libraryLoaded;
   $<HTMLDivElement>("edit-state").textContent = editing
-    ? `${server.editing.dirty || local.formDirty ? "Unsaved changes" : "Editing"} · ${selected.id}`
+    ? `${server.editing.dirty || local.formDirty ? "Unsaved changes" : "Editing"} · ${selected.id}${libraryRequired ? " · Library folder required" : ""}`
     : selected.isBuiltin
       ? "Built-in · Edit creates a user copy"
       : `${selected.isPersisted ? "Saved" : "Not yet saved"} · ${selected.id}`;
@@ -551,6 +588,7 @@ function renderDetail(server: LibraryServerState | null, local: LibraryPageState
   cancel.classList.toggle("hidden", !editing);
   cancel.disabled = false;
   save.disabled = !server.actions.canSave;
+  save.textContent = libraryRequired ? "Library Folder Required" : "Save & Finish";
   save.title = server.libraryLoaded
     ? "Save changes and exit editing"
     : "Choose a valid library folder before saving";
@@ -598,10 +636,20 @@ function render(state: LibraryPageState): void {
  * @returns {Record<string, unknown>} Submitted motif properties.
  */
 function readProperties(): Record<string, unknown> {
+  const intervals = $<HTMLInputElement>("source-scale-intervals-edit")
+    .value.split(/[\s,]+/)
+    .map((value) => value.trim())
+    .filter(Boolean);
   return {
     name: $<HTMLInputElement>("name-edit").value,
     description: $<HTMLTextAreaElement>("description-edit").value,
     pitchMode: $<HTMLSelectElement>("pitch-mode-edit").value,
+    sourcePitchContext: {
+      anchorPitch: Number($<HTMLInputElement>("source-anchor-edit").value),
+      scaleRootNote: Number($<HTMLInputElement>("source-root-edit").value),
+      scaleName: $<HTMLInputElement>("source-scale-name-edit").value,
+      scaleIntervals: intervals.length > 0 ? intervals : null,
+    },
     sourceMeter: {
       numerator: Number($<HTMLInputElement>("meter-numerator-edit").value),
       denominator: Number($<HTMLSelectElement>("meter-denominator-edit").value),
@@ -850,11 +898,7 @@ $<HTMLButtonElement>("cancel-edit-btn").addEventListener("click", () => {
 });
 $<HTMLButtonElement>("import-clip-btn").addEventListener("click", () => {
   confirmDiscard(
-    () =>
-      send({
-        type: "import_clip",
-        pitchMode: $<HTMLSelectElement>("import-mode").value,
-      }),
+    () => send({ type: "import_clip" }),
     "Discard the current edits and import the selected Live clip?",
   );
 });
@@ -884,7 +928,11 @@ $<HTMLInputElement>("hotkey-input").addEventListener("keydown", (event) => {
 /** Attach event listeners to property input elements. */
 for (const id of PROPERTY_INPUT_IDS) {
   const input = $<ValueControl>(id);
-  input.addEventListener("input", () => store.setState({ formDirty: true }));
+  input.addEventListener("input", () => {
+    if (id === "source-anchor-edit") renderSourceAnchorName();
+    if (id === "source-root-edit") renderSourceRootName();
+    store.setState({ formDirty: true });
+  });
   input.addEventListener("change", pushProperties);
   if (
     input.tagName === "TEXTAREA" ||
@@ -983,6 +1031,12 @@ if (isMax) {
           name: "Chromatic Turn",
           description: "Fixed-interval phrase that ignores the selected scale.",
           pitchMode: "chromatic",
+          sourcePitchContext: {
+            anchorPitch: 60,
+            scaleRootNote: 0,
+            scaleName: "Major",
+            scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+          },
           sourceMeter: { numerator: 4, denominator: 4 },
           length: 3360,
           defaultGate: 0.82,

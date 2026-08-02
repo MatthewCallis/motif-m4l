@@ -131,7 +131,6 @@ const hostContext: HostContext = {
 
 /** Transactional motif authoring and guarded-selection workflow owner. */
 const authoring = new MotifAuthoringController(store, editor, library, hostContext, {
-  getPreviewTriggerPitch: () => previewTriggerPitch,
   emitError,
   emitLibraryAlert,
   emitStatus,
@@ -720,7 +719,7 @@ function lib_action(...encodedParts: unknown[]): void {
       filter_motifs(action.query);
       break;
     case "import_clip":
-      authoring.importClip(action.pitchMode);
+      authoring.importClip();
       break;
     case "save_motif":
       authoring.saveMotif(action.properties);
@@ -817,7 +816,7 @@ const libraryHandlers = {
 
 /** Transactional motif authoring messages. */
 const authoringHandlers = {
-  import_clip: (pitchMode) => authoring.importClip(pitchMode),
+  import_clip: () => authoring.importClip(),
   save_motif: (properties) => authoring.saveMotif(properties),
   begin_edit: () => authoring.beginEdit(),
   cancel_edit: () => authoring.cancelEdit(),

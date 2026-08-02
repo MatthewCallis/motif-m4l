@@ -181,21 +181,14 @@ describe("extracted type and authoring helpers", () => {
   it("applies motif properties without mutating the source", () => {
     const motif = new MotifStore().get("chromatic-turn");
     assert.ok(motif);
-    const result = applyMotifProperties(
-      motif,
-      {
-        name: "Edited",
-        description: "Description",
-        pitchMode: "hybrid",
-        sourceMeter: { numerator: 3, denominator: 4 },
-        defaultGate: 0.75,
-        velocityCurve: { inputMin: 1, exponent: 2 },
-      },
-      {
-        triggerPitch: 60,
-        host: { rootNote: 0, scaleIntervals: [0, 2, 4, 5, 7, 9, 11] },
-      },
-    );
+    const result = applyMotifProperties(motif, {
+      name: "Edited",
+      description: "Description",
+      pitchMode: "hybrid",
+      sourceMeter: { numerator: 3, denominator: 4 },
+      defaultGate: 0.75,
+      velocityCurve: { inputMin: 1, exponent: 2 },
+    });
 
     assert.equal(result.ok, true);
     if (!result.ok) return;
@@ -204,24 +197,13 @@ describe("extracted type and authoring helpers", () => {
     assert.equal(result.value.pitchMode, "hybrid");
     assert.equal(motif.name, "Chromatic Turn");
 
-    const unchanged = applyMotifProperties(
-      motif,
-      {},
-      {
-        triggerPitch: 60,
-        host: { rootNote: 0, scaleIntervals: [0, 2, 4, 5, 7, 9, 11] },
-      },
-    );
+    const unchanged = applyMotifProperties(motif, {});
     assert.equal(unchanged.ok && unchanged.changed, false);
   });
 
   it("rejects invalid motif properties atomically", () => {
     const motif = new MotifStore().get("chromatic-turn");
     assert.ok(motif);
-    const context = {
-      triggerPitch: 60,
-      host: { rootNote: 0, scaleIntervals: [0, 2, 4, 5, 7, 9, 11] },
-    };
     for (const [value, message] of [
       [null, "object"],
       [{ id: "changed" }, "generated"],
@@ -236,7 +218,7 @@ describe("extracted type and authoring helpers", () => {
       [{ velocityCurve: "invalid" }, "velocityCurve"],
       [{ velocityCurve: { exponent: 0 } }, "greater than zero"],
     ] as const) {
-      const result = applyMotifProperties(motif, value, context);
+      const result = applyMotifProperties(motif, value);
       assert.equal(result.ok, false);
       if (!result.ok) assert.match(result.error, new RegExp(message));
     }

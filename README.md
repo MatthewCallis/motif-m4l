@@ -25,6 +25,8 @@ Every Max object, JavaScript runtime call, jweb bridge method, and Live Object M
 
 Production performance work is tracked in [`OPTIMIZATION-PLAN.md`](OPTIMIZATION-PLAN.md), including the current artifact-size baseline, MIDI hot-path findings, and release gates.
 
+Source-aware pitch behavior and its implementation contract are documented in [`SCALE-MODE-PLAN.md`](SCALE-MODE-PLAN.md).
+
 Use `npm run clean && npm run build` to remove and recreate every generated runtime artifact. A normal build already removes stale content-addressed runtimes. The Library uses `src/max/library.html` as its markup template, `src/max/library.ts` as its typed browser controller, and `src/max/library.css` as its stylesheet. The build compiles the controller to an ES2018 browser IIFE, minifies the JavaScript and CSS, compresses the markup, and writes the self-contained result to `max/library.html` before embedding that exact page in the Max engine. Cleaning preserves `max/Motif.amxd` and `max/INSTALL.md`.
 
 Before distribution, freeze and save the device in Max, then run `npm run verify:release`. The release check inspects the packaged `.amxd` as well as the generated patch and refuses stale embedded hashes, retired handlers, or obsolete Live API calls.
@@ -62,6 +64,15 @@ motif-preview-<content-hash>.js
 - Playing a trigger note moves the preview anchor to that note, so the displayed note names match the next phrase transposition.
 - Host displays continue to work independently of the TypeScript engine.
 
+## Pitch modes and source scales
+
+- Every motif stores the original anchor MIDI note, scale root, scale name, and authoritative scale intervals in `sourcePitchContext` while remaining schema version 1.
+- Chromatic stores exact semitone offsets and ignores Live's scale.
+- Scale stores scale-degree offsets and maps them through Live's current root and `scale_intervals`. Retained source accidentals are ignored, so output remains in the target scale.
+- Hybrid uses the same scale degrees and applies the retained chromatic alterations after target-scale mapping.
+- Scale/Hybrid conversion uses the motif's saved source context, never whichever target scale Live currently displays.
+- Off-scale Scale/Hybrid triggers resolve to the nearest target-scale anchor; equidistant ties prefer the lower note.
+
 ## MIDI behavior
 
 - Before the JavaScript engine reports `Ready`, all raw MIDI bypasses it and passes directly to `midiout`.
@@ -73,13 +84,14 @@ motif-preview-<content-hash>.js
 
 ## User library
 
-- Choose a root library folder from the floating Library window. Every `.json` motif beneath it is discovered recursively in bounded background batches so large folder trees do not lock the Max UI.
+- Choose a root library folder from the floating Library window before importing clips. Every `.json` motif beneath it is discovered recursively in bounded background batches so large folder trees do not lock the Max UI.
 - Relative folders are shown as browser groups and are searchable (for example, searching `Bass/Fills` finds motifs in that folder).
 - Folder groups can be collapsed to keep large libraries compact; active searches temporarily expand matching groups.
 - Editing an existing motif saves it back to its original subfolder. New motifs are saved at the chosen library root.
 - Motif ids must remain unique across the entire folder tree; duplicate ids are skipped with an error naming the conflicting relative path.
 - MIDI hot keys are entered and displayed as Ableton-style note names such as `C3`, `F♯2`, or `Bb4` rather than raw MIDI numbers. Each mapping either triggers its motif using the device-wide Trigger Mode or selects that motif for subsequent trigger-zone notes.
 - Motifs and Live clip imports support up to 512 editable notes. The Notes panel is one scrollable table; Library state is transported to jweb in size-aware bounded chunks and assembled before rendering so motifs and large catalogs remain editable without exceeding Max’s message capacity. Longer clips receive an actionable warning to shorten or split the phrase.
+- Live clips always import as exact Chromatic motifs and snapshot Live's current source root, scale name, intervals, and the earliest-onset/lowest-note anchor. The standalone MIDI converter also preserves exact Chromatic offsets and defaults its source context to C Major when the caller does not supply one. Changing Pitch Mode later performs source-aware Scale or Hybrid analysis without depending on the current target scale.
 
 ## Max JavaScript message boundary
 

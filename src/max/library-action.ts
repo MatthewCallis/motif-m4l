@@ -56,15 +56,7 @@ export function decodeLibraryAction(encodedParts: readonly unknown[]): LibraryAc
     case "filter_motifs":
       return { ok: true, action: { type, query: action["query"] } };
     case "import_clip":
-      return {
-        ok: true,
-        action: {
-          type,
-          ...(action["pitchMode"] !== undefined
-            ? { pitchMode: stringAtom(action["pitchMode"]) }
-            : {}),
-        },
-      };
+      return { ok: true, action: { type } };
     case "save_motif":
       return { ok: true, action: { type, properties: action["properties"] } };
     case "refresh_library":

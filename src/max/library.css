@@ -281,10 +281,6 @@ select:disabled {
 #detail-actions .btn {
   flex: 1;
 }
-#import-mode {
-  width: 128px;
-  flex: 0 0 auto;
-}
 #panel-tabs {
   display: flex;
   border-bottom: 1px solid var(--border);
@@ -352,6 +348,19 @@ select:disabled {
 #source-meter-controls {
   display: flex;
   gap: 4px;
+}
+.source-pitch-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 38px;
+  gap: 4px;
+  align-items: center;
+}
+#source-anchor-name,
+#source-root-name {
+  color: var(--text);
+  font-size: 10px;
+  font-weight: 600;
+  text-align: center;
 }
 .identity {
   font:

@@ -1,6 +1,6 @@
 import { convertMotifPitchMode } from "../core/import-notes.js";
 import { hasOwn, isRecord, jsonValuesEqual, primitiveText } from "../core/type-guards.js";
-import type { HostContext, Motif, MotifNote, PitchMode } from "../core/types.js";
+import type { Motif, MotifNote, PitchMode, SourcePitchContext } from "../core/types.js";
 
 /** Motif-note properties accepted by indexed Library edits. */
 export const NOTE_EDIT_FIELDS = [
@@ -18,14 +18,6 @@ export const NOTE_EDIT_FIELDS = [
 
 /** Editable motif-note property name. */
 export type NoteEditField = (typeof NOTE_EDIT_FIELDS)[number];
-
-/** Pitch reference needed when changing a motif's stored pitch mode. */
-export interface AuthoringContext {
-  /** MIDI pitch currently anchoring previews and conversions. */
-  triggerPitch: number;
-  /** Live scale context used to preserve sounding pitches. */
-  host: Pick<HostContext, "rootNote" | "scaleIntervals">;
-}
 
 /** Immutable motif-property mutation outcome. */
 export type MutationResult<T> =
@@ -76,18 +68,67 @@ function optionalFiniteNumber(
     : { ok: false, error: `${field} must be ${requirement}` };
 }
 
+function sourcePitchContext(
+  current: SourcePitchContext,
+  value: unknown,
+): MutationResult<SourcePitchContext> {
+  const record = isRecord(value) ? value : undefined;
+  if (!record) return { ok: false, error: "sourcePitchContext must be an object" };
+
+  const anchorPitch = Number(record.anchorPitch);
+  if (!Number.isInteger(anchorPitch) || anchorPitch < 0 || anchorPitch > 127) {
+    return { ok: false, error: "sourcePitchContext.anchorPitch must be an integer from 0 to 127" };
+  }
+  const scaleRootNote = Number(record.scaleRootNote);
+  if (!Number.isInteger(scaleRootNote) || scaleRootNote < 0 || scaleRootNote > 11) {
+    return { ok: false, error: "sourcePitchContext.scaleRootNote must be an integer from 0 to 11" };
+  }
+  const parsedName = requiredText(record.scaleName, "sourcePitchContext.scaleName");
+  if (!parsedName.ok) return parsedName;
+
+  let scaleIntervals: number[] | null;
+  if (record.scaleIntervals === null) {
+    scaleIntervals = null;
+  } else if (Array.isArray(record.scaleIntervals)) {
+    const parsedIntervals = record.scaleIntervals.map(Number);
+    if (
+      parsedIntervals.length < 1 ||
+      parsedIntervals.length > 12 ||
+      parsedIntervals.some(
+        (interval, index) =>
+          !Number.isInteger(interval) ||
+          interval < 0 ||
+          interval > 11 ||
+          (index === 0 ? interval !== 0 : interval <= (parsedIntervals[index - 1] ?? -1)),
+      )
+    ) {
+      return {
+        ok: false,
+        error:
+          "sourcePitchContext.scaleIntervals must be null or sorted, unique integers from 0 to 11 starting at 0",
+      };
+    }
+    scaleIntervals = parsedIntervals;
+  } else {
+    return { ok: false, error: "sourcePitchContext.scaleIntervals must be an array or null" };
+  }
+
+  const parsed: SourcePitchContext = {
+    anchorPitch,
+    scaleRootNote,
+    scaleName: parsedName.value,
+    scaleIntervals,
+  };
+  return { ok: true, value: parsed, changed: !jsonValuesEqual(parsed, current) };
+}
+
 /**
  * Validate and apply the editable motif fields submitted by the Library UI.
  * @param {Motif} editable Current editable motif.
  * @param {unknown} value Submitted property record.
- * @param {AuthoringContext} context Pitch-conversion context.
  * @returns {MutationResult<Motif>} Immutable candidate motif or validation error.
  */
-export function applyMotifProperties(
-  editable: Motif,
-  value: unknown,
-  context: AuthoringContext,
-): MutationResult<Motif> {
+export function applyMotifProperties(editable: Motif, value: unknown): MutationResult<Motif> {
   const record = isRecord(value) ? value : undefined;
   if (!record) return { ok: false, error: "Motif properties must be an object" };
 
@@ -125,6 +166,13 @@ export function applyMotifProperties(
       return { ok: false, error: "pitchMode must be scale, chromatic, or hybrid" };
     }
     pitchMode = parsed;
+  }
+
+  let sourceContext = editable.sourcePitchContext;
+  if (hasOwn(record, "sourcePitchContext")) {
+    const parsed = sourcePitchContext(sourceContext, record.sourcePitchContext);
+    if (!parsed.ok) return parsed;
+    sourceContext = parsed.value;
   }
 
   let sourceMeter = editable.sourceMeter;
@@ -183,14 +231,16 @@ export function applyMotifProperties(
     }
   }
 
-  const pitchConverted =
-    pitchMode === editable.pitchMode
-      ? editable
-      : convertMotifPitchMode(editable, pitchMode, {
-          triggerPitch: context.triggerPitch,
-          rootNote: context.host.rootNote,
-          scaleIntervals: context.host.scaleIntervals,
-        });
+  let pitchConverted: Motif;
+  try {
+    const sourceUpdated = { ...editable, sourcePitchContext: sourceContext };
+    pitchConverted =
+      pitchMode === editable.pitchMode
+        ? sourceUpdated
+        : convertMotifPitchMode(sourceUpdated, pitchMode);
+  } catch (reason) {
+    return { ok: false, error: reason instanceof Error ? reason.message : String(reason) };
+  }
   const { defaultGate: _defaultGate, velocityCurve: _velocityCurve, ...required } = pitchConverted;
   const candidate: Motif = {
     ...required,

@@ -2,14 +2,15 @@
  * MIDI file ↔ Motif JSON conversion shared by the standalone conversion CLIs.
  *
  * Import normalizes source PPQ to motif {@link PPQ} (960), then runs relative
- * analysis via `absoluteNotesToMotif`. Export compiles against a default major
- * host context so chromatic/scale offsets render as absolute MIDI.
+ * analysis via `absoluteNotesToMotif`. Export compiles against the motif's saved
+ * source pitch context so scale-relative notes reconstruct their authored pitches.
  */
 
 import { parseMidi, writeMidi, type MidiData, type MidiEvent } from "midi-file";
 import { absoluteNotesToMotif, type AbsoluteNotesImportOptions } from "../src/core/import-notes.js";
 import { compileMotif } from "../src/core/compile-motif.js";
-import { PPQ, type HostContext, type Motif, type PitchMode } from "../src/core/types.js";
+import { knownScaleIntervals } from "../src/core/scales.js";
+import { PPQ, type HostContext, type Motif } from "../src/core/types.js";
 import { validateMotif } from "../src/library/validate.js";
 
 /** Active note with its start time & velocity. */
@@ -19,10 +20,8 @@ interface ActiveNote {
   velocity: number;
 }
 
-/** Import options. Chromatic is the default so MIDI is preserved exactly. */
-export type MidiImportOptions = Omit<AbsoluteNotesImportOptions, "pitchMode"> & {
-  pitchMode?: PitchMode;
-};
+/** Import options. MIDI is always preserved as exact Chromatic offsets. */
+export type MidiImportOptions = AbsoluteNotesImportOptions;
 
 function noteKey(channel: number, note: number): string {
   return `${channel}:${note}`;
@@ -37,7 +36,6 @@ function noteKey(channel: number, note: number): string {
  * @throws {Error} If the MIDI file contains no completed notes.
  */
 export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions): Motif {
-  const pitchMode = options.pitchMode ?? "chromatic";
   const parsed = parseMidi(bytes);
   const sourcePpq = parsed.header.ticksPerBeat ?? PPQ;
   const ratio = PPQ / sourcePpq;
@@ -86,8 +84,7 @@ export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions):
 
   return absoluteNotesToMotif(completed, {
     ...options,
-    pitchMode,
-    description: options.description ?? `Imported from MIDI using ${pitchMode} relative analysis.`,
+    description: options.description ?? "Imported from MIDI as exact chromatic offsets.",
   });
 }
 
@@ -96,21 +93,26 @@ export function midiBytesToMotif(bytes: Uint8Array, options: MidiImportOptions):
  * Validates first; throws joined validation errors on failure.
  *
  * @param {unknown} value The motif value to validate and export.
- * @param {number} triggerPitch The anchor pitch for relative-to-absolute mapping.
+ * @param {number | undefined} triggerPitch Optional anchor override for relative mapping.
  * @returns {Uint8Array} The encoded Standard MIDI File bytes.
  * @throws {Error} If the motif fails validation.
  */
-export function motifToMidiBytes(value: unknown, triggerPitch = 60): Uint8Array {
+export function motifToMidiBytes(value: unknown, triggerPitch?: number): Uint8Array {
   const validation = validateMotif(value);
   if (!validation.valid || !validation.motif) {
     throw new Error(validation.errors.join("; "));
   }
 
+  const source = validation.motif.sourcePitchContext;
+  const intervals = source.scaleIntervals ?? knownScaleIntervals(source.scaleName);
+  if (!intervals && validation.motif.pitchMode !== "chromatic") {
+    throw new Error("Cannot export a scale-relative motif with unresolved source intervals");
+  }
   const host: HostContext = {
     tempo: 120,
-    rootNote: 0,
-    scaleName: "Major",
-    scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+    rootNote: source.scaleRootNote,
+    scaleName: source.scaleName,
+    scaleIntervals: intervals ?? [0, 2, 4, 5, 7, 9, 11],
     scaleMode: true,
     timeSignature: validation.motif.sourceMeter,
     isPlaying: false,
@@ -119,7 +121,7 @@ export function motifToMidiBytes(value: unknown, triggerPitch = 60): Uint8Array 
   const events = compileMotif(validation.motif, host, {
     channel: 1,
     meterMode: "preserve",
-    triggerPitch,
+    triggerPitch: triggerPitch ?? source.anchorPitch,
     triggerVelocity: 100,
   });
   const midiEvents: MidiEvent[] = [

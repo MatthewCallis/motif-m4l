@@ -66,7 +66,6 @@ const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ["refresh_library"],
   ["refresh_library", 1],
   ["import_clip"],
-  ["import_clip", "hybrid"],
   ["begin_edit"],
   ["cancel_edit"],
   ["edit_motif", { pitchMode: "chromatic" }],

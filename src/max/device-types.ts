@@ -69,7 +69,7 @@ export interface MotifHandlers {
   /** Set the Library browser search query. */
   filter_motifs: (...queryParts: unknown[]) => void;
   /** Import the selected Live MIDI clip. */
-  import_clip: (pitchMode?: string) => void;
+  import_clip: () => void;
   /** Persist the active edit session. */
   save_motif: (properties?: unknown) => void;
   /** Begin editing the selected motif. */

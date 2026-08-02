@@ -239,6 +239,12 @@ void describe("Library browser runtime", () => {
         name: "Browser Test",
         description: "Browser test motif",
         pitchMode: "chromatic",
+        sourcePitchContext: {
+          anchorPitch: 60,
+          scaleRootNote: 0,
+          scaleName: "Major",
+          scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+        },
         sourceMeter: { numerator: 4, denominator: 4 },
         length: 960,
         defaultGate: null,
@@ -290,6 +296,12 @@ void describe("Library browser runtime", () => {
 
     receiveData(encodeURIComponent(JSON.stringify(state)));
     assert.equal(elements.get("name-edit")?.value, "Browser Test");
+    assert.equal(elements.get("source-anchor-edit")?.value, "60");
+    assert.equal(elements.get("source-anchor-name")?.textContent, "C3");
+    assert.equal(elements.get("source-root-edit")?.value, "0");
+    assert.equal(elements.get("source-root-name")?.textContent, "C");
+    assert.equal(elements.get("source-scale-name-edit")?.value, "Major");
+    assert.equal(elements.get("source-scale-intervals-edit")?.value, "0, 2, 4, 5, 7, 9, 11");
     assert.equal(elements.get("note-rows")?.children.length, 2);
     assert.equal(elements.get("browser-list")?.children.length, 2);
     assert.equal(
@@ -298,6 +310,25 @@ void describe("Library browser runtime", () => {
     );
     assert.ok(elements.get("library-resizer")?.listeners.has("pointerdown"));
     assert.ok(elements.get("library-resizer")?.listeners.has("keydown"));
+
+    receiveData(
+      encodeURIComponent(
+        JSON.stringify({
+          ...state,
+          libraryPath: "",
+          libraryLoaded: false,
+          actions: { ...state.actions, canSave: false },
+        }),
+      ),
+    );
+    assert.equal(elements.get("save-motif-btn")?.disabled, true);
+    assert.equal(elements.get("save-motif-btn")?.textContent, "Library Folder Required");
+    assert.match(elements.get("edit-state")?.textContent ?? "", /Library folder required/);
+    assert.equal(
+      elements.get("import-clip-btn")?.title,
+      "Choose a valid Library folder before importing a clip",
+    );
+    receiveData(encodeURIComponent(JSON.stringify(state)));
 
     const chunkedState = {
       ...state,
@@ -328,10 +359,49 @@ void describe("Library browser runtime", () => {
       ),
     );
 
+    elements.get("import-clip-btn")?.click();
+    assert.ok(
+      outlets.some((args) => {
+        if (args[0] !== "lib_action") return false;
+        const action = JSON.parse(decodeURIComponent(String(args[1]))) as Record<string, unknown>;
+        return action["type"] === "import_clip" && !("pitchMode" in action);
+      }),
+    );
+
     panelTabs[1]?.click();
     assert.equal(elements.get("notes-panel")?.classList.values.has("hidden"), false);
     elements.get("choose-btn")?.click();
     assert.ok(outlets.some((args) => args[0] === "choose_library"));
+
+    const sourceAnchorInput = elements.get("source-anchor-edit");
+    assert.ok(sourceAnchorInput);
+    fakeDocument.activeElement = sourceAnchorInput;
+    sourceAnchorInput.value = "61";
+    sourceAnchorInput.dispatch("input");
+    assert.equal(elements.get("source-anchor-name")?.textContent, "C♯3");
+    sourceAnchorInput.dispatch("change");
+    assert.ok(
+      outlets.some((args) => {
+        if (args[0] !== "lib_action") return false;
+        const action = JSON.parse(decodeURIComponent(String(args[1]))) as {
+          type?: unknown;
+          properties?: { sourcePitchContext?: { anchorPitch?: unknown } };
+        };
+        return (
+          action.type === "edit_motif" && action.properties?.sourcePitchContext?.anchorPitch === 61
+        );
+      }),
+    );
+
+    const sourceRootInput = elements.get("source-root-edit");
+    assert.ok(sourceRootInput);
+    fakeDocument.activeElement = sourceRootInput;
+    sourceRootInput.value = "6";
+    sourceRootInput.dispatch("input");
+    assert.equal(elements.get("source-root-name")?.textContent, "F♯");
+    sourceRootInput.value = "";
+    sourceRootInput.dispatch("input");
+    assert.equal(elements.get("source-root-name")?.textContent, "—");
 
     windowListeners.get("error")?.({
       message: "browser failure",

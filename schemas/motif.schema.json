@@ -10,6 +10,7 @@
     "name",
     "description",
     "pitchMode",
+    "sourcePitchContext",
     "sourceMeter",
     "length",
     "notes"
@@ -20,6 +21,28 @@
     "name": { "type": "string", "minLength": 1 },
     "description": { "type": "string", "minLength": 1 },
     "pitchMode": { "enum": ["scale", "chromatic", "hybrid"] },
+    "sourcePitchContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["anchorPitch", "scaleRootNote", "scaleName", "scaleIntervals"],
+      "properties": {
+        "anchorPitch": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "scaleRootNote": { "type": "integer", "minimum": 0, "maximum": 11 },
+        "scaleName": { "type": "string", "minLength": 1 },
+        "scaleIntervals": {
+          "oneOf": [
+            {
+              "type": "array",
+              "minItems": 1,
+              "maxItems": 12,
+              "uniqueItems": true,
+              "items": { "type": "integer", "minimum": 0, "maximum": 11 }
+            },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
     "sourceMeter": {
       "type": "object",
       "additionalProperties": false,

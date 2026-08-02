@@ -7,6 +7,7 @@
 
 import { barLengthTicks } from "./timing.js";
 import { resolveMotifPitch, resolveVelocity } from "./compile-motif.js";
+import { convertMotifPitchMode } from "./import-notes.js";
 import type { HostContext, MeterMode, Motif, PitchMode } from "./types.js";
 
 /** One preview step after pitch mapping and meter scaling. */
@@ -105,13 +106,23 @@ export function buildMotifPreview(
   meterMode: MeterMode,
   maxNotes = 64,
 ): MotifPreview {
-  const effectivePitchMode = pitchModeOverride ?? motif.pitchMode;
-  const sourceBarTicks = barLengthTicks(motif.sourceMeter);
+  let effectivePitchMode = pitchModeOverride ?? motif.pitchMode;
+  let previewMotif = motif;
+  if (effectivePitchMode !== motif.pitchMode) {
+    try {
+      previewMotif = convertMotifPitchMode(motif, effectivePitchMode);
+    } catch {
+      // Keep preview/state projection available for unresolved legacy/custom
+      // source scales. Authoring and playback report the actionable error.
+      effectivePitchMode = motif.pitchMode;
+    }
+  }
+  const sourceBarTicks = barLengthTicks(previewMotif.sourceMeter);
   const targetBarTicks = barLengthTicks(host.timeSignature);
   const timeScale = meterMode === "fit-bar" ? targetBarTicks / sourceBarTicks : 1;
 
-  const notes = motif.notes.slice(0, maxNotes).map((note) => ({
-    pitch: resolveMotifPitch(note, motif, host, {
+  const notes = previewMotif.notes.slice(0, maxNotes).map((note) => ({
+    pitch: resolveMotifPitch(note, previewMotif, host, {
       channel: 1,
       meterMode,
       pitchMode: effectivePitchMode,
@@ -121,7 +132,7 @@ export function buildMotifPreview(
     atTicks: Math.max(0, note.at * timeScale),
     durationTicks: Math.max(1, note.duration * timeScale),
     // Preview relative velocity programming against a stable reference strike.
-    velocity: resolveVelocity(note, motif, 100),
+    velocity: resolveVelocity(note, previewMotif, 100),
   }));
 
   const pitches = notes.map((note) => note.pitch);
@@ -129,7 +140,7 @@ export function buildMotifPreview(
   const maximum = pitches.length > 0 ? Math.max(...pitches) : triggerPitch;
   const lowPitch = minimum === maximum ? minimum - 1 : minimum;
   const highPitch = minimum === maximum ? maximum + 1 : maximum;
-  const totalTicks = Math.max(1, motif.length * timeScale);
+  const totalTicks = Math.max(1, previewMotif.length * timeScale);
   const bars = totalTicks / Math.max(1, meterMode === "fit-bar" ? targetBarTicks : sourceBarTicks);
 
   return {

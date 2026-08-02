@@ -8,141 +8,126 @@ import {
   encodeSemitoneOffset,
 } from "../src/core/import-notes.js";
 
+const MAJOR = [0, 2, 4, 5, 7, 9, 11] as const;
+
 describe("motif note import", () => {
   it("analyzeScaleOffset maps blue notes with accidentals", () => {
-    const major = [0, 2, 4, 5, 7, 9, 11];
-    assert.deepEqual(analyzeScaleOffset(0, major), { degree: 0, accidental: 0 });
-    assert.deepEqual(analyzeScaleOffset(3, major), { degree: 1, accidental: 1 }); // Eb near D
-    assert.deepEqual(analyzeScaleOffset(12, major), { degree: 7, accidental: 0 });
+    assert.deepEqual(analyzeScaleOffset(0, MAJOR), { degree: 0, accidental: 0 });
+    assert.deepEqual(analyzeScaleOffset(3, MAJOR), { degree: 1, accidental: 1 });
+    assert.deepEqual(analyzeScaleOffset(12, MAJOR), { degree: 7, accidental: 0 });
   });
 
-  it("absoluteNotesToMotif chromatic uses first-note anchor", () => {
+  it("always imports exact chromatic offsets and captures source context", () => {
     const motif = absoluteNotesToMotif(
       [
-        { at: 0, duration: 480, pitch: 60, velocity: 100 },
         { at: 480, duration: 480, pitch: 63, velocity: 90 },
-        { at: 960, duration: 480, pitch: 58, velocity: 80 },
+        { at: 0, duration: 480, pitch: 64, velocity: 100 },
+        { at: 0, duration: 480, pitch: 60, velocity: 80 },
       ],
-      { id: "chrom", name: "Chrom", pitchMode: "chromatic" },
+      {
+        id: "chrom",
+        name: "Chrom",
+        scaleRootNote: 0,
+        scaleName: "Major",
+        scaleIntervals: MAJOR,
+      },
     );
 
     assert.equal(motif.pitchMode, "chromatic");
     assert.deepEqual(
       motif.notes.map(({ pitch }) => pitch),
-      [0, 3, -2],
+      [0, 4, 3],
     );
-    assert.equal(motif.length, 1440);
+    assert.deepEqual(motif.sourcePitchContext, {
+      anchorPitch: 60,
+      scaleRootNote: 0,
+      scaleName: "Major",
+      scaleIntervals: [...MAJOR],
+    });
   });
 
-  it("absoluteNotesToMotif hybrid keeps accidentals against Live-like scale", () => {
-    const motif = absoluteNotesToMotif(
-      [
-        { at: 0, duration: 240, pitch: 60, velocity: 100 },
-        { at: 240, duration: 240, pitch: 63, velocity: 100 }, // Eb in C major
-        { at: 480, duration: 240, pitch: 67, velocity: 100 },
-      ],
-      {
-        id: "hybrid",
-        name: "Hybrid",
-        pitchMode: "hybrid",
-        scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
-      },
-    );
+  it("uses known scale names as a fallback and leaves unknown scales unresolved", () => {
+    const known = absoluteNotesToMotif([{ at: 0, duration: 1, pitch: 60, velocity: 100 }], {
+      id: "known",
+      name: "Known",
+      scaleName: "D Minor",
+      scaleRootNote: 2,
+    });
+    assert.deepEqual(known.sourcePitchContext.scaleIntervals, [0, 2, 3, 5, 7, 8, 10]);
 
-    assert.equal(motif.notes[0]?.pitch, 0);
-    assert.equal(motif.notes[0]?.accidental, undefined);
-    assert.equal(motif.notes[1]?.pitch, 1);
-    assert.equal(motif.notes[1]?.accidental, 1);
-    assert.equal(motif.notes[2]?.pitch, 4);
+    const unknown = absoluteNotesToMotif([{ at: 0, duration: 1, pitch: 60, velocity: 100 }], {
+      id: "unknown",
+      name: "Unknown",
+      scaleName: "Custom Future Scale",
+      scaleIntervals: null,
+    });
+    assert.equal(unknown.sourcePitchContext.scaleIntervals, null);
+    assert.throws(() => convertMotifPitchMode(unknown, "scale"), /source scale intervals/);
   });
 
-  it("absoluteNotesToMotif scale snaps without storing accidentals", () => {
-    const motif = absoluteNotesToMotif(
+  it("converts Chromatic to lossless Scale degrees with retained accidentals", () => {
+    const chromatic = absoluteNotesToMotif(
       [
         { at: 0, duration: 240, pitch: 60, velocity: 100 },
         { at: 240, duration: 240, pitch: 63, velocity: 100 },
+        { at: 480, duration: 240, pitch: 67, velocity: 100 },
       ],
-      {
-        id: "scale",
-        name: "Scale",
-        pitchMode: "scale",
-        scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
-      },
+      { id: "source", name: "Source", scaleIntervals: MAJOR },
     );
-
-    assert.equal(motif.notes[1]?.pitch, 1);
-    assert.equal(motif.notes[1]?.accidental, undefined);
-  });
-
-  it("hybrid to chromatic conversion preserves descending semitone offsets", () => {
-    const hybrid = absoluteNotesToMotif(
-      [
-        { at: 0, duration: 1920, pitch: 60, velocity: 127 },
-        { at: 1920, duration: 960, pitch: 58, velocity: 127 },
-        { at: 2880, duration: 720, pitch: 63, velocity: 127 },
-      ],
-      {
-        id: "hybrid-source",
-        name: "Hybrid Source",
-        pitchMode: "hybrid",
-        rootNote: 60,
-        scaleRootNote: 0,
-        scaleIntervals: [0, 2, 3, 5, 7, 8, 10],
-      },
-    );
+    const scale = convertMotifPitchMode(chromatic, "scale");
 
     assert.deepEqual(
-      hybrid.notes.map(({ pitch }) => pitch),
-      [0, -1, 2],
+      scale.notes.map(({ pitch, accidental }) => [pitch, accidental ?? 0]),
+      [
+        [0, 0],
+        [1, 1],
+        [4, 0],
+      ],
     );
-    const chromatic = convertMotifPitchMode(hybrid, "chromatic", {
-      triggerPitch: 60,
-      rootNote: 0,
-      scaleIntervals: [0, 2, 3, 5, 7, 8, 10],
-    });
 
-    assert.equal(chromatic.pitchMode, "chromatic");
+    const hybrid = convertMotifPitchMode(scale, "hybrid");
+    assert.equal(hybrid.notes, scale.notes, "Scale and Hybrid share one encoded note form");
+    const roundTrip = convertMotifPitchMode(hybrid, "chromatic");
     assert.deepEqual(
-      chromatic.notes.map(({ pitch }) => pitch),
-      [0, -2, 3],
+      roundTrip.notes.map(({ pitch, accidental }) => [pitch, accidental]),
+      [
+        [0, undefined],
+        [3, undefined],
+        [7, undefined],
+      ],
     );
-    assert.ok(chromatic.notes.every(({ accidental }) => accidental === undefined));
   });
 
-  it("scale analysis is relative to the phrase anchor degree, not only the scale tonic", () => {
-    const motif = absoluteNotesToMotif(
+  it("analyzes scale motion relative to an off-tonic source anchor", () => {
+    const chromatic = absoluteNotesToMotif(
       [
-        { at: 0, duration: 480, pitch: 64, velocity: 100 }, // E in C major
-        { at: 480, duration: 480, pitch: 62, velocity: 100 }, // D is one degree down
+        { at: 0, duration: 480, pitch: 64, velocity: 100 },
+        { at: 480, duration: 480, pitch: 62, velocity: 100 },
       ],
       {
         id: "off-tonic-anchor",
         name: "Off-tonic anchor",
-        pitchMode: "hybrid",
-        rootNote: 64,
+        anchorPitch: 64,
         scaleRootNote: 0,
-        scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+        scaleName: "Major",
+        scaleIntervals: MAJOR,
       },
     );
-
-    assert.equal(motif.notes[1]?.pitch, -1);
-    assert.equal(motif.notes[1]?.accidental, undefined);
+    const hybrid = convertMotifPitchMode(chromatic, "hybrid");
+    assert.equal(hybrid.notes[1]?.pitch, -1);
+    assert.equal(hybrid.notes[1]?.accidental, undefined);
   });
 
-  it("encodes and decodes chromatic and scale offsets directly", () => {
-    const context = {
-      triggerPitch: 60,
-      rootNote: 0,
-      scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
-    };
+  it("encodes and decodes retained chromatic alterations", () => {
+    const context = { triggerPitch: 60, rootNote: 0, scaleIntervals: MAJOR };
     assert.deepEqual(encodeSemitoneOffset(-3, "chromatic", context), { pitch: -3 });
+    assert.deepEqual(encodeSemitoneOffset(3, "scale", context), {
+      pitch: 1,
+      accidental: 1,
+    });
     assert.equal(
-      decodeSemitoneOffset({ at: 0, duration: 1, pitch: -3, accidental: 1 }, "chromatic", context),
-      -2,
-    );
-    assert.equal(
-      decodeSemitoneOffset({ at: 0, duration: 1, pitch: 2, accidental: 5 }, "scale", context),
-      4,
+      decodeSemitoneOffset({ at: 0, duration: 1, pitch: 1, accidental: 1 }, "scale", context),
+      3,
     );
   });
 
@@ -150,23 +135,29 @@ describe("motif note import", () => {
     const motif = absoluteNotesToMotif([{ at: 0, duration: 0, pitch: 64, velocity: 100 }], {
       id: "same",
       name: "Same",
-      pitchMode: "chromatic",
       sourceMeter: { numerator: 3, denominator: 4 },
     });
-    const converted = convertMotifPitchMode(motif, "chromatic", {
-      triggerPitch: 64,
-      rootNote: 0,
-      scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
-    });
-    assert.equal(converted, motif);
+    assert.equal(convertMotifPitchMode(motif, "chromatic"), motif);
     assert.equal(motif.notes[0]?.duration, 1);
     assert.deepEqual(motif.sourceMeter, { numerator: 3, denominator: 4 });
   });
 
   it("rejects imports without completed notes", () => {
     assert.throws(
-      () => absoluteNotesToMotif([], { id: "empty", name: "Empty", pitchMode: "chromatic" }),
+      () => absoluteNotesToMotif([], { id: "empty", name: "Empty" }),
       /No completed notes/,
+    );
+  });
+
+  it("rejects invalid explicit source anchors and roots", () => {
+    const notes = [{ at: 0, duration: 1, pitch: 60, velocity: 100 }];
+    assert.throws(
+      () => absoluteNotesToMotif(notes, { id: "anchor", name: "Anchor", anchorPitch: 128 }),
+      /anchor pitch/,
+    );
+    assert.throws(
+      () => absoluteNotesToMotif(notes, { id: "root", name: "Root", scaleRootNote: 12 }),
+      /scale root/,
     );
   });
 });
