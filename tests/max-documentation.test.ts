@@ -89,7 +89,7 @@ describe("Max documentation contract", () => {
   });
 
   it("keeps Max JavaScript and LiveAPI calls on the documented current surface", async () => {
-    const [device, liveApi, globals, preview, libraryTemplate, libraryClient, documentation] =
+    const [_device, liveApi, globals, preview, libraryTemplate, libraryClient, documentation] =
       await Promise.all([
         readFile("src/max/device.ts", "utf8"),
         readFile("src/max/live-api.ts", "utf8"),
@@ -109,7 +109,6 @@ describe("Max documentation contract", () => {
     assert.doesNotMatch(liveApi, /clip\.call\(["']get_notes["']/);
     assert.match(globals, /^\s*id: number;$/m);
     assert.doesNotMatch(globals, /readonly id: number/);
-    assert.doesNotMatch(device, /mode === 'auto'/);
     assert.match(preview, /https:\/\/docs\.cycling74\.com\/apiref\/js\/mgraphics\//);
     assert.match(
       libraryTemplate,

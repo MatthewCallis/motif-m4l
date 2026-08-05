@@ -140,6 +140,8 @@ export const LIBRARY_SCAN_BATCH_SIZE = 32;
 export const MAX_LIBRARY_DEPTH = 32;
 /** Minimum Max Task delay preventing malformed repeat busy-loops. */
 export const MIN_REPEAT_DELAY_MS = 1;
+/** Lead time used to move repeat boundaries from low-priority Task into native pipe scheduling. */
+export const REPEAT_SCHEDULING_LOOKAHEAD_MS = 125;
 /** Tempo ratios exposed by device Settings. */
 export const TEMPO_MULTIPLIERS = [0.5, 1, 1.5, 2] as const;
 /** Maximum editable/importable notes in one motif. */

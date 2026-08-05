@@ -111,6 +111,8 @@ export interface LibraryBrowserItemData {
   name: string;
   /** Whether a duplicate name requires displaying the stable id. */
   showId: boolean;
+  /** Whether the motif ships with the device and stays above user folders. */
+  isBuiltin: boolean;
   /** Root-relative browser folder. */
   folder: string;
   /** Hot keys targeting this motif. */

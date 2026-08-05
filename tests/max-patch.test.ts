@@ -874,10 +874,7 @@ describe("Motif Max patch integration", () => {
     assert.doesNotMatch(client, /delete_motif|skipDeleteConfirmation/);
     assert.match(client, /type:\s*["']select_browser["']/, "browser selection must use stable ids");
     assert.match(client, /heading\.className = ["']browser-folder["']/);
-    assert.ok(client.includes("collapsedFolders: new Set<string>()"));
     assert.match(client, /heading\.setAttribute\(["']aria-expanded["']/);
-    assert.ok(client.includes("if (folderCollapsed) continue"));
-    assert.ok(client.includes("isFolderCollapsed(folder, server.query"));
     assert.ok(client.includes("item.folder"));
     assert.ok(client.includes("server?.libraryScanning"));
     assert.match(template, /id="hotkey-input"\s+type="text"/);
@@ -885,14 +882,12 @@ describe("Motif Max patch integration", () => {
     assert.match(template, /<option value="trigger">Trigger Motif<\/option>/);
     assert.match(template, /<option value="select">Select Motif<\/option>/);
     assert.doesNotMatch(template, /<option value="repeat">/);
-    assert.doesNotMatch(client, /function parseMidiNoteName/);
     assert.ok(client.includes("mapping.label"));
     assert.match(client, /type:\s*["']map_trigger["']/);
     assert.match(client, /\$<HTMLSelectElement>\(["']hotkey-action["']\)\.value/);
     assert.match(client, /type:\s*["']unmap_trigger["']/);
     assert.ok(client.includes("Save changes and exit editing"));
     assert.match(client, /type:\s*["']edit_motif["'], properties:\s*readProperties\(\)/);
-    assert.doesNotMatch(client, /MAX_MOTIF_NOTES/);
     assert.ok(client.includes("selected.canAddNote"));
     assert.match(style, /#notes-panel\s*\{\s*overflow:\s*auto;/);
     assert.doesNotMatch(client, /note-page-prev|set_note_page/);

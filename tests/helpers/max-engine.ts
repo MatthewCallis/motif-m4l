@@ -57,8 +57,9 @@ export async function createEngine(options: EngineOptions = {}): Promise<TestMax
   const files = options.files ?? {};
   const folders = options.folders ?? {};
   const folderOpenPaths: string[] = [];
-  const scheduledTasks: Array<() => void> = [];
+  const scheduledTasks: Array<{ delay: number; execute: () => void }> = [];
   const scheduledTaskDelays: number[] = [];
+  let currentMilliseconds = 1_000_000;
 
   class MockFile {
     isopen: boolean;
@@ -163,10 +164,16 @@ export async function createEngine(options: EngineOptions = {}): Promise<TestMax
         if (!this.#cancelled) this.callback.apply(this.context, this.args);
       };
       if (options.deferTasks) {
-        scheduledTasks.push(execute);
+        scheduledTasks.push({ delay, execute });
       } else {
         execute();
       }
+    }
+  }
+
+  class MockDate extends Date {
+    static override now(): number {
+      return currentMilliseconds;
     }
   }
 
@@ -182,6 +189,7 @@ export async function createEngine(options: EngineOptions = {}): Promise<TestMax
     Folder: MockFolder,
     Task: MockTask,
     LiveAPI,
+    Date: MockDate,
     console,
   });
 
@@ -201,7 +209,11 @@ export async function createEngine(options: EngineOptions = {}): Promise<TestMax
     runScheduledTasks(limit = Number.POSITIVE_INFINITY) {
       let count = 0;
       while (scheduledTasks.length > 0 && count < limit) {
-        scheduledTasks.shift()?.();
+        const scheduled = scheduledTasks.shift();
+        if (scheduled) {
+          currentMilliseconds += Math.max(0, scheduled.delay);
+          scheduled.execute();
+        }
         count += 1;
       }
       return count;

@@ -6,8 +6,8 @@ import {
   applyMotifProperties as buildMotifProperties,
   removeMotifNote,
   updateMotifNote,
-  type NoteEditField,
 } from "../library/motif-authoring.js";
+import type { NoteEditField } from "../library/note-edit-schema.js";
 import type { MotifStore } from "../library/store.js";
 import { DEFAULT_MOTIF_ID, MAX_MOTIF_NOTES } from "./device-types.js";
 import { readClipNotes, resolveDetailClip } from "./live-api.js";

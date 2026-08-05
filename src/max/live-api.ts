@@ -109,7 +109,7 @@ function coerceNotesPayload(raw: unknown): unknown {
  * @param {unknown} raw Raw LiveAPI payload.
  * @returns {AbsoluteNote[]} Valid, unmuted notes in motif tick units.
  */
-export function parseClipNotesExtended(raw: unknown): AbsoluteNote[] {
+function parseClipNotesExtended(raw: unknown): AbsoluteNote[] {
   const payload = coerceNotesPayload(raw);
   const record = isRecord(payload) ? payload : undefined;
   const notesValue = record?.notes;

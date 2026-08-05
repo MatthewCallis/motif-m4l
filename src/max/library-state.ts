@@ -79,20 +79,35 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
   } = input;
   const normalizedQuery = browserQuery.trim().toLowerCase();
   const matchedIds = new Set(store.filter(browserQuery).map((item) => item.id));
+  // Build lookup indexes once per projection to avoid O(N*M) repeated scans.
+  const folderById = new Map<string, string>();
+  for (const item of store.list()) {
+    folderById.set(item.id, library.browserFolder(item.id));
+  }
+  const hotkeysById = hotkeys.byMotif();
+  // Hoist the locale comparator so it isn't recreated per sort comparison.
+  const localeCompare = (first: string, second: string) =>
+    first.localeCompare(second, undefined, { numeric: true, sensitivity: "base" });
   const items = store
     .list()
     .filter(
       (item) =>
         !normalizedQuery ||
         matchedIds.has(item.id) ||
-        library.browserFolder(item.id).toLowerCase().includes(normalizedQuery),
+        (folderById.get(item.id) ?? "Library").toLowerCase().includes(normalizedQuery),
     )
-    .sort(
-      (left, right) =>
-        library.browserFolder(left.id).localeCompare(library.browserFolder(right.id)) ||
-        left.name.localeCompare(right.name) ||
-        left.id.localeCompare(right.id),
-    );
+    .sort((left, right) => {
+      const leftFolder = folderById.get(left.id) ?? "Library";
+      const rightFolder = folderById.get(right.id) ?? "Library";
+      const libraryFolderOrder =
+        Number(rightFolder === "Library") - Number(leftFolder === "Library");
+      if (libraryFolderOrder !== 0) return libraryFolderOrder;
+      const folderOrder = localeCompare(leftFolder, rightFolder);
+      if (folderOrder !== 0) return folderOrder;
+      const builtinOrder = Number(store.isBuiltin(right.id)) - Number(store.isBuiltin(left.id));
+      if (builtinOrder !== 0) return builtinOrder;
+      return localeCompare(left.name, right.name) || localeCompare(left.id, right.id);
+    });
   const selected = store.current;
   const selectedIndex = selected ? items.findIndex((item) => item.id === selected.id) : -1;
   const selectedIsEditing = selected ? editor.isEditing(selected.id) : false;
@@ -141,8 +156,8 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
       effectivePitchMode: preview.effectivePitchMode,
       isBuiltin: store.isBuiltin(selected.id),
       isPersisted: library.files.has(selected.id),
-      folder: library.browserFolder(selected.id),
-      hotkeys: hotkeys.forMotif(selected.id).map(toLibraryHotkeyData),
+      folder: folderById.get(selected.id) ?? "Library",
+      hotkeys: (hotkeysById.get(selected.id) ?? []).map(toLibraryHotkeyData),
       noteCount: selected.notes.length,
       noteLimit,
       canAddNote: selectedIsEditing && selected.notes.length < noteLimit,
@@ -157,8 +172,9 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
       id: item.id,
       name: item.name,
       showId: (nameCounts.get(item.name) ?? 0) > 1,
-      folder: library.browserFolder(item.id),
-      hotkeys: hotkeys.forMotif(item.id).map(toLibraryHotkeyData),
+      isBuiltin: store.isBuiltin(item.id),
+      folder: folderById.get(item.id) ?? "Library",
+      hotkeys: (hotkeysById.get(item.id) ?? []).map(toLibraryHotkeyData),
     })),
     selectedIndex,
     selected: selectedData,

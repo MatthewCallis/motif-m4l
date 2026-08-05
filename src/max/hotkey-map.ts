@@ -33,7 +33,7 @@ export type HotkeyAssignmentResult =
  * @param {number | string} value MIDI pitch or note name.
  * @returns {number | undefined} Rounded, clamped pitch or undefined for invalid input.
  */
-export function hotkeyPitch(value: number | string): number | undefined {
+function hotkeyPitch(value: number | string): number | undefined {
   if (typeof value === "string") {
     const named = parseMidiNoteName(value);
     if (named !== undefined) {
@@ -160,5 +160,26 @@ export class MotifHotkeyMap {
       .filter(([, mapping]) => mapping.motifId === motifId)
       .map(([pitch, mapping]) => ({ pitch, action: mapping.action }))
       .sort((left, right) => left.pitch - right.pitch);
+  }
+
+  /**
+   * Build a motifId → sorted assignments index in one pass over all mappings.
+   * Use instead of repeated {@link forMotif} calls when projecting all items.
+   * @returns {Map<string, Array<{ pitch: number; action: HotkeyAction }>>} Index.
+   */
+  byMotif(): Map<string, Array<{ pitch: number; action: HotkeyAction }>> {
+    const index = new Map<string, Array<{ pitch: number; action: HotkeyAction }>>();
+    for (const [pitch, mapping] of this.mappings) {
+      let entries = index.get(mapping.motifId);
+      if (!entries) {
+        entries = [];
+        index.set(mapping.motifId, entries);
+      }
+      entries.push({ pitch, action: mapping.action });
+    }
+    for (const entries of index.values()) {
+      entries.sort((left, right) => left.pitch - right.pitch);
+    }
+    return index;
   }
 }

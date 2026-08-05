@@ -2,21 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   absoluteNotesToMotif,
-  analyzeScaleOffset,
   convertMotifPitchMode,
   decodeSemitoneOffset,
-  encodeSemitoneOffset,
 } from "../src/core/import-notes.js";
 
 const MAJOR = [0, 2, 4, 5, 7, 9, 11] as const;
 
 describe("motif note import", () => {
-  it("analyzeScaleOffset maps blue notes with accidentals", () => {
-    assert.deepEqual(analyzeScaleOffset(0, MAJOR), { degree: 0, accidental: 0 });
-    assert.deepEqual(analyzeScaleOffset(3, MAJOR), { degree: 1, accidental: 1 });
-    assert.deepEqual(analyzeScaleOffset(12, MAJOR), { degree: 7, accidental: 0 });
-  });
-
   it("always imports exact chromatic offsets and captures source context", () => {
     const motif = absoluteNotesToMotif(
       [
@@ -120,11 +112,19 @@ describe("motif note import", () => {
 
   it("encodes and decodes retained chromatic alterations", () => {
     const context = { triggerPitch: 60, rootNote: 0, scaleIntervals: MAJOR };
-    assert.deepEqual(encodeSemitoneOffset(-3, "chromatic", context), { pitch: -3 });
-    assert.deepEqual(encodeSemitoneOffset(3, "scale", context), {
-      pitch: 1,
-      accidental: 1,
+    // Chromatic: semitone offset encodes as-is
+    const chromMotif = absoluteNotesToMotif([{ at: 0, duration: 480, pitch: 63, velocity: 100 }], {
+      id: "t",
+      name: "T",
+      anchorPitch: 60,
+      scaleIntervals: MAJOR,
     });
+    assert.equal(chromMotif.notes[0]?.pitch, 3); // offset from anchor 60
+    // Scale: blue note (semitone +3) encodes as degree 1 with +1 accidental
+    const scaleMotif = convertMotifPitchMode(chromMotif, "scale");
+    assert.equal(scaleMotif.notes[0]?.pitch, 1);
+    assert.equal(scaleMotif.notes[0]?.accidental, 1);
+    // decodeSemitoneOffset: round-trip check
     assert.equal(
       decodeSemitoneOffset({ at: 0, duration: 1, pitch: 1, accidental: 1 }, "scale", context),
       3,

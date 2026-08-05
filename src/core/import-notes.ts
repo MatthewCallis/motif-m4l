@@ -61,7 +61,7 @@ function sourceScaleIntervals(context: SourcePitchContext): readonly number[] | 
  * @param {number} scaleRootNote The scale root pitch.
  * @returns {{ degree: number, accidental: number }} The nearest scale degree and accidental.
  */
-export function analyzeScaleOffset(
+function analyzeScaleOffset(
   semitoneOffset: number,
   intervals: readonly number[],
   triggerPitch = 60,
@@ -105,7 +105,7 @@ export function analyzeScaleOffset(
  * @param {PitchModeConversionContext} context The pitch mode conversion context.
  * @returns {Pick<MotifNote, 'pitch' | 'accidental'>} The encoded motif note.
  */
-export function encodeSemitoneOffset(
+function encodeSemitoneOffset(
   semitoneOffset: number,
   pitchMode: PitchMode,
   context: PitchModeConversionContext,

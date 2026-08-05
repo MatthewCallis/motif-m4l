@@ -225,14 +225,23 @@ void describe("Library browser runtime", () => {
       },
       items: [
         {
+          id: "scale-turn",
+          name: "Scale Turn",
+          showId: false,
+          isBuiltin: true,
+          folder: "Library",
+          hotkeys: [],
+        },
+        {
           id: "browser-test",
           name: "Tests - Browser Test",
           showId: false,
+          isBuiltin: false,
           folder: "Tests",
           hotkeys: [{ pitch: 60, label: "C3", action: "trigger" }],
         },
       ],
-      selectedIndex: 0,
+      selectedIndex: 1,
       selected: {
         schemaVersion: 1,
         id: "browser-test",
@@ -303,9 +312,12 @@ void describe("Library browser runtime", () => {
     assert.equal(elements.get("source-scale-name-edit")?.value, "Major");
     assert.equal(elements.get("source-scale-intervals-edit")?.value, "0, 2, 4, 5, 7, 9, 11");
     assert.equal(elements.get("note-rows")?.children.length, 2);
-    assert.equal(elements.get("browser-list")?.children.length, 2);
+    assert.equal(elements.get("browser-list")?.children.length, 4);
+    assert.equal(elements.get("browser-list")?.children[0]?.textContent, "▾ Library");
+    assert.equal(elements.get("browser-list")?.children[1]?.children[0]?.textContent, "Scale Turn");
+    assert.equal(elements.get("browser-list")?.children[2]?.textContent, "▾ Tests");
     assert.equal(
-      elements.get("browser-list")?.children[1]?.children[0]?.textContent,
+      elements.get("browser-list")?.children[3]?.children[0]?.textContent,
       "Browser Test",
     );
     assert.ok(elements.get("library-resizer")?.listeners.has("pointerdown"));

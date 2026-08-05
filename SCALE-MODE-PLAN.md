@@ -17,7 +17,7 @@ Keep Chromatic mode exact and scale-independent. Keep Hybrid mode scale-relative
 4. Capture source key and scale information at import time even though the imported note representation is chromatic. This allows a later explicit conversion to Scale or Hybrid.
 5. Use Live's observed scale interval list as authoritative. A built-in name-to-interval registry is only a defensive fallback.
 6. Do not mutate saved notes when Live's current target scale changes. Target-scale mapping happens during playback and preview.
-7. Preserve detected per-note accidentals when converting to Scale, but ignore them during Scale playback. Hybrid applies them. This keeps Scale ↔ Hybrid and Scale/Hybrid → Chromatic conversions reversible.
+7. Preserve detected per-note accidentals when converting to Scale, but ignore them during Scale playback. Hybrid applies them and may choose a bounded, source-equivalent adjacent spelling at target playback when it better preserves the imported chromatic contour. The canonical stored spelling remains unchanged, keeping Scale ↔ Hybrid and Scale/Hybrid → Chromatic conversions reversible.
 8. Preserve the existing trigger-relative phrase model: the trigger selects the target anchor for the motif. Source key data controls source analysis; it does not silently change a trigger into a target-key tonic.
 
 ## Confirmed Live capabilities
@@ -80,7 +80,7 @@ The schema may represent unresolved intervals as `null`; all repository motifs a
 | --------- | ------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
 | Chromatic | Exact semitone offset from `sourcePitchContext.anchorPitch`  | Adds the stored semitone offset to the trigger and ignores Live's scale                                    |
 | Scale     | Scale-degree offset plus retained source accidental metadata | Maps the degree through Live's current target intervals; ignores the accidental so output remains in scale |
-| Hybrid    | Scale-degree offset plus accidental                          | Maps the degree through Live's current target intervals, then applies the accidental                       |
+| Hybrid    | Scale-degree offset plus accidental                          | Maps a source-equivalent degree spelling through Live's target intervals, then applies its accidental      |
 
 The `accidental` field is therefore valid metadata on both Scale and Hybrid notes:
 
@@ -88,7 +88,7 @@ The `accidental` field is therefore valid metadata on both Scale and Hybrid note
 - Hybrid stores and sounds it.
 - Chromatic normally clears it because the complete semitone offset is already in `pitch`.
 
-MIDI contains pitches but no enharmonic spelling. The analyzer can determine that a pitch is outside the source scale, but cannot know whether the author intended a spelling such as D-sharp or E-flat. Use the existing deterministic nearest-degree rule and retain the exact signed semitone alteration.
+MIDI contains pitches but no enharmonic spelling. The analyzer can determine that a pitch is outside the source scale, but cannot know whether the author intended a spelling such as D-sharp or E-flat. Store the existing deterministic nearest-degree spelling and retain the exact signed semitone alteration. During Hybrid playback, also consider the neighboring source degrees when they reconstruct the source pitch with no more than one accidental; choose the target result closest to the original chromatic offset and keep the stored spelling on ties.
 
 ## Import behavior
 
@@ -155,7 +155,7 @@ Target C minor:         C  Eb G
 Target D major:         D  F# A   (when triggered from D)
 ```
 
-Pure Scale mode should guarantee target-scale pitches. Before applying degree offsets, resolve an off-scale trigger to a deterministic target-scale anchor. Use nearest-note quantization with a documented tie rule. Hybrid uses the same scale anchor and may then leave the scale through its stored accidentals.
+Pure Scale mode should guarantee target-scale pitches. Before applying degree offsets, resolve an off-scale trigger to a deterministic target-scale anchor. Use nearest-note quantization with a documented tie rule. Hybrid uses the same scale anchor and may then leave the scale through a retained or bounded source-equivalent accidental.
 
 This changes the current off-scale-trigger fallback, which preserves an off-scale trigger and can consequently produce notes outside the target scale. Update the existing tests that explicitly enforce that behavior.
 
@@ -268,7 +268,7 @@ Generated and packaged files must be regenerated with the existing build; do not
 - Changing Live's root or intervals immediately changes Scale/Hybrid output and preview without mutating motif JSON.
 - Chromatic output does not change with Live's scale.
 - Pure Scale output is always in the target scale, including with an off-scale trigger.
-- Hybrid output uses the target scale plus its stored alterations.
+- Hybrid output uses the target scale plus a retained or bounded source-equivalent alteration, preferring the result closest to the imported chromatic contour.
 
 ### Validation and integration
 
@@ -287,7 +287,7 @@ Generated and packaged files must be regenerated with the existing build; do not
 - A user can import C-major MIDI, change the motif to Scale, select C minor in Live, and hear the diatonic C-minor result.
 - Changing Live's target scale never rewrites the saved motif.
 - Scale output contains only target-scale notes.
-- Hybrid retains and applies source chromatic alterations.
+- Hybrid retains source chromatic alterations and may respell them at playback without mutating the motif when that better preserves the imported contour.
 - Mode conversion uses saved source context and is independent of the currently selected Live scale.
 - No unknown scale is silently analyzed as Major.
 

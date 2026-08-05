@@ -1,254 +1,6 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
-import vm from "node:vm";
-
-type OutletArgs = unknown[];
-
-async function createEngine(
-  options: {
-    liveApi?: new (
-      callback?: (args: unknown[]) => void,
-      path?: string,
-    ) => {
-      id: number;
-      get: (property: string) => number | number[];
-      getstring: (property: string) => string | string[];
-      call: (method: string, ...args: unknown[]) => unknown;
-    };
-    files?: Record<string, string>;
-    folders?: Record<string, string[]>;
-    deferTasks?: boolean;
-  } = {},
-): Promise<{
-  dispatch: (message: string, ...args: unknown[]) => void;
-  outlets: OutletArgs[];
-  errors: string[];
-  files: Record<string, string>;
-  folderOpenPaths: string[];
-  scheduledTaskDelays: number[];
-  runScheduledTasks: (limit?: number) => number;
-}> {
-  const source = await readFile("dist/motif-device.js", "utf8");
-  const outlets: OutletArgs[] = [];
-  const errors: string[] = [];
-
-  const LiveAPI =
-    options.liveApi ??
-    class {
-      id = 0;
-      get(): number {
-        return 0;
-      }
-      getstring(): string {
-        return "";
-      }
-      call(): unknown {
-        return [];
-      }
-    };
-
-  const files = options.files ?? {};
-  const folders = options.folders ?? {};
-  const folderOpenPaths: string[] = [];
-  const scheduledTasks: Array<() => void> = [];
-  const scheduledTaskDelays: number[] = [];
-
-  class MockFile {
-    isopen: boolean;
-    eof: number;
-    position = 0;
-    #buffer = "";
-
-    constructor(
-      readonly filename: string,
-      readonly access = "read",
-    ) {
-      this.isopen = access === "write" || Object.prototype.hasOwnProperty.call(files, filename);
-      this.#buffer = access === "write" ? "" : (files[filename] ?? "");
-      this.eof = this.#buffer.length;
-    }
-
-    readstring(): string {
-      return this.#buffer;
-    }
-
-    writestring(text: string): void {
-      this.#buffer += text;
-      this.eof = this.#buffer.length;
-    }
-
-    close(): void {
-      if (this.access === "write" && this.isopen) files[this.filename] = this.#buffer;
-      this.isopen = false;
-    }
-  }
-
-  class MockFolder {
-    end: boolean;
-    count: number;
-    pathname: string;
-    filename = "";
-    #entries: string[];
-    #index = 0;
-
-    constructor(pathname: string) {
-      folderOpenPaths.push(pathname);
-      const entries = folders[pathname];
-      this.pathname = entries ? pathname : "";
-      this.#entries = entries ?? [];
-      this.count = this.#entries.length;
-      this.end = this.#entries.length === 0;
-      this.filename = this.#entries[0] ?? "";
-    }
-
-    get extension(): string | null {
-      const separator = this.filename.lastIndexOf(".");
-      return separator < 0 ? null : this.filename.slice(separator);
-    }
-
-    get filetype(): string | null {
-      if (!this.pathname || !this.filename) return null;
-      const separator = this.pathname.endsWith("/") ? "" : "/";
-      if (
-        Object.prototype.hasOwnProperty.call(
-          folders,
-          `${this.pathname}${separator}${this.filename}`,
-        )
-      ) {
-        return "fold";
-      }
-      return this.filename.toLowerCase().endsWith(".json") ? "JSON" : null;
-    }
-
-    next(): void {
-      this.#index += 1;
-      this.end = this.#index >= this.#entries.length;
-      this.filename = this.#entries[this.#index] ?? "";
-    }
-
-    close(): void {
-      this.end = true;
-    }
-  }
-
-  class MockTask {
-    #cancelled = false;
-
-    constructor(
-      readonly callback: (...args: unknown[]) => void,
-      readonly context?: object,
-      readonly args: unknown[] = [],
-    ) {}
-
-    cancel(): void {
-      this.#cancelled = true;
-    }
-
-    freepeer(): void {
-      this.#cancelled = true;
-    }
-
-    schedule(delay = 0): void {
-      scheduledTaskDelays.push(delay);
-      const execute = () => {
-        if (!this.#cancelled) this.callback.apply(this.context, this.args);
-      };
-      if (options.deferTasks) scheduledTasks.push(execute);
-      else execute();
-    }
-  }
-
-  const context = vm.createContext({
-    outlet: (_index: number, ...values: unknown[]) => {
-      outlets.push(values);
-    },
-    error: (message: string) => errors.push(String(message)),
-    post: () => undefined,
-    arrayfromargs: (values: IArguments | ArrayLike<unknown>) => Array.from(values),
-    messagename: "",
-    File: MockFile,
-    Folder: MockFolder,
-    Task: MockTask,
-    LiveAPI,
-    console,
-  });
-
-  vm.runInContext(source, context, { filename: "motif-device.js" });
-
-  return {
-    dispatch(message: string, ...args: unknown[]) {
-      (context as Record<string, unknown>).messagename = message;
-      (context as Record<string, unknown>).__args = args;
-      vm.runInContext("anything.apply(null, __args)", context);
-    },
-    outlets,
-    errors,
-    files,
-    folderOpenPaths,
-    scheduledTaskDelays,
-    runScheduledTasks(limit = Number.POSITIVE_INFINITY) {
-      let count = 0;
-      while (scheduledTasks.length > 0 && count < limit) {
-        scheduledTasks.shift()?.();
-        count += 1;
-      }
-      return count;
-    },
-  };
-}
-
-/**
- * Decode the last library-state JSON from outlet emissions.
- * @param {OutletArgs[]} outlets The captured Max outlet messages.
- * @returns {Record<string, unknown> | undefined} The decoded state, when emitted.
- */
-function lastLibState(outlets: OutletArgs[]): Record<string, unknown> | undefined {
-  let latest: Record<string, unknown> | undefined;
-  const transfers = new Map<
-    number,
-    {
-      total: number;
-      parts: string[];
-      received: Set<number>;
-    }
-  >();
-  for (const args of outlets) {
-    if (args[0] !== "ui" || args[1] !== "lib" || typeof args[2] !== "string") continue;
-    const payload = JSON.parse(decodeURIComponent(args[2])) as Record<string, unknown>;
-    if (payload["kind"] !== "state-chunk") {
-      latest = payload;
-      continue;
-    }
-    const transferId = Number(payload["transferId"]);
-    const index = Number(payload["index"]);
-    const total = Number(payload["total"]);
-    let transfer = transfers.get(transferId);
-    if (!transfer) {
-      transfer = { total, parts: new Array<string>(total), received: new Set<number>() };
-      transfers.set(transferId, transfer);
-    }
-    transfer.parts[index] = String(payload["data"]);
-    transfer.received.add(index);
-    if (transfer.received.size === transfer.total) {
-      latest = JSON.parse(decodeURIComponent(transfer.parts.join(""))) as Record<string, unknown>;
-      transfers.delete(transferId);
-    }
-  }
-  return latest;
-}
-
-/**
- * Read the last encoded engine-owned state sent to the patch's persistence parameter.
- * @param {OutletArgs[]} outlets Captured Max outlet messages.
- * @returns {string | undefined} Encoded snapshot.
- */
-function lastPersistedState(outlets: OutletArgs[]): string | undefined {
-  const message = [...outlets]
-    .reverse()
-    .find((args) => args[0] === "persist" && typeof args[1] === "string");
-  return message?.[1] as string | undefined;
-}
+import { createEngine, lastLibState, lastPersistedState } from "./helpers/max-engine.js";
 
 describe("Max device runtime integration", () => {
   it("round-trips selected motif and MIDI hot keys through Live-stored state", async () => {
@@ -442,6 +194,13 @@ describe("Max device runtime integration", () => {
       [0, 1],
       "absolute transform parameter values must synchronize their latch states",
     );
+    // Library state must show notes in stored (non-reversed) order even with Reverse active
+    const selected = lastLibState(engine.outlets)?.["selected"] as Record<string, unknown>;
+    assert.deepEqual(
+      (selected["notes"] as Array<Record<string, unknown>>).map((note) => note["pitch"]),
+      [0, 1, 2, 4, 3, 1, 0],
+      "Library note data must remain in stored order with stored offsets",
+    );
     engine.outlets.length = 0;
     engine.dispatch("note", 60, 100, 1);
     assert.deepEqual(
@@ -451,12 +210,10 @@ describe("Max device runtime integration", () => {
       [60, 62, 65, 67, 64, 62, 60],
       "Reverse must play the stored note sequence backward",
     );
-
-    const selected = lastLibState(engine.outlets)?.["selected"] as Record<string, unknown>;
     assert.deepEqual(
-      (selected["notes"] as Array<Record<string, unknown>>).map((note) => note["pitch"]),
-      [0, 1, 2, 4, 3, 1, 0],
-      "Library note data must remain in stored order with stored offsets",
+      engine.outlets.filter((args) => args[0] === "ui" && args[1] === "lib"),
+      [],
+      "note trigger must not emit Library state",
     );
 
     engine.dispatch("reverse", 0);
@@ -505,14 +262,6 @@ describe("Max device runtime integration", () => {
     assert.ok(selected);
     assert.equal(String(selected["name"]), "My Lick");
     assert.ok(String(selected["description"]).includes("Edited"));
-
-    const noteRowData = engine.outlets.filter(
-      (args) => args[0] === "ui" && args[1] === "note-row-data",
-    );
-    assert.ok(
-      noteRowData.length === 0 || true,
-      "note-row-data no longer emitted individually (consolidated into lib)",
-    );
   });
 
   it("edit_note_at requires an explicit edit session and updates pitch", async () => {
@@ -992,7 +741,7 @@ describe("Max device runtime integration", () => {
     assert.equal(items.find((item) => item.id === "loose")?.folder, "Library");
     assert.equal(items.find((item) => item.id === "bass-line")?.folder, "Bass");
     assert.equal(items.find((item) => item.id === "bass-fill")?.folder, "Bass/Fills");
-    assert.equal(items.find((item) => item.id === "chromatic-turn")?.folder, "Built-ins");
+    assert.equal(items.find((item) => item.id === "chromatic-turn")?.folder, "Library");
     assert.ok(!engine.errors.some((message) => message.includes("notes.txt")));
     assert.deepEqual(
       engine.folderOpenPaths,
@@ -1301,8 +1050,8 @@ describe("Max device runtime integration", () => {
     );
     assert.equal(
       engine.scheduledTaskDelays.at(-1),
-      1_750,
-      "the 3.5-beat motif must repeat at its 120 BPM boundary",
+      1_625,
+      "the Task must wake 125 ms before the 3.5-beat motif boundary",
     );
 
     engine.dispatch("note", 60, 80, 2);
@@ -1312,6 +1061,9 @@ describe("Max device runtime integration", () => {
       "duplicate note-ons must not add repeat tasks",
     );
 
+    const libraryUpdatesBeforeRepeat = engine.outlets.filter(
+      (args) => args[0] === "ui" && args[1] === "lib",
+    ).length;
     assert.equal(engine.runScheduledTasks(1), 1);
     assert.equal(
       engine.outlets.filter(
@@ -1321,6 +1073,11 @@ describe("Max device runtime integration", () => {
       "the scheduled boundary must launch the next motif cycle",
     );
     assert.equal(engine.scheduledTaskDelays.at(-1), 1_750);
+    assert.equal(
+      engine.outlets.filter((args) => args[0] === "ui" && args[1] === "lib").length,
+      libraryUpdatesBeforeRepeat,
+      "repeat cycles must not rebuild the Library and preview state",
+    );
 
     engine.dispatch("note", 60, 0, 2);
     assert.ok(

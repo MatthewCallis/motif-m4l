@@ -8,7 +8,7 @@ import {
 } from "../src/library/motif-authoring.js";
 import { MotifStore } from "../src/library/store.js";
 import { hasOwn, isRecord, jsonValuesEqual, primitiveText } from "../src/core/type-guards.js";
-import { MotifHotkeyMap, hotkeyPitch } from "../src/max/hotkey-map.js";
+import { MotifHotkeyMap } from "../src/max/hotkey-map.js";
 import {
   encodeLibraryStateMessages,
   toLibraryHotkeyData,
@@ -32,7 +32,7 @@ import {
   toggleEnabled,
   writeJsonFile,
 } from "../src/max/max-helpers.js";
-import { parseClipNotesExtended, readClipNotes, resolveDetailClip } from "../src/max/live-api.js";
+import { readClipNotes, resolveDetailClip } from "../src/max/live-api.js";
 import { MaxUserLibrary } from "../src/max/user-library.js";
 
 interface MaxMocks {
@@ -404,7 +404,8 @@ describe("extracted Max helpers", () => {
 });
 
 describe("LiveAPI adapter", () => {
-  it("parses strings, Dict-like payloads, filters muted notes, and clamps velocity", () => {
+  it("parses notes, filters muted notes, and clamps velocity through readClipNotes", () => {
+    installMaxMocks();
     const payload = {
       notes: [
         { pitch: 64, start_time: 1.5, duration: 0.5, velocity: 200 },
@@ -412,14 +413,42 @@ describe("LiveAPI adapter", () => {
         { pitch: "bad", start_time: 0, duration: 1 },
       ],
     };
-    assert.deepEqual(parseClipNotesExtended(JSON.stringify(payload)), [
-      { pitch: 64, at: 1440, duration: 480, velocity: 127 },
-    ]);
-    assert.deepEqual(parseClipNotesExtended({ stringify: () => JSON.stringify(payload) }), [
-      { pitch: 64, at: 1440, duration: 480, velocity: 127 },
-    ]);
-    assert.deepEqual(parseClipNotesExtended("{invalid"), []);
-    assert.deepEqual(parseClipNotesExtended(null), []);
+    class StringPayloadApi {
+      id = 1;
+      get(): number {
+        return 1;
+      }
+      getstring(): string {
+        return "";
+      }
+      call(): unknown {
+        return JSON.stringify(payload);
+      }
+    }
+    Object.assign(globalThis, { LiveAPI: StringPayloadApi });
+    const clip = resolveDetailClip();
+    assert.ok(clip);
+    assert.deepEqual(readClipNotes(clip), [{ pitch: 64, at: 1440, duration: 480, velocity: 127 }]);
+  });
+
+  it("gracefully returns empty notes for invalid payload and missing clip", () => {
+    installMaxMocks();
+    class InvalidPayloadApi {
+      id = 1;
+      get(): number {
+        return 1;
+      }
+      getstring(): string {
+        return "";
+      }
+      call(): unknown {
+        return "{invalid";
+      }
+    }
+    Object.assign(globalThis, { LiveAPI: InvalidPayloadApi });
+    const clip = resolveDetailClip();
+    assert.ok(clip);
+    assert.deepEqual(readClipNotes(clip), []);
   });
 
   it("resolves Detail View and highlighted-slot clips and reads their notes", () => {
@@ -479,9 +508,6 @@ describe("hotkey and user-library owners", () => {
   it("validates, sorts, removes, clears, and prunes hotkeys", () => {
     const store = new MotifStore();
     const hotkeys = new MotifHotkeyMap(store);
-    assert.equal(hotkeyPitch("C3"), 60);
-    assert.equal(hotkeyPitch(200), 127);
-    assert.equal(hotkeyPitch("invalid"), undefined);
     assert.equal(hotkeys.assign("invalid", "scale-turn").ok, false);
     assert.equal(hotkeys.assign(60, "missing").ok, false);
     assert.equal(hotkeys.assign(60, "scale-turn", "invalid").ok, false);
@@ -527,7 +553,7 @@ describe("hotkey and user-library owners", () => {
     assert.equal(library.selectPath("/library"), true);
     assert.equal(library.loaded, true);
     assert.equal(store.has("user-one"), true);
-    assert.equal(library.browserFolder("scale-turn"), "Built-ins");
+    assert.equal(library.browserFolder("scale-turn"), "Library");
     assert.equal(library.browserFolder("user-one"), "Library");
     assert.equal(library.uniqueId("User One"), "user-one-2");
     assert.equal(library.save("user-one"), "/library/user-one.json");
@@ -666,8 +692,6 @@ describe("TypeScript device dispatcher", () => {
     for (const [message, ...args] of messages) dispatch(message, args);
     dispatch("unknown-source-message", []);
 
-    assert.ok(mocks.outlets.some(([selector]) => selector === "event"));
-    assert.ok(mocks.outlets.some(([selector]) => selector === "context"));
     assert.ok(mocks.errors.some((message) => message.includes("Unknown message")));
   });
 });

@@ -33,8 +33,8 @@ function setup() {
     scanning: false,
     files: new Map<string, string>(),
     scanState: undefined,
-    browserFolder(id: string) {
-      return store.isBuiltin(id) ? "Built-ins" : "Library";
+    browserFolder() {
+      return "Library";
     },
   };
   return { store, editor, hotkeys, settings, library };
@@ -88,13 +88,14 @@ describe("Library state projection", () => {
     model.editor.markDirty();
     model.library.scanning = true;
     model.library.scanState = { processedEntries: 12, loadedMotifs: 3 };
+    model.library.browserFolder = (id) => (model.store.isBuiltin(id) ? "Library" : "User Folder");
 
     const state = buildLibraryServerState({
       ...model,
       hostContext,
       previewTriggerPitch: 60,
       noteLimit: 512,
-      browserQuery: "library",
+      browserQuery: "user folder",
       alert: { id: 1, title: "Warning", message: "Check this" },
     });
 
@@ -108,5 +109,35 @@ describe("Library state projection", () => {
       loadedMotifs: 3,
     });
     assert.equal(state.alert?.title, "Warning");
+  });
+
+  it("pins built-ins above naturally sorted user folders", () => {
+    const model = setup();
+    const source = model.store.current;
+    assert.ok(source);
+    assert.deepEqual(model.store.add({ ...source, id: "zebra-item", name: "First" }), []);
+    assert.deepEqual(model.store.add({ ...source, id: "alpha-item", name: "Second" }), []);
+    assert.deepEqual(model.store.add({ ...source, id: "library-item", name: "Third" }), []);
+    model.library.browserFolder = (id) => {
+      if (model.store.isBuiltin(id) || id === "library-item") return "Library";
+      return id === "alpha-item" ? "Folder 2" : "Folder 10";
+    };
+
+    const state = buildLibraryServerState({
+      ...model,
+      hostContext,
+      previewTriggerPitch: 60,
+      noteLimit: 512,
+      browserQuery: "",
+    });
+    const libraryIndex = state.items.findIndex(({ id }) => id === "library-item");
+    const alphaIndex = state.items.findIndex(({ id }) => id === "alpha-item");
+    const zebraIndex = state.items.findIndex(({ id }) => id === "zebra-item");
+
+    assert.ok(libraryIndex > 0);
+    assert.ok(state.items.slice(0, libraryIndex).every(({ isBuiltin }) => isBuiltin));
+    assert.ok(libraryIndex < alphaIndex, "the Library group must stay above nested folders");
+    assert.ok(alphaIndex < zebraIndex, "Folder 2 must naturally sort before Folder 10");
+    assert.equal(state.items[alphaIndex]?.isBuiltin, false);
   });
 });

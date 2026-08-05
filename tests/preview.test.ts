@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { buildMotifPreview, midiNoteName, parseMidiNoteName } from "../src/core/preview.js";
-import type { HostContext } from "../src/core/types.js";
+import type { HostContext, Motif } from "../src/core/types.js";
 import { BUILTIN_MOTIFS } from "../src/generated/builtins.js";
 
 const chromaticTurn = BUILTIN_MOTIFS.find(({ id }) => id === "chromatic-turn");
@@ -72,6 +72,39 @@ describe("motif preview", () => {
     assert.deepEqual(
       preview.notes.map(({ velocity }) => velocity),
       [104, 100, 103, 107, 100, 97, 102],
+    );
+  });
+
+  it("previews the target-aware Hybrid contour used by playback", () => {
+    const hybrid: Motif = {
+      ...chromaticTurn,
+      id: "hybrid-contour-preview",
+      pitchMode: "hybrid",
+      sourcePitchContext: {
+        anchorPitch: 48,
+        scaleRootNote: 1,
+        scaleName: "Major",
+        scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+      },
+      notes: [
+        { at: 0, duration: 120, pitch: 2 },
+        { at: 120, duration: 120, pitch: 1, accidental: 1 },
+        { at: 240, duration: 120, pitch: 1 },
+        { at: 360, duration: 120, pitch: 0 },
+      ],
+      length: 480,
+    };
+    const preview = buildMotifPreview(
+      hybrid,
+      { ...host, rootNote: 10, scaleName: "Major" },
+      48,
+      undefined,
+      "preserve",
+    );
+
+    assert.deepEqual(
+      preview.notes.map(({ pitch }) => pitch),
+      [51, 50, 49, 48],
     );
   });
 

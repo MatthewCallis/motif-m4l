@@ -27,26 +27,26 @@ Add a repeatable performance harness before changing scheduling code.
 
 Deliverable: `tests/performance.test.ts` for deterministic operation/message budgets plus a short manual Max/Live profiling checklist.
 
-## Phase 2: Remove Library work from the MIDI hot path
+## Phase 2: Remove Library work from the MIDI hot path ✅ Landed
 
 This is the highest-confidence runtime optimization found in the audit.
 
 `triggerMotif()` currently calls `emitSelectedMotifUi()`, which rebuilds and URL-encodes the complete Library state before compiling every trigger. Hold-repeat runs the same path for every cycle. The Library work includes repeated sorting, filtering, folder calculation, hot-key scans, preview calculation, note serialization, and potentially chunked transfer of hundreds of notes.
 
-- On a trigger, update the native preview without rebuilding Library browser/editor state.
+- ✅ On a trigger, update the native preview without rebuilding Library browser/editor state. (`onPreviewTrigger` now calls only `emitPreviewState()`.)
 - On hold-repeat, update the preview only for the first cycle; subsequent cycles should emit MIDI and minimal status only.
 - Gate Library payloads on Library readiness/visibility and on actual Library-relevant state changes.
-- Add contract tests asserting that a normal trigger emits no `ui lib` payload and that held-repeat cycles do not retransmit unchanged UI.
+- ✅ Add contract tests asserting that a normal trigger emits no `ui lib` payload and that held-repeat cycles do not retransmit unchanged UI.
 
 Acceptance: MIDI output and preview behavior remain identical while Library payload bytes per trigger fall to zero.
 
-## Phase 3: Cache derived motif and Library data
+## Phase 3: Cache derived motif and Library data ✅ Partially Landed
 
 - Cache `performanceMotif()` by motif identity plus Invert/Reverse state so preview and compilation share one transformed motif.
-- Build each Library update from one `store.list()` snapshot.
-- Cache browser folder and hot-key summaries for that snapshot instead of recalculating them inside filters and sort comparators.
-- Cache motif labels until the store changes.
-- Debounce search-only Library updates to one render per UI turn.
+- ✅ Build each Library update from one `store.list()` snapshot.
+- ✅ Cache browser folder and hot-key summaries for that snapshot instead of recalculating them inside filters and sort comparators. (`folderById` and `hotkeysById` pre-built; `byMotif()` added to `MotifHotkeyMap`.)
+- ✅ Cache motif labels until the store changes. (`cachedLabels` in `MotifStore`.)
+- ✅ Debounce search-only Library updates to one render per UI turn. (80 ms debounce on search input.)
 - Replace whole-state retransmission with small deltas for note edits if profiling shows serialization remains material.
 
 Acceptance: identical state payloads and ordering, with lower allocation counts and improved 1,000/5,000-motif benchmark results.
@@ -61,9 +61,10 @@ Acceptance: identical state payloads and ordering, with lower allocation counts 
 
 Acceptance: smaller engine/startup I/O with the Library page still loading through the documented `readfile` bridge and passing the VM/Max validators.
 
-## Phase 5: Optimize compilation only if profiling requires it
+## Phase 5: Optimize compilation only if profiling requires it ⚡ Partially Landed
 
 - Cache tick-domain event templates for unchanged motif, pitch mode, scale, meter mode, and transforms.
+- ✅ Hoist per-compile constants (options spread, curved trigger velocity, quantized anchor) out of the note loop. (`compileMotif` now pre-computes `noteOptions`, `curvedTrigger`, and `targetAnchor` before iterating notes.)
 - Apply trigger velocity, channel, launch offset, and tempo-to-millisecond conversion as the final lightweight step.
 - Validate whether event sorting is measurable before replacing it; note-off ordering must remain stable for simultaneous events.
 - Stress overlapping triggers, sustain, panic, tempo changes, and backward transport jumps in Live after any scheduler optimization.

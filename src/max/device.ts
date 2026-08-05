@@ -158,7 +158,7 @@ const playback = new PlaybackController(store, hotkeys, settings, hostContext, {
   onPreviewTrigger: (pitch) => {
     previewTriggerPitch = pitch;
     previewWasTriggered = true;
-    emitSelectedMotifUi();
+    emitPreviewState();
   },
   onSelectMotif: (id) => authoring.selectBrowser(id),
 });

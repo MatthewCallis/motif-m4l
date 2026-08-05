@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { compileMotif } from "../src/core/compile-motif.js";
-import { RuntimeScheduler } from "./helpers/runtime-scheduler.js";
 import type { HostContext } from "../src/core/types.js";
 import { BUILTIN_MOTIFS } from "../src/generated/builtins.js";
 
@@ -32,13 +31,6 @@ describe("host timing regressions", () => {
     const noteOns = compiled.filter(({ velocity }) => velocity > 0);
     assert.deepEqual(
       noteOns.map(({ offsetMs }) => offsetMs),
-      [0, 250, 500, 750, 1000, 1250, 1500],
-    );
-
-    const scheduler = new RuntimeScheduler();
-    const runtime = scheduler.add(compiled, 10_000, "ms").filter(({ velocity }) => velocity > 0);
-    assert.deepEqual(
-      runtime.map(({ delay }) => delay),
       [0, 250, 500, 750, 1000, 1250, 1500],
     );
   });

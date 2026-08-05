@@ -1,11 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import {
-  applyVelocityCurve,
-  compileMotif,
-  effectiveDuration,
-  resolveVelocity,
-} from "../src/core/compile-motif.js";
+import { compileMotif, effectiveDuration, resolveVelocity } from "../src/core/compile-motif.js";
+import { convertMotifPitchMode } from "../src/core/import-notes.js";
 import { PPQ, type HostContext, type Motif, type MotifNote } from "../src/core/types.js";
 
 const HOST: HostContext = {
@@ -99,6 +95,67 @@ describe("compileMotif", () => {
     assert.equal(events[0]?.pitch, 63);
   });
 
+  it("respells Hybrid notes at playback to preserve the imported chromatic contour", () => {
+    const offsets = [0, -2, 3, 2, 1, 0, -2, -4];
+    const chromatic: Motif = {
+      ...MOTIF,
+      id: "hybrid-contour",
+      pitchMode: "chromatic",
+      sourcePitchContext: {
+        anchorPitch: 48,
+        scaleRootNote: 1,
+        scaleName: "Major",
+        scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+      },
+      length: offsets.length * 120,
+      notes: offsets.map((pitch, index) => ({
+        at: index * 120,
+        duration: 120,
+        pitch,
+      })),
+    };
+    const scale = convertMotifPitchMode(chromatic, "scale");
+    const hybrid = convertMotifPitchMode(chromatic, "hybrid");
+    const target = { ...HOST, rootNote: 10, scaleName: "Major" };
+    const options = {
+      channel: 1,
+      meterMode: "preserve" as const,
+      triggerPitch: 48,
+      triggerVelocity: 100,
+    };
+    const noteOnPitches = (motif: Motif, host: HostContext): number[] =>
+      compileMotif(motif, host, options)
+        .filter(({ velocity }) => velocity > 0)
+        .map(({ pitch }) => pitch);
+
+    assert.deepEqual(
+      hybrid.notes.map(({ pitch, accidental }) => [pitch, accidental ?? 0]),
+      [
+        [0, 0],
+        [-1, 0],
+        [2, 0],
+        [1, 1],
+        [1, 0],
+        [0, 0],
+        [-1, 0],
+        [-2, 0],
+      ],
+      "conversion keeps the canonical source spelling",
+    );
+    assert.deepEqual(noteOnPitches(scale, target), [48, 46, 51, 50, 50, 48, 46, 45]);
+    assert.deepEqual(noteOnPitches(hybrid, target), [48, 46, 51, 50, 49, 48, 46, 45]);
+    assert.deepEqual(
+      noteOnPitches(hybrid, { ...HOST, rootNote: 1, scaleName: "Major" }),
+      [48, 46, 51, 50, 49, 48, 46, 44],
+      "same-scale playback remains exact",
+    );
+    assert.deepEqual(
+      convertMotifPitchMode(hybrid, "chromatic").notes.map(({ pitch }) => pitch),
+      offsets,
+      "target-time respelling does not mutate the reversible stored representation",
+    );
+  });
+
   it("retargets C-major degrees into C minor while Scale ignores retained accidentals", () => {
     const events = compileMotif(
       {
@@ -151,15 +208,13 @@ describe("compileMotif", () => {
   });
 
   it("applies velocity curves, note overrides, scaling, offsets, and clamping", () => {
-    assert.equal(applyVelocityCurve(64), 64);
-    assert.equal(
-      applyVelocityCurve(1, { inputMin: 1, inputMax: 127, outputMin: 10, outputMax: 110 }),
-      10,
-    );
-    assert.equal(
-      applyVelocityCurve(127, { inputMin: 1, inputMax: 127, outputMin: 10, outputMax: 110 }),
-      110,
-    );
+    const linearCurve = { inputMin: 1, inputMax: 127, outputMin: 10, outputMax: 110, exponent: 1 };
+    const note = { at: 0, duration: 1, pitch: 0 };
+    // Velocity curve maps input boundaries to output boundaries when no note override is set
+    assert.equal(resolveVelocity(note, { ...MOTIF, velocityCurve: linearCurve }, 1), 10);
+    assert.equal(resolveVelocity(note, { ...MOTIF, velocityCurve: linearCurve }, 127), 110);
+    // No curve: trigger velocity passes through unchanged
+    assert.equal(resolveVelocity(note, MOTIF, 64), 64);
 
     const motif: Motif = {
       ...MOTIF,

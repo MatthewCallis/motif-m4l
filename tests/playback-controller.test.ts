@@ -8,6 +8,7 @@ import {
   launchOffsetTicksFor,
   motifRepeatDelayFor,
   PlaybackController,
+  repeatTaskDelayFor,
   type PlaybackControllerCallbacks,
 } from "../src/max/playback-controller.js";
 
@@ -22,11 +23,12 @@ interface PlaybackHarness {
   previews: number[];
   selections: string[];
   clears: number;
-  scheduled: Array<{ delay: number; run: () => void }>;
+  scheduled: Array<{ delay: number; run: (lateness?: number) => void }>;
 }
 
-function createPlayback(): PlaybackHarness {
-  const scheduled: Array<{ delay: number; run: () => void }> = [];
+function createPlayback(eventDispatchMilliseconds = 0): PlaybackHarness {
+  const scheduled: Array<{ delay: number; run: (lateness?: number) => void }> = [];
+  let nowMilliseconds = 1_000_000;
   class MockTask {
     #cancelled = false;
     constructor(
@@ -43,7 +45,8 @@ function createPlayback(): PlaybackHarness {
     schedule(delay = 0): void {
       scheduled.push({
         delay,
-        run: () => {
+        run: (lateness = 0) => {
+          nowMilliseconds += delay + lateness;
           if (!this.#cancelled) this.callback.apply(this.context, this.args);
         },
       });
@@ -63,6 +66,7 @@ function createPlayback(): PlaybackHarness {
   const callbacks: PlaybackControllerCallbacks = {
     emitScheduledEvent: (pitch, velocity, channel, delay) => {
       events.push([pitch, velocity, channel, delay]);
+      nowMilliseconds += eventDispatchMilliseconds;
     },
     emitClearScheduledNotes: () => {
       state.clears += 1;
@@ -85,7 +89,14 @@ function createPlayback(): PlaybackHarness {
     isPlaying: false,
     currentSongTime: 0,
   };
-  const playback = new PlaybackController(store, hotkeys, settings, host, callbacks);
+  const playback = new PlaybackController(
+    store,
+    hotkeys,
+    settings,
+    host,
+    callbacks,
+    () => nowMilliseconds,
+  );
 
   return {
     playback,
@@ -152,6 +163,13 @@ describe("motifRepeatDelayFor", () => {
   });
 });
 
+describe("repeatTaskDelayFor", () => {
+  it("wakes the low-priority Task before the intended repeat boundary", () => {
+    assert.equal(repeatTaskDelayFor(2_000, 1_000), 875);
+    assert.equal(repeatTaskDelayFor(1_000, 1_000), 1);
+  });
+});
+
 describe("PlaybackController", () => {
   it("routes pass-through notes and select-mode hot keys", () => {
     const harness = createPlayback();
@@ -189,10 +207,12 @@ describe("PlaybackController", () => {
     harness.playback.note(60, 80, 1);
     assert.equal(harness.playback.heldRepeats.size, 1);
     assert.equal(harness.scheduled.length, 1);
-    assert.equal(harness.scheduled[0]?.delay, 1750);
+    assert.equal(harness.scheduled[0]?.delay, 1625);
 
     harness.scheduled.shift()?.run();
     assert.ok(harness.statuses.filter(([selector]) => selector === "trigger").length >= 2);
+    assert.deepEqual(harness.previews, [60]);
+    assert.equal(harness.scheduled[0]?.delay, 1750);
     harness.playback.note(60, 0, 1);
     assert.equal(harness.playback.heldRepeats.size, 0);
 
@@ -201,5 +221,36 @@ describe("PlaybackController", () => {
     assert.equal(harness.playback.heldRepeats.size, 0);
     assert.ok(harness.statuses.some(([selector]) => selector === "panic"));
     assert.deepEqual(harness.errors, []);
+  });
+
+  it("absorbs a late repeat Task inside the native scheduling lookahead", () => {
+    const harness = createPlayback();
+    harness.settings.triggerMode = "hold-repeat";
+    harness.playback.note(60, 100, 1);
+    const initialEventCount = harness.events.length;
+    const initialClearCount = harness.clears;
+
+    harness.scheduled.shift()?.run(90);
+
+    const repeatedEvents = harness.events.slice(initialEventCount);
+    assert.equal(repeatedEvents[0]?.[3], 35);
+    assert.equal(harness.clears, initialClearCount);
+    assert.equal(harness.scheduled[0]?.delay, 1660);
+
+    harness.playback.note(60, 0, 1);
+    assert.equal(harness.clears, initialClearCount + 1);
+  });
+
+  it("anchors the first repeat to the first native event instead of the end of dispatch", () => {
+    const harness = createPlayback(5);
+    harness.settings.triggerMode = "hold-repeat";
+    harness.playback.note(60, 100, 1);
+    const initialEventCount = harness.events.length;
+
+    assert.ok(initialEventCount > 1);
+    assert.equal(harness.scheduled[0]?.delay, 1625 - initialEventCount * 5);
+
+    harness.scheduled.shift()?.run();
+    assert.equal(harness.events[initialEventCount]?.[3], 125);
   });
 });

@@ -15,7 +15,7 @@ import {
   type LaunchQuantization,
 } from "../core/types.js";
 import type { MotifStore } from "../library/store.js";
-import { MIN_REPEAT_DELAY_MS } from "./device-types.js";
+import { MIN_REPEAT_DELAY_MS, REPEAT_SCHEDULING_LOOKAHEAD_MS } from "./device-types.js";
 import type { DeviceSettingsState } from "./device-settings.js";
 import type { MotifHotkeyMap } from "./hotkey-map.js";
 
@@ -29,6 +29,8 @@ interface HeldRepeat {
   channel: number;
   /** Max low-priority repeat task. */
   task: Task;
+  /** Absolute wall-clock boundary for the next cycle. */
+  nextBoundaryMilliseconds: number;
 }
 
 /** Optional overrides for launching an already-resolved motif. */
@@ -37,6 +39,14 @@ interface TriggerMotifOptions {
   motifId?: string;
   /** Explicit launch delay in PPQ ticks. */
   launchOffsetTicks?: number;
+  /** Keep already queued pipe events when preparing a repeat cycle. */
+  preserveScheduledNotes?: boolean;
+  /** Absolute wall-clock time at which the compiled cycle should launch. */
+  launchAtMilliseconds?: number;
+  /** Observe when the compiled events begin entering Max `pipe`. */
+  onScheduleStart?: (milliseconds: number) => void;
+  /** Whether this cycle should refresh the selected motif preview. */
+  synchronizePreview?: boolean;
 }
 
 /** Side effects crossing from playback into the Max device composition root. */
@@ -100,6 +110,20 @@ export function launchOffsetTicksFor(
 }
 
 /**
+ * Wake the low-priority repeat Task before its boundary so native Max `pipe`
+ * owns the final timing interval.
+ * @param {number} boundaryMilliseconds Absolute wall-clock repeat boundary.
+ * @param {number} nowMilliseconds Current wall-clock time.
+ * @returns {number} Safe Task delay in milliseconds.
+ */
+export function repeatTaskDelayFor(boundaryMilliseconds: number, nowMilliseconds: number): number {
+  return Math.max(
+    MIN_REPEAT_DELAY_MS,
+    boundaryMilliseconds - nowMilliseconds - REPEAT_SCHEDULING_LOOKAHEAD_MS,
+  );
+}
+
+/**
  * Owns live MIDI trigger processing and all ephemeral playback bookkeeping.
  *
  * Catalog, hot-key, settings, and Song context objects are shared read-through
@@ -126,6 +150,7 @@ export class PlaybackController {
     readonly settings: DeviceSettingsState,
     readonly hostContext: HostContext,
     readonly callbacks: PlaybackControllerCallbacks,
+    readonly nowMilliseconds: () => number = () => Date.now(),
   ) {}
 
   /**
@@ -173,11 +198,16 @@ export class PlaybackController {
       return undefined;
     }
 
-    if (this.settings.retriggerMode === "replace" || this.settings.triggerMode === "latch") {
+    if (
+      !triggerOptions.preserveScheduledNotes &&
+      (this.settings.retriggerMode === "replace" || this.settings.triggerMode === "latch")
+    ) {
       this.clearScheduledNotes();
     }
 
-    this.callbacks.onPreviewTrigger(triggerPitch);
+    if (triggerOptions.synchronizePreview !== false) {
+      this.callbacks.onPreviewTrigger(triggerPitch);
+    }
 
     const instanceId = this.instanceCounter++;
     const options: CompileOptions = {
@@ -209,8 +239,19 @@ export class PlaybackController {
       return undefined;
     }
 
+    const scheduleStartMilliseconds = this.nowMilliseconds();
+    triggerOptions.onScheduleStart?.(scheduleStartMilliseconds);
+    const wallClockLaunchDelay =
+      triggerOptions.launchAtMilliseconds === undefined
+        ? 0
+        : Math.max(0, triggerOptions.launchAtMilliseconds - scheduleStartMilliseconds);
     for (const event of events) {
-      this.callbacks.emitScheduledEvent(event.pitch, event.velocity, event.channel, event.offsetMs);
+      this.callbacks.emitScheduledEvent(
+        event.pitch,
+        event.velocity,
+        event.channel,
+        event.offsetMs + wallClockLaunchDelay,
+      );
     }
 
     this.callbacks.emitStatus("trigger", motifId, triggerPitch, instanceId);
@@ -230,6 +271,7 @@ export class PlaybackController {
     repeat.task.freepeer();
     this.heldRepeats.delete(triggerPitch);
     this.sustainedRepeatReleases.delete(triggerPitch);
+    this.clearScheduledNotes();
     if (emitFeedback) {
       this.callbacks.emitStatus("repeat-stopped", repeat.motifId, triggerPitch);
     }
@@ -266,9 +308,13 @@ export class PlaybackController {
       this.hostContext,
       this.settings.launchQuantization,
     );
+    let firstScheduleStartMilliseconds: number | undefined;
     const instanceId = this.triggerMotif(triggerPitch, triggerVelocity, channel, {
       motifId: motif.id,
       launchOffsetTicks: firstLaunchOffset,
+      onScheduleStart: (milliseconds) => {
+        firstScheduleStartMilliseconds = milliseconds;
+      },
     });
     if (instanceId === undefined) return;
 
@@ -281,31 +327,37 @@ export class PlaybackController {
         this.stopHeldRepeat(triggerPitch);
         return;
       }
+      const nowMilliseconds = this.nowMilliseconds();
+      let repeatedScheduleStartMilliseconds: number | undefined;
       const repeatedInstance = this.triggerMotif(triggerPitch, repeat.velocity, repeat.channel, {
         motifId: repeat.motifId,
         launchOffsetTicks: 0,
+        launchAtMilliseconds: repeat.nextBoundaryMilliseconds,
+        onScheduleStart: (milliseconds) => {
+          repeatedScheduleStartMilliseconds = milliseconds;
+        },
+        preserveScheduledNotes: true,
+        synchronizePreview: false,
       });
       if (repeatedInstance === undefined || this.heldRepeats.get(triggerPitch) !== repeat) {
         return;
       }
 
+      const repeatDelay = motifRepeatDelayFor(
+        repeatedMotif,
+        this.settings.meterMode,
+        this.hostContext,
+        this.settings.tempoMultiplier,
+      );
+      repeat.nextBoundaryMilliseconds =
+        Math.max(
+          repeat.nextBoundaryMilliseconds,
+          repeatedScheduleStartMilliseconds ?? nowMilliseconds,
+        ) + repeatDelay;
       repeat.task.schedule(
-        motifRepeatDelayFor(
-          repeatedMotif,
-          this.settings.meterMode,
-          this.hostContext,
-          this.settings.tempoMultiplier,
-        ),
+        repeatTaskDelayFor(repeat.nextBoundaryMilliseconds, this.nowMilliseconds()),
       );
     });
-    repeat = {
-      motifId: motif.id,
-      velocity: triggerVelocity,
-      channel,
-      task,
-    };
-    this.heldRepeats.set(triggerPitch, repeat);
-
     const firstDelay =
       ticksToMilliseconds(
         firstLaunchOffset,
@@ -317,7 +369,16 @@ export class PlaybackController {
         this.hostContext,
         this.settings.tempoMultiplier,
       );
-    task.schedule(Math.max(MIN_REPEAT_DELAY_MS, firstDelay));
+    repeat = {
+      motifId: motif.id,
+      velocity: triggerVelocity,
+      channel,
+      task,
+      nextBoundaryMilliseconds:
+        (firstScheduleStartMilliseconds ?? this.nowMilliseconds()) + firstDelay,
+    };
+    this.heldRepeats.set(triggerPitch, repeat);
+    task.schedule(repeatTaskDelayFor(repeat.nextBoundaryMilliseconds, this.nowMilliseconds()));
     this.callbacks.emitStatus("repeat-started", motif.id, triggerPitch);
   }
 

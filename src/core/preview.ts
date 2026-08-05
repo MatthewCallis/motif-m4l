@@ -6,7 +6,7 @@
  */
 
 import { barLengthTicks } from "./timing.js";
-import { resolveMotifPitch, resolveVelocity } from "./compile-motif.js";
+import { effectiveDuration, resolveMotifPitch, resolveVelocity } from "./compile-motif.js";
 import { convertMotifPitchMode } from "./import-notes.js";
 import type { HostContext, MeterMode, Motif, PitchMode } from "./types.js";
 
@@ -121,7 +121,7 @@ export function buildMotifPreview(
   const targetBarTicks = barLengthTicks(host.timeSignature);
   const timeScale = meterMode === "fit-bar" ? targetBarTicks / sourceBarTicks : 1;
 
-  const notes = previewMotif.notes.slice(0, maxNotes).map((note) => ({
+  const notes = previewMotif.notes.slice(0, maxNotes).map((note, index) => ({
     pitch: resolveMotifPitch(note, previewMotif, host, {
       channel: 1,
       meterMode,
@@ -130,7 +130,10 @@ export function buildMotifPreview(
       triggerVelocity: 100,
     }),
     atTicks: Math.max(0, note.at * timeScale),
-    durationTicks: Math.max(1, note.duration * timeScale),
+    durationTicks: Math.max(
+      1,
+      effectiveDuration(note, previewMotif.notes[index + 1], previewMotif) * timeScale,
+    ),
     // Preview relative velocity programming against a stable reference strike.
     velocity: resolveVelocity(note, previewMotif, 100),
   }));

@@ -65,10 +65,10 @@ export class MaxUserLibrary {
   /**
    * Return the root-relative browser folder for a motif.
    * @param {string} id Stable motif id.
-   * @returns {string} `Built-ins`, `Library`, or a nested relative folder.
+   * @returns {string} `Library` or a nested relative folder.
    */
   browserFolder(id: string): string {
-    if (this.store.isBuiltin(id)) return "Built-ins";
+    if (this.store.isBuiltin(id)) return "Library";
     const filename = this.files.get(id);
     if (!filename || !this.path) return "Library";
 

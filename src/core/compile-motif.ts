@@ -4,9 +4,11 @@
  */
 
 import { clamp } from "./math.js";
-import { convertMotifPitchMode } from "./import-notes.js";
+import { convertMotifPitchMode, decodeSemitoneOffset } from "./import-notes.js";
+import { knownScaleIntervals } from "./scales.js";
 import {
   quantizePitchToScale,
+  scaleDegreeSemitoneOffset,
   transposeByScaleDegree,
   transposeChromatically,
   transposeHybrid,
@@ -28,7 +30,7 @@ import type {
  * @param {VelocityCurve | undefined} curve The velocity curve.
  * @returns {number} The value after the curve is applied. If no curve is provided, the value is returned unchanged.
  */
-export function applyVelocityCurve(value: number, curve?: VelocityCurve): number {
+function applyVelocityCurve(value: number, curve?: VelocityCurve): number {
   if (!curve) {
     return value;
   }
@@ -56,6 +58,137 @@ export function resolveVelocity(note: MotifNote, motif: Motif, triggerVelocity: 
   return Math.round(clamp(scaled + (note.velocityOffset ?? 0), 1, 127));
 }
 
+interface HybridSpelling {
+  degree: number;
+  accidental: number;
+  targetOffset: number;
+  deviation: number;
+  canonical: boolean;
+}
+
+/**
+ * Choose a target-time spelling for one Hybrid note.
+ *
+ * MIDI records a sounding pitch, not a written note name. When a Chromatic
+ * motif is converted to Hybrid, the same source pitch can therefore have more
+ * than one valid degree/accidental spelling. For example, a pitch between two
+ * source-scale degrees could be encoded as the lower degree plus a sharp or the
+ * upper degree plus a flat. Both spellings decode to the same source semitone
+ * offset, but they can produce different pitches when their degrees are mapped
+ * through a target scale whose adjacent steps have different widths.
+ *
+ * Conversion deliberately stores one stable canonical spelling. Playback does
+ * not rewrite it. Instead, this function reconstructs the exact source offset,
+ * considers the canonical degree and its immediate neighbors, and keeps only
+ * alternative spellings that:
+ *
+ * 1. Reconstruct that exact source offset.
+ * 2. Require no more than one sharp or flat.
+ *
+ * Each valid candidate is mapped through the current target scale. The candidate
+ * whose target-relative semitone offset is closest to the original source offset
+ * wins. This makes Hybrid favor the imported chromatic contour when an ordinary
+ * enharmonic respelling can preserve it, without allowing large accidentals to
+ * make Hybrid collapse into Chromatic mode. Equal results retain the canonical
+ * spelling so existing output remains stable whenever respelling has no benefit.
+ *
+ * This is intentionally a local per-note heuristic. Natural future extensions
+ * belong here: scoring melodic direction or interval continuity across adjacent
+ * notes, preferring consistent spellings across repeated pitches, widening the
+ * candidate radius for sparse scales, weighting diatonic motion against contour
+ * fidelity, or exposing that balance as a user setting. Any phrase-level version
+ * should continue to preserve the two invariants above: stored notes are never
+ * mutated, and every candidate must decode to the exact source pitch.
+ *
+ * @param {MotifNote} note The canonically encoded Hybrid note.
+ * @param {Motif} motif The source-aware motif.
+ * @param {HostContext} host The current target scale context.
+ * @param {number} targetAnchor The quantized target trigger pitch.
+ * @returns {{ degree: number, accidental: number }} The target-time spelling.
+ */
+function selectHybridSpelling(
+  note: MotifNote,
+  motif: Motif,
+  host: HostContext,
+  targetAnchor: number,
+): { degree: number; accidental: number } {
+  const canonicalAccidental = note.accidental ?? 0;
+  const source = motif.sourcePitchContext;
+  const sourceIntervals = source.scaleIntervals ?? knownScaleIntervals(source.scaleName);
+  if (!sourceIntervals) {
+    return { degree: note.pitch, accidental: canonicalAccidental };
+  }
+
+  const sourceContext = {
+    triggerPitch: source.anchorPitch,
+    rootNote: source.scaleRootNote,
+    scaleIntervals: sourceIntervals,
+  };
+  // Recover the lossless Chromatic offset represented by the stored degree and
+  // accidental. This is the fixed reference all candidate spellings must match.
+  const originalOffset = decodeSemitoneOffset(note, "hybrid", sourceContext);
+
+  // Score in relative semitones rather than absolute MIDI pitches. The target
+  // anchor may move when an off-scale trigger is quantized, but that anchor shift
+  // should affect every candidate equally and is not part of the motif contour.
+  const spelling = (degree: number, accidental: number): HybridSpelling => {
+    const targetOffset =
+      scaleDegreeSemitoneOffset(targetAnchor, degree, host.rootNote, host.scaleIntervals) +
+      accidental;
+    return {
+      degree,
+      accidental,
+      targetOffset,
+      deviation: Math.abs(targetOffset - originalOffset),
+      canonical: degree === note.pitch && accidental === canonicalAccidental,
+    };
+  };
+
+  // Seed with the stored spelling so unresolved ties are backward-compatible.
+  let best = spelling(note.pitch, canonicalAccidental);
+
+  // Immediate degrees cover the common sharp/flat ambiguity without opening an
+  // unbounded search in which sufficiently large accidentals could reproduce any
+  // Chromatic pitch. Sparse-scale support could justify a wider, scored radius.
+  for (let degree = note.pitch - 1; degree <= note.pitch + 1; degree += 1) {
+    const sourceDegreeOffset = scaleDegreeSemitoneOffset(
+      source.anchorPitch,
+      degree,
+      source.scaleRootNote,
+      sourceIntervals,
+    );
+    const accidental = originalOffset - sourceDegreeOffset;
+    const isCanonical = degree === note.pitch && accidental === canonicalAccidental;
+
+    // Always admit the stored spelling, including intentionally authored double
+    // accidentals. Newly inferred alternatives stay within a conventional single
+    // accidental so target fidelity does not overwhelm the scale-relative intent.
+    if (!isCanonical && Math.abs(accidental) > 1) {
+      continue;
+    }
+
+    const candidate = spelling(degree, accidental);
+
+    // Primary objective: preserve the original semitone offset in the new scale.
+    // On equal deviation, prefer the canonical spelling. Remaining noncanonical
+    // ties use the smaller accidental, then the lower degree for determinism.
+    // Phrase-aware continuity or configurable fidelity weights would extend this
+    // ordering rather than changing source-equivalence candidate generation.
+    const improvesTie =
+      candidate.deviation === best.deviation &&
+      !best.canonical &&
+      (candidate.canonical ||
+        Math.abs(candidate.accidental) < Math.abs(best.accidental) ||
+        (Math.abs(candidate.accidental) === Math.abs(best.accidental) &&
+          candidate.degree < best.degree));
+    if (candidate.deviation < best.deviation || improvesTie) {
+      best = candidate;
+    }
+  }
+
+  return { degree: best.degree, accidental: best.accidental };
+}
+
 /**
  * Resolve one motif note to an absolute MIDI pitch for the active pitch mode.
  * Uses `options.pitchMode` when set, otherwise `motif.pitchMode`.
@@ -63,6 +196,7 @@ export function resolveVelocity(note: MotifNote, motif: Motif, triggerVelocity: 
  * @param {Motif} motif The motif.
  * @param {HostContext} host The host context.
  * @param {CompileOptions} options The compile options.
+ * @param {number | undefined} precomputedAnchor Optional quantized anchor pre-computed once per compile.
  * @returns {number} The resolved pitch.
  */
 export function resolveMotifPitch(
@@ -70,6 +204,7 @@ export function resolveMotifPitch(
   motif: Motif,
   host: HostContext,
   options: CompileOptions,
+  precomputedAnchor?: number,
 ): number {
   const pitchMode = options.pitchMode ?? motif.pitchMode;
 
@@ -78,25 +213,22 @@ export function resolveMotifPitch(
       return transposeChromatically(options.triggerPitch, note.pitch + (note.accidental ?? 0));
     }
     case "hybrid": {
-      const targetAnchor = quantizePitchToScale(
-        options.triggerPitch,
-        host.rootNote,
-        host.scaleIntervals,
-      );
+      const targetAnchor =
+        precomputedAnchor ??
+        quantizePitchToScale(options.triggerPitch, host.rootNote, host.scaleIntervals);
+      const spelling = selectHybridSpelling(note, motif, host, targetAnchor);
       return transposeHybrid(
         targetAnchor,
-        note.pitch,
-        note.accidental ?? 0,
+        spelling.degree,
+        spelling.accidental,
         host.rootNote,
         host.scaleIntervals,
       );
     }
     default: {
-      const targetAnchor = quantizePitchToScale(
-        options.triggerPitch,
-        host.rootNote,
-        host.scaleIntervals,
-      );
+      const targetAnchor =
+        precomputedAnchor ??
+        quantizePitchToScale(options.triggerPitch, host.rootNote, host.scaleIntervals);
       const targetPitch = transposeByScaleDegree(
         targetAnchor,
         note.pitch,
@@ -167,6 +299,14 @@ export function compileMotif(
   const channel = Math.round(clamp(options.channel, 1, 16));
   const launchOffsetTicks = Math.max(0, options.launchOffsetTicks ?? 0);
   const instanceId = options.instanceId ?? 0;
+
+  // Lifted per-compile constants for the note loop.
+  const noteOptions: CompileOptions = { ...options, pitchMode: compiledMotif.pitchMode };
+  const curvedTrigger = applyVelocityCurve(options.triggerVelocity, compiledMotif.velocityCurve);
+  const targetAnchor =
+    compiledMotif.pitchMode !== "chromatic"
+      ? quantizePitchToScale(options.triggerPitch, host.rootNote, host.scaleIntervals)
+      : undefined;
   const events: ScheduledMidiEvent[] = [];
 
   for (let index = 0; index < compiledMotif.notes.length; index += 1) {
@@ -176,11 +316,11 @@ export function compileMotif(
     }
 
     const next = compiledMotif.notes[index + 1];
-    const pitch = resolveMotifPitch(note, compiledMotif, host, {
-      ...options,
-      pitchMode: compiledMotif.pitchMode,
-    });
-    const velocity = resolveVelocity(note, compiledMotif, options.triggerVelocity);
+    const pitch = resolveMotifPitch(note, compiledMotif, host, noteOptions, targetAnchor);
+    const noteBase = note.velocity ?? curvedTrigger;
+    const velocity = Math.round(
+      clamp(noteBase * (note.velocityScale ?? 1) + (note.velocityOffset ?? 0), 1, 127),
+    );
     const noteOnTicks = launchOffsetTicks + Math.max(0, note.at * timeScale);
     const duration = effectiveDuration(note, next, compiledMotif) * timeScale;
     const noteOffTicks = Math.max(noteOnTicks, noteOnTicks + duration);

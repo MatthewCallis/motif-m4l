@@ -11,16 +11,13 @@ import {
   type SourcePitchContext,
   type TimeSignature,
 } from "../core/types.js";
+import { isRecord } from "../core/type-guards.js";
 
 /** Result of {@link validateMotif}; `motif` is present only when `valid` is true. */
 export interface ValidationResult {
   valid: boolean;
   errors: string[];
   motif?: Motif;
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 function isFiniteNumber(value: unknown): value is number {

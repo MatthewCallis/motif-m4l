@@ -30,20 +30,10 @@ import {
   type LibrarySidebarLayout,
 } from "./library-logic.js";
 import { formatPreviewBarCount } from "./library-view.js";
+import type { NoteEditField } from "../library/note-edit-schema.js";
 
 type PanelName = "properties" | "notes";
 type DebugLevel = "info" | "ok" | "error";
-type NoteFieldName =
-  | "pitch"
-  | "accidental"
-  | "at"
-  | "duration"
-  | "gate"
-  | "velocity"
-  | "velocityOffset"
-  | "velocityScale"
-  | "legato"
-  | "tie";
 
 interface MaxBridge {
   outlet: (...args: unknown[]) => void;
@@ -58,7 +48,7 @@ declare global {
 }
 
 interface NoteField {
-  name: NoteFieldName;
+  name: NoteEditField;
   type: "number" | "checkbox";
   required?: boolean;
   min?: string;
@@ -680,7 +670,6 @@ function applyServerState(server: LibraryServerState): void {
   const selectedChanged = previous.server?.selected?.id !== server.selected?.id;
   const editingEnded = Boolean(previous.server?.editing.active && !server.editing.active);
   store.setState({
-    ...previous,
     server,
     formDirty: selectedChanged || editingEnded ? false : previous.formDirty,
   });
@@ -872,8 +861,12 @@ document.querySelectorAll<HTMLButtonElement>(".panel-tab").forEach((tab) => {
   });
 });
 const searchInput = $<HTMLInputElement>("search");
+let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 searchInput.addEventListener("input", () => {
-  send({ type: "filter_motifs", query: searchInput.value });
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(() => {
+    send({ type: "filter_motifs", query: searchInput.value });
+  }, 80);
 });
 $<HTMLButtonElement>("clear-search").addEventListener("click", () => {
   send({ type: "filter_motifs", query: "" });
@@ -931,7 +924,7 @@ for (const id of PROPERTY_INPUT_IDS) {
   input.addEventListener("input", () => {
     if (id === "source-anchor-edit") renderSourceAnchorName();
     if (id === "source-root-edit") renderSourceRootName();
-    store.setState({ formDirty: true });
+    if (!store.getState().formDirty) store.setState({ formDirty: true });
   });
   input.addEventListener("change", pushProperties);
   if (
@@ -1013,6 +1006,7 @@ if (isMax) {
             id: "chromatic-turn",
             name: "Chromatic Turn",
             showId: false,
+            isBuiltin: true,
             folder: "Library",
             hotkeys: [],
           },
@@ -1020,6 +1014,7 @@ if (isMax) {
             id: "scale-turn",
             name: "Scale Turn",
             showId: false,
+            isBuiltin: true,
             folder: "Library",
             hotkeys: [],
           },
@@ -1051,7 +1046,7 @@ if (isMax) {
           effectivePitchMode: "chromatic",
           isBuiltin: true,
           isPersisted: false,
-          folder: "Built-ins",
+          folder: "Library",
           hotkeys: [],
           noteCount: 2,
           noteLimit: 512,

@@ -1,0 +1,41 @@
+---
+description: Code style conventions for uttori-motif-m4l
+alwaysApply: true
+---
+
+# Code Style
+
+## No trampoline functions
+
+A function that does nothing but call another function is a trampoline — delete it and inline
+the implementation at the call site(s).
+
+```ts
+// ❌ Trampoline — resolveVelocity just calls resolveVelocityCurved
+function resolveVelocityCurved(note, curved) { ... }
+export function resolveVelocity(note, motif, v) {
+  return resolveVelocityCurved(note, applyVelocityCurve(v, motif.curve));
+}
+
+// ✅ Implementation lives in the exported function; hot-path inlines the body
+export function resolveVelocity(note, motif, v) {
+  const curved = applyVelocityCurve(v, motif.curve);
+  const base = note.velocity ?? curved;
+  return Math.round(clamp(base * (note.velocityScale ?? 1) + (note.velocityOffset ?? 0), 1, 127));
+}
+// Hot path that pre-computes: inline the 3-line body directly
+```
+
+## No re-exports
+
+Import from the defining module, not through a middleman.
+
+```ts
+// ❌ motif-authoring.ts re-exports from note-edit-schema.ts
+export { NOTE_EDIT_FIELDS, type NoteEditField } from "./note-edit-schema.js";
+// authoring-controller.ts imports via the middleman
+import { type NoteEditField } from "../library/motif-authoring.js";
+
+// ✅ Import from the source directly
+import type { NoteEditField } from "../library/note-edit-schema.js";
+```

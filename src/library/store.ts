@@ -34,6 +34,7 @@ export class MotifStore {
   motifs = new Map<string, Motif>();
   builtinIds = new Set<string>(BUILTIN_MOTIFS.map((motif) => motif.id));
   sortedList: Motif[] | null = null;
+  cachedLabels: Map<string, string> | null = null;
   currentId: string;
 
   /**
@@ -52,6 +53,7 @@ export class MotifStore {
    */
   invalidateSortedList(): void {
     this.sortedList = null;
+    this.cachedLabels = null;
   }
 
   /**
@@ -202,17 +204,21 @@ export class MotifStore {
    * @returns {Map<string, string>} A map of `id` to display label.
    */
   labels(): Map<string, string> {
+    if (this.cachedLabels) {
+      return this.cachedLabels;
+    }
     const motifs = this.list();
     const counts = new Map<string, number>();
     for (const motif of motifs) {
       counts.set(motif.name, (counts.get(motif.name) ?? 0) + 1);
     }
-    return new Map(
+    this.cachedLabels = new Map(
       motifs.map((motif) => [
         motif.id,
         (counts.get(motif.name) ?? 0) > 1 ? `${motif.name} · ${motif.id}` : motif.name,
       ]),
     );
+    return this.cachedLabels;
   }
 
   /**

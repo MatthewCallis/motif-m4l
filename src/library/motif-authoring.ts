@@ -1,23 +1,7 @@
 import { convertMotifPitchMode } from "../core/import-notes.js";
 import { hasOwn, isRecord, jsonValuesEqual, primitiveText } from "../core/type-guards.js";
 import type { Motif, MotifNote, PitchMode, SourcePitchContext } from "../core/types.js";
-
-/** Motif-note properties accepted by indexed Library edits. */
-export const NOTE_EDIT_FIELDS = [
-  "pitch",
-  "accidental",
-  "at",
-  "duration",
-  "gate",
-  "velocity",
-  "velocityOffset",
-  "velocityScale",
-  "legato",
-  "tie",
-] as const;
-
-/** Editable motif-note property name. */
-export type NoteEditField = (typeof NOTE_EDIT_FIELDS)[number];
+import { NOTE_EDIT_FIELDS, type NoteEditField } from "./note-edit-schema.js";
 
 /** Immutable motif-property mutation outcome. */
 export type MutationResult<T> =

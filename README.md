@@ -69,7 +69,7 @@ motif-preview-<content-hash>.js
 - Every motif stores the original anchor MIDI note, scale root, scale name, and authoritative scale intervals in `sourcePitchContext` while remaining schema version 1.
 - Chromatic stores exact semitone offsets and ignores Live's scale.
 - Scale stores scale-degree offsets and maps them through Live's current root and `scale_intervals`. Retained source accidentals are ignored, so output remains in the target scale.
-- Hybrid uses the same scale degrees and applies the retained chromatic alterations after target-scale mapping.
+- Hybrid uses the same scale degrees and retained chromatic alterations. At playback it may respell a note against one neighboring source degree when a single accidental produces a target pitch closer to the imported chromatic contour; the stored canonical spelling wins ties.
 - Scale/Hybrid conversion uses the motif's saved source context, never whichever target scale Live currently displays.
 - Off-scale Scale/Hybrid triggers resolve to the nearest target-scale anchor; equidistant ties prefer the lower note.
 
@@ -85,7 +85,7 @@ motif-preview-<content-hash>.js
 ## User library
 
 - Choose a root library folder from the floating Library window before importing clips. Every `.json` motif beneath it is discovered recursively in bounded background batches so large folder trees do not lock the Max UI.
-- Relative folders are shown as browser groups and are searchable (for example, searching `Bass/Fills` finds motifs in that folder).
+- Built-in motifs stay at the top inside the browser's `Library` group instead of using a separate Built-ins folder. Relative user folders are naturally sorted, shown as searchable groups, and can be found by path (for example, searching `Bass/Fills`).
 - Folder groups can be collapsed to keep large libraries compact; active searches temporarily expand matching groups.
 - Editing an existing motif saves it back to its original subfolder. New motifs are saved at the chosen library root.
 - Motif ids must remain unique across the entire folder tree; duplicate ids are skipped with an error naming the conflicting relative path.
