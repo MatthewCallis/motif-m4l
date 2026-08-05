@@ -74,18 +74,105 @@ export function errorText(reason: unknown): string {
 }
 
 /**
- * Resolve local folder collapse state while always exposing search results.
+ * Resolve local folder collapse state while always exposing search/tag results.
  * @param {string} folder Browser folder.
  * @param {string} query Active browser query.
  * @param {Set<string>} collapsedFolders Locally collapsed folders.
+ * @param {readonly string[]} selectedTags Active tag filter chips.
  * @returns {boolean} Whether the folder contents should be hidden.
  */
 export function isFolderCollapsed(
   folder: string,
   query: string,
   collapsedFolders: Set<string>,
+  selectedTags: readonly string[] = [],
 ): boolean {
-  return query.trim() === "" && collapsedFolders.has(folder);
+  return query.trim() === "" && selectedTags.length === 0 && collapsedFolders.has(folder);
+}
+
+/**
+ * Toggle one tag in a filter or edit selection without mutating the source.
+ * Matching is case-insensitive; first-seen casing is preserved when adding.
+ * @param {string} tag Tag to toggle.
+ * @param {readonly string[]} selected Current selection.
+ * @returns {string[]} Updated selection.
+ */
+export function toggleTagSelection(tag: string, selected: readonly string[]): string[] {
+  const trimmed = tag.trim();
+  if (!trimmed) {
+    return [...selected];
+  }
+  const key = trimmed.toLowerCase();
+  const exists = selected.some((entry) => entry.toLowerCase() === key);
+  if (exists) {
+    return selected.filter((entry) => entry.toLowerCase() !== key);
+  }
+  return [...selected, trimmed];
+}
+
+/**
+ * Add one tag if missing (case-insensitive).
+ * @param {readonly string[]} tags Current tags.
+ * @param {string} tag Tag to add.
+ * @returns {string[]} Updated tags.
+ */
+export function addTagSelection(tags: readonly string[], tag: string): string[] {
+  const trimmed = tag.trim();
+  if (!trimmed) {
+    return [...tags];
+  }
+  const key = trimmed.toLowerCase();
+  if (tags.some((entry) => entry.toLowerCase() === key)) {
+    return [...tags];
+  }
+  return [...tags, trimmed];
+}
+
+/**
+ * Remove one tag if present (case-insensitive).
+ * @param {readonly string[]} tags Current tags.
+ * @param {string} tag Tag to remove.
+ * @returns {string[]} Updated tags.
+ */
+export function removeTagSelection(tags: readonly string[], tag: string): string[] {
+  const key = tag.trim().toLowerCase();
+  if (!key) {
+    return [...tags];
+  }
+  return tags.filter((entry) => entry.toLowerCase() !== key);
+}
+
+/**
+ * Suggest unused vocabulary tags that match a partial query.
+ * @param {readonly string[]} available Library-wide tags.
+ * @param {readonly string[]} applied Already-applied tags.
+ * @param {string} query Partial input.
+ * @param {number} limit Maximum suggestions.
+ * @returns {string[]} Matching suggestions.
+ */
+export function suggestTags(
+  available: readonly string[],
+  applied: readonly string[],
+  query: string,
+  limit = 8,
+): string[] {
+  const needle = query.trim().toLowerCase();
+  const appliedKeys = new Set(applied.map((tag) => tag.toLowerCase()));
+  const matches: string[] = [];
+  for (const tag of available) {
+    if (appliedKeys.has(tag.toLowerCase())) {
+      continue;
+    }
+    if (needle && !tag.toLowerCase().includes(needle)) {
+      continue;
+    }
+    // Add the tag to the matches array.
+    matches.push(tag);
+    if (matches.length >= limit) {
+      break;
+    }
+  }
+  return matches;
 }
 
 /**

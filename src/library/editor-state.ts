@@ -39,6 +39,7 @@ function cloneMotif(motif: Motif): Motif {
     sourceMeter: { ...motif.sourceMeter },
     notes: motif.notes.map((note) => ({ ...note })),
     ...(motif.velocityCurve ? { velocityCurve: { ...motif.velocityCurve } } : {}),
+    ...(motif.tags ? { tags: [...motif.tags] } : {}),
   };
 }
 

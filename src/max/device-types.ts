@@ -11,7 +11,7 @@ import { LibraryCompletionStatus } from "./user-library.js";
 
 /**
  * Symbolic messages the Max patch may send to `v8` (via `prepend <name>`).
- * Keep in sync with `tests/max-handler-contract.test.ts` and the patch generator.
+ * Please ensure this interface is kept in sync with `tests/max-handler-contract.test.ts` and the patch generator scripts.
  */
 export interface MotifHandlers {
   /** Complete first-load status and UI synchronization. */

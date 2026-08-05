@@ -64,6 +64,7 @@ function selectedMotif(notes: LibraryNoteData[]): LibrarySelectedMotifData {
     isPersisted: false,
     folder: "Library",
     hotkeys: [{ pitch: 60, label: "C3", action: "trigger" }],
+    tags: [],
     noteCount: notes.length,
     noteLimit: NOTE_LIMIT,
     canAddNote: notes.length < NOTE_LIMIT,
@@ -76,6 +77,9 @@ function normalState(): LibraryServerState {
   const selected = selectedMotif(Array.from({ length: 7 }, (_, index) => note(index)));
   return {
     query: "",
+    tags: [],
+    tagMode: "or",
+    availableTags: [],
     items: [
       {
         id: "chromatic-turn",

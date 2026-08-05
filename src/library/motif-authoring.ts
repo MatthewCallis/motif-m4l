@@ -2,6 +2,7 @@ import { convertMotifPitchMode } from "../core/import-notes.js";
 import { hasOwn, isRecord, jsonValuesEqual, primitiveText } from "../core/type-guards.js";
 import type { Motif, MotifNote, PitchMode, SourcePitchContext } from "../core/types.js";
 import { NOTE_EDIT_FIELDS, type NoteEditField } from "./note-edit-schema.js";
+import { normalizeTags } from "./tags.js";
 
 /** Immutable motif-property mutation outcome. */
 export type MutationResult<T> =
@@ -215,6 +216,13 @@ export function applyMotifProperties(editable: Motif, value: unknown): MutationR
     }
   }
 
+  let tags = editable.tags ? [...editable.tags] : undefined;
+  if (hasOwn(record, "tags")) {
+    const parsed = normalizeTags(record.tags);
+    if (!parsed.ok) return parsed;
+    tags = parsed.value.length > 0 ? parsed.value : undefined;
+  }
+
   let pitchConverted: Motif;
   try {
     const sourceUpdated = { ...editable, sourcePitchContext: sourceContext };
@@ -225,7 +233,12 @@ export function applyMotifProperties(editable: Motif, value: unknown): MutationR
   } catch (reason) {
     return { ok: false, error: reason instanceof Error ? reason.message : String(reason) };
   }
-  const { defaultGate: _defaultGate, velocityCurve: _velocityCurve, ...required } = pitchConverted;
+  const {
+    defaultGate: _defaultGate,
+    velocityCurve: _velocityCurve,
+    tags: _tags,
+    ...required
+  } = pitchConverted;
   const candidate: Motif = {
     ...required,
     name,
@@ -234,6 +247,7 @@ export function applyMotifProperties(editable: Motif, value: unknown): MutationR
     sourceMeter,
     ...(defaultGate !== undefined ? { defaultGate } : {}),
     ...(velocityCurve !== undefined ? { velocityCurve } : {}),
+    ...(tags !== undefined ? { tags } : {}),
   };
 
   return {

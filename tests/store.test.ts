@@ -4,7 +4,7 @@ import { MotifStore, uniqueMotifId } from "../src/library/store.js";
 import { addUserCopy } from "./helpers/motif-store.js";
 
 describe("MotifStore", () => {
-  it("filter matches name, id, and description", () => {
+  it("filter matches name, id, description, and tags", () => {
     const store = new MotifStore("scale-turn");
     assert.equal(store.current?.id, "scale-turn");
     assert.equal(store.select("chromatic-turn")?.id, "chromatic-turn");
@@ -12,6 +12,13 @@ describe("MotifStore", () => {
     assert.equal(store.current?.id, "chromatic-turn", "unknown selections preserve current state");
     const byName = store.filter("chromatic");
     assert.ok(byName.some((motif) => motif.id === "chromatic-turn"));
+    assert.deepEqual(store.allTags(), []);
+
+    const tagged = addUserCopy(store, "chromatic-turn", "tagged-user");
+    assert.ok(tagged);
+    assert.deepEqual(store.update({ ...tagged, tags: ["Demo", "lick"] }), []);
+    assert.ok(store.filter("demo").some((motif) => motif.id === "tagged-user"));
+    assert.deepEqual(store.allTags(), ["Demo", "lick"]);
 
     assert.equal(store.filter("zzz-no-such-motif").length, 0);
     assert.ok(store.filter("").length >= store.filter("chromatic").length);

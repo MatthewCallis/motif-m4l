@@ -275,9 +275,15 @@ function drawRows(data, width, rollHeight) {
 }
 
 function drawStatus(width) {
-  var label = debugLevel === "error" ? "UI !" : debugLevel === "ok" ? "UI ✓" : "UI ...";
-  var color =
-    debugLevel === "error" ? COLORS.error : debugLevel === "ok" ? COLORS.ok : COLORS.muted;
+  var label = "UI ...";
+  var color = COLORS.muted;
+  if (debugLevel === "error") {
+    label = "UI !";
+    color = COLORS.error;
+  } else if (debugLevel === "ok") {
+    label = "UI ✓";
+    color = COLORS.ok;
+  }
   fillRect(width - 35, 2, 32, 12, [0.08, 0.08, 0.085, 0.9]);
   drawText(label, width - 31, 11, 8, color);
 }

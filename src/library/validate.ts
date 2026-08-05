@@ -12,6 +12,7 @@ import {
   type TimeSignature,
 } from "../core/types.js";
 import { isRecord } from "../core/type-guards.js";
+import { normalizeTags } from "./tags.js";
 
 /** Result of {@link validateMotif}; `motif` is present only when `valid` is true. */
 export interface ValidationResult {
@@ -226,6 +227,16 @@ export function validateMotif(value: unknown): ValidationResult {
   );
   validateVelocityCurve(value.velocityCurve, errors);
 
+  let normalizedTags: string[] | undefined;
+  if (value.tags !== undefined) {
+    const parsed = normalizeTags(value.tags);
+    if (!parsed.ok) {
+      errors.push(parsed.error);
+    } else {
+      normalizedTags = parsed.value.length > 0 ? parsed.value : undefined;
+    }
+  }
+
   if (!Array.isArray(value.notes) || value.notes.length === 0) {
     errors.push("notes must be a non-empty array");
   } else {
@@ -249,5 +260,10 @@ export function validateMotif(value: unknown): ValidationResult {
     return { valid: false, errors };
   }
 
-  return { valid: true, errors, motif: value as unknown as Motif };
+  const { tags: _tags, ...rest } = value;
+  const motif: Motif = {
+    ...(rest as unknown as Motif),
+    ...(normalizedTags !== undefined ? { tags: normalizedTags } : {}),
+  };
+  return { valid: true, errors, motif };
 }

@@ -29,12 +29,21 @@ export function uniqueMotifId(name: string, fallback = "motif"): string {
   return normalized || fallback;
 }
 
-/** Mutable catalog keyed by motif `id`. Built-in ids are protected from overwrite on clone. */
+/**
+ * Mutable catalog keyed by motif `id`. Built-in ids are protected from overwrite on clone.
+ **/
 export class MotifStore {
+  /** Map of motif `id` to motif object. */
   motifs = new Map<string, Motif>();
+  /** Set of built-in motif `id`s. */
   builtinIds = new Set<string>(BUILTIN_MOTIFS.map((motif) => motif.id));
+  /** Cached sorted list of motifs. */
   sortedList: Motif[] | null = null;
+  /** Cached map of motif `id` to display label. */
   cachedLabels: Map<string, string> | null = null;
+  /** Cached array of all unique tags across the catalog. */
+  cachedAllTags: string[] | null = null;
+  /** Currently selected motif `id`. */
   currentId: string;
 
   /**
@@ -49,11 +58,11 @@ export class MotifStore {
 
   /**
    * Drop the cached display-order snapshot after the catalog changes.
-   * @returns {void}
    */
   invalidateSortedList(): void {
     this.sortedList = null;
     this.cachedLabels = null;
+    this.cachedAllTags = null;
   }
 
   /**
@@ -72,7 +81,6 @@ export class MotifStore {
 
   /**
    * Replace the store contents with the compiled built-in library.
-   * @returns {void}
    */
   resetToBuiltins(): void {
     this.motifs.clear();
@@ -256,10 +264,12 @@ export class MotifStore {
   /**
    * Remove a user motif while protecting built-in ids.
    * @param {string} id The motif id to remove.
-   * @returns {boolean} Whether a motif was removed.
+   * @returns {boolean} Whether a motif was removed or not.
    */
   remove(id: string): boolean {
-    if (this.isBuiltin(id)) return false;
+    if (this.isBuiltin(id)) {
+      return false;
+    }
     const removed = this.motifs.delete(id);
     if (removed) {
       this.invalidateSortedList();
@@ -269,22 +279,50 @@ export class MotifStore {
   }
 
   /**
-   * Search `id`, `name`, and `description` case-insensitively.
+   * Search `id`, `name`, `description`, and `tags` case-insensitively.
    * @param {string} query The substring to search for.
    * @returns {Motif[]} The matching motifs.
    */
   filter(query: string): Motif[] {
     const normalizedQuery = query.trim().toLowerCase();
     const sorted = this.list();
-    if (!normalizedQuery) return sorted;
+    if (!normalizedQuery) {
+      return sorted;
+    }
 
     return sorted.filter((motif) => {
       return (
         motif.id.toLowerCase().includes(normalizedQuery) ||
         motif.name.toLowerCase().includes(normalizedQuery) ||
-        motif.description.toLowerCase().includes(normalizedQuery)
+        motif.description.toLowerCase().includes(normalizedQuery) ||
+        (motif.tags?.some((tag) => tag.toLowerCase().includes(normalizedQuery)) ?? false)
       );
     });
+  }
+
+  /**
+   * Get all of the unique tags across the motif library, sorted for display.
+   * Case-insensitive uniqueness preserves first-seen casing.
+   * @returns {string[]} Sorted library-wide tags.
+   */
+  allTags(): string[] {
+    if (this.cachedAllTags) {
+      return this.cachedAllTags;
+    }
+    const seen = new Map<string, string>();
+    for (const motif of this.list()) {
+      const tags = motif.tags ?? [];
+      for (const tag of tags) {
+        const key = tag.toLowerCase();
+        if (!seen.has(key)) {
+          seen.set(key, tag);
+        }
+      }
+    }
+    this.cachedAllTags = [...seen.values()].sort((left, right) =>
+      left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }),
+    );
+    return this.cachedAllTags;
   }
 
   /**
@@ -295,16 +333,16 @@ export class MotifStore {
    */
   setNotes(id: string, notes: MotifNote[]): string[] {
     const existing = this.motifs.get(id);
-    if (!existing) return [`Unknown motif: ${id}`];
+    if (!existing) {
+      return [`Unknown motif: ${id}`];
+    }
+    if (notes.length === 0) {
+      return ["notes must be a non-empty array"];
+    }
 
-    if (notes.length === 0) return ["notes must be a non-empty array"];
-
+    // Compute the length of the motif based on the notes.
     const length = Math.max(...notes.map((note) => note.at + note.duration));
 
-    return this.update({
-      ...existing,
-      notes,
-      length,
-    });
+    return this.update({ ...existing, notes, length });
   }
 }

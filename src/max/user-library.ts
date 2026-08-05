@@ -44,7 +44,6 @@ export class MaxUserLibrary {
   scanState: LibraryScanState | undefined;
   /** Absolute JSON filename for every loaded user motif id. */
   files = new Map<string, string>();
-
   /** Case-normalized filesystem paths already traversed. */
   occupiedPaths = new Set<string>();
   /** Incremental scan generation token. */
@@ -68,14 +67,20 @@ export class MaxUserLibrary {
    * @returns {string} `Library` or a nested relative folder.
    */
   browserFolder(id: string): string {
-    if (this.store.isBuiltin(id)) return "Library";
+    if (this.store.isBuiltin(id) || !this.path) {
+      return "Library";
+    }
     const filename = this.files.get(id);
-    if (!filename || !this.path) return "Library";
+    if (!filename) {
+      return "Library";
+    }
 
     const root = this.path.replace(/\\/g, "/").replace(/\/+$/, "");
     const normalized = filename.replace(/\\/g, "/");
     const prefix = `${root}/`;
-    if (!normalized.toLowerCase().startsWith(prefix.toLowerCase())) return "Library";
+    if (!normalized.toLowerCase().startsWith(prefix.toLowerCase())) {
+      return "Library";
+    }
 
     const relative = normalized.slice(prefix.length);
     const separator = relative.lastIndexOf("/");
@@ -95,7 +100,6 @@ export class MaxUserLibrary {
   /**
    * Reserve a path against future generated-id saves.
    * @param {string} filename Absolute JSON path.
-   * @returns {void}
    */
   reserve(filename: string): void {
     this.occupiedPaths.add(canonicalMaxPath(filename));
@@ -130,8 +134,11 @@ export class MaxUserLibrary {
    */
   save(id: string): string {
     const motif = this.store.get(id);
-    if (!motif) throw new Error(`Unknown motif: ${id}`);
+    if (!motif) {
+      throw new Error(`Unknown motif: ${id}`);
+    }
 
+    // Check if the motif already exists in the library.
     const existingFilename = this.files.get(id);
     const filename = existingFilename ?? this.filePath(id);
     if (!existingFilename && (this.isOccupied(filename) || fileExists(filename))) {
@@ -139,9 +146,13 @@ export class MaxUserLibrary {
       throw new Error(`${id}.json already exists; refresh the library and try again`);
     }
 
+    // Write the motif to the filesystem.
     writeJsonFile(filename, motif);
+    // Update the library with the new motif.
     this.files.set(id, filename);
+    // Reserve the filename for future use.
     this.reserve(filename);
+
     return filename;
   }
 
@@ -161,7 +172,6 @@ export class MaxUserLibrary {
 
   /**
    * Close and discard any active asynchronous library scan.
-   * @returns {void}
    */
   cancelScan(): void {
     this.scanGeneration += 1;

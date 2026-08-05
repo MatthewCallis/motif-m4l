@@ -79,7 +79,9 @@ class FakeElement {
   }
 
   getBoundingClientRect(): { left: number; width: number } {
-    const fallback = this.id === "app" ? 800 : this.id === "left" ? 240 : 0;
+    let fallback = 0;
+    if (this.id === "app") fallback = 800;
+    else if (this.id === "left") fallback = 240;
     return { left: 0, width: Number.parseFloat(this.style["width"] ?? "") || fallback };
   }
 
@@ -168,7 +170,14 @@ void describe("Library browser runtime", () => {
         return new FakeElement(tagName.toUpperCase());
       },
       querySelectorAll(selector: string): FakeElement[] {
-        return selector === ".panel-tab" ? panelTabs : [];
+        if (selector === ".panel-tab") return panelTabs;
+        if (selector === ".tag-mode-btn") {
+          return [
+            Object.assign(new FakeElement("BUTTON"), { dataset: { tagMode: "or" } }),
+            Object.assign(new FakeElement("BUTTON"), { dataset: { tagMode: "and" } }),
+          ];
+        }
+        return [];
       },
       addEventListener(name: string, listener: Listener): void {
         documentListeners.set(name, listener);
@@ -206,6 +215,9 @@ void describe("Library browser runtime", () => {
 
     const state = {
       query: "",
+      tags: [],
+      tagMode: "or" as const,
+      availableTags: ["demo", "scale"],
       libraryPath: "/Motifs",
       libraryLoaded: true,
       libraryScanning: false,
@@ -220,7 +232,7 @@ void describe("Library browser runtime", () => {
         editing: true,
         canEdit: true,
         canSave: true,
-        canImportClip: true,
+        canImportClip: false,
         canRefreshLibrary: true,
       },
       items: [
@@ -265,10 +277,12 @@ void describe("Library browser runtime", () => {
           exponent: null,
         },
         previewBars: 1,
-        effectivePitchMode: "chromatic",
+        effectivePitchMode: "chromatic" as const,
         isBuiltin: false,
         isPersisted: true,
-        hotkeys: [{ pitch: 60, label: "C3", action: "trigger" }],
+        folder: "Tests",
+        hotkeys: [{ pitch: 60, label: "C3", action: "trigger" as const }],
+        tags: ["demo"],
         noteCount: 2,
         noteLimit: 512,
         canAddNote: true,
@@ -301,6 +315,7 @@ void describe("Library browser runtime", () => {
         ],
       },
       alert: null,
+      scanProgress: null,
     };
 
     receiveData(encodeURIComponent(JSON.stringify(state)));
@@ -320,6 +335,13 @@ void describe("Library browser runtime", () => {
       elements.get("browser-list")?.children[3]?.children[0]?.textContent,
       "Browser Test",
     );
+    assert.equal(elements.get("import-clip-btn")?.disabled, true);
+    assert.equal(
+      elements.get("import-clip-btn")?.title,
+      "Finish or cancel editing before importing a clip",
+    );
+    assert.ok(elements.get("save-motif-btn")?.classList.values.has("accent"));
+    assert.equal(elements.get("edit-btn")?.classList.values.has("accent"), false);
     assert.ok(elements.get("library-resizer")?.listeners.has("pointerdown"));
     assert.ok(elements.get("library-resizer")?.listeners.has("keydown"));
 
@@ -338,7 +360,7 @@ void describe("Library browser runtime", () => {
     assert.match(elements.get("edit-state")?.textContent ?? "", /Library folder required/);
     assert.equal(
       elements.get("import-clip-btn")?.title,
-      "Choose a valid Library folder before importing a clip",
+      "Finish or cancel editing before importing a clip",
     );
     receiveData(encodeURIComponent(JSON.stringify(state)));
 

@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { normalizeTagFilterMode } from "../src/library/tags.js";
 import {
+  addTagSelection,
   clampLibrarySidebarWidth,
   createStore,
   errorText,
@@ -9,7 +11,10 @@ import {
   isLibraryStateChunk,
   libraryBrowserDisplayName,
   optionalNumberValue,
+  removeTagSelection,
+  suggestTags,
   toggleCollapsedFolder,
+  toggleTagSelection,
 } from "../src/max/library-logic.js";
 
 describe("Library pure logic", () => {
@@ -38,12 +43,26 @@ describe("Library pure logic", () => {
     const collapsed = new Set(["Tests"]);
     assert.equal(isFolderCollapsed("Tests", "", collapsed), true);
     assert.equal(isFolderCollapsed("Tests", "query", collapsed), false);
+    assert.equal(isFolderCollapsed("Tests", "", collapsed, ["demo"]), false);
 
     const expanded = toggleCollapsedFolder("Tests", collapsed);
     const additional = toggleCollapsedFolder("Other", collapsed);
     assert.equal(expanded.has("Tests"), false);
     assert.equal(additional.has("Other"), true);
     assert.deepEqual([...collapsed], ["Tests"]);
+  });
+
+  it("toggles, adds, removes, and suggests tags without mutation", () => {
+    const selected = ["Demo"];
+    assert.deepEqual(toggleTagSelection("demo", selected), []);
+    assert.deepEqual(toggleTagSelection("Scale", selected), ["Demo", "Scale"]);
+    assert.deepEqual(addTagSelection(selected, " demo "), ["Demo"]);
+    assert.deepEqual(addTagSelection(selected, "lick"), ["Demo", "lick"]);
+    assert.deepEqual(removeTagSelection(["Demo", "Scale"], "demo"), ["Scale"]);
+    assert.deepEqual(suggestTags(["demo", "scale", "lick"], ["Demo"], "li"), ["lick"]);
+    assert.equal(normalizeTagFilterMode("and"), "and");
+    assert.equal(normalizeTagFilterMode("nope"), "or");
+    assert.deepEqual(selected, ["Demo"]);
   });
 
   it("removes only a matching leaf-folder prefix from browser labels", () => {

@@ -5,6 +5,43 @@ alwaysApply: true
 
 # Code Style
 
+## No nested or packed ternaries
+
+Never nest a ternary inside another ternary. When flattening multi-branch conditionals,
+convert the **entire** decision to `if` / `else` / early returns — do not leave sibling
+ternaries packed into the same statement (array literal, argument list, object literal,
+or template).
+
+`??` / `?.` chains are fine. A single trivial ternary on its own line is fine.
+
+```ts
+// ❌ Nested ternary
+const title = editing
+  ? "Finish editing first"
+  : scanning
+    ? "Wait for scan"
+    : "Import clip";
+
+// ❌ Half-fix — sibling ternaries still packed in one statement
+if (rounded > 0 || border > 0) {
+  jsarguments = [rounded > 0 ? rounded : 6, border > 0 ? 1 : 0];
+}
+emit("ui", "transforms", invert ? 1 : 0, reverse ? 1 : 0);
+
+// ✅ Flat control flow
+let title = "Import clip";
+if (editing) title = "Finish editing first";
+else if (scanning) title = "Wait for scan";
+
+let cornerRadius = 6;
+if (rounded > 0) cornerRadius = rounded;
+let drawBorder = 0;
+if (border > 0) drawBorder = 1;
+jsarguments = [cornerRadius, drawBorder];
+
+emit("ui", "transforms", Number(invert), Number(reverse));
+```
+
 ## No trampoline functions
 
 A function that does nothing but call another function is a trampoline — delete it and inline

@@ -160,4 +160,39 @@ describe("motif validation", () => {
     assert.equal(tooShort.valid, false);
     assert.ok(tooShort.errors.includes("notes[0] extends beyond motif length"));
   });
+
+  it("normalizes optional tags and rejects invalid tag values", () => {
+    const base = {
+      schemaVersion: 1,
+      id: "tagged",
+      name: "Tagged",
+      description: "Has tags.",
+      pitchMode: "chromatic",
+      sourcePitchContext: {
+        anchorPitch: 60,
+        scaleRootNote: 0,
+        scaleName: "Major",
+        scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+      },
+      sourceMeter: { numerator: 4, denominator: 4 },
+      length: 480,
+      notes: [{ at: 0, duration: 480, pitch: 0 }],
+    };
+
+    const valid = validateMotif({ ...base, tags: [" Demo ", "demo", "Scale"] });
+    assert.equal(valid.valid, true);
+    assert.deepEqual(valid.motif?.tags, ["Demo", "Scale"]);
+
+    const omitted = validateMotif({ ...base, tags: ["  ", ""] });
+    assert.equal(omitted.valid, false);
+    assert.ok(omitted.errors.some((error) => error.includes("tags[0]")));
+
+    const empty = validateMotif({ ...base, tags: [] });
+    assert.equal(empty.valid, true);
+    assert.equal(empty.motif?.tags, undefined);
+
+    const badType = validateMotif({ ...base, tags: "demo" });
+    assert.equal(badType.valid, false);
+    assert.ok(badType.errors.some((error) => error.includes("tags must be an array")));
+  });
 });

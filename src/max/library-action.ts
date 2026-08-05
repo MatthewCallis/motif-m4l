@@ -54,7 +54,15 @@ export function decodeLibraryAction(encodedParts: readonly unknown[]): LibraryAc
         },
       };
     case "filter_motifs":
-      return { ok: true, action: { type, query: action["query"] } };
+      return {
+        ok: true,
+        action: {
+          type,
+          query: action["query"],
+          ...(action["tags"] !== undefined ? { tags: action["tags"] } : {}),
+          ...(action["tagMode"] !== undefined ? { tagMode: action["tagMode"] } : {}),
+        },
+      };
     case "import_clip":
       return { ok: true, action: { type } };
     case "save_motif":

@@ -17,6 +17,7 @@ import {
   type LibraryStateChunk,
 } from "./library-protocol.js";
 import {
+  addTagSelection,
   clampLibrarySidebarWidth,
   createStore,
   errorText,
@@ -26,11 +27,15 @@ import {
   LIBRARY_SIDEBAR_LAYOUT,
   libraryBrowserDisplayName,
   optionalNumberValue,
+  removeTagSelection,
+  suggestTags,
   toggleCollapsedFolder,
+  toggleTagSelection,
   type LibrarySidebarLayout,
 } from "./library-logic.js";
 import { formatPreviewBarCount } from "./library-view.js";
 import type { NoteEditField } from "../library/note-edit-schema.js";
+import { normalizeTagFilterMode, type TagFilterMode } from "../library/tags.js";
 
 type PanelName = "properties" | "notes";
 type DebugLevel = "info" | "ok" | "error";
@@ -65,11 +70,18 @@ interface ModalState {
 }
 
 interface LibraryPageState {
+  /** The current server state. */
   server: LibraryServerState | null;
+  /** The current modal state. */
   modal: ModalState | null;
+  /** Whether the current form has unsaved changes. */
   formDirty: boolean;
+  /** The active panel in the library. */
   activePanel: PanelName;
+  /** Collapsed folders in the browser. */
   collapsedFolders: Set<string>;
+  /** Draft motif tags while editing; synced from the selected motif. */
+  editTags: string[];
 }
 
 interface PendingStateTransfer {
@@ -155,6 +167,7 @@ const store = createStore<LibraryPageState>({
   formDirty: false,
   activePanel: "properties",
   collapsedFolders: new Set<string>(),
+  editTags: [],
 });
 const debugEntries: string[] = [];
 let stateDeadline: ReturnType<typeof setTimeout> | null = null;
@@ -175,7 +188,10 @@ function debug(level: DebugLevel, message: string): void {
   debugEntries.push(line);
   if (debugEntries.length > 80) debugEntries.shift();
   debugSummary.textContent = message;
-  debugIndicator.className = level === "error" ? "error" : level === "ok" ? "ok" : "";
+  let indicatorClass = "";
+  if (level === "error") indicatorClass = "error";
+  else if (level === "ok") indicatorClass = "ok";
+  debugIndicator.className = indicatorClass;
   debugPanel.classList.toggle(
     "has-error",
     debugEntries.some((entry) => entry.includes("[error]")),
@@ -277,7 +293,8 @@ function renderBrowser(server: LibraryServerState | null): void {
   if (!server || server.items.length === 0) {
     const empty = document.createElement("div");
     empty.id = "empty-list";
-    empty.textContent = server?.query ? "No matching motifs" : "No motifs found";
+    empty.textContent =
+      server?.query || (server?.tags.length ?? 0) > 0 ? "No matching motifs" : "No motifs found";
     list.append(empty);
     return;
   }
@@ -289,7 +306,7 @@ function renderBrowser(server: LibraryServerState | null): void {
     const folder = item.folder || "Library";
     if (folder !== currentFolder) {
       currentFolder = folder;
-      folderCollapsed = isFolderCollapsed(folder, server.query, collapsedFolders);
+      folderCollapsed = isFolderCollapsed(folder, server.query, collapsedFolders, server.tags);
       const heading = document.createElement("button");
       heading.type = "button";
       heading.className = "browser-folder";
@@ -338,6 +355,150 @@ function renderBrowser(server: LibraryServerState | null): void {
     });
     list.append(row);
   }
+}
+
+/**
+ * Send the current browser text + tag filter to the device.
+ * @param {string} query Search text.
+ * @param {readonly string[]} tags Selected filter tags.
+ * @param {TagFilterMode} tagMode Combination mode.
+ */
+function sendBrowserFilter(query: string, tags: readonly string[], tagMode: TagFilterMode): void {
+  send({ type: "filter_motifs", query, tags: [...tags], tagMode });
+}
+
+/**
+ * Render sidebar tag filter chips and AND/OR mode controls.
+ * @param {LibraryServerState | null} server Current device state.
+ */
+function renderTagFilter(server: LibraryServerState | null): void {
+  const chips = $<HTMLDivElement>("tag-filter-chips");
+  chips.innerHTML = "";
+  const available = server?.availableTags ?? [];
+  const selected = server?.tags ?? [];
+  const tagMode = server?.tagMode ?? "or";
+  document.querySelectorAll<HTMLButtonElement>(".tag-mode-btn").forEach((button) => {
+    button.classList.toggle("active", button.dataset["tagMode"] === tagMode);
+  });
+  if (available.length === 0) {
+    const empty = document.createElement("span");
+    empty.className = "tag-chip empty";
+    empty.textContent = "No tags yet";
+    chips.append(empty);
+    return;
+  }
+  for (const tag of available) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = `tag-chip${selected.some((entry) => entry.toLowerCase() === tag.toLowerCase()) ? " selected" : ""}`;
+    chip.textContent = tag;
+    chip.title = selected.some((entry) => entry.toLowerCase() === tag.toLowerCase())
+      ? `Remove filter: ${tag}`
+      : `Filter by ${tag}`;
+    chip.addEventListener("click", () => {
+      const nextTags = toggleTagSelection(tag, selected);
+      const query = server?.query ?? $<HTMLInputElement>("search").value;
+      sendBrowserFilter(query, nextTags, tagMode);
+    });
+    chips.append(chip);
+  }
+}
+
+/**
+ * Render motif tag chips and the add-tag autocomplete control.
+ * @param {LibraryServerState | null} server Current device state.
+ * @param {boolean} editing Whether tags are editable.
+ * @param {readonly string[]} editTags Draft motif tags.
+ */
+function renderMotifTags(
+  server: LibraryServerState | null,
+  editing: boolean,
+  editTags: readonly string[],
+): void {
+  const list = $<HTMLDivElement>("motif-tags");
+  const input = $<HTMLInputElement>("tag-edit-input");
+  const suggestions = $<HTMLDivElement>("tag-suggestions");
+  list.innerHTML = "";
+  input.disabled = !editing || !server?.selected;
+  if (!server?.selected) {
+    suggestions.classList.add("hidden");
+    suggestions.innerHTML = "";
+    return;
+  }
+  if (editTags.length === 0) {
+    const empty = document.createElement("span");
+    empty.className = "tag-chip empty";
+    empty.textContent = editing ? "None" : "No tags";
+    list.append(empty);
+  } else {
+    for (const tag of editTags) {
+      const chip = document.createElement("button");
+      chip.type = "button";
+      chip.className = "tag-chip applied";
+      chip.textContent = editing ? `${tag} ×` : tag;
+      chip.disabled = !editing;
+      chip.title = editing ? `Remove ${tag}` : tag;
+      if (editing) {
+        chip.addEventListener("click", () => {
+          commitEditTags(removeTagSelection(store.getState().editTags, tag));
+        });
+      }
+      list.append(chip);
+    }
+  }
+  renderTagSuggestions(server.availableTags, editTags, input.value, editing);
+}
+
+/**
+ * Render tag autocomplete suggestions under the add-tag input.
+ * @param {readonly string[]} available Library-wide tags.
+ * @param {readonly string[]} applied Current motif tags.
+ * @param {string} query Partial input.
+ * @param {boolean} editing Whether suggestions are interactive.
+ */
+function renderTagSuggestions(
+  available: readonly string[],
+  applied: readonly string[],
+  query: string,
+  editing: boolean,
+): void {
+  const suggestions = $<HTMLDivElement>("tag-suggestions");
+  suggestions.innerHTML = "";
+  if (!editing) {
+    suggestions.classList.add("hidden");
+    return;
+  }
+  const matches = suggestTags(available, applied, query);
+  if (matches.length === 0) {
+    suggestions.classList.add("hidden");
+    return;
+  }
+  suggestions.classList.remove("hidden");
+  for (const tag of matches) {
+    const option = document.createElement("button");
+    option.type = "button";
+    option.textContent = tag;
+    option.addEventListener("mousedown", (event) => {
+      event.preventDefault();
+      commitEditTags(addTagSelection(store.getState().editTags, tag));
+      const input = $<HTMLInputElement>("tag-edit-input");
+      input.value = "";
+      renderTagSuggestions(available, store.getState().editTags, "", true);
+    });
+    suggestions.append(option);
+  }
+}
+
+/**
+ * Update draft tags and push them through edit_motif when editing.
+ * @param {string[]} tags Next motif tags.
+ */
+function commitEditTags(tags: string[]): void {
+  store.setState({ editTags: tags, formDirty: true });
+  if (!store.getState().server?.actions.editing) {
+    return;
+  }
+  send({ type: "edit_motif", properties: { ...readProperties(), tags } });
 }
 
 /**
@@ -541,18 +702,33 @@ function renderDetail(server: LibraryServerState | null, local: LibraryPageState
   const save = $<HTMLButtonElement>("save-motif-btn");
   const add = $<HTMLButtonElement>("add-note-btn");
   const importClip = $<HTMLButtonElement>("import-clip-btn");
-  importClip.disabled = !server?.actions.canImportClip;
-  importClip.title = server?.libraryScanning
-    ? "Wait for the Library scan to finish"
-    : server?.libraryLoaded
-      ? "Import the selected clip as exact chromatic offsets"
-      : "Choose a valid Library folder before importing a clip";
 
+  // Import Clip button is disabled if:
+  // - The library is scanning
+  // - The library is not loaded
+  // - The library is loaded and the motif is being edited
+  importClip.disabled = !server?.actions.canImportClip || editing;
+  let importTitle = "Choose a valid Library folder before importing a clip";
+  if (editing) importTitle = "Finish or cancel editing before importing a clip";
+  else if (server?.libraryScanning) importTitle = "Wait for the Library scan to finish";
+  else if (server?.libraryLoaded) {
+    importTitle = "Import the selected clip as exact chromatic offsets";
+  }
+  importClip.title = importTitle;
+  importClip.classList.remove("accent");
+
+  // Edit button is accent if not editing
+  // Save button is accent if editing
+  edit.classList.toggle("accent", !editing);
+  save.classList.toggle("accent", editing);
+
+  // If no motif is selected or the server is null, set the name and description to empty and disable the edit, cancel, save, add, and import clip buttons
   if (!selected || !server) {
     setValue("name-edit", "", false);
     setValue("description-edit", "", false);
     setEditable(false);
     renderProperties(null, false);
+    renderMotifTags(server, false, []);
     $<HTMLDivElement>("edit-state").textContent = "";
     edit.disabled = true;
     cancel.classList.add("hidden");
@@ -567,12 +743,18 @@ function renderDetail(server: LibraryServerState | null, local: LibraryPageState
   setValue("description-edit", selected.description, editing);
   setEditable(editing);
   renderProperties(selected, editing);
+  renderMotifTags(server, editing, local.editTags);
   const libraryRequired = editing && !server.libraryLoaded;
-  $<HTMLDivElement>("edit-state").textContent = editing
-    ? `${server.editing.dirty || local.formDirty ? "Unsaved changes" : "Editing"} · ${selected.id}${libraryRequired ? " · Library folder required" : ""}`
-    : selected.isBuiltin
-      ? "Built-in · Edit creates a user copy"
-      : `${selected.isPersisted ? "Saved" : "Not yet saved"} · ${selected.id}`;
+  let editState = selected.isPersisted
+    ? `Saved · ${selected.id}`
+    : `Not yet saved · ${selected.id}`;
+  if (selected.isBuiltin) editState = "Built-in · Edit creates a user copy";
+  if (editing) {
+    const phase = server.editing.dirty || local.formDirty ? "Unsaved changes" : "Editing";
+    editState = `${phase} · ${selected.id}`;
+    if (libraryRequired) editState += " · Library folder required";
+  }
+  $<HTMLDivElement>("edit-state").textContent = editState;
   edit.classList.toggle("hidden", editing);
   edit.disabled = !server.actions.canEdit;
   cancel.classList.toggle("hidden", !editing);
@@ -606,15 +788,21 @@ function renderPanels(activePanel: PanelName): void {
 function render(state: LibraryPageState): void {
   const { server } = state;
   renderBrowser(server);
+  renderTagFilter(server);
   renderDetail(server, state);
   renderModal(state.modal);
   renderPanels(state.activePanel);
   const search = $<HTMLInputElement>("search");
   if (server && document.activeElement !== search) search.value = server.query;
   const libraryPath = $<HTMLDivElement>("library-path");
-  libraryPath.textContent = server?.libraryPath
-    ? `${server.libraryScanning ? "Scanning · " : server.libraryLoaded ? "" : "Unavailable · "}${server.libraryPath}`
-    : "Built-ins only";
+  if (!server?.libraryPath) {
+    libraryPath.textContent = "Built-ins only";
+  } else {
+    let pathPrefix = "";
+    if (server.libraryScanning) pathPrefix = "Scanning · ";
+    else if (!server.libraryLoaded) pathPrefix = "Unavailable · ";
+    libraryPath.textContent = `${pathPrefix}${server.libraryPath}`;
+  }
   libraryPath.title = server?.libraryPath || "No user library selected";
   const refresh = $<HTMLButtonElement>("refresh-btn");
   refresh.disabled = !server?.actions.canRefreshLibrary;
@@ -652,6 +840,7 @@ function readProperties(): Record<string, unknown> {
       outputMax: optionalNumberValue($<HTMLInputElement>("curve-output-max").value),
       exponent: optionalNumberValue($<HTMLInputElement>("curve-exponent").value),
     },
+    tags: [...store.getState().editTags],
   };
 }
 
@@ -669,9 +858,11 @@ function applyServerState(server: LibraryServerState): void {
   const previous = store.getState();
   const selectedChanged = previous.server?.selected?.id !== server.selected?.id;
   const editingEnded = Boolean(previous.server?.editing.active && !server.editing.active);
+  const syncEditTags = selectedChanged || editingEnded || !previous.formDirty;
   store.setState({
     server,
     formDirty: selectedChanged || editingEnded ? false : previous.formDirty,
+    editTags: syncEditTags ? [...(server.selected?.tags ?? [])] : previous.editTags,
   });
   if (server.alert?.id && server.alert.id !== previous.server?.alert?.id) {
     openModal({
@@ -865,11 +1056,46 @@ let searchDebounceTimer: ReturnType<typeof setTimeout> | undefined;
 searchInput.addEventListener("input", () => {
   clearTimeout(searchDebounceTimer);
   searchDebounceTimer = setTimeout(() => {
-    send({ type: "filter_motifs", query: searchInput.value });
+    const server = store.getState().server;
+    sendBrowserFilter(searchInput.value, server?.tags ?? [], server?.tagMode ?? "or");
   }, 80);
 });
 $<HTMLButtonElement>("clear-search").addEventListener("click", () => {
-  send({ type: "filter_motifs", query: "" });
+  searchInput.value = "";
+  sendBrowserFilter("", [], store.getState().server?.tagMode ?? "or");
+});
+document.querySelectorAll<HTMLButtonElement>(".tag-mode-btn").forEach((button) => {
+  button.addEventListener("click", () => {
+    const tagMode = normalizeTagFilterMode(button.dataset["tagMode"], "or");
+    const server = store.getState().server;
+    sendBrowserFilter(server?.query ?? searchInput.value, server?.tags ?? [], tagMode);
+  });
+});
+const tagEditInput = $<HTMLInputElement>("tag-edit-input");
+tagEditInput.addEventListener("input", () => {
+  const state = store.getState();
+  renderTagSuggestions(
+    state.server?.availableTags ?? [],
+    state.editTags,
+    tagEditInput.value,
+    Boolean(state.server?.actions.editing),
+  );
+});
+tagEditInput.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== ",") return;
+  event.preventDefault();
+  const next = addTagSelection(store.getState().editTags, tagEditInput.value.replace(/,/g, ""));
+  commitEditTags(next);
+  tagEditInput.value = "";
+  renderTagSuggestions(
+    store.getState().server?.availableTags ?? [],
+    store.getState().editTags,
+    "",
+    true,
+  );
+});
+tagEditInput.addEventListener("blur", () => {
+  $<HTMLDivElement>("tag-suggestions").classList.add("hidden");
 });
 $<HTMLButtonElement>("choose-btn").addEventListener("click", () => {
   confirmDiscard(() => {
@@ -983,6 +1209,9 @@ if (isMax) {
     encodeURIComponent(
       JSON.stringify({
         query: "",
+        tags: [],
+        tagMode: "or",
+        availableTags: [],
         libraryPath: "/Users/example/Motifs",
         libraryLoaded: true,
         libraryScanning: false,
@@ -1048,6 +1277,7 @@ if (isMax) {
           isPersisted: false,
           folder: "Library",
           hotkeys: [],
+          tags: [],
           noteCount: 2,
           noteLimit: 512,
           canAddNote: false,

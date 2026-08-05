@@ -199,6 +199,19 @@ describe("extracted type and authoring helpers", () => {
 
     const unchanged = applyMotifProperties(motif, {});
     assert.equal(unchanged.ok && unchanged.changed, false);
+
+    const tagged = applyMotifProperties(motif, { tags: [" Demo ", "demo", "lick"] });
+    assert.equal(tagged.ok, true);
+    if (!tagged.ok) return;
+    assert.deepEqual(tagged.value.tags, ["Demo", "lick"]);
+    const cleared = applyMotifProperties(tagged.value, { tags: [] });
+    assert.equal(cleared.ok, true);
+    if (!cleared.ok) return;
+    assert.equal(cleared.value.tags, undefined);
+    const preserved = applyMotifProperties(tagged.value, { name: tagged.value.name });
+    assert.equal(preserved.ok, true);
+    if (!preserved.ok) return;
+    assert.deepEqual(preserved.value.tags, ["Demo", "lick"]);
   });
 
   it("rejects invalid motif properties atomically", () => {
@@ -217,6 +230,8 @@ describe("extracted type and authoring helpers", () => {
       [{ defaultGate: 0 }, "greater than zero"],
       [{ velocityCurve: "invalid" }, "velocityCurve"],
       [{ velocityCurve: { exponent: 0 } }, "greater than zero"],
+      [{ tags: "demo" }, "tags must be an array"],
+      [{ tags: [""] }, "cannot be empty"],
     ] as const) {
       const result = applyMotifProperties(motif, value);
       assert.equal(result.ok, false);

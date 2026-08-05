@@ -16,14 +16,16 @@ export function addUserCopy(
   preferredId?: string,
 ): Motif | undefined {
   const source = store.get(sourceId);
-  if (!source) return undefined;
-
+  if (!source) {
+    return undefined;
+  }
   const id = store.uniqueId(preferredId ?? uniqueMotifId(source.name, `${source.id}-copy`));
   const copy: Motif = {
     ...source,
     id,
     notes: source.notes.map((note) => ({ ...note })),
     ...(source.velocityCurve ? { velocityCurve: { ...source.velocityCurve } } : {}),
+    ...(source.tags ? { tags: [...source.tags] } : {}),
   };
 
   const errors = store.add(copy);

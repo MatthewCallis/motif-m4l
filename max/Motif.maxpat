@@ -275,8 +275,8 @@
       },
       {
         "box": {
-          "filename": "motif-preview-a182d4c515de.js",
-          "template": "motif-preview-a182d4c515de.js",
+          "filename": "motif-preview-80e1cedd19c3.js",
+          "template": "motif-preview-80e1cedd19c3.js",
           "border": 0,
           "jsarguments": [
             6,
@@ -1367,7 +1367,7 @@
       },
       {
         "box": {
-          "text": "§ Engine - v8 motif-device-fddf81d0db84.js + event pipe / panic / clear",
+          "text": "§ Engine - v8 motif-device-e0aea63d78e9.js + event pipe / panic / clear",
           "fontname": "Ableton Sans",
           "fontsize": 12,
           "fontface": 1,
@@ -1384,7 +1384,7 @@
       },
       {
         "box": {
-          "text": "v8 motif-device-fddf81d0db84.js",
+          "text": "v8 motif-device-e0aea63d78e9.js",
           "numinlets": 1,
           "numoutlets": 1,
           "outlettype": [
@@ -1627,7 +1627,7 @@
       },
       {
         "box": {
-          "text": "jsfile motif-preview-a182d4c515de.js, loadbang",
+          "text": "jsfile motif-preview-80e1cedd19c3.js, loadbang",
           "id": "obj-62",
           "maxclass": "message",
           "patching_rect": [
@@ -8480,14 +8480,14 @@
     ],
     "dependency_cache": [
       {
-        "name": "motif-device-fddf81d0db84.js",
+        "name": "motif-device-e0aea63d78e9.js",
         "bootpath": ".",
         "patcherrelativepath": ".",
         "type": "TEXT",
         "implicit": 1
       },
       {
-        "name": "motif-preview-a182d4c515de.js",
+        "name": "motif-preview-80e1cedd19c3.js",
         "bootpath": ".",
         "patcherrelativepath": ".",
         "type": "TEXT",

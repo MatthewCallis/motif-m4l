@@ -122,19 +122,28 @@ export interface MotifNote {
  */
 export interface Motif {
   schemaVersion: 1;
+  /** Unique identifier for the motif. */
   id: string;
+  /** Display name of the motif. */
   name: string;
+  /** Description of the motif. */
   description: string;
+  /** How `MotifNote.pitch` is interpreted relative to the trigger note and Live scale. */
   pitchMode: PitchMode;
   /** Pitch and scale context under which the motif was authored or imported. */
   sourcePitchContext: SourcePitchContext;
+  /** Source meter as numerator/denominator (e.g. 4/4, 6/8). */
   sourceMeter: TimeSignature;
   /** Phrase length in PPQ ticks (usually last note end). */
   length: number;
+  /** Notes in the motif. */
   notes: readonly MotifNote[];
   /** Default gate when a note omits `gate`. */
   defaultGate?: number;
+  /** Optional velocity curve for mapping trigger velocity to note velocity. */
   velocityCurve?: VelocityCurve;
+  /** Optional freeform labels used for Library filtering and browse. */
+  tags?: readonly string[];
 }
 
 /** Options for compiling a motif into scheduled MIDI note-on/off events. */

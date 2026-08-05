@@ -10,7 +10,7 @@ describe("Library action boundary", () => {
   it("normalizes every supported action into the discriminated command union", () => {
     const cases = [
       [{ type: "select_browser", id: "scale-turn", discardChanges: true }, "select_browser"],
-      [{ type: "filter_motifs", query: "bass" }, "filter_motifs"],
+      [{ type: "filter_motifs", query: "bass", tags: ["demo"], tagMode: "and" }, "filter_motifs"],
       [{ type: "import_clip" }, "import_clip"],
       [{ type: "save_motif", properties: { name: "Saved" } }, "save_motif"],
       [{ type: "refresh_library", discardChanges: 1 }, "refresh_library"],
@@ -53,6 +53,19 @@ describe("Library action boundary", () => {
     assert.deepEqual(imported, {
       ok: true,
       action: { type: "import_clip" },
+    });
+
+    const filtered = decodeLibraryAction([
+      encoded({ type: "filter_motifs", query: "bass", tags: ["demo"], tagMode: "and" }),
+    ]);
+    assert.deepEqual(filtered, {
+      ok: true,
+      action: {
+        type: "filter_motifs",
+        query: "bass",
+        tags: ["demo"],
+        tagMode: "and",
+      },
     });
   });
 

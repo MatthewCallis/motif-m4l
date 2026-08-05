@@ -64,6 +64,7 @@ import { decodeLibraryAction } from "./library-action.js";
 import { buildLibraryServerState } from "./library-state.js";
 import { encodeLibraryStateMessages } from "./library-view.js";
 import type { LibraryAlert } from "./library-protocol.js";
+import { normalizeTagFilterMode, normalizeTags, type TagFilterMode } from "../library/tags.js";
 import {
   discardAllowed,
   emit,
@@ -109,6 +110,8 @@ let initialized = false;
 let previewTriggerPitch = 60;
 let previewWasTriggered = false;
 let browserQuery = "";
+let browserTags: string[] = [];
+let browserTagMode: TagFilterMode = "or";
 let libraryAlert: LibraryAlert | undefined;
 let libraryAlertCounter = 0;
 
@@ -177,6 +180,8 @@ function emitLibraryState(): void {
     previewTriggerPitch,
     noteLimit: MAX_MOTIF_NOTES,
     browserQuery,
+    browserTags,
+    browserTagMode,
     ...(libraryAlert ? { alert: libraryAlert } : {}),
   });
   libraryStateTransferCounter += 1;
@@ -464,7 +469,7 @@ function pitch_mode(mode: string): void {
  * Synchronize the visual transform latches with the engine-owned state.
  */
 function emitTransformUi(): void {
-  emit("ui", "transforms", settings.invert ? 1 : 0, settings.reverse ? 1 : 0);
+  emit("ui", "transforms", Number(settings.invert), Number(settings.reverse));
 }
 
 /**
@@ -689,12 +694,34 @@ function tempo_multiplier(value: string | number): void {
 
 /**
  * Handle a filter motifs event.
+ * Max selector path updates the text query only; jweb passes tags via `lib_action`.
  * @param {unknown[]} queryParts The query parts.
  */
 function filter_motifs(...queryParts: unknown[]): void {
   browserQuery = libraryQueryFromAtoms(queryParts);
   emitLibraryState();
   emitStatus("filter", browserQuery || "(all)");
+}
+
+/**
+ * Apply Library browser filter state from a typed jweb action.
+ * @param {unknown} query Text query atom(s).
+ * @param {unknown} tags Selected filter tags.
+ * @param {unknown} tagMode AND/OR combination mode.
+ */
+function applyLibraryFilter(query: unknown, tags?: unknown, tagMode?: unknown): void {
+  browserQuery = libraryQueryFromAtoms([query]);
+  if (tags !== undefined) {
+    const parsed = normalizeTags(tags);
+    browserTags = parsed.ok ? parsed.value : [];
+  }
+  if (tagMode !== undefined) {
+    browserTagMode = normalizeTagFilterMode(tagMode, browserTagMode);
+  }
+  emitLibraryState();
+  const tagSummary =
+    browserTags.length > 0 ? ` tags:${browserTagMode}:${browserTags.join(",")}` : "";
+  emitStatus("filter", `${browserQuery || "(all)"}${tagSummary}`);
 }
 
 /**
@@ -716,7 +743,7 @@ function lib_action(...encodedParts: unknown[]): void {
       authoring.selectBrowser(action.id, action.discardChanges);
       break;
     case "filter_motifs":
-      filter_motifs(action.query);
+      applyLibraryFilter(action.query, action.tags, action.tagMode);
       break;
     case "import_clip":
       authoring.importClip();

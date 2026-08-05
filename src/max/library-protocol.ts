@@ -1,4 +1,5 @@
 import type { PitchMode } from "../core/types.js";
+import type { TagFilterMode } from "../library/tags.js";
 import type { HotkeyAction } from "./hotkey-map.js";
 
 /** Typed command envelope sent from the embedded Library page to the device. */
@@ -11,6 +12,8 @@ export type LibraryAction =
   | {
       type: "filter_motifs";
       query: unknown;
+      tags?: unknown;
+      tagMode?: unknown;
     }
   | {
       type: "import_clip";
@@ -206,6 +209,8 @@ export interface LibrarySelectedMotifData {
   folder: string;
   /** Hot keys targeting this motif. */
   hotkeys: LibraryHotkeyData[];
+  /** Motif tags used for filtering and browse. */
+  tags: string[];
   /** Total editable notes. */
   noteCount: number;
   /** Maximum editable notes allowed by the device. */
@@ -240,6 +245,12 @@ export interface LibraryScanProgress {
 export interface LibraryServerState {
   /** Active browser search query. */
   query: string;
+  /** Selected tag filter chips. */
+  tags: string[];
+  /** Whether selected tags combine with AND or OR. */
+  tagMode: TagFilterMode;
+  /** Library-wide tag vocabulary for filter and authoring suggestions. */
+  availableTags: string[];
   /** Filtered and sorted browser rows. */
   items: LibraryBrowserItemData[];
   /** Selected row within the filtered items, or -1. */

@@ -68,13 +68,88 @@ describe("Library state projection", () => {
     assert.deepEqual(state.selected?.hotkeys, [{ pitch: 36, action: "trigger", label: "C1" }]);
     assert.equal(state.actions.canEdit, true);
     assert.equal(state.actions.canSave, false);
+    assert.equal(state.actions.canImportClip, true);
     assert.equal(state.selected?.noteCount, model.store.current?.notes.length);
     assert.ok(typeof state.selected?.previewBars === "number");
     assert.equal(state.selected?.effectivePitchMode, "scale");
+    assert.deepEqual(state.selected?.tags, []);
+    assert.deepEqual(state.availableTags, []);
+    assert.equal(state.tagMode, "or");
+    assert.deepEqual(state.tags, []);
     assert.deepEqual(
       model.store.current?.notes.map(({ pitch }) => pitch),
       storedPitches,
       "projection must not mutate catalog notes",
+    );
+  });
+
+  it("filters motifs by selected tags with AND and OR modes", () => {
+    const model = setup();
+    const chromatic = model.store.get("chromatic-turn");
+    const scale = model.store.get("scale-turn");
+    assert.ok(chromatic && scale);
+    assert.deepEqual(
+      model.store.add({
+        ...chromatic,
+        id: "chromatic-tagged",
+        name: "Chromatic Tagged",
+        tags: ["chromatic", "demo"],
+      }),
+      [],
+    );
+    assert.deepEqual(
+      model.store.add({
+        ...scale,
+        id: "scale-tagged",
+        name: "Scale Tagged",
+        tags: ["demo", "scale"],
+      }),
+      [],
+    );
+
+    const orState = buildLibraryServerState({
+      ...model,
+      hostContext,
+      previewTriggerPitch: 60,
+      noteLimit: 512,
+      browserQuery: "",
+      browserTags: ["chromatic"],
+      browserTagMode: "or",
+    });
+    assert.deepEqual(
+      orState.items.map((item) => item.id),
+      ["chromatic-tagged"],
+    );
+    assert.deepEqual(orState.tags, ["chromatic"]);
+    assert.equal(orState.tagMode, "or");
+    assert.deepEqual(orState.availableTags, ["chromatic", "demo", "scale"]);
+
+    const andState = buildLibraryServerState({
+      ...model,
+      hostContext,
+      previewTriggerPitch: 60,
+      noteLimit: 512,
+      browserQuery: "",
+      browserTags: ["demo", "scale"],
+      browserTagMode: "and",
+    });
+    assert.deepEqual(
+      andState.items.map((item) => item.id),
+      ["scale-tagged"],
+    );
+
+    const combined = buildLibraryServerState({
+      ...model,
+      hostContext,
+      previewTriggerPitch: 60,
+      noteLimit: 512,
+      browserQuery: "chromatic",
+      browserTags: ["demo"],
+      browserTagMode: "or",
+    });
+    assert.deepEqual(
+      combined.items.map((item) => item.id),
+      ["chromatic-tagged"],
     );
   });
 
@@ -109,6 +184,17 @@ describe("Library state projection", () => {
       loadedMotifs: 3,
     });
     assert.equal(state.alert?.title, "Warning");
+
+    model.library.scanning = false;
+    const editingOnly = buildLibraryServerState({
+      ...model,
+      hostContext,
+      previewTriggerPitch: 60,
+      noteLimit: 512,
+      browserQuery: "",
+    });
+    assert.equal(editingOnly.actions.editing, true);
+    assert.equal(editingOnly.actions.canImportClip, false);
   });
 
   it("pins built-ins above naturally sorted user folders", () => {

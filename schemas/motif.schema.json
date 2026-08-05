@@ -54,6 +54,11 @@
     },
     "length": { "type": "number", "exclusiveMinimum": 0 },
     "defaultGate": { "type": "number", "exclusiveMinimum": 0 },
+    "tags": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    },
     "velocityCurve": {
       "type": "object",
       "additionalProperties": false,

@@ -874,8 +874,14 @@ export class MaxPatchBuilder {
   ): string => {
     const rounded = Math.max(0, options.rounded ?? 0);
     const border = options.border ?? 0;
-    const jsarguments =
-      rounded > 0 || border > 0 ? [rounded > 0 ? rounded : 6, border > 0 ? 1 : 0] : undefined;
+    let jsarguments: number[] | undefined;
+    if (rounded > 0 || border > 0) {
+      let cornerRadius = 6;
+      if (rounded > 0) cornerRadius = rounded;
+      let drawBorder = 0;
+      if (border > 0) drawBorder = 1;
+      jsarguments = [cornerRadius, drawBorder];
+    }
 
     return this.addBox(name, "jsui", rect, {
       filename: options.filename ?? "motif-preview.js",

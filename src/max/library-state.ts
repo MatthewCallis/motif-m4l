@@ -2,6 +2,12 @@ import { buildMotifPreview } from "../core/preview.js";
 import type { HostContext } from "../core/types.js";
 import type { MotifEditorState } from "../library/editor-state.js";
 import type { MotifStore } from "../library/store.js";
+import {
+  motifMatchesTagFilter,
+  normalizeTagFilterMode,
+  normalizeTags,
+  type TagFilterMode,
+} from "../library/tags.js";
 import type { DeviceSettingsState } from "./device-settings.js";
 import type { MotifHotkeyMap } from "./hotkey-map.js";
 import type {
@@ -52,6 +58,10 @@ export interface LibraryStateProjectionInput {
   noteLimit: number;
   /** Current browser query. */
   browserQuery: string;
+  /** Selected tag filter chips. */
+  browserTags?: readonly string[];
+  /** Whether selected tags combine with AND or OR. */
+  browserTagMode?: TagFilterMode;
   /** Latest warning displayed by the Library page. */
   alert?: LibraryAlert;
 }
@@ -75,10 +85,15 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
     previewTriggerPitch,
     noteLimit,
     browserQuery,
+    browserTags = [],
+    browserTagMode = "or",
     alert,
   } = input;
   const normalizedQuery = browserQuery.trim().toLowerCase();
   const matchedIds = new Set(store.filter(browserQuery).map((item) => item.id));
+  const parsedBrowserTags = normalizeTags(browserTags);
+  const selectedTags = parsedBrowserTags.ok ? parsedBrowserTags.value : [];
+  const tagMode = normalizeTagFilterMode(browserTagMode);
   // Build lookup indexes once per projection to avoid O(N*M) repeated scans.
   const folderById = new Map<string, string>();
   for (const item of store.list()) {
@@ -90,12 +105,13 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
     first.localeCompare(second, undefined, { numeric: true, sensitivity: "base" });
   const items = store
     .list()
-    .filter(
-      (item) =>
+    .filter((item) => {
+      const textMatch =
         !normalizedQuery ||
         matchedIds.has(item.id) ||
-        (folderById.get(item.id) ?? "Library").toLowerCase().includes(normalizedQuery),
-    )
+        (folderById.get(item.id) ?? "Library").toLowerCase().includes(normalizedQuery);
+      return textMatch && motifMatchesTagFilter(item.tags, selectedTags, tagMode);
+    })
     .sort((left, right) => {
       const leftFolder = folderById.get(left.id) ?? "Library";
       const rightFolder = folderById.get(right.id) ?? "Library";
@@ -158,6 +174,7 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
       isPersisted: library.files.has(selected.id),
       folder: folderById.get(selected.id) ?? "Library",
       hotkeys: (hotkeysById.get(selected.id) ?? []).map(toLibraryHotkeyData),
+      tags: selected.tags ? [...selected.tags] : [],
       noteCount: selected.notes.length,
       noteLimit,
       canAddNote: selectedIsEditing && selected.notes.length < noteLimit,
@@ -168,6 +185,9 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
 
   return {
     query: browserQuery,
+    tags: selectedTags,
+    tagMode,
+    availableTags: store.allTags(),
     items: items.map((item) => ({
       id: item.id,
       name: item.name,
@@ -186,7 +206,7 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
       editing: selectedIsEditing,
       canEdit: Boolean(selected) && !library.scanning,
       canSave: selectedIsEditing && library.loaded,
-      canImportClip: !library.scanning,
+      canImportClip: !library.scanning && !selectedIsEditing,
       canRefreshLibrary: Boolean(library.path) && !library.scanning,
     },
     alert: alert ?? null,

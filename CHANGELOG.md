@@ -10,7 +10,8 @@
 - Minify both Max JavaScript runtimes in production, remove duplicate hashed `dist/` artifacts, and build only once during verification.
 - Keep the minified native preview ES5-compatible and line-bounded for Max's legacy `jsui` host, preventing parser errors from crashing Max's error reporter.
 - Make the engine own Invert/Reverse state and flip it from each `live.text` click event, so repeated clicks reliably restore the original motif without depending on Max's numeric toggle outlet.
-- Remove motif metadata from the Library display, search, and authoring protocol while preserving existing metadata in motif JSON.
+- Add optional Motif `tags` with Library AND/OR chip filtering and edit-time tag create/suggest.
+- Remove other motif metadata (author/source/license/suggestedModes) from the Library display, search, and authoring protocol.
 - Move Standard MIDI File conversion code out of the device source tree and into standalone authoring scripts.
 - Move the test-only runtime scheduler and its schedule-unit type into test helpers, and make production builds reject unreachable implementation modules under `src/`.
 - Add a measured production optimization plan focused first on removing Library serialization from the MIDI trigger path.

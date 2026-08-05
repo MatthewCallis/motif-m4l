@@ -23,7 +23,28 @@
             autocomplete="off"
             spellcheck="false"
           />
-          <button id="clear-search" title="Clear search">✕</button>
+          <button id="clear-search" title="Clear search and tag filters">✕</button>
+        </div>
+        <div id="tag-filter">
+          <div id="tag-filter-mode" role="group" aria-label="Tag filter mode">
+            <button
+              type="button"
+              class="tag-mode-btn active"
+              data-tag-mode="or"
+              title="Match any selected tag"
+            >
+              OR
+            </button>
+            <button
+              type="button"
+              class="tag-mode-btn"
+              data-tag-mode="and"
+              title="Match all selected tags"
+            >
+              AND
+            </button>
+          </div>
+          <div id="tag-filter-chips"></div>
         </div>
         <div id="browser-list"></div>
         <div id="browser-actions">
@@ -48,13 +69,13 @@
       <div id="right">
         <div id="detail-actions">
           <button
-            class="btn accent"
+            class="btn"
             id="import-clip-btn"
             title="Import the selected clip as exact chromatic offsets"
           >
             Import Clip
           </button>
-          <button class="btn" id="save-motif-btn">Save &amp; Finish</button>
+          <button class="btn accent" id="save-motif-btn">Save &amp; Finish</button>
         </div>
 
         <div id="meta">
@@ -67,7 +88,7 @@
               readonly
             />
 
-            <button class="btn" id="edit-btn">Edit</button>
+            <button class="btn accent" id="edit-btn">Edit</button>
             <button class="btn hidden" id="cancel-edit-btn">Cancel Edit</button>
           </div>
           <textarea
@@ -92,6 +113,31 @@
               ><input class="field" id="notes-summary" type="text" readonly disabled />
               <label for="bars-summary">Bars</label
               ><input class="field" id="bars-summary" type="text" readonly disabled />
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="section-title">Tags</div>
+            <div class="property-grid">
+              <label>Labels</label>
+              <div class="wide" id="motif-tags"></div>
+              <label for="tag-edit-input">Add tag</label>
+              <div class="wide" id="tag-edit-controls">
+                <input
+                  class="field"
+                  id="tag-edit-input"
+                  type="text"
+                  placeholder="Existing or new tag"
+                  autocomplete="off"
+                  spellcheck="false"
+                  disabled
+                />
+                <div id="tag-suggestions" class="hidden"></div>
+              </div>
+              <div class="help">
+                Click a library tag to add it, or type a new name and press Enter or comma. Click a
+                chip to remove it while editing.
+              </div>
             </div>
           </div>
 
