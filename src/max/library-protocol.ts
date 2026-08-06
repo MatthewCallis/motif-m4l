@@ -1,3 +1,4 @@
+import type { MotifPreviewPaintData } from "../core/preview.js";
 import type { PitchMode } from "../core/types.js";
 import type { TagFilterMode } from "../library/tags.js";
 import type { HotkeyAction } from "./hotkey-map.js";
@@ -221,6 +222,8 @@ export interface LibrarySelectedMotifData {
   canRemoveNote: boolean;
   /** Complete editable note list. */
   notes: LibraryNoteData[];
+  /** Resolved pitch-time preview matching the device jsui payload. */
+  preview: MotifPreviewPaintData;
 }
 
 /** Structured warning delivered to the Library modal. */

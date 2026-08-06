@@ -112,6 +112,9 @@ describe("MotifStore", () => {
 
     assert.deepEqual(store.setNotes(clone.id, []), ["notes must be a non-empty array"]);
     assert.equal(store.get(clone.id)?.length, 240, "invalid empty updates must preserve the motif");
+    assert.deepEqual(store.setNotes("missing-motif", [{ at: 0, duration: 240, pitch: 0 }]), [
+      "Unknown motif: missing-motif",
+    ]);
   });
 
   it("normalizes ids and safely handles unknown or invalid values", () => {
@@ -127,8 +130,11 @@ describe("MotifStore", () => {
 
     const clone = addUserCopy(store, "chromatic-turn", "custom");
     assert.ok(clone);
+    store.select(clone.id);
     assert.equal(store.remove(clone.id), true);
     assert.equal(store.has(clone.id), false);
+    assert.equal(store.current, undefined, "remove leaves selection dangling for the caller");
+    assert.equal(store.ensureCurrent("scale-turn")?.id, "scale-turn");
     store.resetToBuiltins();
     assert.equal(store.list().length, 2);
   });

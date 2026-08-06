@@ -4,6 +4,6 @@
     "lib": ["ES2020", "DOM"],
     "types": ["node"]
   },
-  "include": ["src/max/library.ts", "tests/library-browser.test.mts"],
+  "include": ["src/max/library.ts", "src/max/library-preview.ts", "tests/library-browser.test.mts"],
   "exclude": []
 }

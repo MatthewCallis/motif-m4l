@@ -65,7 +65,9 @@ export function resolveVelocity(note, motif, v) {
 
 ## No re-exports
 
-Import from the defining module, not through a middleman.
+Import from the defining module, not through a middleman. This covers value re-exports
+**and** type aliases that only rename an imported type — both invent a second name for
+the same symbol and hide the source of truth.
 
 ```ts
 // ❌ motif-authoring.ts re-exports from note-edit-schema.ts
@@ -73,6 +75,16 @@ export { NOTE_EDIT_FIELDS, type NoteEditField } from "./note-edit-schema.js";
 // authoring-controller.ts imports via the middleman
 import { type NoteEditField } from "../library/motif-authoring.js";
 
-// ✅ Import from the source directly
+// ❌ Type rename alias (same smell: second name, no new shape)
+import type { MotifPreviewPaintData } from "../core/preview.js";
+export type LibraryMotifPreviewData = MotifPreviewPaintData;
+preview: LibraryMotifPreviewData;
+
+// ✅ Import from the source directly; use the defining name at the use site
 import type { NoteEditField } from "../library/note-edit-schema.js";
+import type { MotifPreviewPaintData } from "../core/preview.js";
+preview: MotifPreviewPaintData;
 ```
+
+Allowed: a new `interface` / `type` that adds or narrows fields. Not allowed: a pure
+`export type Foo = Bar` (or `type Foo = Bar` used only to rebrand `Bar`).

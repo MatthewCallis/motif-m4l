@@ -54,6 +54,8 @@ describe("Live-stored device state", () => {
   it("rejects empty, malformed, and unsupported snapshots", () => {
     assert.equal(decodePersistedDeviceState(""), undefined);
     assert.equal(decodePersistedDeviceState("%not-json"), undefined);
+    assert.equal(decodePersistedDeviceState("null"), undefined);
+    assert.equal(decodePersistedDeviceState("[]"), undefined);
     assert.equal(
       decodePersistedDeviceState(
         encodeURIComponent(
@@ -77,6 +79,30 @@ describe("Live-stored device state", () => {
         ),
       ),
       undefined,
+    );
+    assert.deepEqual(
+      decodePersistedDeviceState(
+        JSON.stringify({
+          schemaVersion: 1,
+          selectedMotifId: 42,
+          hotkeys: [{ pitch: 60, motifId: "scale-turn", action: "trigger" }],
+        }),
+      ),
+      undefined,
+    );
+    assert.deepEqual(
+      decodePersistedDeviceState(
+        JSON.stringify({
+          schemaVersion: 1,
+          selectedMotifId: "scale-turn",
+          hotkeys: [null, "bad", { pitch: 60, motifId: "scale-turn", action: "trigger" }],
+        }),
+      ),
+      {
+        schemaVersion: DEVICE_STATE_SCHEMA_VERSION,
+        selectedMotifId: "scale-turn",
+        hotkeys: [{ pitch: 60, motifId: "scale-turn", action: "trigger" }],
+      },
     );
   });
 });

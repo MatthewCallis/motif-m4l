@@ -1579,4 +1579,51 @@ describe("Max device runtime integration", () => {
     assert.equal((lib["editing"] as Record<string, unknown>)["active"], true);
     assert.ok(engine.errors.some((message) => message.includes("Motif name must be text")));
   });
+
+  it("rejects unknown enum setters and dirty library path or refresh changes", async () => {
+    const engine = await createEngine({ folders: { "/Motifs": [] } });
+    engine.dispatch("initialize");
+    engine.dispatch("library_path", "/Motifs");
+    engine.errors.length = 0;
+
+    engine.dispatch("pitch_mode", "motif");
+    engine.dispatch("pitch_mode", "nope");
+    engine.dispatch("meter_mode", "nope");
+    engine.dispatch("retrigger", "nope");
+    engine.dispatch("trigger_mode", "nope");
+    engine.dispatch("launch_quantization", "nope");
+    engine.dispatch("pass_through", "nope");
+    engine.dispatch("tempo_multiplier", "nope");
+    engine.dispatch("song_context", "unknown_property", 1);
+    engine.dispatch("song_context", "is_playing", 1);
+    engine.dispatch("song_context", "is_playing", 0);
+
+    assert.ok(engine.errors.some((message) => message.includes("Unknown pitch mode")));
+    assert.ok(engine.errors.some((message) => message.includes("Unknown meter mode")));
+    assert.ok(engine.errors.some((message) => message.includes("Unknown retrigger mode")));
+    assert.ok(engine.errors.some((message) => message.includes("Unknown trigger mode")));
+    assert.ok(engine.errors.some((message) => message.includes("Unknown launch quantization")));
+    assert.ok(engine.errors.some((message) => message.includes("Unknown pass-through policy")));
+    assert.ok(engine.errors.some((message) => message.includes("Unknown tempo multiplier")));
+    assert.ok(engine.errors.some((message) => message.includes("Unknown Song property")));
+
+    engine.dispatch("begin_edit");
+    engine.dispatch(
+      "lib_action",
+      encodeURIComponent(JSON.stringify({ type: "edit_motif", properties: { name: "Dirty" } })),
+    );
+    engine.errors.length = 0;
+    engine.dispatch("library_path", "/Other");
+    engine.dispatch("refresh_library");
+    assert.ok(
+      engine.errors.some((message) =>
+        message.includes("Finish or cancel editing before changing the library folder"),
+      ),
+    );
+    assert.ok(
+      engine.errors.some((message) =>
+        message.includes("Unsaved edits must be saved or discarded before refreshing"),
+      ),
+    );
+  });
 });

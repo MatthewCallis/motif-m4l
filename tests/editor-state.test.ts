@@ -80,6 +80,26 @@ describe("MotifEditorState", () => {
     assert.equal(editor.snapshot().targetId, "chromatic-turn-9");
   });
 
+  it("clones tags into cancel snapshots and fails closed when builtin draft add errors", () => {
+    const store = new MotifStore();
+    const editor = new MotifEditorState();
+    const tagged = addUserCopy(store, "chromatic-turn", "tagged-source");
+    assert.ok(tagged);
+    assert.deepEqual(store.update({ ...tagged, tags: ["Demo", "lick"] }), []);
+    const session = editor.begin(store, "tagged-source");
+    assert.ok(session);
+    assert.deepEqual(session.tags, ["Demo", "lick"]);
+    session.tags?.push("mutated");
+    assert.deepEqual(store.get("tagged-source")?.tags, ["Demo", "lick", "mutated"]);
+    editor.cancel(store);
+    assert.deepEqual(store.get("tagged-source")?.tags, ["Demo", "lick"]);
+
+    const originalAdd = store.add.bind(store);
+    store.add = () => ["forced add failure"];
+    assert.equal(editor.begin(store, "chromatic-turn"), undefined);
+    store.add = originalAdd;
+  });
+
   it("handles inactive and unknown edit transitions safely", () => {
     const store = new MotifStore();
     const editor = new MotifEditorState();

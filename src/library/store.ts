@@ -263,6 +263,8 @@ export class MotifStore {
 
   /**
    * Remove a user motif while protecting built-in ids.
+   * Does not repair selection - callers that may have deleted the current
+   * motif should `select` a restore target or `ensureCurrent(fallback)`.
    * @param {string} id The motif id to remove.
    * @returns {boolean} Whether a motif was removed or not.
    */
@@ -273,7 +275,6 @@ export class MotifStore {
     const removed = this.motifs.delete(id);
     if (removed) {
       this.invalidateSortedList();
-      this.ensureCurrent();
     }
     return removed;
   }

@@ -95,6 +95,31 @@ describe("compileMotif", () => {
     assert.equal(events[0]?.pitch, 63);
   });
 
+  it("keeps stored hybrid spelling when source intervals are unresolved", () => {
+    const events = compileMotif(
+      {
+        ...MOTIF,
+        pitchMode: "hybrid",
+        sourcePitchContext: {
+          anchorPitch: 60,
+          scaleRootNote: 0,
+          scaleName: "Custom Unknown Scale",
+          scaleIntervals: null,
+        },
+        notes: [{ at: 0, duration: 120, pitch: 2, accidental: 1 }],
+      },
+      HOST,
+      {
+        channel: 1,
+        meterMode: "preserve",
+        triggerPitch: 60,
+        triggerVelocity: 100,
+      },
+    );
+    // degree 2 + accidental 1 in C major from C3 → E + 1 = F
+    assert.equal(events[0]?.pitch, 65);
+  });
+
   it("respells Hybrid notes at playback to preserve the imported chromatic contour", () => {
     const offsets = [0, -2, 3, 2, 1, 0, -2, -4];
     const chromatic: Motif = {

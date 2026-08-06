@@ -16,6 +16,7 @@ import {
   type LibraryServerState,
   type LibraryStateChunk,
 } from "./library-protocol.js";
+import { renderLibraryPreview } from "./library-preview.js";
 import {
   addTagSelection,
   clampLibrarySidebarWidth,
@@ -736,6 +737,7 @@ function renderDetail(server: LibraryServerState | null, local: LibraryPageState
     add.disabled = true;
     renderNoteRows(server, false);
     renderHotkeys(null);
+    renderLibraryPreview($<HTMLCanvasElement>("motif-preview-canvas"), null);
     return;
   }
 
@@ -767,6 +769,7 @@ function renderDetail(server: LibraryServerState | null, local: LibraryPageState
   add.disabled = !selected.canAddNote;
   renderNoteRows(server, editing);
   renderHotkeys(selected);
+  renderLibraryPreview($<HTMLCanvasElement>("motif-preview-canvas"), selected.preview);
 }
 
 /**
@@ -1041,7 +1044,21 @@ libraryResizer.addEventListener("keydown", (event) => {
 });
 window.addEventListener("resize", () => {
   applyLibrarySidebarWidth(librarySidebar.getBoundingClientRect().width, false);
+  renderLibraryPreview(
+    $<HTMLCanvasElement>("motif-preview-canvas"),
+    store.getState().server?.selected?.preview ?? null,
+  );
 });
+
+const motifPreviewHost = $<HTMLDivElement>("motif-preview");
+if (typeof ResizeObserver === "function") {
+  new ResizeObserver(() => {
+    renderLibraryPreview(
+      $<HTMLCanvasElement>("motif-preview-canvas"),
+      store.getState().server?.selected?.preview ?? null,
+    );
+  }).observe(motifPreviewHost);
+}
 
 document.querySelectorAll<HTMLButtonElement>(".panel-tab").forEach((tab) => {
   tab.addEventListener("click", () => {
@@ -1308,6 +1325,16 @@ if (isMax) {
               tie: false,
             },
           ],
+          preview: {
+            notes: [
+              { pitch: 60, atTicks: 0, durationTicks: 394, velocity: 100 },
+              { pitch: 62, atTicks: 480, durationTicks: 394, velocity: 100 },
+            ],
+            totalTicks: 874,
+            lowPitch: 59,
+            highPitch: 63,
+            noteNames: "C3 ·  D3",
+          },
         },
         alert: null,
       } satisfies LibraryServerState),

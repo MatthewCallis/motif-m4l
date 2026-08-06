@@ -33,6 +33,7 @@ import {
   writeJsonFile,
 } from "../src/max/max-helpers.js";
 import { readClipNotes, resolveDetailClip } from "../src/max/live-api.js";
+import { MAX_LIBRARY_DEPTH } from "../src/max/device-types.js";
 import { MaxUserLibrary } from "../src/max/user-library.js";
 
 interface MaxMocks {
@@ -208,6 +209,10 @@ describe("extracted type and authoring helpers", () => {
     assert.equal(cleared.ok, true);
     if (!cleared.ok) return;
     assert.equal(cleared.value.tags, undefined);
+    const clearedNull = applyMotifProperties(tagged.value, { tags: null });
+    assert.equal(clearedNull.ok, true);
+    if (!clearedNull.ok) return;
+    assert.equal(clearedNull.value.tags, undefined);
     const preserved = applyMotifProperties(tagged.value, { name: tagged.value.name });
     assert.equal(preserved.ok, true);
     if (!preserved.ok) return;
@@ -223,6 +228,7 @@ describe("extracted type and authoring helpers", () => {
       [{ schemaVersion: 99 }, "read-only"],
       [{ length: 99 }, "derived"],
       [{ name: "" }, "cannot be empty"],
+      [{ name: { nested: true } }, "must be text"],
       [{ pitchMode: "invalid" }, "pitchMode"],
       [{ sourceMeter: null }, "sourceMeter"],
       [{ sourceMeter: { numerator: 0, denominator: 4 } }, "numerator"],
@@ -232,11 +238,109 @@ describe("extracted type and authoring helpers", () => {
       [{ velocityCurve: { exponent: 0 } }, "greater than zero"],
       [{ tags: "demo" }, "tags must be an array"],
       [{ tags: [""] }, "cannot be empty"],
+      [{ tags: [1] }, "must be a string"],
+      [{ sourcePitchContext: null }, "sourcePitchContext must be an object"],
+      [
+        {
+          sourcePitchContext: {
+            ...motif.sourcePitchContext,
+            anchorPitch: 128,
+          },
+        },
+        "anchorPitch",
+      ],
+      [
+        {
+          sourcePitchContext: {
+            ...motif.sourcePitchContext,
+            scaleRootNote: 12,
+          },
+        },
+        "scaleRootNote",
+      ],
+      [
+        {
+          sourcePitchContext: {
+            ...motif.sourcePitchContext,
+            scaleName: "   ",
+          },
+        },
+        "scaleName",
+      ],
+      [
+        {
+          sourcePitchContext: {
+            ...motif.sourcePitchContext,
+            scaleIntervals: "Major",
+          },
+        },
+        "array or null",
+      ],
+      [
+        {
+          sourcePitchContext: {
+            ...motif.sourcePitchContext,
+            scaleIntervals: [0, 2, 2],
+          },
+        },
+        "sorted, unique",
+      ],
+      [
+        {
+          sourcePitchContext: {
+            ...motif.sourcePitchContext,
+            scaleIntervals: [1, 2, 4],
+          },
+        },
+        "starting at 0",
+      ],
     ] as const) {
       const result = applyMotifProperties(motif, value);
       assert.equal(result.ok, false);
       if (!result.ok) assert.match(result.error, new RegExp(message));
     }
+  });
+
+  it("validates sourcePitchContext updates and pitch-mode conversion failures", () => {
+    const motif = new MotifStore().get("chromatic-turn");
+    assert.ok(motif);
+
+    const unchanged = applyMotifProperties(motif, {
+      sourcePitchContext: { ...motif.sourcePitchContext },
+    });
+    assert.equal(unchanged.ok && unchanged.changed, false);
+
+    const withNullIntervals = applyMotifProperties(motif, {
+      sourcePitchContext: {
+        ...motif.sourcePitchContext,
+        scaleIntervals: null,
+      },
+    });
+    assert.equal(withNullIntervals.ok, true);
+    if (!withNullIntervals.ok) return;
+    assert.equal(withNullIntervals.changed, true);
+    assert.equal(withNullIntervals.value.sourcePitchContext.scaleIntervals, null);
+
+    const clearedCurve = applyMotifProperties(
+      { ...motif, velocityCurve: { exponent: 1.5 } },
+      { velocityCurve: null },
+    );
+    assert.equal(clearedCurve.ok, true);
+    if (!clearedCurve.ok) return;
+    assert.equal(clearedCurve.value.velocityCurve, undefined);
+
+    const unresolved = applyMotifProperties(motif, {
+      pitchMode: "scale",
+      sourcePitchContext: {
+        ...motif.sourcePitchContext,
+        scaleIntervals: null,
+        scaleName: "Custom Unknown Scale",
+      },
+    });
+    assert.equal(unresolved.ok, false);
+    if (!unresolved.ok) assert.match(unresolved.error, /source scale intervals are unresolved/);
+
+    assert.equal(updateMotifNote(motif, 0, "bogus" as "pitch", 1).ok, false);
   });
 
   it("edits, appends, removes, and serializes motif notes", () => {
@@ -517,6 +621,59 @@ describe("LiveAPI adapter", () => {
     Object.assign(globalThis, { LiveAPI: undefined });
     assert.equal(resolveDetailClip(), undefined);
   });
+
+  it("interprets LiveAPI string truthiness and Dict-like note payloads", () => {
+    installMaxMocks();
+    class StringTruthyApi {
+      id = 1;
+      constructor(
+        _callback?: (args: unknown[]) => void,
+        readonly path = "",
+      ) {
+        this.id = path.includes("detail_clip") ? 1 : 0;
+      }
+      get(property: string): string {
+        if (property === "is_midi_clip") return "false";
+        if (property === "is_audio_clip") return "id 0";
+        return "0";
+      }
+      getstring(): string {
+        return "";
+      }
+      call(): unknown {
+        return {
+          stringify: () =>
+            JSON.stringify({
+              notes: [{ pitch: 61, start_time: 0, duration: 0.25, velocity: 90 }],
+            }),
+        };
+      }
+    }
+    Object.assign(globalThis, { LiveAPI: StringTruthyApi });
+    // is_midi_clip "false" and is_audio_clip "id 0" both fail soft → try notes.
+    const clip = resolveDetailClip();
+    assert.ok(clip);
+    assert.deepEqual(readClipNotes(clip), [{ pitch: 61, at: 0, duration: 240, velocity: 90 }]);
+
+    class ThrowingDetailApi {
+      id = 1;
+      constructor(_callback?: (args: unknown[]) => void, path = "") {
+        if (path.includes("detail_clip")) throw new Error("detail unavailable");
+        this.id = 0;
+      }
+      get(): number {
+        return 0;
+      }
+      getstring(): string {
+        return "";
+      }
+      call(): unknown {
+        return [];
+      }
+    }
+    Object.assign(globalThis, { LiveAPI: ThrowingDetailApi });
+    assert.equal(resolveDetailClip(), undefined);
+  });
 });
 
 describe("hotkey and user-library owners", () => {
@@ -524,9 +681,10 @@ describe("hotkey and user-library owners", () => {
     const store = new MotifStore();
     const hotkeys = new MotifHotkeyMap(store);
     assert.equal(hotkeys.assign("invalid", "scale-turn").ok, false);
+    assert.equal(hotkeys.assign(Number.NaN, "scale-turn").ok, false);
     assert.equal(hotkeys.assign(60, "missing").ok, false);
     assert.equal(hotkeys.assign(60, "scale-turn", "invalid").ok, false);
-    assert.equal(hotkeys.assign(62, "scale-turn", "select").ok, true);
+    assert.equal(hotkeys.assign("62", "scale-turn", "select").ok, true);
     assert.equal(hotkeys.assign(60, "scale-turn").ok, true);
     assert.equal(hotkeys.has(60), true);
     assert.deepEqual(
@@ -587,6 +745,136 @@ describe("hotkey and user-library owners", () => {
     assert.equal(library.loaded, false);
     assert.ok(errors.some((message) => message.includes("not found")));
   });
+
+  it("skips invalid, builtin-conflicting, and duplicate motif files during scan", () => {
+    const mocks = installMaxMocks();
+    const store = new MotifStore();
+    const valid = { ...store.get("chromatic-turn")!, id: "user-valid", name: "Valid" };
+    const duplicate = { ...valid, name: "Duplicate" };
+    const builtinClash = { ...valid, id: "chromatic-turn", name: "Builtin Clash" };
+    mocks.folders["/library"] = [
+      "broken.json",
+      "builtin.json",
+      "valid.json",
+      "duplicate.json",
+      "nested",
+    ];
+    mocks.folders["/library/nested"] = ["deep.json"];
+    mocks.files["/library/broken.json"] = '{"id":""}';
+    mocks.files["/library/builtin.json"] = JSON.stringify(builtinClash);
+    mocks.files["/library/valid.json"] = JSON.stringify(valid);
+    mocks.files["/library/duplicate.json"] = JSON.stringify(duplicate);
+    mocks.files["/library/nested/deep.json"] = JSON.stringify({
+      ...valid,
+      id: "nested-user",
+      name: "Nested",
+    });
+    const errors: string[] = [];
+    const statuses: unknown[][] = [];
+    let stateChanges = 0;
+    const library = new MaxUserLibrary(store, {
+      onError: (message) => errors.push(message),
+      onStateChange: () => {
+        stateChanges += 1;
+      },
+      onStatus: (...values) => statuses.push(values),
+      onContentsChanged: () => undefined,
+    });
+
+    assert.equal(library.selectPath("/library"), true);
+    assert.equal(library.loaded, true);
+    assert.equal(store.has("user-valid"), true);
+    assert.equal(store.has("nested-user"), true);
+    assert.equal(library.browserFolder("nested-user"), "nested");
+    assert.equal(library.browserFolder("missing-user"), "Library");
+    library.files.set("outside", "/elsewhere/outside.json");
+    assert.equal(library.browserFolder("outside"), "Library");
+    assert.ok(errors.some((message) => message.includes("broken.json")));
+    assert.ok(errors.some((message) => message.includes("conflicts with a built-in")));
+    assert.ok(errors.some((message) => message.includes("duplicate motif id")));
+
+    const changesBefore = stateChanges;
+    assert.equal(library.selectPath("/library"), false);
+    assert.equal(stateChanges, changesBefore + 1);
+    assert.equal(library.loaded, true);
+
+    library.load("library-refreshed");
+    assert.ok(statuses.some(([status]) => status === "library-refreshed"));
+  });
+
+  it("cancels mid-scan work and reports maximum folder depth", () => {
+    const mocks = installMaxMocks();
+    const store = new MotifStore();
+    const errors: string[] = [];
+    const library = new MaxUserLibrary(store, {
+      onError: (message) => errors.push(message),
+      onStateChange: () => undefined,
+      onStatus: () => undefined,
+      onContentsChanged: () => undefined,
+    });
+
+    const deferred: Array<() => void> = [];
+    class DeferredTask {
+      #cancelled = false;
+      constructor(
+        readonly callback: (...args: unknown[]) => void,
+        readonly context?: object,
+        readonly args: unknown[] = [],
+      ) {}
+      cancel(): void {
+        this.#cancelled = true;
+      }
+      freepeer(): void {
+        this.#cancelled = true;
+      }
+      schedule(): void {
+        deferred.push(() => {
+          if (!this.#cancelled) this.callback.apply(this.context, this.args);
+        });
+      }
+    }
+    Object.assign(globalThis, { Task: DeferredTask });
+    mocks.folders["/slow"] = ["a.json"];
+    mocks.files["/slow/a.json"] = JSON.stringify({
+      ...store.get("chromatic-turn")!,
+      id: "slow-user",
+      name: "Slow",
+    });
+
+    assert.equal(library.selectPath("/slow"), true);
+    assert.equal(library.scanning, true);
+    assert.ok(library.scanTask);
+    library.cancelScan();
+    assert.equal(library.scanning, false);
+    assert.equal(library.scanTask, undefined);
+    assert.equal(store.has("slow-user"), false);
+
+    let path = "/deep";
+    mocks.folders[path] = ["child"];
+    for (let depth = 0; depth < MAX_LIBRARY_DEPTH; depth += 1) {
+      const child = `${path}/child`;
+      mocks.folders[child] = ["child"];
+      path = child;
+    }
+    mocks.folders[`${path}/child`] = [];
+    Object.assign(globalThis, {
+      Task: class ImmediateTask {
+        constructor(
+          readonly callback: (...args: unknown[]) => void,
+          readonly context?: object,
+          readonly args: unknown[] = [],
+        ) {}
+        cancel(): void {}
+        freepeer(): void {}
+        schedule(): void {
+          this.callback.apply(this.context, this.args);
+        }
+      },
+    });
+    errors.length = 0;
+    library.selectPath("/deep");
+    assert.ok(errors.some((message) => message.includes("maximum library folder depth exceeded")));
+  });
 });
 
 describe("TypeScript device dispatcher", () => {
@@ -637,14 +925,21 @@ describe("TypeScript device dispatcher", () => {
       ["song_context", "is_playing", 1],
       ["song_context", "current_song_time", 2],
       ["motif", "Chromatic Turn"],
+      ["pitch_mode", "motif"],
       ["pitch_mode", "hybrid"],
+      ["pitch_mode", "nope"],
       ["invert", 1],
       ["reverse", 1],
       ["meter_mode", "fit-bar"],
+      ["meter_mode", "nope"],
       ["retrigger", "overlap"],
+      ["retrigger", "nope"],
       ["trigger_mode", "hold"],
+      ["trigger_mode", "nope"],
       ["launch_quantization", "1/4"],
+      ["launch_quantization", "nope"],
       ["pass_through", "all"],
+      ["pass_through", "nope"],
       ["trigger_low", 40],
       ["trigger_high", 80],
       ["map_trigger", "C3", "scale-turn"],
@@ -655,7 +950,10 @@ describe("TypeScript device dispatcher", () => {
       ["unmap_trigger", "C3"],
       ["clear_trigger_map"],
       ["tempo_multiplier", 2],
+      ["tempo_multiplier", "nope"],
       ["filter_motifs", "scale"],
+      ["song_context", "unknown_property", 1],
+      ["song_context", "is_playing", 0],
       ["begin_edit"],
       ["edit_motif", { name: "Direct Source Draft" }],
       ["edit_note_at", 0, "pitch", 2],
@@ -685,6 +983,17 @@ describe("TypeScript device dispatcher", () => {
       ],
       ["lib_action", encodeURIComponent(JSON.stringify({ type: "unmap_trigger", pitch: 62 }))],
       ["lib_action", encodeURIComponent(JSON.stringify({ type: "clear_trigger_map" }))],
+      ["lib_action", encodeURIComponent(JSON.stringify({ type: "begin_edit" }))],
+      [
+        "lib_action",
+        encodeURIComponent(
+          JSON.stringify({ type: "edit_motif", properties: { description: "via lib" } }),
+        ),
+      ],
+      ["lib_action", encodeURIComponent(JSON.stringify({ type: "import_clip" }))],
+      ["lib_action", encodeURIComponent(JSON.stringify({ type: "save_motif" }))],
+      ["lib_action", encodeURIComponent(JSON.stringify({ type: "refresh_library" }))],
+      ["lib_action", encodeURIComponent(JSON.stringify({ type: "cancel_edit" }))],
       ["cancel_edit"],
       [
         "lib_action",
@@ -692,6 +1001,17 @@ describe("TypeScript device dispatcher", () => {
           JSON.stringify({
             type: "select_browser",
             id: "scale-turn",
+          }),
+        ),
+      ],
+      [
+        "lib_action",
+        encodeURIComponent(
+          JSON.stringify({
+            type: "filter_motifs",
+            query: "scale",
+            tags: ["demo"],
+            tagMode: "and",
           }),
         ),
       ],
@@ -705,8 +1025,27 @@ describe("TypeScript device dispatcher", () => {
     ];
 
     for (const [message, ...args] of messages) dispatch(message, args);
+
+    mocks.folders["/Motifs"] = [];
+    dispatch("library_path", ["/Motifs"]);
+    dispatch("begin_edit", []);
+    dispatch("edit_motif", [{ name: "Dirty Path" }]);
+    const errorsBeforePath = mocks.errors.length;
+    dispatch("library_path", ["/Other"]);
+    assert.ok(
+      mocks.errors
+        .slice(errorsBeforePath)
+        .some((message) => message.includes("Finish or cancel editing before changing the library")),
+    );
+    dispatch("library_path", []);
+    dispatch("cancel_edit", []);
+    dispatch("library_path", ["/Motifs"]);
+    dispatch("library_path", ["/Motifs"]);
+
     dispatch("unknown-source-message", []);
 
     assert.ok(mocks.errors.some((message) => message.includes("Unknown message")));
+    assert.ok(mocks.errors.some((message) => message.includes("Unknown pitch mode")));
+    assert.ok(mocks.errors.some((message) => message.includes("Unknown Song property")));
   });
 });

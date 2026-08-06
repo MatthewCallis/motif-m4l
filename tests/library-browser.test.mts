@@ -120,6 +120,18 @@ class FakeSelectElement extends FakeElement {
 
 function createElementForId(id: string): FakeElement {
   if (id === "description-edit") return new FakeTextAreaElement();
+  if (id === "motif-preview-canvas") {
+    const canvas = new FakeElement("CANVAS");
+    Object.assign(canvas, {
+      width: 1,
+      height: 1,
+      style: canvas.style,
+      getContext() {
+        return null;
+      },
+    });
+    return canvas;
+  }
   if (
     id === "pitch-mode-edit" ||
     id === "meter-denominator-edit" ||
@@ -313,6 +325,16 @@ void describe("Library browser runtime", () => {
             tie: false,
           },
         ],
+        preview: {
+          notes: [
+            { pitch: 60, atTicks: 0, durationTicks: 480, velocity: 100 },
+            { pitch: 62, atTicks: 480, durationTicks: 480, velocity: 90 },
+          ],
+          totalTicks: 960,
+          lowPitch: 59,
+          highPitch: 63,
+          noteNames: "C3 ·  D3",
+        },
       },
       alert: null,
       scanProgress: null,
@@ -437,6 +459,56 @@ void describe("Library browser runtime", () => {
     sourceRootInput.dispatch("input");
     assert.equal(elements.get("source-root-name")?.textContent, "—");
 
+    const hotkeyChip = elements.get("hotkey-list")?.children[0];
+    assert.ok(hotkeyChip);
+    outlets.length = 0;
+    hotkeyChip.click();
+    assert.ok(
+      outlets.some(
+        (args) =>
+          args[0] === "lib_action" &&
+          decodeURIComponent(String(args[1])).includes('"type":"unmap_trigger"'),
+      ),
+    );
+
+    const noteRow = elements.get("note-rows")?.children[0];
+    assert.ok(noteRow);
+    const pitchInput = noteRow.children.find(
+      (child) => child instanceof FakeInputElement && child.type === "number",
+    );
+    assert.ok(pitchInput);
+    pitchInput.value = "4";
+    outlets.length = 0;
+    pitchInput.dispatch("change");
+    assert.ok(
+      outlets.some(
+        (args) =>
+          args[0] === "lib_action" &&
+          decodeURIComponent(String(args[1])).includes('"type":"edit_note_at"'),
+      ),
+    );
+
+    receiveData(
+      encodeURIComponent(
+        JSON.stringify({
+          ...state,
+          selected: {
+            ...state.selected,
+            hotkeys: [],
+          },
+          alert: {
+            id: 7,
+            title: "Source scale required",
+            message: "Enter source intervals before changing Pitch Mode.",
+          },
+        }),
+      ),
+    );
+    assert.equal(elements.get("hotkey-list")?.children[0]?.textContent, "None");
+    assert.equal(elements.get("modal-title")?.textContent, "Source scale required");
+    assert.equal(elements.get("modal-cancel")?.classList.values.has("hidden"), true);
+    elements.get("modal-confirm")?.click();
+
     windowListeners.get("error")?.({
       message: "browser failure",
       filename: "library.html",
@@ -453,5 +525,61 @@ void describe("Library browser runtime", () => {
       key: "Escape",
       preventDefault: () => undefined,
     });
+  });
+});
+
+void describe("Library canvas preview paint", () => {
+  void it("paints empty and note payloads without throwing", async () => {
+    const { paintLibraryPreview } = await import("../src/max/library-preview.js");
+    const { buildMotifPreview, toMotifPreviewPaintData } = await import("../src/core/preview.js");
+    const { BUILTIN_MOTIFS } = await import("../src/generated/builtins.js");
+    const chromaticTurn = BUILTIN_MOTIFS.find(({ id }) => id === "chromatic-turn");
+    assert.ok(chromaticTurn);
+
+    const calls: string[] = [];
+    const ctx = {
+      clearRect: () => calls.push("clear"),
+      fillRect: () => calls.push("fill"),
+      strokeRect: () => calls.push("strokeRect"),
+      beginPath: () => undefined,
+      moveTo: () => undefined,
+      lineTo: () => undefined,
+      stroke: () => calls.push("stroke"),
+      fillText: (text: string) => calls.push(`text:${text}`),
+      measureText: (text: string) => ({ width: text.length * 6 }),
+      setTransform: () => undefined,
+      fillStyle: "",
+      strokeStyle: "",
+      lineWidth: 1,
+      font: "",
+      textBaseline: "alphabetic",
+    } as unknown as CanvasRenderingContext2D;
+
+    paintLibraryPreview(ctx, null, 200, 100);
+    assert.ok(calls.includes("clear"));
+    assert.ok(calls.some((entry) => entry.startsWith("text:Select a motif")));
+
+    const paint = toMotifPreviewPaintData(
+      buildMotifPreview(
+        chromaticTurn,
+        {
+          tempo: 120,
+          rootNote: 0,
+          scaleName: "Major",
+          scaleIntervals: [0, 2, 4, 5, 7, 9, 11],
+          scaleMode: true,
+          timeSignature: { numerator: 4, denominator: 4 },
+          isPlaying: false,
+          currentSongTime: 0,
+        },
+        60,
+        undefined,
+        "preserve",
+      ),
+    );
+    calls.length = 0;
+    paintLibraryPreview(ctx, paint, 320, 140);
+    assert.ok(calls.includes("fill"));
+    assert.ok(calls.some((entry) => entry.startsWith("text:")));
   });
 });

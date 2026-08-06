@@ -129,6 +129,29 @@ describe("motif validation", () => {
         `missing ${field}`,
       );
     }
+
+    const badIntervals = validateMotif({
+      schemaVersion: 1,
+      id: "bad-intervals",
+      name: "Bad Intervals",
+      description: "Non-array intervals.",
+      pitchMode: "chromatic",
+      sourcePitchContext: {
+        anchorPitch: 60,
+        scaleRootNote: 0,
+        scaleName: "Major",
+        scaleIntervals: "Major",
+      },
+      sourceMeter: { numerator: 4, denominator: 4 },
+      length: 1,
+      notes: [{ at: 0, duration: 1, pitch: 0 }],
+    });
+    assert.equal(badIntervals.valid, false);
+    assert.ok(
+      badIntervals.errors.some((error) =>
+        error.includes("scaleIntervals must be null or contain 1 to 12 integers"),
+      ),
+    );
   });
 
   it("returns a typed motif for complete valid input and catches notes beyond its length", () => {

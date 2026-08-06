@@ -1,3 +1,4 @@
+import type { MotifPreviewPaintData } from "../../src/core/preview.js";
 import type {
   LibraryAction,
   LibraryNoteData,
@@ -29,6 +30,44 @@ function note(index: number): LibraryNoteData {
     velocityScale: null,
     legato: index % 5 === 2,
     tie: false,
+  };
+}
+
+/**
+ * Build a chromatic paint preview for workbench fixtures (anchor C3).
+ * @param {LibraryNoteData[]} notes The notes to build the preview from.
+ * @returns {MotifPreviewPaintData} The preview.
+ */
+function previewFromNotes(notes: LibraryNoteData[]): MotifPreviewPaintData {
+  const paintNotes = notes.map((value) => ({
+    pitch: 60 + value.pitch + (value.accidental ?? 0),
+    atTicks: value.at,
+    durationTicks: Math.max(1, value.duration),
+    velocity: value.velocity ?? 100,
+  }));
+  const pitches = paintNotes.map((entry) => entry.pitch);
+  let lowPitch = pitches.length > 0 ? Math.min(...pitches) : 59;
+  let highPitch = pitches.length > 0 ? Math.max(...pitches) : 61;
+  if (lowPitch === highPitch) {
+    lowPitch -= 1;
+    highPitch += 1;
+  }
+  const names = ["C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B"];
+  return {
+    notes: paintNotes,
+    totalTicks: Math.max(
+      1,
+      paintNotes.reduce((max, entry) => Math.max(max, entry.atTicks + entry.durationTicks), 1),
+    ),
+    lowPitch,
+    highPitch,
+    noteNames:
+      paintNotes
+        .map((entry) => {
+          const pitch = Math.max(0, Math.min(127, entry.pitch));
+          return `${names[pitch % 12] ?? "C"}${Math.floor(pitch / 12) - 2}`;
+        })
+        .join(" ·  ") || "—",
   };
 }
 
@@ -70,6 +109,7 @@ function selectedMotif(notes: LibraryNoteData[]): LibrarySelectedMotifData {
     canAddNote: notes.length < NOTE_LIMIT,
     canRemoveNote: notes.length > 1,
     notes,
+    preview: previewFromNotes(notes),
   };
 }
 
@@ -316,6 +356,7 @@ export function applyFixtureAction(
         noteCount: notes.length,
         canAddNote: notes.length < state.selected.noteLimit,
         canRemoveNote: notes.length > 1,
+        preview: previewFromNotes(notes),
       },
     });
   }
@@ -329,6 +370,7 @@ export function applyFixtureAction(
         noteCount: notes.length,
         canAddNote: notes.length < state.selected.noteLimit,
         canRemoveNote: notes.length > 1,
+        preview: previewFromNotes(notes),
       },
     });
   }
@@ -336,7 +378,10 @@ export function applyFixtureAction(
     const notes = state.selected.notes.map((value, index) =>
       index === action.index ? { ...value, [action.field]: action.value } : value,
     );
-    return dirty({ ...state, selected: { ...state.selected, notes } });
+    return dirty({
+      ...state,
+      selected: { ...state.selected, notes, preview: previewFromNotes(notes) },
+    });
   }
   if (action.type === "edit_motif" && action.properties && typeof action.properties === "object") {
     const properties = action.properties as Partial<LibrarySelectedMotifData>;

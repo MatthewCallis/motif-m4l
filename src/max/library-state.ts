@@ -1,4 +1,4 @@
-import { buildMotifPreview } from "../core/preview.js";
+import { buildMotifPreview, toMotifPreviewPaintData } from "../core/preview.js";
 import type { HostContext } from "../core/types.js";
 import type { MotifEditorState } from "../library/editor-state.js";
 import type { MotifStore } from "../library/store.js";
@@ -180,6 +180,7 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
       canAddNote: selectedIsEditing && selected.notes.length < noteLimit,
       canRemoveNote: selectedIsEditing && selected.notes.length > 1,
       notes: selected.notes.map(toLibraryNoteData),
+      preview: toMotifPreviewPaintData(preview),
     };
   }
 

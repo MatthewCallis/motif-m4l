@@ -31,7 +31,7 @@
  * @see https://github.com/Ableton/maxdevtools/tree/main/m4l-production-guidelines
  */
 
-import { buildMotifPreview } from "../core/preview.js";
+import { buildMotifPreview, toMotifPreviewPaintData } from "../core/preview.js";
 import { type HostContext } from "../core/types.js";
 import { MotifEditorState } from "../library/editor-state.js";
 import { MotifStore } from "../library/store.js";
@@ -221,23 +221,7 @@ function emitPreviewState(): void {
     settings.pitchModeOverride,
     settings.meterMode,
   );
-  const totalTicks = preview.notes.reduce(
-    (max, n) => Math.max(max, n.atTicks + n.durationTicks),
-    1,
-  );
-  const state = {
-    notes: preview.notes.map((n) => ({
-      pitch: n.pitch,
-      atTicks: n.atTicks,
-      durationTicks: n.durationTicks,
-      velocity: n.velocity,
-    })),
-    totalTicks,
-    lowPitch: preview.lowPitch,
-    highPitch: preview.highPitch,
-    noteNames: preview.noteNames.join(" ·  "),
-  };
-  emit("ui", "preview", encodeURIComponent(JSON.stringify(state)));
+  emit("ui", "preview", encodeURIComponent(JSON.stringify(toMotifPreviewPaintData(preview))));
 }
 
 /**

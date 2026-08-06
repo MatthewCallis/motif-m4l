@@ -65,6 +65,27 @@ describe("Library state projection", () => {
 
     assert.equal(state.selected?.id, "scale-turn");
     assert.equal(state.selected?.noteLimit, 512);
+    assert.ok(Array.isArray(state.selected?.sourcePitchContext.scaleIntervals));
+
+    const unresolved = {
+      ...model.store.current!,
+      id: "unresolved-source",
+      sourcePitchContext: {
+        ...model.store.current!.sourcePitchContext,
+        scaleIntervals: null,
+      },
+    };
+    assert.deepEqual(model.store.add(unresolved), []);
+    model.store.select(unresolved.id);
+    const unresolvedState = buildLibraryServerState({
+      ...model,
+      hostContext,
+      previewTriggerPitch: 60,
+      noteLimit: 512,
+      browserQuery: "",
+    });
+    assert.equal(unresolvedState.selected?.sourcePitchContext.scaleIntervals, null);
+    model.store.select("scale-turn");
     assert.deepEqual(state.selected?.hotkeys, [{ pitch: 36, action: "trigger", label: "C1" }]);
     assert.equal(state.actions.canEdit, true);
     assert.equal(state.actions.canSave, false);
@@ -72,6 +93,19 @@ describe("Library state projection", () => {
     assert.equal(state.selected?.noteCount, model.store.current?.notes.length);
     assert.ok(typeof state.selected?.previewBars === "number");
     assert.equal(state.selected?.effectivePitchMode, "scale");
+    const preview = state.selected?.preview;
+    assert.ok(preview);
+    assert.ok(Array.isArray(preview.notes));
+    assert.ok(preview.notes.length > 0);
+    assert.ok(preview.totalTicks >= 1);
+    assert.ok(typeof preview.noteNames === "string");
+    assert.ok(preview.highPitch >= preview.lowPitch);
+    for (const note of preview.notes) {
+      assert.ok(Number.isFinite(note.pitch));
+      assert.ok(Number.isFinite(note.atTicks));
+      assert.ok(note.durationTicks >= 1);
+      assert.ok(note.velocity >= 1 && note.velocity <= 127);
+    }
     assert.deepEqual(state.selected?.tags, []);
     assert.deepEqual(state.availableTags, []);
     assert.equal(state.tagMode, "or");

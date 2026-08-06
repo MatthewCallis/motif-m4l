@@ -156,3 +156,46 @@ export function buildMotifPreview(
     triggerPitch,
   };
 }
+
+/** Compact paint payload shared by the device jsui and Library canvas previews. */
+export interface MotifPreviewPaintData {
+  /** Resolved preview notes in pitch-time order. */
+  notes: Array<{
+    pitch: number;
+    atTicks: number;
+    durationTicks: number;
+    velocity: number;
+  }>;
+  /** Timeline width in ticks (max note end, at least 1). */
+  totalTicks: number;
+  /** Inclusive lowest pitch row. */
+  lowPitch: number;
+  /** Inclusive highest pitch row. */
+  highPitch: number;
+  /** Footer label listing note names. */
+  noteNames: string;
+}
+
+/**
+ * Project a motif preview into the paint payload consumed by native and web UIs.
+ * @param {MotifPreview} preview Mapped notes from {@link buildMotifPreview}.
+ * @returns {MotifPreviewPaintData} URI/JSON-safe paint geometry.
+ */
+export function toMotifPreviewPaintData(preview: MotifPreview): MotifPreviewPaintData {
+  const totalTicks = preview.notes.reduce(
+    (max, note) => Math.max(max, note.atTicks + note.durationTicks),
+    1,
+  );
+  return {
+    notes: preview.notes.map((note) => ({
+      pitch: note.pitch,
+      atTicks: note.atTicks,
+      durationTicks: note.durationTicks,
+      velocity: note.velocity,
+    })),
+    totalTicks,
+    lowPitch: preview.lowPitch,
+    highPitch: preview.highPitch,
+    noteNames: preview.noteNames.join(" ·  "),
+  };
+}

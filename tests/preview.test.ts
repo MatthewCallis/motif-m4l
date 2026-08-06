@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { buildMotifPreview, midiNoteName, parseMidiNoteName } from "../src/core/preview.js";
+import {
+  buildMotifPreview,
+  midiNoteName,
+  parseMidiNoteName,
+  toMotifPreviewPaintData,
+} from "../src/core/preview.js";
 import type { HostContext, Motif } from "../src/core/types.js";
 import { BUILTIN_MOTIFS } from "../src/generated/builtins.js";
 
@@ -108,6 +113,21 @@ describe("motif preview", () => {
     );
   });
 
+  it("keeps the stored pitch mode when a preview override cannot convert", () => {
+    const unresolved: Motif = {
+      ...chromaticTurn,
+      id: "unresolved-preview",
+      sourcePitchContext: {
+        ...chromaticTurn.sourcePitchContext,
+        scaleIntervals: null,
+        scaleName: "Custom Unknown Scale",
+      },
+    };
+    const preview = buildMotifPreview(unresolved, host, 60, "scale", "preserve");
+    assert.equal(preview.effectivePitchMode, "chromatic");
+    assert.equal(preview.notes.length, chromaticTurn.notes.length);
+  });
+
   it("clamps note names and expands flat or empty preview ranges", () => {
     assert.equal(midiNoteName(-20), "C-2");
     assert.equal(midiNoteName(200), "G8");
@@ -129,5 +149,25 @@ describe("motif preview", () => {
     assert.equal(empty.lowPitch, 63);
     assert.equal(empty.highPitch, 65);
     assert.ok(empty.bars > 0);
+  });
+
+  it("projects paint payloads with totalTicks from the last note end", () => {
+    const preview = buildMotifPreview(chromaticTurn, host, 60, undefined, "preserve");
+    const paint = toMotifPreviewPaintData(preview);
+    assert.equal(paint.notes.length, preview.notes.length);
+    assert.equal(paint.lowPitch, preview.lowPitch);
+    assert.equal(paint.highPitch, preview.highPitch);
+    assert.equal(paint.noteNames, preview.noteNames.join(" ·  "));
+    const expectedTicks = preview.notes.reduce(
+      (max, note) => Math.max(max, note.atTicks + note.durationTicks),
+      1,
+    );
+    assert.equal(paint.totalTicks, expectedTicks);
+    assert.deepEqual(paint.notes[0], {
+      pitch: preview.notes[0]?.pitch,
+      atTicks: preview.notes[0]?.atTicks,
+      durationTicks: preview.notes[0]?.durationTicks,
+      velocity: preview.notes[0]?.velocity,
+    });
   });
 });

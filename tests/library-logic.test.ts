@@ -56,10 +56,14 @@ describe("Library pure logic", () => {
     const selected = ["Demo"];
     assert.deepEqual(toggleTagSelection("demo", selected), []);
     assert.deepEqual(toggleTagSelection("Scale", selected), ["Demo", "Scale"]);
+    assert.deepEqual(toggleTagSelection("   ", selected), ["Demo"]);
     assert.deepEqual(addTagSelection(selected, " demo "), ["Demo"]);
     assert.deepEqual(addTagSelection(selected, "lick"), ["Demo", "lick"]);
+    assert.deepEqual(addTagSelection(selected, "  "), ["Demo"]);
     assert.deepEqual(removeTagSelection(["Demo", "Scale"], "demo"), ["Scale"]);
+    assert.deepEqual(removeTagSelection(["Demo", "Scale"], "   "), ["Demo", "Scale"]);
     assert.deepEqual(suggestTags(["demo", "scale", "lick"], ["Demo"], "li"), ["lick"]);
+    assert.deepEqual(suggestTags(["demo", "scale", "lick", "phrase"], [], "", 1), ["demo"]);
     assert.equal(normalizeTagFilterMode("and"), "and");
     assert.equal(normalizeTagFilterMode("nope"), "or");
     assert.deepEqual(selected, ["Demo"]);

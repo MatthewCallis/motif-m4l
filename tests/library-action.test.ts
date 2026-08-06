@@ -67,6 +67,17 @@ describe("Library action boundary", () => {
         tagMode: "and",
       },
     });
+
+    const refreshed = decodeLibraryAction([encoded({ type: "refresh_library" })]);
+    assert.deepEqual(refreshed, {
+      ok: true,
+      action: { type: "refresh_library" },
+    });
+    assert.equal(
+      refreshed.ok && !("discardChanges" in refreshed.action),
+      true,
+      "omit discardChanges when the browser did not send it",
+    );
   });
 
   it("rejects missing, malformed, non-record, and unknown payloads", () => {
