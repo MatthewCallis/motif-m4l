@@ -24,8 +24,12 @@ export function hasOwn(record: Record<string, unknown>, key: string): boolean {
  * @returns {string} Primitive text or fallback.
  */
 export function primitiveText(value: unknown, fallback = ""): string {
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
   return fallback;
 }
 
@@ -36,7 +40,9 @@ export function primitiveText(value: unknown, fallback = ""): string {
  * @returns {boolean} Whether both values have the same JSON structure and primitives.
  */
 export function jsonValuesEqual(left: unknown, right: unknown): boolean {
-  if (left === right) return true;
+  if (left === right) {
+    return true;
+  }
   if (Array.isArray(left) || Array.isArray(right)) {
     return (
       Array.isArray(left) &&
@@ -45,7 +51,9 @@ export function jsonValuesEqual(left: unknown, right: unknown): boolean {
       left.every((value, index) => jsonValuesEqual(value, right[index]))
     );
   }
-  if (!isRecord(left) || !isRecord(right)) return false;
+  if (!isRecord(left) || !isRecord(right)) {
+    return false;
+  }
 
   const leftKeys = Object.keys(left);
   const rightKeys = Object.keys(right);

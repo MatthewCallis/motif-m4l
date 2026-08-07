@@ -2,7 +2,7 @@
  * In-memory motif library: built-ins from generated JSON plus user phrases.
  *
  * Disk I/O (scanning a user library folder, reading/writing `.json`) is owned by
- * `max/user-library.ts`; this store only holds validated Motif objects.
+ * `max/library/device/repository.ts`; this store only holds validated Motif objects.
  *
  * @see https://docs.cycling74.com/apiref/js/folder/
  * @see https://docs.cycling74.com/apiref/js/file/
@@ -187,7 +187,9 @@ export class MotifStore {
    */
   select(id: string): Motif | undefined {
     const motif = this.get(id);
-    if (motif) this.currentId = motif.id;
+    if (motif) {
+      this.currentId = motif.id;
+    }
     return motif;
   }
 
@@ -198,11 +200,15 @@ export class MotifStore {
    */
   ensureCurrent(fallbackId?: string): Motif | undefined {
     const current = this.current;
-    if (current) return current;
+    if (current) {
+      return current;
+    }
 
     const fallback = fallbackId ? this.get(fallbackId) : undefined;
     const selected = fallback ?? this.list()[0];
-    if (selected) this.currentId = selected.id;
+    if (selected) {
+      this.currentId = selected.id;
+    }
     return selected;
   }
 
@@ -302,27 +308,37 @@ export class MotifStore {
   }
 
   /**
-   * Get all of the unique tags across the motif library, sorted for display.
+   * Get unique tags ranked by motif usage, then alphabetically for ties.
    * Case-insensitive uniqueness preserves first-seen casing.
-   * @returns {string[]} Sorted library-wide tags.
+   * @returns {string[]} Popularity-ranked library-wide tags.
    */
   allTags(): string[] {
     if (this.cachedAllTags) {
       return this.cachedAllTags;
     }
-    const seen = new Map<string, string>();
+    const seen = new Map<string, { label: string; count: number }>();
     for (const motif of this.list()) {
       const tags = motif.tags ?? [];
       for (const tag of tags) {
         const key = tag.toLowerCase();
-        if (!seen.has(key)) {
-          seen.set(key, tag);
+        const existing = seen.get(key);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          seen.set(key, { label: tag, count: 1 });
         }
       }
     }
-    this.cachedAllTags = [...seen.values()].sort((left, right) =>
-      left.localeCompare(right, undefined, { numeric: true, sensitivity: "base" }),
-    );
+    this.cachedAllTags = [...seen.values()]
+      .sort(
+        (left, right) =>
+          right.count - left.count ||
+          left.label.localeCompare(right.label, undefined, {
+            numeric: true,
+            sensitivity: "base",
+          }),
+      )
+      .map(({ label }) => label);
     return this.cachedAllTags;
   }
 

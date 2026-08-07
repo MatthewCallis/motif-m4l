@@ -104,7 +104,9 @@ export function launchOffsetTicksFor(
   host: HostContext,
   launchQuantization: LaunchQuantization,
 ): number {
-  if (!host.isPlaying || launchQuantization === "immediate") return 0;
+  if (!host.isPlaying || launchQuantization === "immediate") {
+    return 0;
+  }
   const grid = quantizationTicks(launchQuantization, host.timeSignature);
   return ticksUntilNextBoundary(Math.max(0, host.currentSongTime * PPQ), grid);
 }
@@ -265,7 +267,9 @@ export class PlaybackController {
    */
   stopHeldRepeat(triggerPitch: number, emitFeedback = true): void {
     const repeat = this.heldRepeats.get(triggerPitch);
-    if (!repeat) return;
+    if (!repeat) {
+      return;
+    }
 
     repeat.task.cancel();
     repeat.task.freepeer();
@@ -295,7 +299,9 @@ export class PlaybackController {
    * @param {number} channel Original one-based MIDI channel.
    */
   startHeldRepeat(triggerPitch: number, triggerVelocity: number, channel: number): void {
-    if (this.heldRepeats.has(triggerPitch)) return;
+    if (this.heldRepeats.has(triggerPitch)) {
+      return;
+    }
 
     const motifId = this.motifIdForTrigger(triggerPitch);
     const motif = this.store.resolve(motifId);
@@ -316,11 +322,15 @@ export class PlaybackController {
         firstScheduleStartMilliseconds = milliseconds;
       },
     });
-    if (instanceId === undefined) return;
+    if (instanceId === undefined) {
+      return;
+    }
 
     let repeat: HeldRepeat;
     const task = new Task(() => {
-      if (this.heldRepeats.get(triggerPitch) !== repeat) return;
+      if (this.heldRepeats.get(triggerPitch) !== repeat) {
+        return;
+      }
 
       const repeatedMotif = this.store.resolve(repeat.motifId);
       if (!repeatedMotif) {
@@ -387,7 +397,9 @@ export class PlaybackController {
    * @param {number} triggerPitch Trigger MIDI pitch.
    */
   cancelTrigger(triggerPitch: number): void {
-    if (!this.activeTriggers.has(triggerPitch)) return;
+    if (!this.activeTriggers.has(triggerPitch)) {
+      return;
+    }
     this.clearScheduledNotes();
     this.callbacks.emitStatus("release", triggerPitch);
   }
@@ -414,7 +426,9 @@ export class PlaybackController {
     ) {
       this.callbacks.emitScheduledEvent(pitch, velocity, channel, 0);
     }
-    if (!isTrigger) return;
+    if (!isTrigger) {
+      return;
+    }
 
     if (mapping?.action === "select") {
       if (velocity > 0) {
@@ -471,7 +485,9 @@ export class PlaybackController {
   cc(controllerValue: number, valueValue: number): void {
     const controller = Math.round(clamp(controllerValue, 0, 127));
     const value = Math.round(clamp(valueValue, 0, 127));
-    if (controller !== 64) return;
+    if (controller !== 64) {
+      return;
+    }
 
     const wasDown = this.sustainDown;
     this.sustainDown = value >= 64;

@@ -58,7 +58,9 @@ function sourcePitchContext(
   value: unknown,
 ): MutationResult<SourcePitchContext> {
   const record = isRecord(value) ? value : undefined;
-  if (!record) return { ok: false, error: "sourcePitchContext must be an object" };
+  if (!record) {
+    return { ok: false, error: "sourcePitchContext must be an object" };
+  }
 
   const anchorPitch = Number(record.anchorPitch);
   if (!Number.isInteger(anchorPitch) || anchorPitch < 0 || anchorPitch > 127) {
@@ -69,7 +71,9 @@ function sourcePitchContext(
     return { ok: false, error: "sourcePitchContext.scaleRootNote must be an integer from 0 to 11" };
   }
   const parsedName = requiredText(record.scaleName, "sourcePitchContext.scaleName");
-  if (!parsedName.ok) return parsedName;
+  if (!parsedName.ok) {
+    return parsedName;
+  }
 
   let scaleIntervals: number[] | null;
   if (record.scaleIntervals === null) {
@@ -115,7 +119,9 @@ function sourcePitchContext(
  */
 export function applyMotifProperties(editable: Motif, value: unknown): MutationResult<Motif> {
   const record = isRecord(value) ? value : undefined;
-  if (!record) return { ok: false, error: "Motif properties must be an object" };
+  if (!record) {
+    return { ok: false, error: "Motif properties must be an object" };
+  }
 
   if (hasOwn(record, "id") && primitiveText(record.id) !== editable.id) {
     return { ok: false, error: "Motif ID is generated and cannot be changed" };
@@ -133,14 +139,18 @@ export function applyMotifProperties(editable: Motif, value: unknown): MutationR
   let name = editable.name;
   if (hasOwn(record, "name")) {
     const parsed = requiredText(record.name, "Motif name");
-    if (!parsed.ok) return parsed;
+    if (!parsed.ok) {
+      return parsed;
+    }
     name = parsed.value;
   }
 
   let description = editable.description;
   if (hasOwn(record, "description")) {
     const parsed = requiredText(record.description, "Motif description");
-    if (!parsed.ok) return parsed;
+    if (!parsed.ok) {
+      return parsed;
+    }
     description = parsed.value;
   }
 
@@ -156,14 +166,18 @@ export function applyMotifProperties(editable: Motif, value: unknown): MutationR
   let sourceContext = editable.sourcePitchContext;
   if (hasOwn(record, "sourcePitchContext")) {
     const parsed = sourcePitchContext(sourceContext, record.sourcePitchContext);
-    if (!parsed.ok) return parsed;
+    if (!parsed.ok) {
+      return parsed;
+    }
     sourceContext = parsed.value;
   }
 
   let sourceMeter = editable.sourceMeter;
   if (hasOwn(record, "sourceMeter")) {
     const meter = isRecord(record.sourceMeter) ? record.sourceMeter : undefined;
-    if (!meter) return { ok: false, error: "sourceMeter must be an object" };
+    if (!meter) {
+      return { ok: false, error: "sourceMeter must be an object" };
+    }
     const numerator = Number(meter.numerator);
     const denominator = Number(meter.denominator);
     if (!Number.isInteger(numerator) || numerator < 1) {
@@ -186,7 +200,9 @@ export function applyMotifProperties(editable: Motif, value: unknown): MutationR
       (number) => number > 0,
       "greater than zero",
     );
-    if (!parsed.ok) return parsed;
+    if (!parsed.ok) {
+      return parsed;
+    }
     defaultGate = parsed.value;
   }
 
@@ -197,12 +213,18 @@ export function applyMotifProperties(editable: Motif, value: unknown): MutationR
       velocityCurve = undefined;
     } else {
       const curve = isRecord(rawCurve) ? rawCurve : undefined;
-      if (!curve) return { ok: false, error: "velocityCurve must be an object" };
+      if (!curve) {
+        return { ok: false, error: "velocityCurve must be an object" };
+      }
       const parsed: Record<string, number> = {};
       for (const field of ["inputMin", "inputMax", "outputMin", "outputMax"] as const) {
         const number = optionalFiniteNumber(curve[field], `velocityCurve.${field}`);
-        if (!number.ok) return number;
-        if (number.value !== undefined) parsed[field] = number.value;
+        if (!number.ok) {
+          return number;
+        }
+        if (number.value !== undefined) {
+          parsed[field] = number.value;
+        }
       }
       const exponent = optionalFiniteNumber(
         curve.exponent,
@@ -210,8 +232,12 @@ export function applyMotifProperties(editable: Motif, value: unknown): MutationR
         (number) => number > 0,
         "greater than zero",
       );
-      if (!exponent.ok) return exponent;
-      if (exponent.value !== undefined) parsed.exponent = exponent.value;
+      if (!exponent.ok) {
+        return exponent;
+      }
+      if (exponent.value !== undefined) {
+        parsed.exponent = exponent.value;
+      }
       velocityCurve = Object.keys(parsed).length > 0 ? parsed : undefined;
     }
   }
@@ -219,7 +245,9 @@ export function applyMotifProperties(editable: Motif, value: unknown): MutationR
   let tags = editable.tags ? [...editable.tags] : undefined;
   if (hasOwn(record, "tags")) {
     const parsed = normalizeTags(record.tags);
-    if (!parsed.ok) return parsed;
+    if (!parsed.ok) {
+      return parsed;
+    }
     tags = parsed.value.length > 0 ? parsed.value : undefined;
   }
 
@@ -279,14 +307,19 @@ export function updateMotifNote(
   }
 
   const current = motif.notes[index];
-  if (!current) return { ok: false, error: `Unknown note row: ${index}` };
+  if (!current) {
+    return { ok: false, error: `Unknown note row: ${index}` };
+  }
   const next: MotifNote = { ...current };
   let statusValue: unknown = value;
 
   if (field === "legato" || field === "tie") {
     const enabled = value === true || value === 1 || value === "1" || value === "true";
-    if (enabled) next[field] = true;
-    else delete next[field];
+    if (enabled) {
+      next[field] = true;
+    } else {
+      delete next[field];
+    }
     statusValue = enabled;
   } else {
     const optional = value === null || value === undefined || value === "";
@@ -297,13 +330,18 @@ export function updateMotifNote(
 
     switch (field) {
       case "pitch":
-        if (numeric === undefined) return { ok: false, error: "pitch cannot be empty" };
+        if (numeric === undefined) {
+          return { ok: false, error: "pitch cannot be empty" };
+        }
         next.pitch = Math.round(numeric);
         statusValue = next.pitch;
         break;
       case "accidental":
-        if (numeric === undefined || numeric === 0) delete next.accidental;
-        else next.accidental = Math.round(numeric);
+        if (numeric === undefined || numeric === 0) {
+          delete next.accidental;
+        } else {
+          next.accidental = Math.round(numeric);
+        }
         statusValue = next.accidental ?? null;
         break;
       case "at":
@@ -321,28 +359,41 @@ export function updateMotifNote(
         statusValue = next.duration;
         break;
       case "gate":
-        if (numeric === undefined) delete next.gate;
-        else if (numeric <= 0) return { ok: false, error: "gate must be greater than zero" };
-        else next.gate = numeric;
+        if (numeric === undefined) {
+          delete next.gate;
+        } else if (numeric <= 0) {
+          return { ok: false, error: "gate must be greater than zero" };
+        } else {
+          next.gate = numeric;
+        }
         statusValue = next.gate ?? null;
         break;
       case "velocity":
-        if (numeric === undefined) delete next.velocity;
-        else if (!Number.isInteger(numeric) || numeric < 1 || numeric > 127) {
+        if (numeric === undefined) {
+          delete next.velocity;
+        } else if (!Number.isInteger(numeric) || numeric < 1 || numeric > 127) {
           return { ok: false, error: "velocity must be an integer between 1 and 127" };
-        } else next.velocity = numeric;
+        } else {
+          next.velocity = numeric;
+        }
         statusValue = next.velocity ?? null;
         break;
       case "velocityOffset":
-        if (numeric === undefined || numeric === 0) delete next.velocityOffset;
-        else next.velocityOffset = numeric;
+        if (numeric === undefined || numeric === 0) {
+          delete next.velocityOffset;
+        } else {
+          next.velocityOffset = numeric;
+        }
         statusValue = next.velocityOffset ?? null;
         break;
       case "velocityScale":
-        if (numeric === undefined) delete next.velocityScale;
-        else if (numeric < 0) {
+        if (numeric === undefined) {
+          delete next.velocityScale;
+        } else if (numeric < 0) {
           return { ok: false, error: "velocityScale must be zero or greater" };
-        } else next.velocityScale = numeric;
+        } else {
+          next.velocityScale = numeric;
+        }
         statusValue = next.velocityScale ?? null;
         break;
     }

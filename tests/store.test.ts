@@ -20,6 +20,11 @@ describe("MotifStore", () => {
     assert.ok(store.filter("demo").some((motif) => motif.id === "tagged-user"));
     assert.deepEqual(store.allTags(), ["Demo", "lick"]);
 
+    const secondTagged = addUserCopy(store, "scale-turn", "tagged-scale");
+    assert.ok(secondTagged);
+    assert.deepEqual(store.update({ ...secondTagged, tags: ["lick"] }), []);
+    assert.deepEqual(store.allTags(), ["lick", "Demo"]);
+
     assert.equal(store.filter("zzz-no-such-motif").length, 0);
     assert.ok(store.filter("").length >= store.filter("chromatic").length);
   });

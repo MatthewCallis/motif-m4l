@@ -28,7 +28,9 @@ export function encodePersistedDeviceState(state: PersistedDeviceState): string 
  * @returns {PersistedDeviceState | undefined} Normalized state, or undefined for malformed data.
  */
 export function decodePersistedDeviceState(raw: unknown): PersistedDeviceState | undefined {
-  if (typeof raw !== "string" || raw.trim() === "") return undefined;
+  if (typeof raw !== "string" || raw.trim() === "") {
+    return undefined;
+  }
 
   let parsed: unknown;
   try {
@@ -37,18 +39,26 @@ export function decodePersistedDeviceState(raw: unknown): PersistedDeviceState |
   } catch {
     return undefined;
   }
-  if (!parsed || typeof parsed !== "object") return undefined;
+  if (!parsed || typeof parsed !== "object") {
+    return undefined;
+  }
 
   const record = parsed as Record<string, unknown>;
-  if (record["schemaVersion"] !== DEVICE_STATE_SCHEMA_VERSION) return undefined;
+  if (record["schemaVersion"] !== DEVICE_STATE_SCHEMA_VERSION) {
+    return undefined;
+  }
   const selectedMotifId =
     typeof record["selectedMotifId"] === "string" ? record["selectedMotifId"].trim() : "";
-  if (!selectedMotifId) return undefined;
+  if (!selectedMotifId) {
+    return undefined;
+  }
 
   const assignments = new Map<number, HotkeyAssignment>();
   const rawHotkeys = Array.isArray(record["hotkeys"]) ? record["hotkeys"] : [];
   for (const rawHotkey of rawHotkeys) {
-    if (!rawHotkey || typeof rawHotkey !== "object") continue;
+    if (!rawHotkey || typeof rawHotkey !== "object") {
+      continue;
+    }
     const hotkey = rawHotkey as Record<string, unknown>;
     const pitch = Number(hotkey["pitch"]);
     const motifId = typeof hotkey["motifId"] === "string" ? hotkey["motifId"].trim() : "";

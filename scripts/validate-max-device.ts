@@ -609,12 +609,28 @@ assert.doesNotMatch(
   "native preview must not depend on jweb",
 );
 
-const libraryTemplate = await readFile("src/max/library.html", "utf8");
-const libraryController = await readFile("src/max/library.ts", "utf8");
-const libraryLogic = await readFile("src/max/library-logic.ts", "utf8");
-const libraryProtocol = await readFile("src/max/library-protocol.ts", "utf8");
-const libraryClient = `${libraryController}\n${libraryLogic}\n${libraryProtocol}`;
-const libraryStyle = await readFile("src/max/library.css", "utf8");
+const libraryTemplate = await readFile("src/max/library/ui/index.html", "utf8");
+const libraryController = await readFile("src/max/library/ui/main.ts", "utf8");
+const libraryBridge = await readFile("src/max/library/ui/bridge.ts", "utf8");
+const libraryApp = await readFile("src/max/library/ui/app.tsx", "utf8");
+const libraryPageState = await readFile("src/max/library/ui/page-state.ts", "utf8");
+const librarySidebar = await readFile("src/max/library/ui/components/LibrarySidebar.tsx", "utf8");
+const libraryPropertyForm = await readFile(
+  "src/max/library/ui/components/PropertyForm.tsx",
+  "utf8",
+);
+const libraryPageStore = await readFile("src/max/library/ui/page-store.ts", "utf8");
+const libraryProtocol = await readFile("src/max/library/protocol.ts", "utf8");
+const libraryClient = [
+  libraryController,
+  libraryBridge,
+  libraryApp,
+  libraryPageState,
+  librarySidebar,
+  libraryPropertyForm,
+  libraryPageStore,
+  libraryProtocol,
+].join("\n");
 const librarySource = await readFile("max/library.html", "utf8");
 const libraryScript = librarySource.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 assert.ok(libraryScript, "generated library.html must include its compiled state manager");
@@ -624,17 +640,13 @@ assert.doesNotThrow(
 );
 assert.match(
   libraryTemplate,
-  /library\.css/,
+  /styles\.css/,
   "Library template must reference its extracted stylesheet",
 );
-assert.match(
-  libraryTemplate,
-  /library\.ts/,
-  "Library template must reference its TypeScript entry",
-);
+assert.match(libraryTemplate, /main\.ts/, "Library template must reference its TypeScript entry");
 assert.doesNotMatch(
   librarySource,
-  /library\.(?:css|ts)|data-motif-build/,
+  /(?:styles\.css|main\.ts)|data-motif-build/,
   "generated Library must inline its assets",
 );
 assert.match(
@@ -654,7 +666,7 @@ for (const id of [
   "default-gate-edit",
   "curve-exponent",
 ]) {
-  assert.match(libraryTemplate, new RegExp(`id="${id}"`), `Library must expose ${id}`);
+  assert.match(libraryClient, new RegExp(`id="${id}"`), `Library must expose ${id}`);
 }
 assert.match(
   libraryClient,
@@ -671,10 +683,43 @@ assert.equal(
   source,
   "hashed engine artifact differs from its canonical build output",
 );
-const deviceSource = await readFile("src/max/device.ts", "utf8");
+const engineCanonicalSources = await Promise.all(
+  [
+    "src/max/device.ts",
+    "src/max/library/device/authoring-controller.ts",
+    "src/max/playback-controller.ts",
+    "src/max/library/device/projection.ts",
+    "src/max/library/device/action.ts",
+    "src/max/library/device/serialization.ts",
+    "src/max/library/device/repository.ts",
+    "src/max/library/ui/index.html",
+    "src/max/library/ui/styles.css",
+    "src/max/library/ui/main.ts",
+    "src/max/library/ui/app.tsx",
+    "src/max/library/ui/bridge.ts",
+    "src/max/library/ui/page-state.ts",
+    "src/max/library/ui/preview.ts",
+    "src/max/library/ui/store.tsx",
+    "src/max/library/ui/browser-model.ts",
+    "src/max/library/ui/format.ts",
+    "src/max/library/ui/page-store.ts",
+    "src/max/library/ui/sidebar-layout.ts",
+    "src/max/library/ui/components/BrowserList.tsx",
+    "src/max/library/ui/components/DebugBar.tsx",
+    "src/max/library/ui/components/HotkeyList.tsx",
+    "src/max/library/ui/components/LibrarySidebar.tsx",
+    "src/max/library/ui/components/Modal.tsx",
+    "src/max/library/ui/components/MotifTags.tsx",
+    "src/max/library/ui/components/NoteTable.tsx",
+    "src/max/library/ui/components/PropertyForm.tsx",
+    "src/max/library/ui/components/TagFilter.tsx",
+    "node_modules/preact/dist/preact.module.js",
+    "node_modules/preact/hooks/dist/hooks.module.js",
+    "node_modules/preact/jsx-runtime/dist/jsxRuntime.module.js",
+  ].map((filename) => readFile(filename, "utf8")),
+);
 assert.ok(
-  source.length <
-    deviceSource.length + libraryTemplate.length + libraryClient.length + libraryStyle.length,
+  source.length < engineCanonicalSources.reduce((length, text) => length + text.length, 0),
   "hashed engine artifact must be minified",
 );
 assert.equal(

@@ -5,7 +5,7 @@
  * Drawing stays here; Max MGraphics remains in `motif-preview.js`.
  */
 
-import type { MotifPreviewPaintData } from "../core/preview.js";
+import type { MotifPreviewPaintData } from "../../../core/preview.js";
 
 /** Footer reserved for the note-name strip. */
 const FOOTER_HEIGHT = 18;
@@ -47,7 +47,9 @@ function velocityColor(hex: string, velocity: number): string {
  * @returns {string} Possibly truncated label.
  */
 function truncateText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string {
-  if (ctx.measureText(text).width <= maxWidth) return text;
+  if (ctx.measureText(text).width <= maxWidth) {
+    return text;
+  }
   let value = text;
   const suffix = "...";
   while (value.length > 0 && ctx.measureText(value + suffix).width > maxWidth) {
@@ -157,7 +159,9 @@ export function renderLibraryPreview(
   data: MotifPreviewPaintData | null,
 ): void {
   const getContext = canvas.getContext?.bind(canvas);
-  if (typeof getContext !== "function") return;
+  if (typeof getContext !== "function") {
+    return;
+  }
   const parent = canvas.parentElement;
   const cssWidth = Math.max(1, parent?.clientWidth || canvas.clientWidth || 1);
   const cssHeight = Math.max(1, parent?.clientHeight || canvas.clientHeight || 1);
@@ -165,13 +169,19 @@ export function renderLibraryPreview(
     typeof window !== "undefined" && window.devicePixelRatio ? window.devicePixelRatio : 1;
   const pixelWidth = Math.max(1, Math.round(cssWidth * dpr));
   const pixelHeight = Math.max(1, Math.round(cssHeight * dpr));
-  if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
-  if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+  if (canvas.width !== pixelWidth) {
+    canvas.width = pixelWidth;
+  }
+  if (canvas.height !== pixelHeight) {
+    canvas.height = pixelHeight;
+  }
   canvas.style.width = `${cssWidth}px`;
   canvas.style.height = `${cssHeight}px`;
 
   const ctx = getContext("2d");
-  if (!ctx) return;
+  if (!ctx) {
+    return;
+  }
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   paintLibraryPreview(ctx, data, cssWidth, cssHeight);
 }

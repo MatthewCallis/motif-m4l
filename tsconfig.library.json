@@ -2,8 +2,17 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2020", "DOM"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "preact",
     "types": ["node"]
   },
-  "include": ["src/max/library.ts", "src/max/library-preview.ts", "tests/library-browser.test.mts"],
+  "include": [
+    "src/max/library/ui/**/*.ts",
+    "src/max/library/ui/**/*.tsx",
+    "src/max/library/protocol.ts",
+    "src/core/preview.ts",
+    "src/library/note-edit-schema.ts",
+    "src/library/tags.ts"
+  ],
   "exclude": []
 }

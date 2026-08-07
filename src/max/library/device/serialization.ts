@@ -1,6 +1,6 @@
-import { midiNoteName } from "../core/preview.js";
-import type { MotifNote } from "../core/types.js";
-import type { HotkeyAction } from "./hotkey-map.js";
+import { midiNoteName } from "../../../core/preview.js";
+import type { MotifNote } from "../../../core/types.js";
+import type { HotkeyAction } from "../../hotkey-map.js";
 import {
   LIBRARY_STATE_CHUNK_CHARACTERS,
   LIBRARY_STATE_CHUNK_KIND,
@@ -8,7 +8,7 @@ import {
   type LibraryHotkeyData,
   type LibraryNoteData,
   type LibraryStateChunk,
-} from "./library-protocol.js";
+} from "../protocol.js";
 
 /**
  * Convert a sparse stored note into the complete shape expected by form controls.
@@ -46,15 +46,6 @@ export function toLibraryHotkeyData(mapping: {
 }
 
 /**
- * Format a preview bar count for read-only Library property fields.
- * @param {number} bars Preview bar count.
- * @returns {string} Bar count without redundant decimal zeros.
- */
-export function formatPreviewBarCount(bars: number): string {
-  return Number.isInteger(bars) ? String(bars) : bars.toFixed(1).replace(/\.0$/, "");
-}
-
-/**
  * Encode one authoritative Library state into Max-safe jweb messages.
  *
  * URL encoding expands punctuation enough that an otherwise small motif can
@@ -67,7 +58,9 @@ export function formatPreviewBarCount(bars: number): string {
  */
 export function encodeLibraryStateMessages(state: unknown, transferId: number): string[] {
   const encodedState = encodeURIComponent(JSON.stringify(state));
-  if (encodedState.length <= MAX_INLINE_LIBRARY_STATE_CHARACTERS) return [encodedState];
+  if (encodedState.length <= MAX_INLINE_LIBRARY_STATE_CHARACTERS) {
+    return [encodedState];
+  }
 
   const total = Math.ceil(encodedState.length / LIBRARY_STATE_CHUNK_CHARACTERS);
   return Array.from({ length: total }, (_, index) => {

@@ -117,7 +117,9 @@ export async function createEngine(options: EngineOptions = {}): Promise<TestMax
     }
 
     get filetype(): string | null {
-      if (!this.pathname || !this.filename) return null;
+      if (!this.pathname || !this.filename) {
+        return null;
+      }
       const separator = this.pathname.endsWith("/") ? "" : "/";
       if (
         Object.prototype.hasOwnProperty.call(
@@ -161,7 +163,9 @@ export async function createEngine(options: EngineOptions = {}): Promise<TestMax
     schedule(delay = 0): void {
       scheduledTaskDelays.push(delay);
       const execute = () => {
-        if (!this.#cancelled) this.callback.apply(this.context, this.args);
+        if (!this.#cancelled) {
+          this.callback.apply(this.context, this.args);
+        }
       };
       if (options.deferTasks) {
         scheduledTasks.push({ delay, execute });

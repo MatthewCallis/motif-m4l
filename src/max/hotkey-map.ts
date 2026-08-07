@@ -120,7 +120,9 @@ export class MotifHotkeyMap {
    */
   remove(pitchValue: number | string): number | undefined {
     const pitch = hotkeyPitch(pitchValue);
-    if (pitch === undefined) return undefined;
+    if (pitch === undefined) {
+      return undefined;
+    }
     this.mappings.delete(pitch);
     return pitch;
   }

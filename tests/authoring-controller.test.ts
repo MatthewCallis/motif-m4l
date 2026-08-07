@@ -6,9 +6,9 @@ import { MotifStore } from "../src/library/store.js";
 import {
   MotifAuthoringController,
   type AuthoringControllerCallbacks,
-} from "../src/max/authoring-controller.js";
+} from "../src/max/library/device/authoring-controller.js";
 import { MAX_MOTIF_NOTES } from "../src/max/device-types.js";
-import { MaxUserLibrary } from "../src/max/user-library.js";
+import { MaxUserLibrary } from "../src/max/library/device/repository.js";
 import { addUserCopy } from "./helpers/motif-store.js";
 
 function createAuthoring() {
@@ -61,12 +61,16 @@ function installClipLiveApi(options: {
       return property === "is_midi_clip" ? 1 : 0;
     }
     getstring(property: string): string | string[] {
-      if (property === "name") return options.name ?? "Imported Clip";
+      if (property === "name") {
+        return options.name ?? "Imported Clip";
+      }
       return "";
     }
     call(method: string): unknown {
       if (method === "get_notes_extended") {
-        if (options.throwOnRead) throw options.throwOnRead;
+        if (options.throwOnRead) {
+          throw options.throwOnRead;
+        }
         return JSON.stringify({ notes });
       }
       return [];
@@ -142,7 +146,9 @@ describe("MotifAuthoringController", () => {
     harness.controller.selectMotif("chromatic-turn");
     assert.ok(harness.effects.some((effect: string) => effect.includes("Save or cancel")));
     assert.ok(
-      harness.effects.some((effect: string) => effect.startsWith(`selected:${harness.store.currentId}:`)),
+      harness.effects.some((effect: string) =>
+        effect.startsWith(`selected:${harness.store.currentId}:`),
+      ),
     );
     assert.notEqual(harness.store.currentId, "chromatic-turn");
 
@@ -153,8 +159,8 @@ describe("MotifAuthoringController", () => {
     harness.controller.selectMotif("chromatic-turn");
     assert.equal(harness.store.currentId, "chromatic-turn");
     assert.equal(harness.editor.isEditing(), false);
-    assert.ok(harness.effects.includes("selected-ui"));
-    assert.ok(harness.effects.includes("persist"));
+    assert.ok(harness.effects.some((effect: string) => effect === "selected-ui"));
+    assert.ok(harness.effects.some((effect: string) => effect === "persist"));
   });
 
   it("blocks import and edit while scanning or dirty, and requires a library folder", () => {
@@ -220,7 +226,9 @@ describe("MotifAuthoringController", () => {
     harness.effects.length = 0;
     harness.controller.importClip();
     assert.ok(
-      harness.effects.some((effect) => effect.includes("Clip import failed: Live notes unavailable")),
+      harness.effects.some((effect) =>
+        effect.includes("Clip import failed: Live notes unavailable"),
+      ),
     );
 
     installClipLiveApi({});
@@ -280,7 +288,9 @@ describe("MotifAuthoringController", () => {
     harness.controller.saveMotif({ name: "Saved Name" });
     assert.equal(harness.store.current?.name, "Saved Name");
     assert.equal(harness.editor.isEditing(), false);
-    assert.ok(harness.effects.some((effect) => effect.includes(`status:saved:save-me:${savedPath}`)));
+    assert.ok(
+      harness.effects.some((effect) => effect.includes(`status:saved:save-me:${savedPath}`)),
+    );
 
     harness.controller.beginEdit();
     harness.library.save = () => {

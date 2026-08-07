@@ -118,7 +118,9 @@ export class MotifEditorState {
     }
 
     const source = store.get(id);
-    if (!source) return undefined;
+    if (!source) {
+      return undefined;
+    }
 
     if (store.isBuiltin(id)) {
       const targetId = store.uniqueId(
@@ -129,7 +131,9 @@ export class MotifEditorState {
         id: targetId,
       };
       const errors = store.add(draft);
-      if (errors.length > 0) return undefined;
+      if (errors.length > 0) {
+        return undefined;
+      }
 
       this.#edit = {
         sourceId: id,

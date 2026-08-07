@@ -310,7 +310,9 @@ describe("Max device runtime integration", () => {
         this.id = path?.includes("detail_clip") ? 99 : 0;
       }
       get(property: string): number {
-        if (property === "is_midi_clip") return 1;
+        if (property === "is_midi_clip") {
+          return 1;
+        }
         return 0;
       }
       getstring(property: string): string {
@@ -370,7 +372,9 @@ describe("Max device runtime integration", () => {
         this.id = path?.includes("detail_clip") ? 42 : 0;
       }
       get(property: string): number {
-        if (property === "is_midi_clip") return 1;
+        if (property === "is_midi_clip") {
+          return 1;
+        }
         return 0;
       }
       getstring(property: string): string {
@@ -447,7 +451,9 @@ describe("Max device runtime integration", () => {
         return property === "name" ? "Oversized Clip" : "";
       }
       call(method: string): unknown {
-        if (method !== "get_notes_extended") return [];
+        if (method !== "get_notes_extended") {
+          return [];
+        }
         return JSON.stringify({
           notes: Array.from({ length: 513 }, (_, index) => ({
             pitch: 60 + (index % 12),
@@ -497,7 +503,9 @@ describe("Max device runtime integration", () => {
         return property === "name" ? "Full Length Clip" : "";
       }
       call(method: string): unknown {
-        if (method !== "get_notes_extended") return [];
+        if (method !== "get_notes_extended") {
+          return [];
+        }
         return JSON.stringify({
           notes: Array.from({ length: 512 }, (_, index) => ({
             pitch: 60 + (index % 12),
@@ -562,7 +570,9 @@ describe("Max device runtime integration", () => {
         this.id = path?.includes("detail_clip") ? 77 : 0;
       }
       get(property: string): number {
-        if (property === "is_midi_clip") return 1;
+        if (property === "is_midi_clip") {
+          return 1;
+        }
         return 0;
       }
       getstring(property: string): string {

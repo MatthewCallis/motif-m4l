@@ -269,7 +269,9 @@ export function createMenuItems(values: readonly string[]): string[] {
   const items: string[] = [];
   for (const value of values) {
     assertNonEmptyString(value, "menu item");
-    if (items.length > 0) items.push(",");
+    if (items.length > 0) {
+      items.push(",");
+    }
     items.push(value);
   }
   return items;
@@ -299,7 +301,9 @@ export function createEnumParameterAttributes(
   visibility?: 0 | 1 | 2,
 ): MaxSavedAttributeAttributes {
   assertParameterNames(longName, shortName);
-  if (values.length === 0) throw new RangeError("enum parameter values must not be empty");
+  if (values.length === 0) {
+    throw new RangeError("enum parameter values must not be empty");
+  }
   const parameterEnum = values.map((value) => {
     assertNonEmptyString(value, "enum parameter value");
     return value;
@@ -343,7 +347,9 @@ export function createIntegerParameterAttributes(
   assertParameterNames(longName, shortName);
   assertFiniteNumber(minimum, "integer parameter minimum");
   assertFiniteNumber(maximum, "integer parameter maximum");
-  if (minimum > maximum) throw new RangeError("integer parameter minimum must not exceed maximum");
+  if (minimum > maximum) {
+    throw new RangeError("integer parameter minimum must not exceed maximum");
+  }
   assertIntegerInRange(initial, minimum, maximum, "integer parameter initial value");
   return {
     valueof: {
@@ -431,8 +437,9 @@ export class MaxPatchBuilder {
    */
   constructor(options: MaxPatchBuilderOptions, allocator = new MaxObjectIdAllocator()) {
     assertNonEmptyString(options.fontName, "fontName");
-    for (const [name, color] of Object.entries(options.colors))
+    for (const [name, color] of Object.entries(options.colors)) {
       validateColor(color, `colors.${name}`);
+    }
     this.fontName = options.fontName;
     this.colors = options.colors;
     this.allocator = allocator;
@@ -472,7 +479,9 @@ export class MaxPatchBuilder {
     assertNonEmptyString(name, "box name");
     assertNonEmptyString(maxclass, "maxclass");
     validateRect(patchingRect, "patchingRect");
-    if (this.ids.has(name)) throw new Error(`Duplicate Max box name: ${name}`);
+    if (this.ids.has(name)) {
+      throw new Error(`Duplicate Max box name: ${name}`);
+    }
 
     const id = this.allocator.allocate();
     this.ids.set(name, id);
@@ -877,9 +886,13 @@ export class MaxPatchBuilder {
     let jsarguments: number[] | undefined;
     if (rounded > 0 || border > 0) {
       let cornerRadius = 6;
-      if (rounded > 0) cornerRadius = rounded;
+      if (rounded > 0) {
+        cornerRadius = rounded;
+      }
       let drawBorder = 0;
-      if (border > 0) drawBorder = 1;
+      if (border > 0) {
+        drawBorder = 1;
+      }
       jsarguments = [cornerRadius, drawBorder];
     }
 
@@ -929,13 +942,17 @@ export class MaxPatchBuilder {
   ): void => {
     assertNonNegativeInteger(sourceOutlet, "source outlet");
     assertNonNegativeInteger(destinationInlet, "destination inlet");
-    if (order !== undefined) assertNonNegativeInteger(order, "patchline order");
+    if (order !== undefined) {
+      assertNonNegativeInteger(order, "patchline order");
+    }
 
     const patchline: MaxPatchline = {
       source: [this.resolveObjectReference(source), sourceOutlet],
       destination: [this.resolveObjectReference(destination), destinationInlet],
     };
-    if (order !== undefined) patchline.order = order;
+    if (order !== undefined) {
+      patchline.order = order;
+    }
     this.lines.push({ patchline });
   };
 
@@ -963,7 +980,9 @@ export class MaxPatchBuilder {
     baseY: number,
   ): void => {
     const count = hideNames.length + showNames.length;
-    if (count === 0) throw new RangeError("tab visibility requires at least one target");
+    if (count === 0) {
+      throw new RangeError("tab visibility requires at least one target");
+    }
     const bangs = Array.from({ length: count }, () => "b").join(" ");
     const fanName = `${triggerName}-fan`;
     this.addObject(fanName, `t ${bangs}`, baseX, baseY, Math.max(80, count * 14));
@@ -993,24 +1012,32 @@ export class MaxPatchBuilder {
   private resolveObjectReference(reference: string): string {
     assertNonEmptyString(reference, "object reference");
     const namedId = this.ids.get(reference);
-    if (namedId !== undefined) return namedId;
-    if (this.objectIds.has(reference)) return reference;
+    if (namedId !== undefined) {
+      return namedId;
+    }
+    if (this.objectIds.has(reference)) {
+      return reference;
+    }
     throw new Error(`Unknown Max box reference: ${reference}`);
   }
 }
 
 function assertNonEmptyString(value: string, label: string): void {
-  if (typeof value !== "string" || value.trim().length === 0)
+  if (typeof value !== "string" || value.trim().length === 0) {
     throw new TypeError(`${label} must be a non-empty string`);
+  }
 }
 
 function assertFiniteNumber(value: number, label: string): void {
-  if (!Number.isFinite(value)) throw new TypeError(`${label} must be a finite number`);
+  if (!Number.isFinite(value)) {
+    throw new TypeError(`${label} must be a finite number`);
+  }
 }
 
 function assertNonNegativeInteger(value: number, label: string): void {
-  if (!Number.isInteger(value) || value < 0)
+  if (!Number.isInteger(value) || value < 0) {
     throw new RangeError(`${label} must be a non-negative integer`);
+  }
 }
 
 function assertIntegerInRange(
@@ -1031,15 +1058,19 @@ function assertParameterNames(longName: string, shortName: string): void {
 
 function validateRect(rect: MaxRect, label: string): void {
   rect.forEach((value, index) => assertFiniteNumber(value, `${label}[${index}]`));
-  if (rect[2] < 0 || rect[3] < 0)
+  if (rect[2] < 0 || rect[3] < 0) {
     throw new RangeError(`${label} width and height must be non-negative`);
+  }
 }
 
 function validateColor(color: MaxRgba, label: string): void {
-  if (!Array.isArray(color) || color.length !== 4)
+  if (!Array.isArray(color) || color.length !== 4) {
     throw new TypeError(`${label} must contain four RGBA values`);
+  }
   color.forEach((value, index) => {
     assertFiniteNumber(value, `${label}[${index}]`);
-    if (value < 0 || value > 1) throw new RangeError(`${label}[${index}] must be between 0 and 1`);
+    if (value < 0 || value > 1) {
+      throw new RangeError(`${label}[${index}] must be between 0 and 1`);
+    }
   });
 }

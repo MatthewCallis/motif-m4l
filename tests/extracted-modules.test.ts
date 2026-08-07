@@ -13,7 +13,7 @@ import {
   encodeLibraryStateMessages,
   toLibraryHotkeyData,
   toLibraryNoteData,
-} from "../src/max/library-view.js";
+} from "../src/max/library/device/serialization.js";
 import {
   canonicalMaxPath,
   discardAllowed,
@@ -34,7 +34,7 @@ import {
 } from "../src/max/max-helpers.js";
 import { readClipNotes, resolveDetailClip } from "../src/max/live-api.js";
 import { MAX_LIBRARY_DEPTH } from "../src/max/device-types.js";
-import { MaxUserLibrary } from "../src/max/user-library.js";
+import { MaxUserLibrary } from "../src/max/library/device/repository.js";
 
 interface MaxMocks {
   files: Record<string, string>;
@@ -116,9 +116,13 @@ function installMaxMocks(): MaxMocks {
     }
 
     get filetype(): string | null {
-      if (!this.pathname || !this.filename) return null;
+      if (!this.pathname || !this.filename) {
+        return null;
+      }
       const fullPath = joinMaxPath(this.pathname, this.filename);
-      if (Object.prototype.hasOwnProperty.call(mocks.folders, fullPath)) return "fold";
+      if (Object.prototype.hasOwnProperty.call(mocks.folders, fullPath)) {
+        return "fold";
+      }
       return this.filename.toLowerCase().endsWith(".json") ? "JSON" : null;
     }
 
@@ -150,7 +154,9 @@ function installMaxMocks(): MaxMocks {
     }
 
     schedule(): void {
-      if (!this.#cancelled) this.callback.apply(this.context, this.args);
+      if (!this.#cancelled) {
+        this.callback.apply(this.context, this.args);
+      }
     }
   }
 
@@ -192,7 +198,9 @@ describe("extracted type and authoring helpers", () => {
     });
 
     assert.equal(result.ok, true);
-    if (!result.ok) return;
+    if (!result.ok) {
+      return;
+    }
     assert.equal(result.changed, true);
     assert.equal(result.value.name, "Edited");
     assert.equal(result.value.pitchMode, "hybrid");
@@ -203,19 +211,27 @@ describe("extracted type and authoring helpers", () => {
 
     const tagged = applyMotifProperties(motif, { tags: [" Demo ", "demo", "lick"] });
     assert.equal(tagged.ok, true);
-    if (!tagged.ok) return;
+    if (!tagged.ok) {
+      return;
+    }
     assert.deepEqual(tagged.value.tags, ["Demo", "lick"]);
     const cleared = applyMotifProperties(tagged.value, { tags: [] });
     assert.equal(cleared.ok, true);
-    if (!cleared.ok) return;
+    if (!cleared.ok) {
+      return;
+    }
     assert.equal(cleared.value.tags, undefined);
     const clearedNull = applyMotifProperties(tagged.value, { tags: null });
     assert.equal(clearedNull.ok, true);
-    if (!clearedNull.ok) return;
+    if (!clearedNull.ok) {
+      return;
+    }
     assert.equal(clearedNull.value.tags, undefined);
     const preserved = applyMotifProperties(tagged.value, { name: tagged.value.name });
     assert.equal(preserved.ok, true);
-    if (!preserved.ok) return;
+    if (!preserved.ok) {
+      return;
+    }
     assert.deepEqual(preserved.value.tags, ["Demo", "lick"]);
   });
 
@@ -297,7 +313,9 @@ describe("extracted type and authoring helpers", () => {
     ] as const) {
       const result = applyMotifProperties(motif, value);
       assert.equal(result.ok, false);
-      if (!result.ok) assert.match(result.error, new RegExp(message));
+      if (!result.ok) {
+        assert.match(result.error, new RegExp(message));
+      }
     }
   });
 
@@ -317,7 +335,9 @@ describe("extracted type and authoring helpers", () => {
       },
     });
     assert.equal(withNullIntervals.ok, true);
-    if (!withNullIntervals.ok) return;
+    if (!withNullIntervals.ok) {
+      return;
+    }
     assert.equal(withNullIntervals.changed, true);
     assert.equal(withNullIntervals.value.sourcePitchContext.scaleIntervals, null);
 
@@ -326,7 +346,9 @@ describe("extracted type and authoring helpers", () => {
       { velocityCurve: null },
     );
     assert.equal(clearedCurve.ok, true);
-    if (!clearedCurve.ok) return;
+    if (!clearedCurve.ok) {
+      return;
+    }
     assert.equal(clearedCurve.value.velocityCurve, undefined);
 
     const unresolved = applyMotifProperties(motif, {
@@ -338,7 +360,9 @@ describe("extracted type and authoring helpers", () => {
       },
     });
     assert.equal(unresolved.ok, false);
-    if (!unresolved.ok) assert.match(unresolved.error, /source scale intervals are unresolved/);
+    if (!unresolved.ok) {
+      assert.match(unresolved.error, /source scale intervals are unresolved/);
+    }
 
     assert.equal(updateMotifNote(motif, 0, "bogus" as "pitch", 1).ok, false);
   });
@@ -348,7 +372,9 @@ describe("extracted type and authoring helpers", () => {
     assert.ok(motif);
     const pitch = updateMotifNote(motif, 0, "pitch", -3);
     assert.equal(pitch.ok, true);
-    if (!pitch.ok) return;
+    if (!pitch.ok) {
+      return;
+    }
     assert.equal(pitch.notes[0]?.pitch, -3);
     assert.notEqual(pitch.notes, motif.notes);
 
@@ -359,7 +385,9 @@ describe("extracted type and authoring helpers", () => {
 
     const appended = appendMotifNote(motif, 512);
     assert.equal(appended.ok, true);
-    if (!appended.ok) return;
+    if (!appended.ok) {
+      return;
+    }
     assert.equal(appended.notes.length, motif.notes.length + 1);
     assert.equal(appendMotifNote(motif, motif.notes.length).ok, false);
     assert.equal(removeMotifNote(motif, -1).ok, false);
@@ -603,7 +631,9 @@ describe("LiveAPI adapter", () => {
         this.id = path.endsWith("detail_clip") ? 0 : 1;
       }
       override get(property: string): number {
-        if (property === "has_clip" || property === "is_midi_clip") return 1;
+        if (property === "has_clip" || property === "is_midi_clip") {
+          return 1;
+        }
         return 0;
       }
     }
@@ -633,8 +663,12 @@ describe("LiveAPI adapter", () => {
         this.id = path.includes("detail_clip") ? 1 : 0;
       }
       get(property: string): string {
-        if (property === "is_midi_clip") return "false";
-        if (property === "is_audio_clip") return "id 0";
+        if (property === "is_midi_clip") {
+          return "false";
+        }
+        if (property === "is_audio_clip") {
+          return "id 0";
+        }
         return "0";
       }
       getstring(): string {
@@ -658,7 +692,9 @@ describe("LiveAPI adapter", () => {
     class ThrowingDetailApi {
       id = 1;
       constructor(_callback?: (args: unknown[]) => void, path = "") {
-        if (path.includes("detail_clip")) throw new Error("detail unavailable");
+        if (path.includes("detail_clip")) {
+          throw new Error("detail unavailable");
+        }
         this.id = 0;
       }
       get(): number {
@@ -829,7 +865,9 @@ describe("hotkey and user-library owners", () => {
       }
       schedule(): void {
         deferred.push(() => {
-          if (!this.#cancelled) this.callback.apply(this.context, this.args);
+          if (!this.#cancelled) {
+            this.callback.apply(this.context, this.args);
+          }
         });
       }
     }
@@ -1024,7 +1062,9 @@ describe("TypeScript device dispatcher", () => {
       ["dump_context"],
     ];
 
-    for (const [message, ...args] of messages) dispatch(message, args);
+    for (const [message, ...args] of messages) {
+      dispatch(message, args);
+    }
 
     mocks.folders["/Motifs"] = [];
     dispatch("library_path", ["/Motifs"]);
@@ -1035,7 +1075,9 @@ describe("TypeScript device dispatcher", () => {
     assert.ok(
       mocks.errors
         .slice(errorsBeforePath)
-        .some((message) => message.includes("Finish or cancel editing before changing the library")),
+        .some((message) =>
+          message.includes("Finish or cancel editing before changing the library"),
+        ),
     );
     dispatch("library_path", []);
     dispatch("cancel_edit", []);

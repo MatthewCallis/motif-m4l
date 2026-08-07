@@ -11,7 +11,9 @@ import { BUILTIN_MOTIFS } from "../src/generated/builtins.js";
 
 const chromaticTurn = BUILTIN_MOTIFS.find(({ id }) => id === "chromatic-turn");
 const scaleTurn = BUILTIN_MOTIFS.find(({ id }) => id === "scale-turn");
-if (!chromaticTurn || !scaleTurn) throw new Error("Missing built-in motifs");
+if (!chromaticTurn || !scaleTurn) {
+  throw new Error("Missing built-in motifs");
+}
 
 const host: HostContext = {
   tempo: 120,

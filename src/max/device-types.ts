@@ -7,7 +7,7 @@ import type {
   RetriggerMode,
   TriggerMode,
 } from "../core/types.js";
-import { LibraryCompletionStatus } from "./user-library.js";
+import { LibraryCompletionStatus } from "./library/device/repository.js";
 
 /**
  * Symbolic messages the Max patch may send to `v8` (via `prepend <name>`).

@@ -53,7 +53,9 @@ const MAX_OBJECT_DOCS: Readonly<Record<string, string>> = {
 function collectBoxes(boxes: Array<{ box: Box }>, result: Box[] = []): Box[] {
   for (const { box } of boxes) {
     result.push(box);
-    if (box.patcher?.boxes) collectBoxes(box.patcher.boxes, result);
+    if (box.patcher?.boxes) {
+      collectBoxes(box.patcher.boxes, result);
+    }
   }
   return result;
 }
@@ -73,7 +75,9 @@ describe("Max documentation contract", () => {
               .trim()
               .split(/\s+/, 1)[0]
           : box.maxclass;
-      if (surface) surfaces.add(surface);
+      if (surface) {
+        surfaces.add(surface);
+      }
     }
 
     const missing = [...surfaces].filter((surface) => MAX_OBJECT_DOCS[surface] === undefined);
@@ -95,8 +99,8 @@ describe("Max documentation contract", () => {
         readFile("src/max/live-api.ts", "utf8"),
         readFile("src/max/globals.d.ts", "utf8"),
         readFile("src/max/motif-preview.js", "utf8"),
-        readFile("src/max/library.html", "utf8"),
-        readFile("src/max/library.ts", "utf8"),
+        readFile("src/max/library/ui/index.html", "utf8"),
+        readFile("src/max/library/ui/bridge.ts", "utf8"),
         readFile("MAX-DOCUMENTATION.md", "utf8"),
       ]);
 

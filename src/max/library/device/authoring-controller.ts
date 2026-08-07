@@ -1,18 +1,18 @@
-import { absoluteNotesToMotif, type AbsoluteNote } from "../core/import-notes.js";
-import type { HostContext, Motif } from "../core/types.js";
-import type { MotifEditorState } from "../library/editor-state.js";
+import { absoluteNotesToMotif, type AbsoluteNote } from "../../../core/import-notes.js";
+import type { HostContext, Motif } from "../../../core/types.js";
+import type { MotifEditorState } from "../../../library/editor-state.js";
 import {
   appendMotifNote,
   applyMotifProperties as buildMotifProperties,
   removeMotifNote,
   updateMotifNote,
-} from "../library/motif-authoring.js";
-import type { NoteEditField } from "../library/note-edit-schema.js";
-import type { MotifStore } from "../library/store.js";
-import { DEFAULT_MOTIF_ID, MAX_MOTIF_NOTES } from "./device-types.js";
-import { readClipNotes, resolveDetailClip } from "./live-api.js";
-import { discardAllowed } from "./max-helpers.js";
-import type { MaxUserLibrary } from "./user-library.js";
+} from "../../../library/motif-authoring.js";
+import type { NoteEditField } from "../../../library/note-edit-schema.js";
+import type { MotifStore } from "../../../library/store.js";
+import { DEFAULT_MOTIF_ID, MAX_MOTIF_NOTES } from "../../device-types.js";
+import { readClipNotes, resolveDetailClip } from "../../live-api.js";
+import { discardAllowed } from "../../max-helpers.js";
+import type { MaxUserLibrary } from "./repository.js";
 
 /** View, persistence, and diagnostic effects requested by authoring workflows. */
 export interface AuthoringControllerCallbacks {
@@ -232,7 +232,9 @@ export class MotifAuthoringController {
    */
   applyMotifProperties(value: unknown): boolean {
     const editable = this.editableMotif();
-    if (!editable) return false;
+    if (!editable) {
+      return false;
+    }
 
     const result = buildMotifProperties(editable, value);
     if (!result.ok) {
@@ -247,7 +249,9 @@ export class MotifAuthoringController {
       this.callbacks.emitLibraryState();
       return false;
     }
-    if (!result.changed) return true;
+    if (!result.changed) {
+      return true;
+    }
 
     const errors = this.store.update(result.value);
     if (errors.length > 0) {
@@ -264,7 +268,9 @@ export class MotifAuthoringController {
    * @param {unknown | undefined} properties Optional properties to apply first.
    */
   saveMotif(properties?: unknown): void {
-    if (properties !== undefined && !this.applyMotifProperties(properties)) return;
+    if (properties !== undefined && !this.applyMotifProperties(properties)) {
+      return;
+    }
     if (!this.library.path || !this.library.loaded) {
       this.callbacks.emitError("Choose a valid library folder before saving");
       return;
@@ -369,7 +375,9 @@ export class MotifAuthoringController {
    * @param {unknown} properties Submitted properties.
    */
   editMotif(properties: unknown): void {
-    if (!this.applyMotifProperties(properties)) return;
+    if (!this.applyMotifProperties(properties)) {
+      return;
+    }
     this.callbacks.emitSelectedMotifUi();
     this.callbacks.emitStatus("motif-edited", this.store.currentId);
   }
@@ -381,7 +389,9 @@ export class MotifAuthoringController {
    */
   selectBrowser(id: string, discardChanges?: number | boolean): void {
     const item = this.store.get(String(id));
-    if (!item || item.id === this.store.currentId) return;
+    if (!item || item.id === this.store.currentId) {
+      return;
+    }
 
     if (this.editor.isEditing()) {
       if (this.editor.isDirty() && !discardAllowed(discardChanges)) {
@@ -395,7 +405,9 @@ export class MotifAuthoringController {
     }
 
     const selected = this.store.get(item.id);
-    if (!selected) return;
+    if (!selected) {
+      return;
+    }
     this.store.select(selected.id);
     this.callbacks.emitMotifSelected(selected.id, selected.name);
     this.callbacks.emitSelectedMotifUi();
@@ -412,7 +424,9 @@ export class MotifAuthoringController {
    */
   updateNoteAt(index: number, field: NoteEditField, value: unknown): boolean {
     const editable = this.editableMotif();
-    if (!editable) return false;
+    if (!editable) {
+      return false;
+    }
 
     const result = updateMotifNote(editable, index, field, value);
     if (!result.ok) {
@@ -445,7 +459,9 @@ export class MotifAuthoringController {
   /** Append a default note to the active draft. */
   addNote(): void {
     const editable = this.editableMotif();
-    if (!editable) return;
+    if (!editable) {
+      return;
+    }
     const result = appendMotifNote(editable, MAX_MOTIF_NOTES);
     if (!result.ok) {
       this.callbacks.emitError(result.error);
@@ -466,9 +482,13 @@ export class MotifAuthoringController {
    */
   removeNote(indexValue: number): void {
     const editable = this.editableMotif();
-    if (!editable) return;
+    if (!editable) {
+      return;
+    }
     const index = Math.round(indexValue);
-    if (index < 0 || index >= editable.notes.length) return;
+    if (index < 0 || index >= editable.notes.length) {
+      return;
+    }
 
     const result = removeMotifNote(editable, index);
     if (!result.ok) {

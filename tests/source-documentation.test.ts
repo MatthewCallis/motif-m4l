@@ -10,12 +10,15 @@ const EXTRACTED_PUBLIC_MODULES = [
   "src/max/device-state.ts",
   "src/max/device-logic.ts",
   "src/max/hotkey-map.ts",
-  "src/max/library-logic.ts",
-  "src/max/library-protocol.ts",
-  "src/max/library-view.ts",
+  "src/max/library/ui/browser-model.ts",
+  "src/max/library/ui/format.ts",
+  "src/max/library/ui/page-store.ts",
+  "src/max/library/ui/sidebar-layout.ts",
+  "src/max/library/protocol.ts",
+  "src/max/library/device/serialization.ts",
   "src/max/live-api.ts",
   "src/max/max-helpers.ts",
-  "src/max/user-library.ts",
+  "src/max/library/device/repository.ts",
 ] as const;
 
 describe("extracted module documentation", () => {
@@ -35,7 +38,9 @@ describe("extracted module documentation", () => {
         const exported = modifiers?.some(
           (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
         );
-        if (!exported) continue;
+        if (!exported) {
+          continue;
+        }
 
         const leadingText = text.slice(statement.getFullStart(), statement.getStart(source));
         assert.match(

@@ -53,8 +53,8 @@ const MAX_BRIDGE =
   'var inlets=1;var outlets=1;function anything(){var message=messagename,args=arrayfromargs(arguments);if(typeof MotifEngine==="undefined"||typeof MotifEngine.dispatch!=="function"){error("Motif: engine dispatcher is unavailable for "+message+"\\n");return}return MotifEngine.dispatch(message,args)}';
 
 const HASH_LENGTH = 12;
-const LIBRARY_STYLE_TAG = '<link rel="stylesheet" href="library.css" data-motif-build />';
-const LIBRARY_SCRIPT_TAG = '<script type="module" src="./library.ts" data-motif-build></script>';
+const LIBRARY_STYLE_TAG = '<link rel="stylesheet" href="styles.css" data-motif-build />';
+const LIBRARY_SCRIPT_TAG = '<script type="module" src="./main.ts" data-motif-build></script>';
 
 /**
  * Build a content-addressed JavaScript filename.
@@ -82,9 +82,11 @@ function assembleLibraryHtml(template: string, style: string, script: string): s
   if (!template.includes(LIBRARY_SCRIPT_TAG)) {
     throw new Error("Library HTML template is missing its build-time script tag");
   }
+  // Use function replacements so `$` sequences inside minified Preact/CSS
+  // are not interpreted as String.prototype.replace substitution patterns.
   return template
-    .replace(LIBRARY_STYLE_TAG, `<style>${style}</style>`)
-    .replace(LIBRARY_SCRIPT_TAG, `<script>${script}</script>`)
+    .replace(LIBRARY_STYLE_TAG, () => `<style>${style}</style>`)
+    .replace(LIBRARY_SCRIPT_TAG, () => `<script>${script}</script>`)
     .replace(/<!--[\s\S]*?-->/g, "")
     .replace(/>\s+</g, "><")
     .trim();
@@ -121,10 +123,14 @@ async function listTypeScriptModules(directory: string): Promise<string[]> {
   const nested = await Promise.all(
     entries.map(async (entry) => {
       const entryPath = path.join(directory, entry.name);
-      if (entry.isDirectory()) return listTypeScriptModules(entryPath);
-      return entry.isFile() && entry.name.endsWith(".ts") && !entry.name.endsWith(".d.ts")
-        ? [entryPath]
-        : [];
+      if (entry.isDirectory()) {
+        return listTypeScriptModules(entryPath);
+      }
+      const isSource =
+        entry.isFile() &&
+        (entry.name.endsWith(".ts") || entry.name.endsWith(".tsx")) &&
+        !entry.name.endsWith(".d.ts");
+      return isSource ? [entryPath] : [];
     }),
   );
   return nested.flat().sort();
@@ -133,17 +139,19 @@ async function listTypeScriptModules(directory: string): Promise<string[]> {
 await generateBuiltins();
 
 const [libraryTemplate, libraryStyleSource, previewSource, libraryBuild] = await Promise.all([
-  readFile("src/max/library.html", "utf8"),
-  readFile("src/max/library.css", "utf8"),
+  readFile("src/max/library/ui/index.html", "utf8"),
+  readFile("src/max/library/ui/styles.css", "utf8"),
   readFile("src/max/motif-preview.js", "utf8"),
   build({
-    entryPoints: ["src/max/library.ts"],
+    entryPoints: ["src/max/library/ui/main.ts"],
     bundle: true,
     format: "iife",
     platform: "browser",
     // Max's jweb is Chromium-based. ES2018 avoids newer syntax while retaining
     // standard DOM APIs available across supported Max releases.
     target: "es2018",
+    jsx: "automatic",
+    jsxImportSource: "preact",
     write: false,
     metafile: true,
     minify: true,
@@ -216,7 +224,9 @@ if (unusedSourceModules.length > 0) {
 }
 
 const engine = buildResult.outputFiles?.[0]?.text;
-if (engine === undefined) throw new Error("esbuild did not produce the Max engine bundle");
+if (engine === undefined) {
+  throw new Error("esbuild did not produce the Max engine bundle");
+}
 const preview = previewResult.code;
 
 const output = `${MAX_BRIDGE}\n${engine}`;

@@ -923,8 +923,9 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
 
   connect("v8", 0, "engine-route", 0);
   connect("engine-route", 0, "event-unpack", 0);
-  for (let outlet = 0; outlet < 4; outlet += 1)
+  for (let outlet = 0; outlet < 4; outlet += 1) {
     connect("event-unpack", outlet, "event-pipe", outlet);
+  }
   connect("event-pipe", 2, "note-midiformat", 6);
   connect("event-pipe", 1, "note-output-pack", 1);
   connect("event-pipe", 0, "note-output-pack", 0);

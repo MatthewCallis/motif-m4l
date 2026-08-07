@@ -1,17 +1,17 @@
-import { MotifStore, uniqueMotifId } from "../library/store.js";
-import { validateMotif } from "../library/validate.js";
+import { MotifStore, uniqueMotifId } from "../../../library/store.js";
+import { validateMotif } from "../../../library/validate.js";
 import {
   LIBRARY_SCAN_BATCH_SIZE,
   MAX_LIBRARY_DEPTH,
   type LibraryScanState,
-} from "./device-types.js";
+} from "../../device-types.js";
 import {
   canonicalMaxPath,
   fileExists,
   joinMaxPath,
   readJsonFile,
   writeJsonFile,
-} from "./max-helpers.js";
+} from "../../max-helpers.js";
 
 /** Status emitted after an initial scan or explicit refresh commits. */
 export type LibraryCompletionStatus = "library" | "library-refreshed" | "unavailable";
@@ -195,7 +195,9 @@ export class MaxUserLibrary {
   load(completionStatus: LibraryCompletionStatus): boolean {
     this.cancelScan();
     this.loaded = false;
-    if (!this.path) return false;
+    if (!this.path) {
+      return false;
+    }
 
     const root = new Folder(this.path);
     if (!root.pathname) {

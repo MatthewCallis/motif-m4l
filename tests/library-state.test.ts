@@ -8,8 +8,8 @@ import { MotifHotkeyMap } from "../src/max/hotkey-map.js";
 import {
   buildLibraryServerState,
   type LibraryProjectionRepository,
-} from "../src/max/library-state.js";
-import { formatPreviewBarCount } from "../src/max/library-view.js";
+} from "../src/max/library/device/projection.js";
+import { formatPreviewBarCount } from "../src/max/library/ui/format.js";
 
 const hostContext: HostContext = {
   tempo: 120,
@@ -156,7 +156,7 @@ describe("Library state projection", () => {
     );
     assert.deepEqual(orState.tags, ["chromatic"]);
     assert.equal(orState.tagMode, "or");
-    assert.deepEqual(orState.availableTags, ["chromatic", "demo", "scale"]);
+    assert.deepEqual(orState.availableTags, ["demo", "chromatic", "scale"]);
 
     const andState = buildLibraryServerState({
       ...model,
@@ -239,7 +239,9 @@ describe("Library state projection", () => {
     assert.deepEqual(model.store.add({ ...source, id: "alpha-item", name: "Second" }), []);
     assert.deepEqual(model.store.add({ ...source, id: "library-item", name: "Third" }), []);
     model.library.browserFolder = (id) => {
-      if (model.store.isBuiltin(id) || id === "library-item") return "Library";
+      if (model.store.isBuiltin(id) || id === "library-item") {
+        return "Library";
+      }
       return id === "alpha-item" ? "Folder 2" : "Folder 10";
     };
 

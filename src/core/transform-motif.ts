@@ -42,7 +42,9 @@ export function transformMotif(motif: Motif, options: MotifTransformOptions): Mo
     const note: MotifNote = { ...source };
     if (options.invert) {
       note.pitch = invertOffset(source.pitch);
-      if (source.accidental !== undefined) note.accidental = invertOffset(source.accidental);
+      if (source.accidental !== undefined) {
+        note.accidental = invertOffset(source.accidental);
+      }
     }
     if (options.reverse) {
       note.at = Math.max(0, motif.length - source.at - source.duration);

@@ -35,7 +35,7 @@ import { buildMotifPreview, toMotifPreviewPaintData } from "../core/preview.js";
 import { type HostContext } from "../core/types.js";
 import { MotifEditorState } from "../library/editor-state.js";
 import { MotifStore } from "../library/store.js";
-import { MotifAuthoringController } from "./authoring-controller.js";
+import { MotifAuthoringController } from "./library/device/authoring-controller.js";
 import {
   DEFAULT_MOTIF_ID,
   LAUNCH_QUANTIZATIONS,
@@ -60,10 +60,10 @@ import {
 } from "./device-state.js";
 import { DeviceSettingsState } from "./device-settings.js";
 import { MotifHotkeyMap } from "./hotkey-map.js";
-import { decodeLibraryAction } from "./library-action.js";
-import { buildLibraryServerState } from "./library-state.js";
-import { encodeLibraryStateMessages } from "./library-view.js";
-import type { LibraryAlert } from "./library-protocol.js";
+import { decodeLibraryAction } from "./library/device/action.js";
+import { buildLibraryServerState } from "./library/device/projection.js";
+import { encodeLibraryStateMessages } from "./library/device/serialization.js";
+import type { LibraryAlert } from "./library/protocol.js";
 import { normalizeTagFilterMode, normalizeTags, type TagFilterMode } from "../library/tags.js";
 import {
   discardAllowed,
@@ -78,7 +78,7 @@ import {
   stringAtom,
   toggleEnabled,
 } from "./max-helpers.js";
-import { MaxUserLibrary } from "./user-library.js";
+import { MaxUserLibrary } from "./library/device/repository.js";
 import { PlaybackController } from "./playback-controller.js";
 
 /** Validated built-in and user motifs currently available to performance and authoring flows. */
@@ -306,7 +306,9 @@ function song_context(property: string, ...values: unknown[]): void {
     }
     case "current_song_time": {
       const value = numeric[0];
-      if (value !== undefined && value >= 0) hostContext.currentSongTime = value;
+      if (value !== undefined && value >= 0) {
+        hostContext.currentSongTime = value;
+      }
       break;
     }
     default:
@@ -356,18 +358,26 @@ function emitPersistedState(): void {
  * @returns {boolean} Whether pending state was consumed.
  */
 function applyPendingPersistedState(): boolean {
-  if (!pendingPersistedState) return false;
-  if (library.scanning || (library.path !== "" && !library.loaded)) return false;
+  if (!pendingPersistedState) {
+    return false;
+  }
+  if (library.scanning || (library.path !== "" && !library.loaded)) {
+    return false;
+  }
 
   const state = pendingPersistedState;
   pendingPersistedState = undefined;
-  for (const pitch of hotkeys.clear()) playback.stopHeldRepeat(pitch, false);
+  for (const pitch of hotkeys.clear()) {
+    playback.stopHeldRepeat(pitch, false);
+  }
   for (const assignment of state.hotkeys) {
     if (store.has(assignment.motifId)) {
       hotkeys.assign(assignment.pitch, assignment.motifId, assignment.action);
     }
   }
-  if (!store.select(state.selectedMotifId)) store.ensureCurrent(DEFAULT_MOTIF_ID);
+  if (!store.select(state.selectedMotifId)) {
+    store.ensureCurrent(DEFAULT_MOTIF_ID);
+  }
   return true;
 }
 
@@ -380,15 +390,21 @@ function restore_state(...encodedParts: unknown[]): void {
     .map((part) => stringAtom(part))
     .filter((part) => part !== "");
   const encoded = atoms[atoms.length - 1];
-  if (!encoded) return;
+  if (!encoded) {
+    return;
+  }
 
   const state = decodePersistedDeviceState(encoded);
   if (!state) {
-    if (encoded !== "0") emitError("Saved device state is invalid or from an unsupported version");
+    if (encoded !== "0") {
+      emitError("Saved device state is invalid or from an unsupported version");
+    }
     return;
   }
   pendingPersistedState = state;
-  if (applyPendingPersistedState()) listMotifs();
+  if (applyPendingPersistedState()) {
+    listMotifs();
+  }
 }
 
 /**
@@ -619,7 +635,9 @@ function clear_trigger_map(): void {
  * Remove hot-key assignments whose motifs are no longer in the library.
  */
 function pruneTriggerMap(): void {
-  for (const pitch of hotkeys.prune()) playback.stopHeldRepeat(pitch, false);
+  for (const pitch of hotkeys.prune()) {
+    playback.stopHeldRepeat(pitch, false);
+  }
 }
 
 /**

@@ -1,4 +1,4 @@
-import type { LibraryAction, LibraryServerState } from "../../src/max/library-protocol.js";
+import type { LibraryAction, LibraryServerState } from "../../src/max/library/protocol.js";
 import sourceConfig from "../../config/library-window.json";
 import type { LibraryWindowConfig } from "../../scripts/library-window-config.js";
 import { applyFixtureAction, createFixture, type FixtureName } from "./fixtures.js";
@@ -26,7 +26,9 @@ const WORKBENCH_LAYOUT_MESSAGE = "motif-library-workbench-layout";
 
 function element<T extends HTMLElement>(id: string): T {
   const value = document.getElementById(id);
-  if (!value) throw new Error(`Workbench element is missing: ${id}`);
+  if (!value) {
+    throw new Error(`Workbench element is missing: ${id}`);
+  }
   return value as T;
 }
 
@@ -70,8 +72,11 @@ function refreshConfigurationUi(): void {
   const clean = sameConfig(currentConfig, savedConfig);
   saveButton.disabled = clean;
   resetButton.disabled = clean;
-  if (clean) setStatus("Source configuration loaded", "saved");
-  else setStatus("Unsaved configuration", "dirty");
+  if (clean) {
+    setStatus("Source configuration loaded", "saved");
+  } else {
+    setStatus("Unsaved configuration", "dirty");
+  }
 }
 
 function sendLayout(): void {
@@ -142,14 +147,18 @@ function appendEvent(values: unknown[]): void {
     // Keep the original message when it is not URL encoded.
   }
   events.push(`${new Date().toLocaleTimeString()}  ${selector}${detail ? `  ${detail}` : ""}`);
-  if (events.length > 80) events.shift();
+  if (events.length > 80) {
+    events.shift();
+  }
   actionLog.textContent = events.join("\n");
   actionLog.scrollTop = actionLog.scrollHeight;
 }
 
 function handleLibraryOutlet(...values: unknown[]): void {
   appendEvent(values);
-  if (values[0] !== "lib_action") return;
+  if (values[0] !== "lib_action") {
+    return;
+  }
   try {
     const encodedAction = typeof values[1] === "string" ? values[1] : "";
     const action = JSON.parse(decodeURIComponent(encodedAction)) as LibraryAction;
@@ -162,7 +171,9 @@ function handleLibraryOutlet(...values: unknown[]): void {
 
 function attachFrameBridge(): void {
   const target = frame.contentWindow;
-  if (target?.max) target.max.outlet = handleLibraryOutlet;
+  if (target?.max) {
+    target.max.outlet = handleLibraryOutlet;
+  }
   appendEvent(["workbench_ready", "Library fixture channel attached"]);
   sendState();
   sendLayout();
@@ -170,10 +181,14 @@ function attachFrameBridge(): void {
 
 new ResizeObserver((entries) => {
   const entry = entries[0];
-  if (!entry) return;
+  if (!entry) {
+    return;
+  }
   const width = Math.round(entry.contentRect.width);
   const height = Math.round(entry.contentRect.height);
-  if (width === currentConfig.width && height === currentConfig.height) return;
+  if (width === currentConfig.width && height === currentConfig.height) {
+    return;
+  }
   currentConfig = { ...currentConfig, width, height };
   refreshConfigurationUi();
 }).observe(windowElement);
@@ -190,12 +205,16 @@ const configurationInputs = [
 for (const input of configurationInputs) {
   input.addEventListener("change", () => {
     const config = inputConfiguration();
-    if (config) setConfiguration(config);
+    if (config) {
+      setConfiguration(config);
+    }
   });
   input.addEventListener("keydown", (event) => {
     if (event.key === "Enter") {
       const config = inputConfiguration();
-      if (config) setConfiguration(config);
+      if (config) {
+        setConfiguration(config);
+      }
     }
   });
 }
@@ -203,7 +222,9 @@ for (const input of configurationInputs) {
 document.querySelectorAll<HTMLButtonElement>("[data-size]").forEach((button) => {
   button.addEventListener("click", () => {
     const match = button.dataset["size"]?.match(/^(\d+)x(\d+)$/);
-    if (match?.[1] && match[2]) setDimensions(Number(match[1]), Number(match[2]));
+    if (match?.[1] && match[2]) {
+      setDimensions(Number(match[1]), Number(match[2]));
+    }
   });
 });
 
@@ -225,7 +246,9 @@ async function saveConfiguration(): Promise<void> {
       body: JSON.stringify(currentConfig),
     });
     const payload = (await response.json()) as ConfigResponse;
-    if (!response.ok) throw new Error(payload.error ?? "The size could not be saved");
+    if (!response.ok) {
+      throw new Error(payload.error ?? "The size could not be saved");
+    }
     savedConfig = payload.config;
     currentConfig = { ...payload.config };
     refreshConfigurationUi();
@@ -249,12 +272,16 @@ async function initialize(): Promise<void> {
   try {
     const response = await fetch(API_PATH, { headers: { Accept: "application/json" } });
     const payload = (await response.json()) as ConfigResponse;
-    if (!response.ok) throw new Error(payload.error ?? "Could not load the saved size");
+    if (!response.ok) {
+      throw new Error(payload.error ?? "Could not load the saved size");
+    }
     savedConfig = payload.config;
     if (payload.limits) {
       for (const input of configurationInputs) {
         const key = input.dataset["configKey"] as keyof WindowConfig | undefined;
-        if (!key) continue;
+        if (!key) {
+          continue;
+        }
         input.min = String(payload.limits[key].min);
         input.max = String(payload.limits[key].max);
       }

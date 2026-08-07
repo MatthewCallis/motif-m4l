@@ -1,7 +1,7 @@
-import type { MotifPreviewPaintData } from "../core/preview.js";
-import type { PitchMode } from "../core/types.js";
-import type { TagFilterMode } from "../library/tags.js";
-import type { HotkeyAction } from "./hotkey-map.js";
+import type { MotifPreviewPaintData } from "../../core/preview.js";
+import type { PitchMode } from "../../core/types.js";
+import type { TagFilterMode } from "../../library/tags.js";
+import type { HotkeyAction } from "../hotkey-map.js";
 
 /** Typed command envelope sent from the embedded Library page to the device. */
 export type LibraryAction =
@@ -252,7 +252,7 @@ export interface LibraryServerState {
   tags: string[];
   /** Whether selected tags combine with AND or OR. */
   tagMode: TagFilterMode;
-  /** Library-wide tag vocabulary for filter and authoring suggestions. */
+  /** Library-wide tag vocabulary ranked by usage, then alphabetically. */
   availableTags: string[];
   /** Filtered and sorted browser rows. */
   items: LibraryBrowserItemData[];
@@ -288,4 +288,13 @@ export interface LibraryStateChunk {
   total: number;
   /** Fragment of the already URL-encoded state. */
   data: string;
+}
+
+/** Narrow a decoded transport payload to a state-chunk envelope. */
+export function isLibraryStateChunk(value: unknown): value is LibraryStateChunk {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    (value as { kind?: unknown }).kind === LIBRARY_STATE_CHUNK_KIND
+  );
 }

@@ -2,9 +2,9 @@
  * Remove generated build artifacts while preserving the hand-authored Max
  * sources, installation documentation, and packaged `Motif.amxd`.
  *
- * @see ../src/max/library.html
- * @see ../src/max/library.ts
- * @see ../src/max/library.css
+ * @see ../src/max/library/ui/index.html
+ * @see ../src/max/library/ui/main.ts
+ * @see ../src/max/library/ui/styles.css
  * @see ../src/max/motif-preview.js
  */
 
@@ -19,7 +19,9 @@ const HASHED_RUNTIME_PATTERN = /^motif-(?:device|preview)-[a-f0-9]{12}\.js$/;
  */
 async function removeHashedMaxRuntimes(): Promise<void> {
   const files = await readdir("max").catch((reason: unknown) => {
-    if ((reason as NodeJS.ErrnoException).code === "ENOENT") return [];
+    if ((reason as NodeJS.ErrnoException).code === "ENOENT") {
+      return [];
+    }
     throw reason;
   });
   await Promise.all(

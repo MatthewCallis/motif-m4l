@@ -1,21 +1,17 @@
-import { buildMotifPreview, toMotifPreviewPaintData } from "../core/preview.js";
-import type { HostContext } from "../core/types.js";
-import type { MotifEditorState } from "../library/editor-state.js";
-import type { MotifStore } from "../library/store.js";
+import { buildMotifPreview, toMotifPreviewPaintData } from "../../../core/preview.js";
+import type { HostContext } from "../../../core/types.js";
+import type { MotifEditorState } from "../../../library/editor-state.js";
+import type { MotifStore } from "../../../library/store.js";
 import {
   motifMatchesTagFilter,
   normalizeTagFilterMode,
   normalizeTags,
   type TagFilterMode,
-} from "../library/tags.js";
-import type { DeviceSettingsState } from "./device-settings.js";
-import type { MotifHotkeyMap } from "./hotkey-map.js";
-import type {
-  LibraryAlert,
-  LibrarySelectedMotifData,
-  LibraryServerState,
-} from "./library-protocol.js";
-import { toLibraryHotkeyData, toLibraryNoteData } from "./library-view.js";
+} from "../../../library/tags.js";
+import type { DeviceSettingsState } from "../../device-settings.js";
+import type { MotifHotkeyMap } from "../../hotkey-map.js";
+import type { LibraryAlert, LibrarySelectedMotifData, LibraryServerState } from "../protocol.js";
+import { toLibraryHotkeyData, toLibraryNoteData } from "./serialization.js";
 
 /** Repository fields needed by the pure Library projection. */
 export interface LibraryProjectionRepository {
@@ -117,11 +113,17 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
       const rightFolder = folderById.get(right.id) ?? "Library";
       const libraryFolderOrder =
         Number(rightFolder === "Library") - Number(leftFolder === "Library");
-      if (libraryFolderOrder !== 0) return libraryFolderOrder;
+      if (libraryFolderOrder !== 0) {
+        return libraryFolderOrder;
+      }
       const folderOrder = localeCompare(leftFolder, rightFolder);
-      if (folderOrder !== 0) return folderOrder;
+      if (folderOrder !== 0) {
+        return folderOrder;
+      }
       const builtinOrder = Number(store.isBuiltin(right.id)) - Number(store.isBuiltin(left.id));
-      if (builtinOrder !== 0) return builtinOrder;
+      if (builtinOrder !== 0) {
+        return builtinOrder;
+      }
       return localeCompare(left.name, right.name) || localeCompare(left.id, right.id);
     });
   const selected = store.current;

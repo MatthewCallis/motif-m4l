@@ -38,8 +38,11 @@ export function emitError(message: string): void {
 export function flattenValues(values: readonly unknown[]): unknown[] {
   const out: unknown[] = [];
   for (const value of values) {
-    if (Array.isArray(value)) out.push(...(value as unknown[]));
-    else out.push(value);
+    if (Array.isArray(value)) {
+      out.push(...(value as unknown[]));
+    } else {
+      out.push(value);
+    }
   }
   return out;
 }
@@ -51,8 +54,12 @@ export function flattenValues(values: readonly unknown[]): unknown[] {
  * @returns {string} Primitive text or the fallback.
  */
 export function stringAtom(value: unknown, fallback = ""): string {
-  if (typeof value === "string") return value;
-  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
   return fallback;
 }
 
@@ -96,7 +103,9 @@ export function writeTextChunks(file: File, text: string): void {
  */
 export function readJsonFile(filename: string): unknown {
   const file = new File(filename, "read");
-  if (!file.isopen) throw new Error("could not open file");
+  if (!file.isopen) {
+    throw new Error("could not open file");
+  }
   try {
     return JSON.parse(file.readstring(file.eof));
   } finally {
@@ -112,7 +121,9 @@ export function readJsonFile(filename: string): unknown {
  */
 export function writeJsonFile(filename: string, value: unknown): void {
   const file = new File(filename, "write");
-  if (!file.isopen) throw new Error("could not open file for write");
+  if (!file.isopen) {
+    throw new Error("could not open file for write");
+  }
   try {
     file.writestring(`${JSON.stringify(value, null, 2)}\n`);
   } finally {
@@ -128,7 +139,9 @@ export function writeJsonFile(filename: string, value: unknown): void {
 export function fileExists(filename: string): boolean {
   const file = new File(filename, "read");
   const exists = file.isopen;
-  if (exists) file.close();
+  if (exists) {
+    file.close();
+  }
   return exists;
 }
 

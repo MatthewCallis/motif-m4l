@@ -3,19 +3,20 @@ import { describe, it } from "node:test";
 import { normalizeTagFilterMode } from "../src/library/tags.js";
 import {
   addTagSelection,
-  clampLibrarySidebarWidth,
-  createStore,
-  errorText,
   isFolderCollapsed,
-  isLibrarySidebarLayout,
-  isLibraryStateChunk,
   libraryBrowserDisplayName,
-  optionalNumberValue,
   removeTagSelection,
   suggestTags,
   toggleCollapsedFolder,
   toggleTagSelection,
-} from "../src/max/library-logic.js";
+} from "../src/max/library/ui/browser-model.js";
+import { createStore } from "../src/max/library/ui/page-store.js";
+import { optionalNumberValue } from "../src/max/library/ui/page-state.js";
+import {
+  clampLibrarySidebarWidth,
+  isLibrarySidebarLayout,
+} from "../src/max/library/ui/sidebar-layout.js";
+import { isLibraryStateChunk } from "../src/max/library/protocol.js";
 
 describe("Library pure logic", () => {
   it("updates and unsubscribes from synchronous store state", () => {
@@ -32,9 +33,7 @@ describe("Library pure logic", () => {
     assert.deepEqual(observedCounts, [1, 2]);
   });
 
-  it("normalizes errors and optional numbers", () => {
-    assert.equal(errorText(new TypeError("bad value")), "TypeError: bad value");
-    assert.equal(errorText("bad value"), "bad value");
+  it("normalizes optional numbers", () => {
     assert.equal(optionalNumberValue("  "), null);
     assert.equal(optionalNumberValue(" 1.5 "), 1.5);
   });

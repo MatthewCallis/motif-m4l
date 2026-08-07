@@ -23,9 +23,15 @@ function isLiveApiValid(api: LiveAPI | undefined): api is LiveAPI {
  * @returns {boolean} Normalized truthiness.
  */
 function liveTruthy(value: unknown): boolean {
-  if (Array.isArray(value)) return liveTruthy(value[0]);
-  if (typeof value === "boolean") return value;
-  if (typeof value === "number") return value !== 0;
+  if (Array.isArray(value)) {
+    return liveTruthy(value[0]);
+  }
+  if (typeof value === "boolean") {
+    return value;
+  }
+  if (typeof value === "number") {
+    return value !== 0;
+  }
   if (typeof value === "string") {
     const normalized = value.trim().toLowerCase();
     return (
@@ -42,8 +48,12 @@ function liveTruthy(value: unknown): boolean {
  */
 function isMidiClip(api: LiveAPI): boolean {
   try {
-    if (liveTruthy(api.get("is_midi_clip"))) return true;
-    if (liveTruthy(api.get("is_audio_clip"))) return false;
+    if (liveTruthy(api.get("is_midi_clip"))) {
+      return true;
+    }
+    if (liveTruthy(api.get("is_audio_clip"))) {
+      return false;
+    }
   } catch {
     // Property missing: let the subsequent note read fail soft.
   }
@@ -55,20 +65,28 @@ function isMidiClip(api: LiveAPI): boolean {
  * @returns {LiveAPI | undefined} Selected MIDI clip, when available.
  */
 export function resolveDetailClip(): LiveAPI | undefined {
-  if (typeof LiveAPI === "undefined") return undefined;
+  if (typeof LiveAPI === "undefined") {
+    return undefined;
+  }
 
   try {
     const detail = new LiveAPI(undefined, "live_set view detail_clip");
-    if (isLiveApiValid(detail) && isMidiClip(detail)) return detail;
+    if (isLiveApiValid(detail) && isMidiClip(detail)) {
+      return detail;
+    }
   } catch {
     // detail_clip path unavailable
   }
 
   try {
     const slot = new LiveAPI(undefined, "live_set view highlighted_clip_slot");
-    if (!isLiveApiValid(slot) || !liveTruthy(slot.get("has_clip"))) return undefined;
+    if (!isLiveApiValid(slot) || !liveTruthy(slot.get("has_clip"))) {
+      return undefined;
+    }
     const clip = new LiveAPI(undefined, "live_set view highlighted_clip_slot clip");
-    if (isLiveApiValid(clip) && isMidiClip(clip)) return clip;
+    if (isLiveApiValid(clip) && isMidiClip(clip)) {
+      return clip;
+    }
   } catch {
     // No highlighted clip slot / empty slot.
   }
@@ -84,7 +102,9 @@ export function resolveDetailClip(): LiveAPI | undefined {
 function coerceNotesPayload(raw: unknown): unknown {
   if (typeof raw === "string") {
     const trimmed = raw.trim();
-    if (!trimmed) return undefined;
+    if (!trimmed) {
+      return undefined;
+    }
     try {
       return JSON.parse(trimmed);
     } catch {
@@ -113,19 +133,26 @@ function parseClipNotesExtended(raw: unknown): AbsoluteNote[] {
   const payload = coerceNotesPayload(raw);
   const record = isRecord(payload) ? payload : undefined;
   const notesValue = record?.notes;
-  if (!Array.isArray(notesValue)) return [];
+  if (!Array.isArray(notesValue)) {
+    return [];
+  }
 
   const notes: AbsoluteNote[] = [];
   for (const entry of notesValue) {
     const note = isRecord(entry) ? entry : undefined;
-    if (!note) continue;
+    if (!note) {
+      continue;
+    }
     const pitch = Number(note.pitch);
     const startTime = Number(note.start_time ?? note.startTime);
     const duration = Number(note.duration);
     const velocity = Number(note.velocity ?? 100);
-    if (!Number.isFinite(pitch) || !Number.isFinite(startTime) || !Number.isFinite(duration))
+    if (!Number.isFinite(pitch) || !Number.isFinite(startTime) || !Number.isFinite(duration)) {
       continue;
-    if (note.mute === 1 || note.muted === 1 || note.mute === true) continue;
+    }
+    if (note.mute === 1 || note.muted === 1 || note.mute === true) {
+      continue;
+    }
     notes.push({
       at: Math.round(startTime * PPQ),
       duration: Math.max(1, Math.round(duration * PPQ)),

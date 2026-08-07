@@ -45,13 +45,19 @@ export function quantizePitchToScale(
     normalizeScaleIntervals(scaleIntervals).map((interval) => mod(rootPitchClass + interval, 12)),
   );
   const belongs = (candidate: number): boolean => pitchClasses.has(mod(candidate, 12));
-  if (belongs(rounded)) return rounded;
+  if (belongs(rounded)) {
+    return rounded;
+  }
 
   for (let distance = 1; distance <= 127; distance += 1) {
     const lower = rounded - distance;
-    if (lower >= 0 && belongs(lower)) return lower;
+    if (lower >= 0 && belongs(lower)) {
+      return lower;
+    }
     const upper = rounded + distance;
-    if (upper <= 127 && belongs(upper)) return upper;
+    if (upper <= 127 && belongs(upper)) {
+      return upper;
+    }
   }
   return rounded;
 }

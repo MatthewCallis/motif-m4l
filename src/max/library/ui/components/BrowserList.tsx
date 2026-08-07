@@ -1,0 +1,102 @@
+/** @jsxImportSource preact */
+import type { ComponentChildren } from "preact";
+import {
+  isFolderCollapsed,
+  libraryBrowserDisplayName,
+  toggleCollapsedFolder,
+} from "../browser-model.js";
+import { confirmDiscard, send } from "../bridge.js";
+import { useLibraryStore } from "../store.js";
+import type { LibraryServerState } from "../../protocol.js";
+
+/**
+ * Grouped motif browser with collapsible folders.
+ * @param {{ server: LibraryServerState | null }} props Device projection.
+ */
+export function BrowserList({ server }: { server: LibraryServerState | null }) {
+  const [state, pageStore] = useLibraryStore();
+
+  if (!server || server.items.length === 0) {
+    const emptyText =
+      server?.query || (server?.tags.length ?? 0) > 0 ? "No matching motifs" : "No motifs found";
+    return (
+      <div id="browser-list">
+        <div id="empty-list">{emptyText}</div>
+      </div>
+    );
+  }
+
+  const nodes: ComponentChildren[] = [];
+  let currentFolder: string | null = null;
+  let folderCollapsed = false;
+
+  for (const item of server.items) {
+    const folder = item.folder || "Library";
+    if (folder !== currentFolder) {
+      currentFolder = folder;
+      folderCollapsed = isFolderCollapsed(
+        folder,
+        server.query,
+        state.collapsedFolders,
+        server.tags,
+      );
+      const collapsed = folderCollapsed;
+      const folderName = folder;
+      nodes.push(
+        <button
+          key={`folder:${folderName}`}
+          type="button"
+          class="browser-folder"
+          aria-expanded={!collapsed}
+          title={`${collapsed ? "Expand" : "Collapse"} ${folderName}`}
+          onClick={() => {
+            pageStore.setState({
+              collapsedFolders: toggleCollapsedFolder(
+                folderName,
+                pageStore.getState().collapsedFolders,
+              ),
+            });
+          }}
+        >
+          {`${collapsed ? "▸" : "▾"} ${folderName}`}
+        </button>,
+      );
+    }
+    if (folderCollapsed) {
+      continue;
+    }
+
+    const selected = server.selected?.id === item.id;
+    nodes.push(
+      <div
+        key={item.id}
+        class={`browser-item${selected ? " selected" : ""}`}
+        title={item.showId ? `${item.name}\nID: ${item.id}` : item.name}
+        onClick={() => {
+          if (server.selected?.id === item.id) {
+            return;
+          }
+          confirmDiscard(() =>
+            send({
+              type: "select_browser",
+              id: item.id,
+              discardChanges: true,
+            }),
+          );
+        }}
+      >
+        <div class="browser-name">{libraryBrowserDisplayName(item.name, folder)}</div>
+        {item.hotkeys.length > 0 ? (
+          <div class="hotkey-badge">
+            {item.hotkeys
+              .map((mapping) => `${mapping.label} ${mapping.action === "select" ? "↦" : "▶"}`)
+              .join(" ")}
+          </div>
+        ) : null}
+        {item.showId ? <div class="browser-id">{item.id}</div> : null}
+      </div>,
+    );
+  }
+
+  return <div id="browser-list">{nodes}</div>;
+}

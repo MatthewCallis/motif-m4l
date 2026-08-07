@@ -1,5 +1,5 @@
-import type { LibraryAction } from "./library-protocol.js";
-import { flattenValues, stringAtom } from "./max-helpers.js";
+import type { LibraryAction } from "../protocol.js";
+import { flattenValues, stringAtom } from "../../max-helpers.js";
 
 /** Successful or failed decoding of one jweb Library action. */
 export type LibraryActionDecodeResult =

@@ -47,7 +47,9 @@ function createPlayback(eventDispatchMilliseconds = 0): PlaybackHarness {
         delay,
         run: (lateness = 0) => {
           nowMilliseconds += delay + lateness;
-          if (!this.#cancelled) this.callback.apply(this.context, this.args);
+          if (!this.#cancelled) {
+            this.callback.apply(this.context, this.args);
+          }
         },
       });
     }

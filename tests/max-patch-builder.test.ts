@@ -606,8 +606,9 @@ describe("MaxPatchBuilder", () => {
       builder.addObject("thispatcher", "thispatcher", 0, 20);
       const hideNames = Array.from({ length: 13 }, (_, index) => `hide-${index}`);
       const showNames = ["show-0", "show-1"];
-      for (const name of [...hideNames, ...showNames])
+      for (const name of [...hideNames, ...showNames]) {
         builder.addBox(name, "panel", [0, 0, 10, 10]);
+      }
 
       builder.wireTabVisibility("trigger", hideNames, showNames, 100, 200);
 

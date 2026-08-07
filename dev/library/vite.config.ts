@@ -1,4 +1,5 @@
 import type { IncomingMessage, ServerResponse } from "node:http";
+import preact from "@preact/preset-vite";
 import type { Plugin } from "vite";
 import { defineConfig } from "vite";
 import {
@@ -23,9 +24,13 @@ async function readJsonRequest(request: IncomingMessage): Promise<unknown> {
   let length = 0;
   for await (const value of request) {
     const chunk: unknown = value;
-    if (typeof chunk !== "string") throw new TypeError("Request body must be UTF-8 text");
+    if (typeof chunk !== "string") {
+      throw new TypeError("Request body must be UTF-8 text");
+    }
     length += Buffer.byteLength(chunk);
-    if (length > MAX_REQUEST_BYTES) throw new RangeError("Request is too large");
+    if (length > MAX_REQUEST_BYTES) {
+      throw new RangeError("Request is too large");
+    }
     body += chunk;
   }
   return JSON.parse(body) as unknown;
@@ -77,7 +82,7 @@ async function handleLibraryWindowRequest(
 
 export default defineConfig({
   root: ".",
-  plugins: [libraryWindowApi()],
+  plugins: [preact(), libraryWindowApi()],
   server: {
     open: process.env["MOTIF_LIBRARY_NO_OPEN"] === "1" ? false : "/dev/library/",
   },

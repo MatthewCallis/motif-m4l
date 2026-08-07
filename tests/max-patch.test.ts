@@ -95,7 +95,9 @@ function allBoxes(boxes: Array<{ box: Box }>): Box[] {
   const out: Box[] = [];
   for (const { box } of boxes) {
     out.push(box);
-    if (box.patcher?.boxes) out.push(...allBoxes(box.patcher.boxes));
+    if (box.patcher?.boxes) {
+      out.push(...allBoxes(box.patcher.boxes));
+    }
   }
   return out;
 }
@@ -123,18 +125,41 @@ describe("Motif Max patch integration", () => {
     const deviceCanonicalSources = await Promise.all(
       [
         "device.ts",
-        "authoring-controller.ts",
+        "library/device/authoring-controller.ts",
         "device-settings.ts",
-        "library-action.ts",
-        "library-state.ts",
+        "library/device/action.ts",
+        "library/device/projection.ts",
         "playback-controller.ts",
       ].map((filename) => readFile(`src/max/${filename}`, "utf8")),
     );
-    const libraryCanonicalSources = await Promise.all([
-      readFile("src/max/library.html", "utf8"),
-      readFile("src/max/library.ts", "utf8"),
-      readFile("src/max/library.css", "utf8"),
-    ]);
+    const libraryCanonicalSources = await Promise.all(
+      [
+        "src/max/library/ui/index.html",
+        "src/max/library/ui/styles.css",
+        "src/max/library/ui/main.ts",
+        "src/max/library/ui/app.tsx",
+        "src/max/library/ui/bridge.ts",
+        "src/max/library/ui/page-state.ts",
+        "src/max/library/ui/preview.ts",
+        "src/max/library/ui/store.tsx",
+        "src/max/library/ui/browser-model.ts",
+        "src/max/library/ui/format.ts",
+        "src/max/library/ui/page-store.ts",
+        "src/max/library/ui/sidebar-layout.ts",
+        "src/max/library/ui/components/BrowserList.tsx",
+        "src/max/library/ui/components/DebugBar.tsx",
+        "src/max/library/ui/components/HotkeyList.tsx",
+        "src/max/library/ui/components/LibrarySidebar.tsx",
+        "src/max/library/ui/components/Modal.tsx",
+        "src/max/library/ui/components/MotifTags.tsx",
+        "src/max/library/ui/components/NoteTable.tsx",
+        "src/max/library/ui/components/PropertyForm.tsx",
+        "src/max/library/ui/components/TagFilter.tsx",
+        "node_modules/preact/dist/preact.module.js",
+        "node_modules/preact/hooks/dist/hooks.module.js",
+        "node_modules/preact/jsx-runtime/dist/jsxRuntime.module.js",
+      ].map((filename) => readFile(filename, "utf8")),
+    );
     const libraryOutput = await readFile("max/library.html", "utf8");
     assert.equal(engineSource, await readFile("dist/motif-device.js", "utf8"));
     assert.ok(
@@ -787,28 +812,60 @@ describe("Motif Max patch integration", () => {
   });
 
   it("library jweb binds receiveData before readiness and contains valid diagnostic JavaScript", async () => {
-    const [template, controller, logic, protocol, style, libraryHtml] = await Promise.all([
-      readFile("src/max/library.html", "utf8"),
-      readFile("src/max/library.ts", "utf8"),
-      readFile("src/max/library-logic.ts", "utf8"),
-      readFile("src/max/library-protocol.ts", "utf8"),
-      readFile("src/max/library.css", "utf8"),
+    const [
+      template,
+      controller,
+      bridge,
+      app,
+      pageState,
+      browserList,
+      hotkeyList,
+      librarySidebar,
+      noteTable,
+      propertyForm,
+      pageStore,
+      protocol,
+      style,
+      libraryHtml,
+    ] = await Promise.all([
+      readFile("src/max/library/ui/index.html", "utf8"),
+      readFile("src/max/library/ui/main.ts", "utf8"),
+      readFile("src/max/library/ui/bridge.ts", "utf8"),
+      readFile("src/max/library/ui/app.tsx", "utf8"),
+      readFile("src/max/library/ui/page-state.ts", "utf8"),
+      readFile("src/max/library/ui/components/BrowserList.tsx", "utf8"),
+      readFile("src/max/library/ui/components/HotkeyList.tsx", "utf8"),
+      readFile("src/max/library/ui/components/LibrarySidebar.tsx", "utf8"),
+      readFile("src/max/library/ui/components/NoteTable.tsx", "utf8"),
+      readFile("src/max/library/ui/components/PropertyForm.tsx", "utf8"),
+      readFile("src/max/library/ui/page-store.ts", "utf8"),
+      readFile("src/max/library/protocol.ts", "utf8"),
+      readFile("src/max/library/ui/styles.css", "utf8"),
       readFile("max/library.html", "utf8"),
     ]);
-    const client = `${controller}\n${logic}\n${protocol}`;
+    const client = [
+      controller,
+      bridge,
+      app,
+      pageState,
+      browserList,
+      hotkeyList,
+      librarySidebar,
+      noteTable,
+      propertyForm,
+      pageStore,
+      protocol,
+    ].join("\n");
     const bindIndex = client.search(/maxBridge\.bindInlet\(["']receiveData["'], receiveData\)/);
     const readyIndex = client.search(/maxBridge\.outlet\(["']library_ready["']\)/);
     const script = libraryHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 
-    assert.match(template, /<link rel="stylesheet" href="library\.css" data-motif-build \/>/);
-    assert.match(
-      template,
-      /<script type="module" src="\.\/library\.ts" data-motif-build><\/script>/,
-    );
+    assert.match(template, /<link rel="stylesheet" href="styles\.css" data-motif-build \/>/);
+    assert.match(template, /<script type="module" src="\.\/main\.ts" data-motif-build><\/script>/);
     assert.doesNotMatch(template, /<style>|<script>(?!<\/script>)/);
     assert.ok(script, "production Library HTML must contain the compiled inline script");
     assert.match(libraryHtml, /<style>[\s\S]+<\/style>/);
-    assert.doesNotMatch(libraryHtml, /library\.(?:css|ts)|data-motif-build/);
+    assert.doesNotMatch(libraryHtml, /(?:styles\.css|main\.ts)|data-motif-build/);
     assert.doesNotThrow(
       () => new vm.Script(script, { filename: "library.html" }),
       "library JavaScript must parse",
@@ -872,29 +929,52 @@ describe("Motif Max patch integration", () => {
       "library must provide an explicit way to exit editing",
     );
     assert.doesNotMatch(client, /delete_motif|skipDeleteConfirmation/);
+    assert.doesNotMatch(
+      client,
+      /from\s+["'][^"']*\/device\//,
+      "Library UI must communicate through protocol.ts instead of device-side modules",
+    );
     assert.match(client, /type:\s*["']select_browser["']/, "browser selection must use stable ids");
-    assert.match(client, /heading\.className = ["']browser-folder["']/);
-    assert.match(client, /heading\.setAttribute\(["']aria-expanded["']/);
+    assert.match(client, /class=["']browser-folder["']/);
+    assert.match(client, /aria-expanded=\{!collapsed\}/);
+    assert.match(client, /function LibrarySidebar\(\)/);
+    assert.doesNotMatch(controller, /getElementById\(["'](?:app|left|library-resizer)["']\)/);
     assert.ok(client.includes("item.folder"));
     assert.ok(client.includes("server?.libraryScanning"));
-    assert.match(template, /id="hotkey-input"\s+type="text"/);
-    assert.match(template, /id="hotkey-action"/);
-    assert.match(template, /<option value="trigger">Trigger Motif<\/option>/);
-    assert.match(template, /<option value="select">Select Motif<\/option>/);
-    assert.doesNotMatch(template, /<option value="repeat">/);
+    assert.match(client, /id="hotkey-input"/);
+    assert.match(client, /id="hotkey-action"/);
+    assert.match(client, /<option value="trigger">Trigger Motif<\/option>/);
+    assert.match(client, /<option value="select">Select Motif<\/option>/);
+    assert.doesNotMatch(client, /<option value="repeat">/);
     assert.ok(client.includes("mapping.label"));
     assert.match(client, /type:\s*["']map_trigger["']/);
-    assert.match(client, /\$<HTMLSelectElement>\(["']hotkey-action["']\)\.value/);
+    assert.match(client, /onClick=\{assignHotkey\}/);
+    assert.doesNotMatch(client, /getElementById\(["']hotkey-(?:input|action)["']\)/);
     assert.match(client, /type:\s*["']unmap_trigger["']/);
     assert.ok(client.includes("Save changes and exit editing"));
     assert.match(client, /type:\s*["']edit_motif["'], properties:\s*readProperties\(\)/);
-    assert.ok(client.includes("selected.canAddNote"));
+    assert.ok(client.includes("canAddNote"));
     assert.match(style, /#notes-panel\s*\{\s*overflow:\s*auto;/);
+    assert.match(
+      style,
+      /#left\s*\{[^}]*min-height:\s*0;[^}]*overflow:\s*hidden;/s,
+      "sidebar must constrain its browser list so folder actions remain visible",
+    );
+    assert.match(
+      style,
+      /#app\s*\{[^}]*height:\s*calc\(100vh\s*-\s*20px\);[^}]*overflow:\s*hidden;/s,
+      "Library shell must reserve the fixed debug bar without content-driven height growth",
+    );
+    assert.match(
+      style,
+      /#right\s*\{[^}]*min-height:\s*0;[^}]*overflow:\s*hidden;/s,
+      "detail column must constrain the active panel so properties can scroll",
+    );
     assert.doesNotMatch(client, /note-page-prev|set_note_page/);
     assert.ok(client.includes("function receiveStateChunk(payload: LibraryStateChunk)"));
     assert.match(client, /LIBRARY_STATE_CHUNK_KIND = ["']state-chunk["']/);
     assert.ok(client.includes("kind === LIBRARY_STATE_CHUNK_KIND"));
-    assert.ok(client.includes("notes.forEach((note, index) => {"));
+    assert.ok(client.includes("notes.map((note, index)"));
     assert.match(client, /type:\s*["']edit_note_at["']/);
     assert.doesNotMatch(template, /id="import-mode"/);
     assert.match(client, /type:\s*["']import_clip["']/);
@@ -910,7 +990,7 @@ describe("Motif Max patch integration", () => {
       "default-gate-edit",
       "curve-exponent",
     ]) {
-      assert.ok(template.includes(`id="${field}"`), `library must expose ${field}`);
+      assert.ok(client.includes(`id="${field}"`), `library must expose ${field}`);
     }
     for (const field of ["velocityOffset", "velocityScale", "legato", "tie"]) {
       assert.ok(client.includes(field), `library must expose note field ${field}`);

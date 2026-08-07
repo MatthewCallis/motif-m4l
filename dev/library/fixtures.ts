@@ -4,7 +4,7 @@ import type {
   LibraryNoteData,
   LibrarySelectedMotifData,
   LibraryServerState,
-} from "../../src/max/library-protocol.js";
+} from "../../src/max/library/protocol.js";
 
 export type FixtureName =
   | "normal"
@@ -119,7 +119,7 @@ function normalState(): LibraryServerState {
     query: "",
     tags: [],
     tagMode: "or",
-    availableTags: [],
+    availableTags: ["game", "melodic", "bass", "fill"],
     items: [
       {
         id: "chromatic-turn",
@@ -212,7 +212,9 @@ function normalState(): LibraryServerState {
 
 export function createFixture(name: FixtureName): LibraryServerState {
   const state = normalState();
-  if (name === "editing") return beginEditing(state);
+  if (name === "editing") {
+    return beginEditing(state);
+  }
   if (name === "large") {
     const notes = Array.from({ length: 128 }, (_, index) => note(index));
     return beginEditing({ ...state, selected: selectedMotif(notes) });
@@ -314,8 +316,12 @@ export function applyFixtureAction(
   if (action.type === "filter_motifs") {
     return { ...state, query: typeof action.query === "string" ? action.query : "" };
   }
-  if (action.type === "begin_edit") return beginEditing(state);
-  if (action.type === "cancel_edit") return createFixture("normal");
+  if (action.type === "begin_edit") {
+    return beginEditing(state);
+  }
+  if (action.type === "cancel_edit") {
+    return createFixture("normal");
+  }
   if (action.type === "refresh_library") {
     return {
       ...state,
@@ -345,7 +351,9 @@ export function applyFixtureAction(
     const selectedIndex = state.items.findIndex((item) => item.id === action.id);
     return selectedIndex < 0 ? state : { ...state, selectedIndex };
   }
-  if (!state.selected) return state;
+  if (!state.selected) {
+    return state;
+  }
   if (action.type === "add_note") {
     const notes = [...state.selected.notes, note(state.selected.notes.length)];
     return dirty({

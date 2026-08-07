@@ -10,7 +10,13 @@
     "node": true
   },
   "ignorePatterns": ["**/node_modules", "**/__MACOSX/**", "**/._*", "**/dist/**/*", "max/**/*"],
+  "settings": {
+    "react": {
+      "version": "18.3.1"
+    }
+  },
   "rules": {
+    "curly": ["error", "all"],
     "import/namespace": "error",
     "import/default": "error",
     "import/no-named-as-default": "warn",
@@ -82,7 +88,7 @@
   },
   "overrides": [
     {
-      "files": ["tests/**/*.ts", "scripts/**/*.ts"],
+      "files": ["tests/**/*.ts", "tests/**/*.mts", "scripts/**/*.ts"],
       "rules": {
         "typescript/no-floating-promises": "off",
         "typescript/no-unsafe-argument": "off",
@@ -92,6 +98,81 @@
         "typescript/no-unsafe-return": "off",
         "typescript/unbound-method": "off",
         "typescript/consistent-return": "off"
+      }
+    },
+    {
+      "files": ["src/max/**/*.{tsx,jsx}", "src/max/components/**/*.{tsx,jsx}"],
+      "plugins": ["import", "node", "promise", "typescript", "react", "jsx-a11y"],
+      "env": {
+        "builtin": true,
+        "es2026": true,
+        "browser": true
+      },
+      "rules": {
+        "react/rules-of-hooks": "error",
+        "react/exhaustive-deps": "warn",
+        "react/jsx-key": "error",
+        "react/jsx-no-duplicate-props": "error",
+        "react/jsx-no-undef": "error",
+        "react/jsx-no-useless-fragment": "warn",
+        "react/jsx-no-script-url": "error",
+        "react/jsx-no-target-blank": "error",
+        "react/jsx-no-comment-textnodes": "error",
+        "react/jsx-pascal-case": "error",
+        "react/jsx-fragments": "error",
+        "react/jsx-no-constructed-context-values": "warn",
+        "react/no-danger": "error",
+        "react/no-danger-with-children": "error",
+        "react/no-direct-mutation-state": "error",
+        "react/no-find-dom-node": "error",
+        "react/no-is-mounted": "error",
+        "react/no-string-refs": "error",
+        "react/no-this-in-sfc": "error",
+        "react/no-unescaped-entities": "error",
+        "react/no-unstable-nested-components": "warn",
+        "react/no-array-index-key": "warn",
+        "react/button-has-type": "error",
+        "react/self-closing-comp": "warn",
+        "react/void-dom-elements-no-children": "error",
+        "react/prefer-function-component": "error",
+        "react/react-in-jsx-scope": "off",
+        "react/only-export-components": "off",
+        "react/no-unknown-property": [
+          "error",
+          {
+            "ignore": [
+              "class",
+              "for",
+              "autocomplete",
+              "spellcheck",
+              "readonly",
+              "tabindex",
+              "autofocus",
+              "crossorigin",
+              "maxlength",
+              "minlength",
+              "novalidate"
+            ]
+          }
+        ],
+        "jsx-a11y/alt-text": "error",
+        "jsx-a11y/anchor-has-content": "error",
+        "jsx-a11y/aria-props": "error",
+        "jsx-a11y/aria-proptypes": "error",
+        "jsx-a11y/aria-role": "error",
+        "jsx-a11y/aria-unsupported-elements": "error",
+        "jsx-a11y/heading-has-content": "error",
+        "jsx-a11y/html-has-lang": "error",
+        "jsx-a11y/iframe-has-title": "error",
+        "jsx-a11y/img-redundant-alt": "error",
+        "jsx-a11y/lang": "error",
+        "jsx-a11y/no-access-key": "error",
+        "jsx-a11y/no-distracting-elements": "error",
+        "jsx-a11y/no-redundant-roles": "error",
+        "jsx-a11y/role-has-required-aria-props": "error",
+        "jsx-a11y/role-supports-aria-props": "error",
+        "jsx-a11y/scope": "error",
+        "jsx-a11y/tabindex-no-positive": "warn"
       }
     }
   ]

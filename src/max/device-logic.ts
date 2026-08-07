@@ -45,7 +45,11 @@ export function parseTempoMultiplier(value: string | number): number | undefined
  * @returns {RetriggerMode | undefined} Normalized mode or undefined.
  */
 export function parseRetriggerMode(value: string | number): RetriggerMode | undefined {
-  if (value === 1) return RETRIGGER_MODES[0];
-  if (value === 0) return RETRIGGER_MODES[1];
+  if (value === 1) {
+    return RETRIGGER_MODES[0];
+  }
+  if (value === 0) {
+    return RETRIGGER_MODES[1];
+  }
   return typeof value === "string" && isStringEnumValue(value, RETRIGGER_MODES) ? value : undefined;
 }

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { decodeLibraryAction } from "../src/max/library-action.js";
+import { decodeLibraryAction } from "../src/max/library/device/action.js";
 
 function encoded(action: unknown): string {
   return encodeURIComponent(JSON.stringify(action));
@@ -31,7 +31,9 @@ describe("Library action boundary", () => {
     for (const [input, expectedType] of cases) {
       const result = decodeLibraryAction([encoded(input)]);
       assert.equal(result.ok, true);
-      if (result.ok) assert.equal(result.action.type, expectedType);
+      if (result.ok) {
+        assert.equal(result.action.type, expectedType);
+      }
     }
   });
 
