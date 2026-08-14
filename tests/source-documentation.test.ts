@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
-import * as ts from "typescript";
 
 const EXTRACTED_PUBLIC_MODULES = [
   "src/core/type-guards.ts",
@@ -21,33 +20,21 @@ const EXTRACTED_PUBLIC_MODULES = [
   "src/max/library/device/repository.ts",
 ] as const;
 
+const EXPORT_AT_LINE_START = /^export\s/gm;
+const ATTACHED_JSDOC = /\/\*\*[\s\S]*\*\/\s*$/;
+
 describe("extracted module documentation", () => {
   it("keeps JSDoc attached to every exported declaration", async () => {
     for (const filename of EXTRACTED_PUBLIC_MODULES) {
       const text = await readFile(filename, "utf8");
-      const source = ts.createSourceFile(
-        filename,
-        text,
-        ts.ScriptTarget.Latest,
-        true,
-        ts.ScriptKind.TS,
-      );
-
-      for (const statement of source.statements) {
-        const modifiers = ts.canHaveModifiers(statement) ? ts.getModifiers(statement) : undefined;
-        const exported = modifiers?.some(
-          (modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword,
-        );
-        if (!exported) {
-          continue;
-        }
-
-        const leadingText = text.slice(statement.getFullStart(), statement.getStart(source));
+      for (const match of text.matchAll(EXPORT_AT_LINE_START)) {
+        const index = match.index ?? 0;
+        const leadingText = text.slice(0, index);
+        const line = leadingText.split("\n").length;
         assert.match(
           leadingText,
-          /\/\*\*[\s\S]*\*\/\s*$/,
-          `${filename}:${source.getLineAndCharacterOfPosition(statement.getStart(source)).line + 1} ` +
-            "export is missing attached JSDoc",
+          ATTACHED_JSDOC,
+          `${filename}:${line} export is missing attached JSDoc`,
         );
       }
     }

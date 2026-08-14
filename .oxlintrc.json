@@ -9,7 +9,7 @@
     "es2026": true,
     "node": true
   },
-  "ignorePatterns": ["**/node_modules", "**/__MACOSX/**", "**/._*", "**/dist/**/*", "max/**/*"],
+  "ignorePatterns": ["**/node_modules", "**/__MACOSX/**", "**/._*", "max/**/*"],
   "settings": {
     "react": {
       "version": "18.3.1"

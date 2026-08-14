@@ -1,6 +1,25 @@
 import { readFile } from "node:fs/promises";
 import vm from "node:vm";
 
+const COMPILED_ENGINE_NAME = /^motif-device-[a-f0-9]{12}\.js$/;
+
+/**
+ * Load the content-addressed Max engine referenced by Motif.maxpat.
+ * @returns {Promise<{ filename: string; source: string }>} Hashed filename and compiled source.
+ */
+export async function loadCompiledEngine(): Promise<{ filename: string; source: string }> {
+  const patch = JSON.parse(await readFile("max/Motif.maxpat", "utf8")) as {
+    patcher: { dependency_cache: Array<{ name: string }> };
+  };
+  const filename = patch.patcher.dependency_cache
+    .map(({ name }) => name)
+    .find((name) => COMPILED_ENGINE_NAME.test(name));
+  if (!filename) {
+    throw new Error("Motif.maxpat is missing a content-addressed motif-device runtime");
+  }
+  return { filename, source: await readFile(`max/${filename}`, "utf8") };
+}
+
 export type OutletArgs = unknown[];
 
 export interface EngineOptions {
@@ -35,7 +54,7 @@ export interface TestMaxEngine {
  * @returns {Promise<TestMaxEngine>} Dispatchable isolated device runtime.
  */
 export async function createEngine(options: EngineOptions = {}): Promise<TestMaxEngine> {
-  const source = await readFile("dist/motif-device.js", "utf8");
+  const { filename, source } = await loadCompiledEngine();
   const outlets: OutletArgs[] = [];
   const errors: string[] = [];
 
@@ -197,7 +216,7 @@ export async function createEngine(options: EngineOptions = {}): Promise<TestMax
     console,
   });
 
-  vm.runInContext(source, context, { filename: "motif-device.js" });
+  vm.runInContext(source, context, { filename });
 
   return {
     dispatch(message: string, ...args: unknown[]) {

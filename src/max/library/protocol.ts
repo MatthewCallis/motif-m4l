@@ -1,5 +1,5 @@
 import type { MotifPreviewPaintData } from "../../core/preview.js";
-import type { PitchMode } from "../../core/types.js";
+import type { PitchMode, RepeatRounding, TriggerMode } from "../../core/types.js";
 import type { TagFilterMode } from "../../library/tags.js";
 import type { HotkeyAction } from "../hotkey-map.js";
 
@@ -183,6 +183,10 @@ export interface LibrarySelectedMotifData {
   };
   /** Stored motif length in PPQ ticks. */
   length: number;
+  /** Saved trigger lifecycle used when the device delegates to Motif. */
+  triggerMode: TriggerMode;
+  /** Saved repeat grid used when the device delegates to Motif. */
+  repeatRounding: RepeatRounding;
   /** Optional motif-wide gate multiplier. */
   defaultGate: number | null;
   /** Optional velocity remapping values normalized for form controls. */

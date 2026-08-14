@@ -269,6 +269,23 @@ describe("MotifAuthoringController", () => {
     assert.equal(harness.store.current?.pitchMode, "chromatic");
   });
 
+  it("edits motif-owned trigger mode and repeat rounding", () => {
+    const harness = createAuthoring();
+    const user = addUserCopy(harness.store, "chromatic-turn", "performance-fields");
+    assert.ok(user);
+    harness.store.select(user.id);
+    harness.controller.beginEdit();
+
+    harness.controller.editMotif({ triggerMode: "hold-repeat", repeatRounding: "1-bar" });
+    assert.equal(harness.store.current?.triggerMode, "hold-repeat");
+    assert.equal(harness.store.current?.repeatRounding, "1-bar");
+
+    harness.controller.editMotif({ triggerMode: "forever", repeatRounding: "nearest" });
+    assert.ok(harness.effects.some((effect) => effect.includes("triggerMode must be")));
+    assert.equal(harness.store.current?.triggerMode, "hold-repeat");
+    assert.equal(harness.store.current?.repeatRounding, "1-bar");
+  });
+
   it("saves drafts, reports collisions, and no-ops cancel without a session", () => {
     const harness = createAuthoring();
     harness.library.path = "/library";

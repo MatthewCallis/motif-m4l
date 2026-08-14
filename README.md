@@ -80,7 +80,8 @@ motif-preview-<content-hash>.js
 - The eighth `midiselect` outlet passes controllers, bend, pressure, program changes, and other unselected raw MIDI directly to `midiout`.
 - The default `non-triggers` policy consumes notes inside the trigger zone and passes notes outside it.
 - Library MIDI hot keys map individual trigger notes to specific motifs. A mapped note remains a trigger even when it is outside the global trigger zone.
-- The Settings tab’s Trigger Mode includes `hold-repeat`, which loops the resolved motif at motif-length boundaries while any trigger-zone note or Trigger hot key remains held.
+- Motifs can save their own Trigger Mode; legacy and newly imported motifs default to `one-shot`. The Settings Trigger menu defaults to `motif` and can override that lifecycle device-wide.
+- Motifs can also save `exact`, `1/4-bar`, `1/2-bar`, or `1-bar` repeat rounding. The Settings Repeat menu defaults to `motif`; rounding advances hold-repeat to the next selected boundary, never shortens the phrase, and never rewrites or truncates notes.
 
 ## User library
 
@@ -89,7 +90,7 @@ motif-preview-<content-hash>.js
 - Folder groups can be collapsed to keep large libraries compact; active searches temporarily expand matching groups.
 - Editing an existing motif saves it back to its original subfolder. New motifs are saved at the chosen library root.
 - Motif ids must remain unique across the entire folder tree; duplicate ids are skipped with an error naming the conflicting relative path.
-- MIDI hot keys are entered and displayed as Ableton-style note names such as `C3`, `F♯2`, or `Bb4` rather than raw MIDI numbers. Each mapping either triggers its motif using the device-wide Trigger Mode or selects that motif for subsequent trigger-zone notes.
+- MIDI hot keys are entered and displayed as Ableton-style note names such as `C3`, `F♯2`, or `Bb4` rather than raw MIDI numbers. Each mapping either triggers its motif using the resolved motif/device Trigger Mode or selects that motif for subsequent trigger-zone notes.
 - Motifs and Live clip imports support up to 512 editable notes. The Notes panel is one scrollable table; Library state is transported to jweb in size-aware bounded chunks and assembled before rendering so motifs and large catalogs remain editable without exceeding Max’s message capacity. Longer clips receive an actionable warning to shorten or split the phrase.
 - Live clips always import as exact Chromatic motifs and snapshot Live's current source root, scale name, intervals, and the earliest-onset/lowest-note anchor. The standalone MIDI converter also preserves exact Chromatic offsets and defaults its source context to C Major when the caller does not supply one. Changing Pitch Mode later performs source-aware Scale or Hybrid analysis without depending on the current target scale.
 

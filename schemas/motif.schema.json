@@ -53,6 +53,10 @@
       }
     },
     "length": { "type": "number", "exclusiveMinimum": 0 },
+    "triggerMode": {
+      "enum": ["one-shot", "hold", "hold-repeat", "toggle", "latch", "release-tail"]
+    },
+    "repeatRounding": { "enum": ["exact", "1/4-bar", "1/2-bar", "1-bar"] },
     "defaultGate": { "type": "number", "exclusiveMinimum": 0 },
     "tags": {
       "type": "array",

@@ -12,6 +12,7 @@
   },
   "sourceMeter": { "numerator": 4, "denominator": 4 },
   "length": 3360,
+  "repeatRounding": "1-bar",
   "defaultGate": 0.82,
   "tags": [],
   "notes": [

@@ -169,6 +169,8 @@ describe("motif validation", () => {
       },
       sourceMeter: { numerator: 7, denominator: 8 },
       length: 960,
+      triggerMode: "hold-repeat",
+      repeatRounding: "1-bar",
       defaultGate: 0.9,
       velocityCurve: { inputMin: 1, inputMax: 127, outputMin: 10, outputMax: 120, exponent: 1.2 },
       notes: [{ at: 0, duration: 960, pitch: 0, velocity: 100, legato: false, tie: false }],
@@ -177,11 +179,22 @@ describe("motif validation", () => {
     const valid = validateMotif(motif);
     assert.equal(valid.valid, true);
     assert.equal(valid.motif?.id, motif.id);
+    assert.equal(valid.motif?.triggerMode, "hold-repeat");
+    assert.equal(valid.motif?.repeatRounding, "1-bar");
     assert.deepEqual(valid.errors, []);
 
     const tooShort = validateMotif({ ...motif, length: 959 });
     assert.equal(tooShort.valid, false);
     assert.ok(tooShort.errors.includes("notes[0] extends beyond motif length"));
+
+    const badPerformance = validateMotif({
+      ...motif,
+      triggerMode: "repeat-forever",
+      repeatRounding: "nearest",
+    });
+    assert.equal(badPerformance.valid, false);
+    assert.ok(badPerformance.errors.some((error) => error.includes("triggerMode")));
+    assert.ok(badPerformance.errors.some((error) => error.includes("repeatRounding")));
   });
 
   it("normalizes optional tags and rejects invalid tag values", () => {

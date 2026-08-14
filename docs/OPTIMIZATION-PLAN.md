@@ -2,15 +2,15 @@
 
 This plan starts from the production build measured on July 29, 2026. It prioritizes work that can reduce MIDI-path latency and Max UI traffic before lower-impact code-size tuning.
 
-## Current baseline
+## Current Baseline
 
-| Artifact                 | Before production minification |      Current | Change |
+| Artifact                 | Before Production Minification |      Current | Change |
 | ------------------------ | -----------------------------: | -----------: | -----: |
 | Max engine               |                  193,418 bytes | 89,078 bytes | -53.9% |
 | Native preview           |                    9,830 bytes |  5,764 bytes | -41.4% |
 | Total shipped JavaScript |                  203,248 bytes | 94,842 bytes | -53.3% |
 
-The current build emits one stable engine in `dist/` for VM tests and only the two content-addressed, minified runtimes referenced by `Motif.maxpat` in `max/`.
+The current build emits only the two content-addressed, minified runtimes referenced by `Motif.maxpat` in `max/`. VM tests load that same hashed engine.
 
 An esbuild contribution report attributes 73.5 KB of the 86.7 KB generated engine body to `src/max/device.ts`. That number includes the injected 46.6 KB Library HTML page, so the embedded authoring surface is the largest known size contributor. The next largest individual modules are validation (2.8 KB), store/import/compile/editor state (1.4-1.6 KB each), and preview (1.0 KB).
 

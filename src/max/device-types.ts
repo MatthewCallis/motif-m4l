@@ -4,8 +4,11 @@ import type {
   MeterMode,
   PassThroughPolicy,
   PitchMode,
+  RepeatRounding,
+  RepeatRoundingOverride,
   RetriggerMode,
   TriggerMode,
+  TriggerModeOverride,
 } from "../core/types.js";
 import { LibraryCompletionStatus } from "./library/device/repository.js";
 
@@ -46,6 +49,8 @@ export interface MotifHandlers {
   retrigger: (mode: string | number) => void;
   /** Select the keyboard trigger lifecycle. */
   trigger_mode: (mode: string) => void;
+  /** Select motif-owned or overridden hold-repeat length rounding. */
+  repeat_rounding: (value: string) => void;
   /** Select the launch-quantization grid. */
   launch_quantization: (value: string) => void;
   /** Select dry-MIDI pass-through behavior. */
@@ -165,6 +170,23 @@ export const TRIGGER_MODES = [
   "latch",
   "release-tail",
 ] as const satisfies readonly TriggerMode[];
+/** Valid device trigger-mode choices, including motif-owned behavior. */
+export const TRIGGER_MODE_OVERRIDES = [
+  "motif",
+  ...TRIGGER_MODES,
+] as const satisfies readonly TriggerModeOverride[];
+/** Valid motif-owned hold-repeat rounding grids. */
+export const REPEAT_ROUNDINGS = [
+  "exact",
+  "1/4-bar",
+  "1/2-bar",
+  "1-bar",
+] as const satisfies readonly RepeatRounding[];
+/** Valid device repeat-rounding choices, including motif-owned behavior. */
+export const REPEAT_ROUNDING_OVERRIDES = [
+  "motif",
+  ...REPEAT_ROUNDINGS,
+] as const satisfies readonly RepeatRoundingOverride[];
 /** Valid launch quantization grids. */
 export const LAUNCH_QUANTIZATIONS = [
   "immediate",

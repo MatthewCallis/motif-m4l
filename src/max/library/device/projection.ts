@@ -162,6 +162,8 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
       },
       sourceMeter: { ...selected.sourceMeter },
       length: selected.length,
+      triggerMode: selected.triggerMode ?? "one-shot",
+      repeatRounding: selected.repeatRounding ?? "exact",
       defaultGate: selected.defaultGate ?? null,
       velocityCurve: {
         inputMin: selected.velocityCurve?.inputMin ?? null,

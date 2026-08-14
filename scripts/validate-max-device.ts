@@ -35,6 +35,7 @@ type MaxBox = {
   parameter_enable?: number;
   saved_attribute_attributes?: {
     valueof?: {
+      parameter_enum?: string[];
       parameter_initial?: Array<string | number>;
       parameter_invisible?: 0 | 1 | 2;
       parameter_type?: number;
@@ -154,6 +155,48 @@ const engineRoute = byText(
   "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page persist",
 );
 assert.ok(engineRoute, "missing engine output route");
+const panicTrigger = byText("t b b b");
+const clearTrigger = byText("t b b");
+const clearMessage = byText("clear");
+const panicChannelUzi = byText("uzi 16");
+const panicChannelTrigger = byText("t b i");
+const panicControllerMessage = byText("64 0, 120 0, 123 0");
+const panicMidiFormat = boxes
+  .filter((box) => box.text === "midiformat")
+  .find((candidate) => hasLine(panicControllerMessage, 0, candidate, 2));
+assert.ok(
+  panicTrigger &&
+    clearTrigger &&
+    clearMessage &&
+    panicChannelUzi &&
+    panicChannelTrigger &&
+    panicControllerMessage &&
+    panicMidiFormat,
+  "missing hard-panic MIDI reset graph",
+);
+assert.ok(hasLine(engineRoute, 1, panicTrigger, 0), "panic is not routed to hard reset");
+assert.ok(hasLine(panicTrigger, 2, clearMessage, 0), "panic does not clear scheduled events");
+assert.ok(hasLine(panicTrigger, 1, panicChannelUzi, 0), "panic does not reset MIDI channels");
+assert.ok(hasLine(panicTrigger, 0, midiflush, 0), "panic does not flush tracked notes");
+assert.ok(
+  hasLine(panicChannelUzi, 2, panicChannelTrigger, 0),
+  "panic does not enumerate all MIDI channels",
+);
+assert.ok(
+  hasLine(panicChannelTrigger, 1, panicMidiFormat, 6),
+  "panic channel does not reach midiformat",
+);
+assert.ok(
+  hasLine(panicChannelTrigger, 0, panicControllerMessage, 0),
+  "panic controller reset is not triggered",
+);
+assert.ok(
+  hasLine(panicMidiFormat, 0, midiflush, 0),
+  "panic controller reset does not reach MIDI output",
+);
+assert.ok(hasLine(engineRoute, 2, clearTrigger, 0), "clear is not routed independently");
+assert.ok(hasLine(clearTrigger, 1, clearMessage, 0), "clear does not empty scheduled events");
+assert.ok(hasLine(clearTrigger, 0, midiflush, 0), "clear does not flush tracked notes");
 assert.ok(!byText("prepend delete_file"), "removed motif deletion path must not be generated");
 assert.ok(
   !byText("node.script motif-file-service.cjs @autostart 1 @restart 1"),
@@ -245,6 +288,17 @@ assert.ok(
   "Library actions that may create LiveAPI must run through deferlow",
 );
 assert.ok(byText("prepend tempo_multiplier"), "BPM multiplier must be wired to the engine");
+assert.ok(byText("prepend repeat_rounding"), "Repeat rounding must be wired to the engine");
+assert.equal(
+  byVarname("trigger-menu")?.saved_attribute_attributes?.valueof?.parameter_enum?.[0],
+  "motif",
+  "Trigger Mode must default to motif-owned behavior",
+);
+assert.deepEqual(
+  byVarname("repeat-menu")?.saved_attribute_attributes?.valueof?.parameter_enum,
+  ["motif", "exact", "1/4-bar", "1/2-bar", "1-bar"],
+  "Repeat Rounding must expose motif delegation and every supported override",
+);
 assert.ok(!boxes.some((box) => box.maxclass === "v8ui"), "core preview must not depend on v8ui");
 assert.ok(
   !JSON.stringify(patch).includes("live_lcd_"),
@@ -499,7 +553,7 @@ assert.ok(hasLine(stateRestorePrepend, 0, v8, 0));
 assert.ok(hasLine(engineRoute, 12, deviceStatePattr, 0));
 
 const initOrder = byText("t b b b b b b");
-const parameterRestore = byText("t b b b b b b b b b b b b");
+const parameterRestore = byText("t b b b b b b b b b b b b b");
 assert.ok(
   initOrder &&
     pathRestoreBang &&
@@ -676,13 +730,7 @@ assert.match(
 assert.match(libraryClient, /velocityOffset/, "Library must expose advanced note velocity fields");
 assert.match(libraryClient, /legato/, "Library must expose note articulation fields");
 
-const source = await readFile("dist/motif-device.js", "utf8");
-const hashedSource = await readFile(`max/${engineFilename}`, "utf8");
-assert.equal(
-  hashedSource,
-  source,
-  "hashed engine artifact differs from its canonical build output",
-);
+const source = await readFile(`max/${engineFilename}`, "utf8");
 const engineCanonicalSources = await Promise.all(
   [
     "src/max/device.ts",

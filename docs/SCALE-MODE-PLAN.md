@@ -1,6 +1,6 @@
 # Source-Aware Scale Mode Plan
 
-Status: source implementation complete; packaged AMXD freeze pending  
+Status: source implementation complete; packaged AMXD freeze pending
 Last updated: 2026-08-01
 
 ## Goal
@@ -17,7 +17,7 @@ Keep Chromatic mode exact and scale-independent. Keep Hybrid mode scale-relative
 4. Capture source key and scale information at import time even though the imported note representation is chromatic. This allows a later explicit conversion to Scale or Hybrid.
 5. Use Live's observed scale interval list as authoritative. A built-in name-to-interval registry is only a defensive fallback.
 6. Do not mutate saved notes when Live's current target scale changes. Target-scale mapping happens during playback and preview.
-7. Preserve detected per-note accidentals when converting to Scale, but ignore them during Scale playback. Hybrid applies them and may choose a bounded, source-equivalent adjacent spelling at target playback when it better preserves the imported chromatic contour. The canonical stored spelling remains unchanged, keeping Scale ↔ Hybrid and Scale/Hybrid → Chromatic conversions reversible.
+7. Preserve detected per-note accidentals when converting to Scale, but ignore them during Scale playback. Hybrid applies them and may choose a bounded, source-equivalent adjacent spelling at target playback when it better preserves the imported chromatic contour. The canonical stored spelling remains unchanged, keeping Scale ↔ Hybrid and Scale/Hybrid ➜ Chromatic conversions reversible.
 8. Preserve the existing trigger-relative phrase model: the trigger selects the target anchor for the motif. Source key data controls source analysis; it does not silently change a trigger into a target-key tonic.
 
 ## Confirmed Live capabilities
@@ -132,7 +132,7 @@ For every chromatic semitone offset:
 
 ### Scale and Hybrid
 
-Scale → Hybrid and Hybrid → Scale change only `pitchMode`. They do not re-encode notes or delete accidentals.
+Scale ➜ Hybrid and Hybrid ➜ Scale change only `pitchMode`. They do not re-encode notes or delete accidentals.
 
 ### Scale or Hybrid to Chromatic
 
@@ -259,7 +259,7 @@ Generated and packaged files must be regenerated with the existing build; do not
 - Source accidentals are detected and retained in Scale.
 - Scale ignores retained accidentals; Hybrid applies them.
 - Scale ↔ Hybrid does not rewrite notes.
-- Scale/Hybrid → Chromatic reconstructs exact original semitone offsets.
+- Scale/Hybrid ➜ Chromatic reconstructs exact original semitone offsets.
 - Conversion results do not depend on Live's current target scale.
 - Conversion is rejected when source intervals are unresolved.
 

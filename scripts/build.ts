@@ -233,8 +233,7 @@ const output = `${MAX_BRIDGE}\n${engine}`;
 const engineFilename = hashedJavaScriptFilename("motif-device", output);
 const previewFilename = hashedJavaScriptFilename("motif-preview", preview);
 
-await rm("dist", { recursive: true, force: true });
-await Promise.all([mkdir("dist", { recursive: true }), mkdir("max", { recursive: true })]);
+await mkdir("max", { recursive: true });
 
 await Promise.all([
   removeStaleHashedArtifacts("max", "motif-device", engineFilename),
@@ -248,9 +247,7 @@ await Promise.all([
 ]);
 
 await writeFile("max/library.html", libraryHtml);
-await writeFile("dist/motif-device.js", output);
 await writeFile(path.join("max", engineFilename), output);
 await writeFile(path.join("max", previewFilename), preview);
 await generateMaxPatch({ engineFilename, previewFilename });
-await rm("dist/motif-device.js.map", { force: true });
 await rm("max/motif-device.js.map", { force: true });

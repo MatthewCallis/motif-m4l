@@ -61,7 +61,7 @@ if (isMax && nativeMax) {
   maxBridge = nativeMax;
 } else {
   maxBridge = {
-    outlet: (...args: unknown[]) => console.log("→ Max:", ...args),
+    outlet: (...args: unknown[]) => console.log("➜ Max:", ...args),
     bindInlet: (name, handler) => browserInlets.set(name, handler),
   };
 }
@@ -200,6 +200,8 @@ export function propertiesFromDraft(
     name: draft.name,
     description: draft.description,
     pitchMode: draft.pitchMode,
+    triggerMode: draft.triggerMode,
+    repeatRounding: draft.repeatRounding,
     sourcePitchContext: {
       anchorPitch: Number(draft.sourceAnchor),
       scaleRootNote: Number(draft.sourceRoot),
@@ -468,6 +470,8 @@ function demoLibraryState(): LibraryServerState {
       name: "Chromatic Turn",
       description: "Fixed-interval phrase that ignores the selected scale.",
       pitchMode: "chromatic",
+      triggerMode: "one-shot",
+      repeatRounding: "exact",
       sourcePitchContext: {
         anchorPitch: 60,
         scaleRootNote: 0,

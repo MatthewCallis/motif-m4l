@@ -116,7 +116,7 @@ describe("compileMotif", () => {
         triggerVelocity: 100,
       },
     );
-    // degree 2 + accidental 1 in C major from C3 → E + 1 = F
+    // degree 2 + accidental 1 in C major from C3 ➜ E + 1 = F
     assert.equal(events[0]?.pitch, 65);
   });
 

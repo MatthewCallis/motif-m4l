@@ -27,6 +27,7 @@ export const BUILTIN_MOTIFS = [
       "denominator": 4
     },
     "length": 3360,
+    "repeatRounding": "1-bar",
     "defaultGate": 0.82,
     "tags": [],
     "notes": [
@@ -94,6 +95,7 @@ export const BUILTIN_MOTIFS = [
       "denominator": 4
     },
     "length": 3360,
+    "repeatRounding": "1-bar",
     "defaultGate": 0.82,
     "tags": [],
     "notes": [

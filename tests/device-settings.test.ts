@@ -10,11 +10,22 @@ describe("DeviceSettingsState", () => {
     assert.equal(settings.pitchModeOverride, undefined);
     assert.equal(settings.meterMode, "preserve");
     assert.equal(settings.retriggerMode, "replace");
-    assert.equal(settings.triggerMode, "one-shot");
+    assert.equal(settings.triggerMode, "motif");
+    assert.equal(settings.repeatRounding, "motif");
     assert.equal(settings.launchQuantization, "immediate");
     assert.equal(settings.passThroughPolicy, "non-triggers");
     assert.equal(settings.tempoMultiplier, 1);
     assert.deepEqual(settings.triggerZone, { low: 36, high: 84 });
+
+    const motif = new MotifStore("scale-turn").current;
+    assert.ok(motif);
+    const { repeatRounding: _repeatRounding, ...legacyMotif } = motif;
+    assert.equal(settings.triggerModeFor(motif), "one-shot");
+    assert.equal(settings.repeatRoundingFor(legacyMotif), "exact");
+    settings.triggerMode = "hold";
+    settings.repeatRounding = "1/2-bar";
+    assert.equal(settings.triggerModeFor({ ...motif, triggerMode: "toggle" }), "hold");
+    assert.equal(settings.repeatRoundingFor({ ...motif, repeatRounding: "1-bar" }), "1/2-bar");
 
     assert.deepEqual(settings.setTriggerLow(100), { low: 84, high: 84 });
     assert.deepEqual(settings.setTriggerHigh(-20), { low: 84, high: 84 });

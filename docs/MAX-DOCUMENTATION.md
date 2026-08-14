@@ -1,8 +1,8 @@
-# Max API and object documentation
+# Max API & Object Documentation
 
 This is the production Max surface used by Motif. Every generated object, Max JavaScript API, jweb bridge method, and Live Object Model call below links to the current official Cycling ’74 documentation. Historical objects and compatibility methods are intentionally excluded.
 
-## Generated patch objects
+## Generated Patch Objects
 
 | Surface                                           | Official documentation                                                   |
 | ------------------------------------------------- | ------------------------------------------------------------------------ |
@@ -44,9 +44,10 @@ This is the production Max surface used by Motif. Every generated object, Max Ja
 | `thispatcher`                                     | [thispatcher](https://docs.cycling74.com/reference/thispatcher/)         |
 | `umenu`                                           | [umenu](https://docs.cycling74.com/reference/umenu/)                     |
 | `unpack`                                          | [unpack](https://docs.cycling74.com/reference/unpack/)                   |
+| `uzi`                                             | [uzi](https://docs.cycling74.com/reference/uzi/)                         |
 | `v8`                                              | [v8](https://docs.cycling74.com/reference/v8/)                           |
 
-## Max JavaScript runtime
+## Max JavaScript Runtime
 
 | Surface                                                                                                  | Official documentation                                           |
 | -------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------- |
@@ -59,7 +60,7 @@ This is the production Max surface used by Motif. Every generated object, Max Ja
 | `box.rect`                                                                                               | [Maxobj.rect](https://docs.cycling74.com/apiref/js/maxobj/#rect) |
 | `mgraphics` properties and drawing methods                                                               | [MGraphics](https://docs.cycling74.com/apiref/js/mgraphics/)     |
 
-## jweb and Live Object Model
+## jweb & Live Object Model
 
 | Surface                                                                           | Official documentation                                                                                                       |
 | --------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
@@ -72,11 +73,11 @@ This is the production Max surface used by Motif. Every generated object, Max Ja
 
 The clip importer targets the current Live 11+ note API. It does not call the retired `get_notes` method. Imports always preserve exact Chromatic offsets and snapshot the current observed Song root, scale name, and interval list as the motif's source pitch context. Continuous Song synchronization remains on native `live.path` and `live.observer`; `LiveAPI` is created only in response to the user’s Import Clip action.
 
-## Live Set persistence
+## Live Set Persistence
 
 Motif follows Live's parameter storage contract rather than treating patch-load messages as device state:
 
-- Every user-facing setting is a parameter-enabled `live.*` object with Initial Enable and a unique long name. Invert and Reverse are integer `live.text` toggle parameters; their documented left outlet supplies the absolute `0`/`1` value.
+- Every user-facing setting is a parameter-enabled `live.*` object with Initial Enable and a unique long name. Trigger Mode and Repeat Rounding default to motif-owned values while remaining automatable device overrides. Invert and Reverse are integer `live.text` toggle parameters; their documented left outlet supplies the absolute `0`/`1` value.
 - The selected motif id, MIDI hot-key assignments, and user-library path use parameter-enabled `pattr` objects with Blob type and **Stored Only** visibility. The blob stores stable motif ids, never menu indexes or labels.
 - Song-owned Root and Scale display menus keep Parameter Mode enabled only to supply their enums, but use **Hidden** visibility so Live does not store or automate values that the Song observers own.
 - No `loadmess` writes a default into a stateful control. Max initializes parameters before `loadmess`, so such a message would overwrite the value Live just restored.
@@ -86,4 +87,4 @@ These choices implement Cycling ’74's [Device Parameters in Max for Live](http
 
 ## Distribution
 
-Max for Live containers must be [frozen and saved in Max](https://docs.cycling74.com/userguide/m4l/live_freezing/) so their referenced JavaScript dependencies are embedded. `npm run validate:amxd` checks that the packaged container matches the generated patch before release.
+Max for Live containers must be [frozen and saved in Max](https://docs.cycling74.com/userguide/m4l/live_freezing/) so their referenced JavaScript dependencies are embedded.

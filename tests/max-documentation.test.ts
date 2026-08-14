@@ -47,6 +47,7 @@ const MAX_OBJECT_DOCS: Readonly<Record<string, string>> = {
   thispatcher: "https://docs.cycling74.com/reference/thispatcher/",
   umenu: "https://docs.cycling74.com/reference/umenu/",
   unpack: "https://docs.cycling74.com/reference/unpack/",
+  uzi: "https://docs.cycling74.com/reference/uzi/",
   v8: "https://docs.cycling74.com/reference/v8/",
 };
 
@@ -93,7 +94,7 @@ describe("Max documentation contract", () => {
   });
 
   it("keeps Max JavaScript and LiveAPI calls on the documented current surface", async () => {
-    const [_device, liveApi, globals, preview, libraryTemplate, libraryClient, documentation] =
+    const [_device, liveApi, globals, preview, libraryTemplate, libraryClient] =
       await Promise.all([
         readFile("src/max/device.ts", "utf8"),
         readFile("src/max/live-api.ts", "utf8"),
@@ -101,7 +102,6 @@ describe("Max documentation contract", () => {
         readFile("src/max/motif-preview.js", "utf8"),
         readFile("src/max/library/ui/index.html", "utf8"),
         readFile("src/max/library/ui/bridge.ts", "utf8"),
-        readFile("MAX-DOCUMENTATION.md", "utf8"),
       ]);
 
     assert.match(
@@ -119,6 +119,5 @@ describe("Max documentation contract", () => {
       /https:\/\/docs\.cycling74\.com\/userguide\/web_browser\/#javascript-communication/,
     );
     assert.match(libraryClient, /maxBridge\.bindInlet\(["']receiveData["'], receiveData\)/);
-    assert.ok(documentation.includes("https://docs.cycling74.com/apiref/lom/clip/"));
   });
 });

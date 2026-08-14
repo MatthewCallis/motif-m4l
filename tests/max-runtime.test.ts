@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 import vm from "node:vm";
+import { loadCompiledEngine } from "./helpers/max-engine.js";
 
 type Emission = unknown[];
 
@@ -21,7 +22,7 @@ function encodedPayload(emission: Emission | undefined): string {
 
 describe("compiled Max runtime", () => {
   it("compiled Max runtime initializes, receives Song context, previews, and schedules MIDI", async () => {
-    const source = await readFile("dist/motif-device.js", "utf8");
+    const { filename, source } = await loadCompiledEngine();
     const emissions: Emission[] = [];
     const errors: string[] = [];
     const temporaryFiles = new Map<string, string>();
@@ -67,7 +68,7 @@ describe("compiled Max runtime", () => {
       console,
     });
 
-    vm.runInContext(source, context, { filename: "motif-device.js" });
+    vm.runInContext(source, context, { filename });
     const send = (message: string, ...args: unknown[]) => {
       (context as Record<string, unknown>).messagename = message;
       (context as Record<string, unknown>).__args = args;

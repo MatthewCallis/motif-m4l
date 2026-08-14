@@ -108,6 +108,36 @@ export function PropertyForm({
             <option value="chromatic">Chromatic</option>
             <option value="hybrid">Hybrid</option>
           </select>
+          <label for="trigger-mode-edit">Trigger mode</label>
+          <select
+            class="field editable-property"
+            id="trigger-mode-edit"
+            disabled={controlsDisabled}
+            value={draft.triggerMode}
+            onInput={(event) => updateDraft({ triggerMode: event.currentTarget.value })}
+            onChange={pushProperties}
+          >
+            <option value="one-shot">One-shot</option>
+            <option value="hold">Hold</option>
+            <option value="hold-repeat">Hold repeat</option>
+            <option value="toggle">Toggle</option>
+            <option value="latch">Latch</option>
+            <option value="release-tail">Release tail</option>
+          </select>
+          <label for="repeat-rounding-edit">Repeat rounding</label>
+          <select
+            class="field editable-property"
+            id="repeat-rounding-edit"
+            disabled={controlsDisabled}
+            value={draft.repeatRounding}
+            onInput={(event) => updateDraft({ repeatRounding: event.currentTarget.value })}
+            onChange={pushProperties}
+          >
+            <option value="exact">Exact</option>
+            <option value="1/4-bar">1/4 bar</option>
+            <option value="1/2-bar">1/2 bar</option>
+            <option value="1-bar">1 bar</option>
+          </select>
           <label for="source-anchor-edit">Source anchor</label>
           <div class="source-pitch-controls" id="source-anchor-controls">
             <input

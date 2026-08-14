@@ -1060,8 +1060,8 @@ describe("Max device runtime integration", () => {
     );
     assert.equal(
       engine.scheduledTaskDelays.at(-1),
-      1_625,
-      "the Task must wake 125 ms before the 3.5-beat motif boundary",
+      1_875,
+      "the Task must wake 125 ms before the motif-owned one-bar boundary",
     );
 
     engine.dispatch("note", 60, 80, 2);
@@ -1082,7 +1082,7 @@ describe("Max device runtime integration", () => {
       2,
       "the scheduled boundary must launch the next motif cycle",
     );
-    assert.equal(engine.scheduledTaskDelays.at(-1), 1_750);
+    assert.equal(engine.scheduledTaskDelays.at(-1), 2_000);
     assert.equal(
       engine.outlets.filter((args) => args[0] === "ui" && args[1] === "lib").length,
       libraryUpdatesBeforeRepeat,
@@ -1140,13 +1140,51 @@ describe("Max device runtime integration", () => {
     assert.ok(!engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"));
 
     engine.dispatch("note", 20, 100, 1);
+    const outletsBeforePanic = engine.outlets.length;
     engine.dispatch("panic");
+    const panicOutlets = engine.outlets.slice(outletsBeforePanic);
+    assert.equal(
+      panicOutlets.filter((args) => args[0] === "panic").length,
+      1,
+      "panic must emit one atomic Max-side hard reset",
+    );
+    assert.equal(
+      panicOutlets.filter((args) => args[0] === "clear").length,
+      0,
+      "hard panic must not also emit the ordinary clear path",
+    );
     engine.outlets.length = 0;
     engine.runScheduledTasks();
     assert.ok(
       !engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"),
       "panic must cancel every pending repeat task",
     );
+  });
+
+  it("uses motif-owned trigger mode and repeat rounding unless Settings override them", async () => {
+    const path = "/Performance Motifs";
+    const motif = {
+      ...userMotif("self-repeating", "Self Repeating"),
+      triggerMode: "hold-repeat",
+      repeatRounding: "1-bar",
+    };
+    const engine = await createEngine({
+      files: { [`${path}/self-repeating.json`]: JSON.stringify(motif) },
+      folders: { [path]: ["self-repeating.json"] },
+      deferTasks: true,
+    });
+    engine.dispatch("library_path", path);
+    engine.runScheduledTasks();
+    engine.dispatch("motif", "self-repeating");
+
+    engine.dispatch("note", 60, 100, 1);
+    assert.equal(engine.scheduledTaskDelays.at(-1), 1_875);
+    engine.dispatch("note", 60, 0, 1);
+
+    engine.dispatch("trigger_mode", "one-shot");
+    const taskCount = engine.scheduledTaskDelays.length;
+    engine.dispatch("note", 61, 100, 1);
+    assert.equal(engine.scheduledTaskDelays.length, taskCount);
   });
 
   it("rejects invalid hot-key assignments and prunes mappings for removed library motifs", async () => {
@@ -1601,6 +1639,7 @@ describe("Max device runtime integration", () => {
     engine.dispatch("meter_mode", "nope");
     engine.dispatch("retrigger", "nope");
     engine.dispatch("trigger_mode", "nope");
+    engine.dispatch("repeat_rounding", "nope");
     engine.dispatch("launch_quantization", "nope");
     engine.dispatch("pass_through", "nope");
     engine.dispatch("tempo_multiplier", "nope");
@@ -1612,6 +1651,7 @@ describe("Max device runtime integration", () => {
     assert.ok(engine.errors.some((message) => message.includes("Unknown meter mode")));
     assert.ok(engine.errors.some((message) => message.includes("Unknown retrigger mode")));
     assert.ok(engine.errors.some((message) => message.includes("Unknown trigger mode")));
+    assert.ok(engine.errors.some((message) => message.includes("Unknown repeat rounding")));
     assert.ok(engine.errors.some((message) => message.includes("Unknown launch quantization")));
     assert.ok(engine.errors.some((message) => message.includes("Unknown pass-through policy")));
     assert.ok(engine.errors.some((message) => message.includes("Unknown tempo multiplier")));

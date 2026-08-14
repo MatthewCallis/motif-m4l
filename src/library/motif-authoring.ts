@@ -1,6 +1,13 @@
 import { convertMotifPitchMode } from "../core/import-notes.js";
 import { hasOwn, isRecord, jsonValuesEqual, primitiveText } from "../core/type-guards.js";
-import type { Motif, MotifNote, PitchMode, SourcePitchContext } from "../core/types.js";
+import type {
+  Motif,
+  MotifNote,
+  PitchMode,
+  RepeatRounding,
+  SourcePitchContext,
+  TriggerMode,
+} from "../core/types.js";
 import { NOTE_EDIT_FIELDS, type NoteEditField } from "./note-edit-schema.js";
 import { normalizeTags } from "./tags.js";
 
@@ -163,6 +170,34 @@ export function applyMotifProperties(editable: Motif, value: unknown): MutationR
     pitchMode = parsed;
   }
 
+  let triggerMode: TriggerMode | undefined = editable.triggerMode;
+  if (hasOwn(record, "triggerMode")) {
+    const parsed = primitiveText(record.triggerMode);
+    if (
+      parsed !== "one-shot" &&
+      parsed !== "hold" &&
+      parsed !== "hold-repeat" &&
+      parsed !== "toggle" &&
+      parsed !== "latch" &&
+      parsed !== "release-tail"
+    ) {
+      return {
+        ok: false,
+        error: "triggerMode must be one-shot, hold, hold-repeat, toggle, latch, or release-tail",
+      };
+    }
+    triggerMode = parsed;
+  }
+
+  let repeatRounding: RepeatRounding | undefined = editable.repeatRounding;
+  if (hasOwn(record, "repeatRounding")) {
+    const parsed = primitiveText(record.repeatRounding);
+    if (parsed !== "exact" && parsed !== "1/4-bar" && parsed !== "1/2-bar" && parsed !== "1-bar") {
+      return { ok: false, error: "repeatRounding must be exact, 1/4-bar, 1/2-bar, or 1-bar" };
+    }
+    repeatRounding = parsed;
+  }
+
   let sourceContext = editable.sourcePitchContext;
   if (hasOwn(record, "sourcePitchContext")) {
     const parsed = sourcePitchContext(sourceContext, record.sourcePitchContext);
@@ -263,6 +298,8 @@ export function applyMotifProperties(editable: Motif, value: unknown): MutationR
   }
   const {
     defaultGate: _defaultGate,
+    triggerMode: _triggerMode,
+    repeatRounding: _repeatRounding,
     velocityCurve: _velocityCurve,
     tags: _tags,
     ...required
@@ -273,6 +310,8 @@ export function applyMotifProperties(editable: Motif, value: unknown): MutationR
     description,
     pitchMode,
     sourceMeter,
+    ...(triggerMode !== undefined ? { triggerMode } : {}),
+    ...(repeatRounding !== undefined ? { repeatRounding } : {}),
     ...(defaultGate !== undefined ? { defaultGate } : {}),
     ...(velocityCurve !== undefined ? { velocityCurve } : {}),
     ...(tags !== undefined ? { tags } : {}),
@@ -416,8 +455,9 @@ export function appendMotifNote(motif: Motif, limit: number): NoteMutationResult
   if (motif.notes.length >= limit) {
     return { ok: false, error: `Maximum ${limit} notes per motif` };
   }
-  const lastAt = motif.notes.at(-1)?.at ?? 0;
-  const lastDuration = motif.notes.at(-1)?.duration ?? 240;
+  const lastNote = motif.notes[motif.notes.length - 1];
+  const lastAt = lastNote?.at ?? 0;
+  const lastDuration = lastNote?.duration ?? 240;
   return {
     ok: true,
     notes: [...motif.notes, { pitch: 0, at: lastAt + lastDuration, duration: 240 }],

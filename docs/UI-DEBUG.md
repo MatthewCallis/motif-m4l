@@ -1,4 +1,4 @@
-# UI checklist
+# UI Checklist
 
 - Presentation dimensions are fixed at 475 × 169.
 - Motif and Settings pages share that area via `live.tab` (Live mode) and `thispatcher` hide/show scripting.

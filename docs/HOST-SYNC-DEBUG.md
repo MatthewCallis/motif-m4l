@@ -1,12 +1,12 @@
-# Host-sync checklist
+# Host-Sync Checklist
 
 Song host sync contains no LiveAPI JavaScript calls:
 
 ```text
 live.thisdevice
-  → property messages
-  → live.path live_set
-  → live.observer
+  ➜ property messages
+  ➜ live.path live_set
+  ➜ live.observer
 ```
 
 Observed Song properties:
@@ -31,16 +31,16 @@ song_context <property> <value...>
 
 and sent through `deferlow` to the TypeScript engine. The engine uses this copy only for motif compilation and preview calculation.
 
-## Clip import (LiveAPI exception)
+## Clip Import (LiveAPI Exception)
 
 On-demand **Import Clip** is the only intentional JavaScript LiveAPI path:
 
 ```text
-Import Clip → import_clip
-  → new LiveAPI(undefined, "live_set view detail_clip")
+Import Clip ➜ import_clip
+  ➜ new LiveAPI(undefined, "live_set view detail_clip")
     or new LiveAPI(undefined, "live_set view highlighted_clip_slot clip")
-  → get_notes_extended
-  → absoluteNotesToMotif (chromatic by default; scale/hybrid are explicit choices)
+  ➜ get_notes_extended
+  ➜ absoluteNotesToMotif (chromatic by default; scale/hybrid are explicit choices)
 ```
 
 Do not move Song tempo/key/scale/meter/transport onto this path.

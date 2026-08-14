@@ -1,5 +1,5 @@
 /**
- * CLI: Standard MIDI File → Motif JSON.
+ * CLI: Standard MIDI File ➜ Motif JSON.
  *
  * Usage: `npm run midi:import -- input.mid output.json`
  */

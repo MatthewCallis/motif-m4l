@@ -8,9 +8,13 @@ import type { Motif, MotifNote, PitchMode, SourcePitchContext, TimeSignature } f
 
 /** Absolute MIDI note in motif PPQ ticks. */
 export interface AbsoluteNote {
+  /** The note start time in motif PPQ ticks. */
   at: number;
+  /** The note duration in motif PPQ ticks. */
   duration: number;
+  /** The note pitch. */
   pitch: number;
+  /** The note velocity. */
   velocity: number;
 }
 

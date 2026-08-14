@@ -30,6 +30,15 @@ export type RetriggerMode = "replace" | "overlap";
 /** How keyboard triggers start, stop, or repeat motif instances. */
 export type TriggerMode = "one-shot" | "hold" | "hold-repeat" | "toggle" | "latch" | "release-tail";
 
+/** Grid used to round hold-repeat cycle boundaries. */
+export type RepeatRounding = "exact" | "1/4-bar" | "1/2-bar" | "1-bar";
+
+/** Device trigger-mode choice, including delegation to the triggered motif. */
+export type TriggerModeOverride = "motif" | TriggerMode;
+
+/** Device repeat-rounding choice, including delegation to the triggered motif. */
+export type RepeatRoundingOverride = "motif" | RepeatRounding;
+
 /** Delay trigger start to the next Live song-time grid boundary. */
 export type LaunchQuantization = "immediate" | "1/16" | "1/8" | "1/4" | "bar";
 
@@ -44,7 +53,7 @@ export interface TimeSignature {
 
 /**
  * Live Song state forwarded into the engine for compile/preview.
- * Continuous values come from native `live.observer` → `song_context` messages.
+ * Continuous values come from native `live.observer` ➜ `song_context` messages.
  *
  * @see https://docs.cycling74.com/reference/live.observer
  * @see https://docs.cycling74.com/userguide/m4l/live_api_overview/
@@ -136,6 +145,10 @@ export interface Motif {
   sourceMeter: TimeSignature;
   /** Phrase length in PPQ ticks (usually last note end). */
   length: number;
+  /** Optional hold-repeat lifecycle; legacy motifs default to one-shot. */
+  triggerMode?: TriggerMode;
+  /** Optional hold-repeat cycle rounding; legacy motifs default to exact length. */
+  repeatRounding?: RepeatRounding;
   /** Notes in the motif. */
   notes: readonly MotifNote[];
   /** Default gate when a note omits `gate`. */

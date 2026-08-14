@@ -6,8 +6,11 @@ import type {
   Motif,
   PassThroughPolicy,
   PitchMode,
+  RepeatRounding,
+  RepeatRoundingOverride,
   RetriggerMode,
   TriggerMode,
+  TriggerModeOverride,
   TriggerZone,
 } from "../core/types.js";
 
@@ -24,20 +27,42 @@ export class DeviceSettingsState {
   meterMode: MeterMode = "preserve";
   /** Whether a new trigger replaces or overlaps already scheduled notes. */
   retriggerMode: RetriggerMode = "replace";
-  /** Keyboard trigger lifecycle. */
-  triggerMode: TriggerMode = "one-shot";
+  /** Keyboard trigger lifecycle override, or delegation to each motif. */
+  triggerMode: TriggerModeOverride = "motif";
+  /** Hold-repeat length-rounding override, or delegation to each motif. */
+  repeatRounding: RepeatRoundingOverride = "motif";
   /** Grid used to delay launches while Live is playing. */
   launchQuantization: LaunchQuantization = "immediate";
   /** Dry-note pass-through policy. */
   passThroughPolicy: PassThroughPolicy = "non-triggers";
   /** Inclusive keyboard trigger range. */
-  readonly triggerZone: TriggerZone = { low: 36, high: 84 };
+  triggerZone: TriggerZone = { low: 36, high: 84 };
   /** Device-local tempo ratio. */
   tempoMultiplier = 1;
   /** Mirror encoded pitch offsets around the trigger note. */
   invert = false;
   /** Mirror note spans across the motif length. */
   reverse = false;
+
+  /**
+   * Resolve the trigger lifecycle for one motif, defaulting to `one-shot` behavior.
+   * @param {Motif} motif Stored motif document.
+   * @returns {TriggerMode} Resolved trigger mode.
+   */
+  triggerModeFor(motif: Motif): TriggerMode {
+    return this.triggerMode === "motif" ? (motif.triggerMode ?? "one-shot") : this.triggerMode;
+  }
+
+  /**
+   * Resolve the hold-repeat rounding grid for one motif, defaulting to `exact` behavior.
+   * @param {Motif} motif Stored motif document.
+   * @returns {RepeatRounding} Resolved repeat rounding.
+   */
+  repeatRoundingFor(motif: Motif): RepeatRounding {
+    return this.repeatRounding === "motif"
+      ? (motif.repeatRounding ?? "exact")
+      : this.repeatRounding;
+  }
 
   /**
    * Clamp the lower trigger bound without crossing the current upper bound.

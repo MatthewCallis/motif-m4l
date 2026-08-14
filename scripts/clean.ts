@@ -32,7 +32,6 @@ async function removeHashedMaxRuntimes(): Promise<void> {
 }
 
 await Promise.all([
-  rm("dist", { recursive: true, force: true }),
   rm("src/generated/builtins.ts", { force: true }),
   rm("max/Motif.maxpat", { force: true }),
   rm("max/library.html", { force: true }),

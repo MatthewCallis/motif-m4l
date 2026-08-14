@@ -1,5 +1,5 @@
 /**
- * Compile a relative motif phrase into timed MIDI note-on/off events using
+ * Compile a relative motif phrase into timed MIDI note-on / note-off events using
  * the current Live host context (tempo, scale, meter) and trigger options.
  */
 
@@ -25,7 +25,6 @@ import type {
 
 /**
  * Apply a velocity curve to a value, clamped to the output range.
- *
  * @param {number} value The value to apply the curve to.
  * @param {VelocityCurve | undefined} curve The velocity curve.
  * @returns {number} The value after the curve is applied. If no curve is provided, the value is returned unchanged.
@@ -58,20 +57,12 @@ export function resolveVelocity(note: MotifNote, motif: Motif, triggerVelocity: 
   return Math.round(clamp(scaled + (note.velocityOffset ?? 0), 1, 127));
 }
 
-interface HybridSpelling {
-  degree: number;
-  accidental: number;
-  targetOffset: number;
-  deviation: number;
-  canonical: boolean;
-}
-
 /**
  * Choose a target-time spelling for one Hybrid note.
  *
  * MIDI records a sounding pitch, not a written note name. When a Chromatic
  * motif is converted to Hybrid, the same source pitch can therefore have more
- * than one valid degree/accidental spelling. For example, a pitch between two
+ * than one valid degree / accidental spelling. For example, a pitch between two
  * source-scale degrees could be encoded as the lower degree plus a sharp or the
  * upper degree plus a flat. Both spellings decode to the same source semitone
  * offset, but they can produce different pitches when their degrees are mapped
@@ -124,14 +115,23 @@ function selectHybridSpelling(
     rootNote: source.scaleRootNote,
     scaleIntervals: sourceIntervals,
   };
-  // Recover the lossless Chromatic offset represented by the stored degree and
-  // accidental. This is the fixed reference all candidate spellings must match.
+  // Recover the lossless Chromatic offset represented by the stored degree and accidental.
+  // This is the fixed reference all candidate spellings must match.
   const originalOffset = decodeSemitoneOffset(note, "hybrid", sourceContext);
 
-  // Score in relative semitones rather than absolute MIDI pitches. The target
-  // anchor may move when an off-scale trigger is quantized, but that anchor shift
-  // should affect every candidate equally and is not part of the motif contour.
-  const spelling = (degree: number, accidental: number): HybridSpelling => {
+  // Score in relative semitones rather than absolute MIDI pitches.
+  // The target anchor may move when an off-scale trigger is quantized,
+  // but that anchor shift should affect every candidate equally and is not part of the motif contour.
+  const spelling = (
+    degree: number,
+    accidental: number,
+  ): {
+    degree: number;
+    accidental: number;
+    targetOffset: number;
+    deviation: number;
+    canonical: boolean;
+  } => {
     const targetOffset =
       scaleDegreeSemitoneOffset(targetAnchor, degree, host.rootNote, host.scaleIntervals) +
       accidental;
@@ -147,7 +147,7 @@ function selectHybridSpelling(
   // Seed with the stored spelling so unresolved ties are backward-compatible.
   let best = spelling(note.pitch, canonicalAccidental);
 
-  // Immediate degrees cover the common sharp/flat ambiguity without opening an
+  // Immediate degrees cover the common sharp / flat ambiguity without opening an
   // unbounded search in which sufficiently large accidentals could reproduce any
   // Chromatic pitch. Sparse-scale support could justify a wider, scored radius.
   for (let degree = note.pitch - 1; degree <= note.pitch + 1; degree += 1) {

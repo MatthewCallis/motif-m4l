@@ -193,7 +193,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     {
       name: "Panic",
       description:
-        "Immediately clears scheduled phrase events and sends note-offs for active MIDI notes.",
+        "Immediately clears scheduled phrase events, releases tracked notes, and resets sustain and all notes on every MIDI channel.",
     },
     motifHidden,
   );
@@ -309,10 +309,14 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   uiComment("meter-label", "Meter", [8, 96, 80, 16], { fontsize: 10, ...settingsHidden });
   uiComment("retrigger-label", "Retrigger", [8, 118, 80, 16], { fontsize: 10, ...settingsHidden });
   uiComment("zone-label", "Zone", [8, 140, 80, 16], { fontsize: 10, ...settingsHidden });
+  uiComment("repeat-label", "Repeat", [232, 140, 64, 16], {
+    fontsize: 10,
+    ...settingsHidden,
+  });
 
   uiLiveMenu(
     "trigger-menu",
-    ["one-shot", "hold", "hold-repeat", "toggle", "latch", "release-tail"],
+    ["motif", "one-shot", "hold", "hold-repeat", "toggle", "latch", "release-tail"],
     [96, 28, 232, 20],
     "Trigger Mode",
     "Trigger",
@@ -320,7 +324,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     {
       name: "Trigger Mode",
       description:
-        "One-shot plays the full motif; Hold stops on release; Hold Repeat loops while held; Toggle alternates on/off; Latch replaces the active phrase; Release-tail lets scheduled notes finish.",
+        "Motif uses the saved lifecycle (legacy motifs use One-shot); other choices override it device-wide. Hold Repeat loops while held.",
     },
     settingsHidden,
   );
@@ -393,6 +397,20 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     },
     settingsHidden,
   );
+  uiLiveMenu(
+    "repeat-menu",
+    ["motif", "exact", "1/4-bar", "1/2-bar", "1-bar"],
+    [296, 138, 171, 20],
+    "Repeat Rounding",
+    "Repeat",
+    0,
+    {
+      name: "Repeat Rounding",
+      description:
+        "Motif uses the triggered motif’s saved repeat grid. Exact and bar subdivisions override it for Hold Repeat only.",
+    },
+    settingsHidden,
+  );
   uiLiveNumber(
     "high-number",
     [160, 138, 56, 20],
@@ -436,6 +454,8 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     "zone-label",
     "low-number",
     "high-number",
+    "repeat-label",
+    "repeat-menu",
   ];
 
   // ---------- Floating Library / Authoring subpatcher (Presentation Mode) ----------
@@ -491,8 +511,8 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     // bindInlet receive the literal selector instead of the encoded payload.
     nconnect("lib-data-recv", 0, "jweb-library", 0);
 
-    // jweb outlet → route actions, readiness, diagnostics, and documented load metadata.
-    //   outlet 0 (choose_library): opendialog fold → s ---library_path
+    // jweb outlet ➜ route actions, readiness, diagnostics, and documented load metadata.
+    //   outlet 0 (choose_library): opendialog fold ➜ s ---library_path
     //   outlet 1 (library_ready): send selector directly to v8 so state is resent after load
     //   outlet 2 (web_debug): forward browser diagnostics to v8
     //   outlet 3 (lib_action): explicitly tagged encoded JSON action
@@ -575,7 +595,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   const MIDI_Y = 280;
   patchComment(
     "section-midi",
-    "§ MIDI I/O - fail-open gate → midiselect → engine / midiout",
+    "§ MIDI I/O - fail-open gate ➜ midiselect ➜ engine / midiout",
     COL.midi,
     MIDI_Y - 40,
     420,
@@ -620,8 +640,13 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   object("event-pipe", "pipe 0 0 0 0.", COL.engine, ENG_Y + ROW * 5, 130);
   object("note-output-pack", "pack 0 0", COL.engine, ENG_Y + ROW * 6, 80);
   object("note-midiformat", "midiformat", COL.engine, ENG_Y + ROW * 7, 90);
-  object("panic-trigger", "t b b", COL.engine + 280, ENG_Y + ROW * 4, 60);
+  object("panic-trigger", "t b b b", COL.engine + 280, ENG_Y + ROW * 4, 70);
+  object("clear-trigger", "t b b", COL.engine + 280, ENG_Y + ROW * 5, 60);
   message("clear-pipe-message", "clear", COL.engine + 400, ENG_Y + ROW * 5, 60);
+  object("panic-channel-uzi", "uzi 16", COL.engine + 280, ENG_Y + ROW * 6, 60);
+  object("panic-channel-trigger", "t b i", COL.engine + 360, ENG_Y + ROW * 6, 50);
+  message("panic-controller-message", "64 0, 120 0, 123 0", COL.engine + 430, ENG_Y + ROW * 6, 130);
+  object("panic-midiformat", "midiformat", COL.engine + 590, ENG_Y + ROW * 6, 90);
 
   // ---------- Feedback / menu / UI emit column ----------
   const FB_Y = 280;
@@ -636,10 +661,10 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   object("menu-append", "prepend append", COL.feedback, FB_Y + ROW * 3, 120);
   object("menu-select", "prepend setsymbol", COL.feedback, FB_Y + ROW * 4, 140);
   object("ui-route", "route lib preview transforms", COL.feedback, FB_Y + ROW * 6, 260);
-  // Library route → prepend receiveData → send to the subpatcher jweb.
+  // Library route ➜ prepend receiveData ➜ send to the subpatcher jweb.
   object("lib-data-prepend", "prepend receiveData", COL.feedback, FB_Y + ROW * 7, 180);
   object("lib-data-send", "send ---lib-data", COL.feedback, FB_Y + ROW * 8, 150);
-  // Preview route → prepend receiveData → native jsui renderer in the main device.
+  // Preview route ➜ prepend receiveData ➜ native jsui renderer in the main device.
   object("preview-data-prepend", "prepend receiveData", COL.feedback + 240, FB_Y + ROW * 7, 180);
   object(
     "preview-out-route",
@@ -667,7 +692,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   const OBS_Y = 1200;
   patchComment(
     "section-song",
-    "§ Song observers - live.path live_set → live.observer → song_context → v8",
+    "§ Song observers - live.path live_set ➜ live.observer ➜ song_context ➜ v8",
     COL.song,
     OBS_Y - 40,
     560,
@@ -769,7 +794,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   const TAB_Y = 3200;
   patchComment(
     "section-tabs",
-    "§ Tabs - live.tab → thispatcher hide/show Motif vs Settings boxes",
+    "§ Tabs - live.tab ➜ thispatcher hide/show Motif vs Settings boxes",
     COL.tabs,
     TAB_Y - 40,
     520,
@@ -809,8 +834,8 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   object("info-trigger", "t b b", COL.library, LIB_Y, 70);
   message("library-close", "close", COL.library + 100, LIB_Y, 60);
   object("library-reopen-defer", "deferlow", COL.library + 100, LIB_Y + ROW, 80);
-  // t fires right→left after the close: configure → open → defer page
-  // materialization/readfile until jweb is visible → size again.
+  // t fires right➜left after the close: configure ➜ open ➜ defer page
+  // materialization/readfile until jweb is visible ➜ size again.
   object("library-open-trigger", "t b b b b b b", COL.library + 200, LIB_Y, 120);
   message("library-flags", "window flags float nogrow close zoom", COL.library + 200, LIB_Y, 230);
   message("library-size", libraryWindowSizeMessage, COL.library + 200, LIB_Y + ROW, 150);
@@ -933,9 +958,17 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect("note-midiformat", 0, "midiflush", 0);
   connect("midiflush", 0, "midiout", 0);
   connect("engine-route", 1, "panic-trigger", 0);
-  connect("panic-trigger", 1, "clear-pipe-message", 0);
+  connect("panic-trigger", 2, "clear-pipe-message", 0);
+  connect("panic-trigger", 1, "panic-channel-uzi", 0);
   connect("panic-trigger", 0, "midiflush", 0);
-  connect("engine-route", 2, "clear-pipe-message", 0);
+  connect("panic-channel-uzi", 2, "panic-channel-trigger", 0);
+  connect("panic-channel-trigger", 1, "panic-midiformat", 6);
+  connect("panic-channel-trigger", 0, "panic-controller-message", 0);
+  connect("panic-controller-message", 0, "panic-midiformat", 2);
+  connect("panic-midiformat", 0, "midiflush", 0);
+  connect("engine-route", 2, "clear-trigger", 0);
+  connect("clear-trigger", 1, "clear-pipe-message", 0);
+  connect("clear-trigger", 0, "midiflush", 0);
   connect("clear-pipe-message", 0, "event-pipe", 0);
   // status / error: Ready still fans to ready-route; debug text is Max console only (no UI status-display)
   connect("engine-route", 6, "menu-clear", 0);
@@ -966,11 +999,11 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect("preview-debug-page", 0, "preview-debug-prepend", 0);
   connect("preview-debug-prepend", 0, "v8", 0);
 
-  // ---------- UI control → engine ----------
+  // ---------- UI control ➜ engine ----------
   const CTL_Y = 4800;
   patchComment(
     "section-controls",
-    "§ Controls → v8 - Live parameters + post-restore synchronization",
+    "§ Controls ➜ v8 - Live parameters + post-restore synchronization",
     COL.controls,
     CTL_Y - 40,
     480,
@@ -981,6 +1014,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   object("reverse-prepend", "prepend reverse", COL.controls + 560, CTL_Y, 160);
   object("tempo-mult-prepend", "prepend tempo_multiplier", COL.controls + 740, CTL_Y, 180);
   object("trigger-prepend", "prepend trigger_mode", COL.controls + 1000, CTL_Y, 160);
+  object("repeat-prepend", "prepend repeat_rounding", COL.controls + 1180, CTL_Y + ROW, 180);
   object("quant-prepend", "prepend launch_quantization", COL.controls + 1240, CTL_Y, 200);
   object("pass-prepend", "prepend pass_through", COL.controls + 1500, CTL_Y, 170);
   object("meter-prepend", "prepend meter_mode", COL.controls, CTL_Y + ROW, 150);
@@ -1002,6 +1036,8 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect("tempo-mult-prepend", 0, "v8", 0);
   connect("trigger-menu", 1, "trigger-prepend", 0);
   connect("trigger-prepend", 0, "v8", 0);
+  connect("repeat-menu", 1, "repeat-prepend", 0);
+  connect("repeat-prepend", 0, "v8", 0);
   connect("quant-menu", 1, "quant-prepend", 0);
   connect("quant-prepend", 0, "v8", 0);
   connect("pass-menu", 1, "pass-prepend", 0);
@@ -1021,7 +1057,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   // output the restored values after initialization rather than overwriting
   // them with loadmess defaults.
   const RESTORE_Y = CTL_Y + ROW * 3;
-  object("parameter-restore-trigger", "t b b b b b b b b b b b b", COL.controls, RESTORE_Y, 250);
+  object("parameter-restore-trigger", "t b b b b b b b b b b b b b", COL.controls, RESTORE_Y, 270);
   message("invert-outputvalue", "outputvalue", COL.controls + 280, RESTORE_Y, 90);
   message("reverse-outputvalue", "outputvalue", COL.controls + 400, RESTORE_Y, 90);
   const restoredControls = [
@@ -1035,14 +1071,15 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     // trigger runs right-to-left: restore Low before High so cross-bounds stay valid.
     "high-number",
     "low-number",
+    "repeat-menu",
     "page-tab",
   ] as const;
   restoredControls.forEach((destination, outlet) => {
     connect("parameter-restore-trigger", outlet, destination, 0);
   });
-  connect("parameter-restore-trigger", 10, "invert-outputvalue", 0);
+  connect("parameter-restore-trigger", 11, "invert-outputvalue", 0);
   connect("invert-outputvalue", 0, "invert-button", 0);
-  connect("parameter-restore-trigger", 11, "reverse-outputvalue", 0);
+  connect("parameter-restore-trigger", 12, "reverse-outputvalue", 0);
   connect("reverse-outputvalue", 0, "reverse-button", 0);
   // trigger outputs right-to-left: library path starts its scan first, then
   // engine-owned state can wait for that scan, then Live parameters synchronize.

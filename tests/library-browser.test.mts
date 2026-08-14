@@ -147,6 +147,8 @@ void describe("Library browser runtime", () => {
         },
         sourceMeter: { numerator: 4, denominator: 4 },
         length: 960,
+        triggerMode: "one-shot" as const,
+        repeatRounding: "exact" as const,
         defaultGate: null,
         velocityCurve: {
           inputMin: null,

@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 import vm from "node:vm";
+import { loadCompiledEngine } from "./helpers/max-engine.js";
 import { readLibraryWindowConfig } from "../scripts/library-window-config.js";
 
 type Box = {
@@ -161,7 +162,6 @@ describe("Motif Max patch integration", () => {
       ].map((filename) => readFile(filename, "utf8")),
     );
     const libraryOutput = await readFile("max/library.html", "utf8");
-    assert.equal(engineSource, await readFile("dist/motif-device.js", "utf8"));
     assert.ok(
       previewSource.length < previewCanonicalSource.length,
       "production preview must be minified",
@@ -480,7 +480,7 @@ describe("Motif Max patch integration", () => {
       0,
       "startup messages must not overwrite Live-restored transform values",
     );
-    const parameterRestore = boxByText(boxes, "t b b b b b b b b b b b b");
+    const parameterRestore = boxByText(boxes, "t b b b b b b b b b b b b b");
     const invertOutputValue = boxByText(boxes, "outputvalue");
     const outputValueMessages = boxes
       .filter(({ box }) => box.text === "outputvalue")
@@ -490,13 +490,13 @@ describe("Motif Max patch integration", () => {
     assert.ok(
       outputValueMessages.some(
         (box) =>
-          hasLine(lines, parameterRestore, 10, box, 0) && hasLine(lines, box, 0, invertButton, 0),
+          hasLine(lines, parameterRestore, 11, box, 0) && hasLine(lines, box, 0, invertButton, 0),
       ),
     );
     assert.ok(
       outputValueMessages.some(
         (box) =>
-          hasLine(lines, parameterRestore, 11, box, 0) && hasLine(lines, box, 0, reverseButton, 0),
+          hasLine(lines, parameterRestore, 12, box, 0) && hasLine(lines, box, 0, reverseButton, 0),
       ),
     );
     const lowNumber = boxByVarname(boxes, "low-number");
@@ -528,7 +528,14 @@ describe("Motif Max patch integration", () => {
     );
     const triggerEnum = boxByVarname(boxes, "trigger-menu")?.saved_attribute_attributes?.valueof
       ?.parameter_enum;
-    assert.ok(triggerEnum?.includes("hold-repeat"), "Trigger Mode must expose global hold-repeat");
+    assert.equal(triggerEnum?.[0], "motif", "Trigger Mode must default to motif-owned behavior");
+    assert.ok(triggerEnum?.includes("hold-repeat"), "Trigger Mode must expose hold-repeat");
+    const repeatMenu = boxByVarname(boxes, "repeat-menu");
+    const repeatEnum = repeatMenu?.saved_attribute_attributes?.valueof?.parameter_enum;
+    assert.deepEqual(repeatEnum, ["motif", "exact", "1/4-bar", "1/2-bar", "1-bar"]);
+    const repeatPrepend = boxByText(boxes, "prepend repeat_rounding");
+    assert.ok(repeatMenu && repeatPrepend && hasLine(lines, repeatMenu, 1, repeatPrepend, 0));
+    assert.ok(repeatPrepend && hasLine(lines, repeatPrepend, 0, v8, 0));
 
     const libraryPatcher = boxByText(boxes, "p library-info")?.patcher;
     assert.ok(libraryPatcher, "Library/Info floating window subpatcher is required");
@@ -559,6 +566,7 @@ describe("Motif Max patch integration", () => {
       "reverse-button",
       "tempo-mult-menu",
       "trigger-menu",
+      "repeat-menu",
       "quant-menu",
       "pass-menu",
       "meter-tab",
@@ -796,6 +804,7 @@ describe("Motif Max patch integration", () => {
 
     for (const varname of [
       "trigger-menu",
+      "repeat-menu",
       "quant-menu",
       "pass-menu",
       "meter-tab",
@@ -1141,8 +1150,50 @@ describe("Motif Max patch integration", () => {
     assert.ok(hasLine(lines, engineMode, 0, inputGate, 0));
   });
 
+  it("separates ordinary queue clearing from a full sixteen-channel panic", async () => {
+    const { boxes, lines } = await readPatch();
+    const engineRoute = boxByText(
+      boxes,
+      "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page persist",
+    );
+    const panicTrigger = boxByText(boxes, "t b b b");
+    const clearTrigger = boxByText(boxes, "t b b");
+    const clearMessage = boxByText(boxes, "clear");
+    const channelUzi = boxByText(boxes, "uzi 16");
+    const channelTrigger = boxByText(boxes, "t b i");
+    const controllerMessage = boxByText(boxes, "64 0, 120 0, 123 0");
+    const midiFormats = boxes.filter(({ box }) => box.text === "midiformat").map(({ box }) => box);
+    const panicMidiFormat = midiFormats.find((candidate) =>
+      controllerMessage ? hasLine(lines, controllerMessage, 0, candidate, 2) : false,
+    );
+    const midiflush = boxByText(boxes, "midiflush");
+
+    assert.ok(
+      engineRoute &&
+        panicTrigger &&
+        clearTrigger &&
+        clearMessage &&
+        channelUzi &&
+        channelTrigger &&
+        controllerMessage &&
+        panicMidiFormat &&
+        midiflush,
+    );
+    assert.ok(hasLine(lines, engineRoute, 1, panicTrigger, 0));
+    assert.ok(hasLine(lines, panicTrigger, 2, clearMessage, 0));
+    assert.ok(hasLine(lines, panicTrigger, 1, channelUzi, 0));
+    assert.ok(hasLine(lines, panicTrigger, 0, midiflush, 0));
+    assert.ok(hasLine(lines, channelUzi, 2, channelTrigger, 0));
+    assert.ok(hasLine(lines, channelTrigger, 1, panicMidiFormat, 6));
+    assert.ok(hasLine(lines, channelTrigger, 0, controllerMessage, 0));
+    assert.ok(hasLine(lines, panicMidiFormat, 0, midiflush, 0));
+    assert.ok(hasLine(lines, engineRoute, 2, clearTrigger, 0));
+    assert.ok(hasLine(lines, clearTrigger, 1, clearMessage, 0));
+    assert.ok(hasLine(lines, clearTrigger, 0, midiflush, 0));
+  });
+
   it("compiled bundle uses one hand-written top-level Max dispatcher", async () => {
-    const source = await readFile("dist/motif-device.js", "utf8");
+    const { source } = await loadCompiledEngine();
     assert.match(
       source.slice(0, 600),
       /var inlets\s*=\s*1;[\s\S]*var outlets\s*=\s*1;[\s\S]*function anything\(\)/,

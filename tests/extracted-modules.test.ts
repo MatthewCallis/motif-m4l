@@ -684,7 +684,7 @@ describe("LiveAPI adapter", () => {
       }
     }
     Object.assign(globalThis, { LiveAPI: StringTruthyApi });
-    // is_midi_clip "false" and is_audio_clip "id 0" both fail soft → try notes.
+    // is_midi_clip "false" and is_audio_clip "id 0" both fail soft ➜ try notes.
     const clip = resolveDetailClip();
     assert.ok(clip);
     assert.deepEqual(readClipNotes(clip), [{ pitch: 61, at: 0, duration: 240, velocity: 90 }]);
@@ -973,7 +973,10 @@ describe("TypeScript device dispatcher", () => {
       ["retrigger", "overlap"],
       ["retrigger", "nope"],
       ["trigger_mode", "hold"],
+      ["trigger_mode", "motif"],
       ["trigger_mode", "nope"],
+      ["repeat_rounding", "1/2-bar"],
+      ["repeat_rounding", "nope"],
       ["launch_quantization", "1/4"],
       ["launch_quantization", "nope"],
       ["pass_through", "all"],

@@ -5,9 +5,9 @@
  */
 
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
 import { describe, it } from "node:test";
 import vm from "node:vm";
+import { loadCompiledEngine } from "./helpers/max-engine.js";
 
 /** Representative messages the generated patch (or UI) can send to `v8`. */
 const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
@@ -46,7 +46,10 @@ const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
   ["meter_mode", "preserve"],
   ["retrigger", "replace"],
   ["trigger_mode", "one-shot"],
+  ["trigger_mode", "motif"],
   ["trigger_mode", "hold-repeat"],
+  ["repeat_rounding", "motif"],
+  ["repeat_rounding", "1-bar"],
   ["launch_quantization", "immediate"],
   ["pass_through", "non-triggers"],
   ["trigger_low", 36],
@@ -105,7 +108,7 @@ const PATCH_MESSAGES: ReadonlyArray<readonly [string, ...unknown[]]> = [
 
 describe("Max handler contract", () => {
   it("every patch message is accepted through the single Max anything() bridge", async () => {
-    const source = await readFile("dist/motif-device.js", "utf8");
+    const { filename, source } = await loadCompiledEngine();
     const errors: string[] = [];
     const context = vm.createContext({
       outlet: () => undefined,
@@ -152,7 +155,7 @@ describe("Max handler contract", () => {
       console,
     });
 
-    vm.runInContext(source, context, { filename: "motif-device.js" });
+    vm.runInContext(source, context, { filename });
 
     for (const [message, ...args] of PATCH_MESSAGES) {
       (context as Record<string, unknown>).messagename = message;

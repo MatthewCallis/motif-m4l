@@ -1,21 +1,21 @@
-# MIDI routing checklist
+# MIDI Routing Checklist
 
 The device must remain audible even if `motif-device-<hash>.js` has not initialized:
 
 ```text
 midiin
-  → gate 2 1
-      outlet 1 → midiflush → midiout       # startup fail-open path
-      outlet 2 → midiselect                 # active engine path
+  ➜ gate 2 1
+      outlet 1 ➜ midiflush ➜ midiout        # startup fail-open path
+      outlet 2 ➜ midiselect                 # active engine path
 ```
 
 After `status Ready`, the gate switches to outlet 2:
 
 ```text
 midiselect @ch all @note all
-  outlet 1 → note processing → v8
-  outlet 7 → channel for note processing
-  outlet 8 → unselected raw MIDI → midiflush → midiout
+  outlet 1 ➜ note processing ➜ v8
+  outlet 7 ➜ channel for note processing
+  outlet 8 ➜ unselected raw MIDI ➜ midiflush ➜ midiout
 ```
 
 Checks:

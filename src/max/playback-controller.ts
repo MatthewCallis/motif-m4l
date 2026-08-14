@@ -3,6 +3,7 @@ import { clamp } from "../core/math.js";
 import {
   barLengthTicks,
   quantizationTicks,
+  roundRepeatLengthTicks,
   ticksToMilliseconds,
   ticksUntilNextBoundary,
 } from "../core/timing.js";
@@ -13,6 +14,8 @@ import {
   type CompileOptions,
   type HostContext,
   type LaunchQuantization,
+  type RepeatRounding,
+  type TriggerMode,
 } from "../core/types.js";
 import type { MotifStore } from "../library/store.js";
 import { MIN_REPEAT_DELAY_MS, REPEAT_SCHEDULING_LOOKAHEAD_MS } from "./device-types.js";
@@ -37,6 +40,8 @@ interface HeldRepeat {
 interface TriggerMotifOptions {
   /** Pre-resolved motif id override. */
   motifId?: string;
+  /** Effective lifecycle captured for this trigger. */
+  triggerMode?: TriggerMode;
   /** Explicit launch delay in PPQ ticks. */
   launchOffsetTicks?: number;
   /** Keep already queued pipe events when preparing a repeat cycle. */
@@ -58,8 +63,10 @@ export interface PlaybackControllerCallbacks {
     channel: number,
     delayMilliseconds: number,
   ) => void;
-  /** Flush the Max `pipe` queues. */
+  /** Flush the Max `pipe` queues and release notes tracked by `midiflush`. */
   emitClearScheduledNotes: () => void;
+  /** Perform a hard Max-side panic, including downstream MIDI controller resets. */
+  emitPanic: () => void;
   /** Report a user-facing diagnostic. */
   emitError: (message: string) => void;
   /** Emit a Max status message. */
@@ -76,6 +83,7 @@ export interface PlaybackControllerCallbacks {
  * @param {MeterMode} meterMode Current meter scaling behavior.
  * @param {HostContext} host Observed Song context.
  * @param {number} tempoMultiplier Device-local tempo ratio.
+ * @param {RepeatRounding} repeatRounding Effective cycle-rounding grid.
  * @returns {number} Repeat interval in milliseconds.
  */
 export function motifRepeatDelayFor(
@@ -83,11 +91,13 @@ export function motifRepeatDelayFor(
   meterMode: MeterMode,
   host: HostContext,
   tempoMultiplier: number,
+  repeatRounding: RepeatRounding = "exact",
 ): number {
+  const roundedLength = roundRepeatLengthTicks(motif.length, motif.sourceMeter, repeatRounding);
   const effectiveLength =
     meterMode === "preserve"
-      ? motif.length
-      : motif.length * (barLengthTicks(host.timeSignature) / barLengthTicks(motif.sourceMeter));
+      ? roundedLength
+      : roundedLength * (barLengthTicks(host.timeSignature) / barLengthTicks(motif.sourceMeter));
   return Math.max(
     MIN_REPEAT_DELAY_MS,
     ticksToMilliseconds(effectiveLength, host.tempo * tempoMultiplier),
@@ -135,6 +145,8 @@ export function repeatTaskDelayFor(boundaryMilliseconds: number, nowMilliseconds
 export class PlaybackController {
   /** Trigger pitches retained by hold/toggle/latch/release-tail modes. */
   readonly activeTriggers = new Set<number>();
+  /** Lifecycle captured when each retained non-repeat trigger started. */
+  readonly activeTriggerModes = new Map<number, TriggerMode>();
   /** Hold-mode releases deferred until the sustain pedal rises. */
   readonly sustainedReleases = new Set<number>();
   /** Active repeat task for each pitch held in `hold-repeat` mode. */
@@ -164,7 +176,25 @@ export class PlaybackController {
   clearScheduledNotes(): void {
     this.callbacks.emitClearScheduledNotes();
     this.activeTriggers.clear();
+    this.activeTriggerModes.clear();
     this.sustainedReleases.clear();
+  }
+
+  /**
+   * Cancel every repeat Task and discard all ephemeral playback state.
+   * Max-side note/controller cleanup is emitted separately by the caller.
+   */
+  resetPlaybackState(): void {
+    for (const repeat of this.heldRepeats.values()) {
+      repeat.task.cancel();
+      repeat.task.freepeer();
+    }
+    this.heldRepeats.clear();
+    this.activeTriggers.clear();
+    this.activeTriggerModes.clear();
+    this.sustainedReleases.clear();
+    this.sustainedRepeatReleases.clear();
+    this.sustainDown = false;
   }
 
   /**
@@ -199,10 +229,11 @@ export class PlaybackController {
       this.callbacks.emitError(`Unknown motif: ${motifId}`);
       return undefined;
     }
+    const triggerMode = triggerOptions.triggerMode ?? this.settings.triggerModeFor(selected);
 
     if (
       !triggerOptions.preserveScheduledNotes &&
-      (this.settings.retriggerMode === "replace" || this.settings.triggerMode === "latch")
+      (this.settings.retriggerMode === "replace" || triggerMode === "latch")
     ) {
       this.clearScheduledNotes();
     }
@@ -317,6 +348,7 @@ export class PlaybackController {
     let firstScheduleStartMilliseconds: number | undefined;
     const instanceId = this.triggerMotif(triggerPitch, triggerVelocity, channel, {
       motifId: motif.id,
+      triggerMode: "hold-repeat",
       launchOffsetTicks: firstLaunchOffset,
       onScheduleStart: (milliseconds) => {
         firstScheduleStartMilliseconds = milliseconds;
@@ -341,6 +373,7 @@ export class PlaybackController {
       let repeatedScheduleStartMilliseconds: number | undefined;
       const repeatedInstance = this.triggerMotif(triggerPitch, repeat.velocity, repeat.channel, {
         motifId: repeat.motifId,
+        triggerMode: "hold-repeat",
         launchOffsetTicks: 0,
         launchAtMilliseconds: repeat.nextBoundaryMilliseconds,
         onScheduleStart: (milliseconds) => {
@@ -358,6 +391,7 @@ export class PlaybackController {
         this.settings.meterMode,
         this.hostContext,
         this.settings.tempoMultiplier,
+        this.settings.repeatRoundingFor(repeatedMotif),
       );
       repeat.nextBoundaryMilliseconds =
         Math.max(
@@ -378,6 +412,7 @@ export class PlaybackController {
         this.settings.meterMode,
         this.hostContext,
         this.settings.tempoMultiplier,
+        this.settings.repeatRoundingFor(motif),
       );
     repeat = {
       motifId: motif.id,
@@ -440,9 +475,18 @@ export class PlaybackController {
       return;
     }
 
-    if (this.settings.triggerMode === "hold-repeat" || this.heldRepeats.has(pitch)) {
+    const motif = this.store.resolve(this.motifIdForTrigger(pitch));
+    if (!motif) {
       if (velocity > 0) {
-        if (this.settings.triggerMode === "hold-repeat") {
+        this.callbacks.emitError(`Unknown motif: ${this.motifIdForTrigger(pitch)}`);
+      }
+      return;
+    }
+    const triggerMode = this.settings.triggerModeFor(motif);
+
+    if (triggerMode === "hold-repeat" || this.heldRepeats.has(pitch)) {
+      if (velocity > 0) {
+        if (triggerMode === "hold-repeat") {
           this.startHeldRepeat(pitch, velocity, channel);
         }
       } else if (this.sustainDown) {
@@ -454,26 +498,29 @@ export class PlaybackController {
     }
 
     if (velocity > 0) {
-      if (this.settings.triggerMode === "toggle" && this.activeTriggers.has(pitch)) {
+      if (triggerMode === "toggle" && this.activeTriggers.has(pitch)) {
         this.cancelTrigger(pitch);
         return;
       }
 
-      const instanceId = this.triggerMotif(pitch, velocity, channel);
-      if (instanceId !== undefined && this.settings.triggerMode !== "one-shot") {
+      const instanceId = this.triggerMotif(pitch, velocity, channel, { triggerMode });
+      if (instanceId !== undefined && triggerMode !== "one-shot") {
         this.activeTriggers.add(pitch);
+        this.activeTriggerModes.set(pitch, triggerMode);
       }
       return;
     }
 
-    if (this.settings.triggerMode === "hold") {
+    const activeMode = this.activeTriggerModes.get(pitch) ?? triggerMode;
+    if (activeMode === "hold") {
       if (this.sustainDown) {
         this.sustainedReleases.add(pitch);
       } else {
         this.cancelTrigger(pitch);
       }
-    } else if (this.settings.triggerMode === "release-tail") {
+    } else if (activeMode === "release-tail") {
       this.activeTriggers.delete(pitch);
+      this.activeTriggerModes.delete(pitch);
     }
   }
 
@@ -512,16 +559,16 @@ export class PlaybackController {
     this.cc(64, value);
   }
 
-  /** Stop repeats and flush all scheduled notes. */
+  /** Stop all playback, discard deferred state, and hard-reset downstream MIDI. */
   panic(): void {
-    this.stopAllHeldRepeats();
-    this.clearScheduledNotes();
+    this.resetPlaybackState();
+    this.callbacks.emitPanic();
     this.callbacks.emitStatus("panic");
   }
 
   /** Apply the cleanup required when Live transport stops. */
   onTransportStopped(): void {
-    this.stopAllHeldRepeats();
-    this.clearScheduledNotes();
+    this.resetPlaybackState();
+    this.callbacks.emitPanic();
   }
 }

@@ -8,8 +8,10 @@ import {
   type Motif,
   type MotifNote,
   type PitchMode,
+  type RepeatRounding,
   type SourcePitchContext,
   type TimeSignature,
+  type TriggerMode,
 } from "../core/types.js";
 import { isRecord } from "../core/type-guards.js";
 import { normalizeTags } from "./tags.js";
@@ -27,6 +29,21 @@ function isFiniteNumber(value: unknown): value is number {
 
 function isPitchMode(value: unknown): value is PitchMode {
   return value === "scale" || value === "chromatic" || value === "hybrid";
+}
+
+function isTriggerMode(value: unknown): value is TriggerMode {
+  return (
+    value === "one-shot" ||
+    value === "hold" ||
+    value === "hold-repeat" ||
+    value === "toggle" ||
+    value === "latch" ||
+    value === "release-tail"
+  );
+}
+
+function isRepeatRounding(value: unknown): value is RepeatRounding {
+  return value === "exact" || value === "1/4-bar" || value === "1/2-bar" || value === "1-bar";
 }
 
 function validateMeter(value: unknown, path: string, errors: string[]): value is TimeSignature {
@@ -216,6 +233,12 @@ export function validateMotif(value: unknown): ValidationResult {
   validateMeter(value.sourceMeter, "sourceMeter", errors);
   if (!isFiniteNumber(value.length) || value.length <= 0) {
     errors.push("length must be greater than zero");
+  }
+  if (value.triggerMode !== undefined && !isTriggerMode(value.triggerMode)) {
+    errors.push("triggerMode must be one-shot, hold, hold-repeat, toggle, latch, or release-tail");
+  }
+  if (value.repeatRounding !== undefined && !isRepeatRounding(value.repeatRounding)) {
+    errors.push("repeatRounding must be exact, 1/4-bar, 1/2-bar, or 1-bar");
   }
   validateOptionalNumber(
     value,

@@ -10,7 +10,8 @@
  * ## Outlet protocol (outlet 0)
  * All patch feedback is a Max list starting with a selector:
  * - `event <pitch> <velocity> <channel> <delayMs>` - schedule via Max `pipe`
- * - `clear` / `panic` - flush scheduled notes
+ * - `clear` - flush scheduled notes and release notes tracked by Max
+ * - `panic` - hard reset scheduled notes, sustain, and channel note state
  * - `status Ready` - opens the fail-open MIDI gate in the patch (`route Ready`)
  * - `status ...` / `error <message>` - console / debug
  * - `midi-pass <0|1>` - pass-through gate
@@ -43,7 +44,8 @@ import {
   METER_MODES,
   PASS_THROUGH_POLICIES,
   PITCH_MODE_OVERRIDES,
-  TRIGGER_MODES,
+  REPEAT_ROUNDING_OVERRIDES,
+  TRIGGER_MODE_OVERRIDES,
   type MotifHandlers,
 } from "./device-types.js";
 import {
@@ -154,6 +156,8 @@ const playback = new PlaybackController(store, hotkeys, settings, hostContext, {
   },
   emitClearScheduledNotes: () => {
     emit("clear");
+  },
+  emitPanic: () => {
     emit("panic");
   },
   emitError,
@@ -527,16 +531,28 @@ function retrigger(mode: string | number): void {
  * @param {string} mode The trigger mode.
  */
 function trigger_mode(mode: string): void {
-  if (!isStringEnumValue(mode, TRIGGER_MODES)) {
+  if (!isStringEnumValue(mode, TRIGGER_MODE_OVERRIDES)) {
     emitError(`Unknown trigger mode: ${mode}`);
     return;
   }
-  const nextMode = mode;
-  if (settings.triggerMode === "hold-repeat" && nextMode !== "hold-repeat") {
+  if (settings.triggerMode !== mode && playback.heldRepeats.size > 0) {
     playback.stopAllHeldRepeats();
   }
-  settings.triggerMode = nextMode;
+  settings.triggerMode = mode;
   emitStatus("trigger-mode", settings.triggerMode);
+}
+
+/**
+ * Handle a hold-repeat rounding override event.
+ * @param {string} value Motif delegation, exact length, or a bar subdivision.
+ */
+function repeat_rounding(value: string): void {
+  if (!isStringEnumValue(value, REPEAT_ROUNDING_OVERRIDES)) {
+    emitError(`Unknown repeat rounding: ${value}`);
+    return;
+  }
+  settings.repeatRounding = value;
+  emitStatus("repeat-rounding", settings.repeatRounding);
 }
 
 /**
@@ -824,6 +840,7 @@ const performanceHandlers = {
   meter_mode,
   retrigger,
   trigger_mode,
+  repeat_rounding,
   launch_quantization,
   pass_through,
   trigger_low,

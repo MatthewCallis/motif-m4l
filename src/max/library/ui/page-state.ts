@@ -35,6 +35,8 @@ export interface PropertyDraft {
   name: string;
   description: string;
   pitchMode: string;
+  triggerMode: string;
+  repeatRounding: string;
   sourceAnchor: string;
   sourceRoot: string;
   sourceScaleName: string;
@@ -103,6 +105,8 @@ export function emptyPropertyDraft(): PropertyDraft {
     name: "",
     description: "",
     pitchMode: "scale",
+    triggerMode: "one-shot",
+    repeatRounding: "exact",
     sourceAnchor: "",
     sourceRoot: "",
     sourceScaleName: "",
@@ -135,6 +139,8 @@ export function propertyDraftFromSelected(
     name: selected.name,
     description: selected.description,
     pitchMode: selected.pitchMode || "scale",
+    triggerMode: selected.triggerMode || "one-shot",
+    repeatRounding: selected.repeatRounding || "exact",
     sourceAnchor: source?.anchorPitch == null ? "" : String(source.anchorPitch),
     sourceRoot: source?.scaleRootNote == null ? "" : String(source.scaleRootNote),
     sourceScaleName: source?.scaleName ?? "",

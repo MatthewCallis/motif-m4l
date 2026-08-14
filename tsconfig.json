@@ -13,5 +13,5 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts", "tests/**/*.ts", "scripts/**/*.ts"],
-  "exclude": ["node_modules", "dist", "max", "src/max/library/ui/**", "**/__MACOSX/**", "**/._*"]
+  "exclude": ["node_modules", "max", "src/max/library/ui/**", "**/__MACOSX/**", "**/._*"]
 }

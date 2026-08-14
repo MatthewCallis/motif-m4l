@@ -165,7 +165,7 @@ export class MotifHotkeyMap {
   }
 
   /**
-   * Build a motifId → sorted assignments index in one pass over all mappings.
+   * Build a motifId ➜ sorted assignments index in one pass over all mappings.
    * Use instead of repeated {@link forMotif} calls when projecting all items.
    * @returns {Map<string, Array<{ pitch: number; action: HotkeyAction }>>} Index.
    */

@@ -4,7 +4,7 @@
  * Live song position arrives in beats.
  */
 
-import { PPQ, type LaunchQuantization, type TimeSignature } from "./types.js";
+import { PPQ, type LaunchQuantization, type RepeatRounding, type TimeSignature } from "./types.js";
 
 /**
  * Length of one bar in PPQ ticks for the given meter.
@@ -13,6 +13,34 @@ import { PPQ, type LaunchQuantization, type TimeSignature } from "./types.js";
  */
 export function barLengthTicks(signature: TimeSignature): number {
   return signature.numerator * PPQ * (4 / signature.denominator);
+}
+
+/**
+ * Round a phrase length upward to the next selected source-bar subdivision.
+ * Exact mode preserves the original length. Rounded modes never shorten the
+ * phrase, preventing a new cycle from starting before its source length ends.
+ * @param {number} lengthTicks Stored motif length in source PPQ ticks.
+ * @param {TimeSignature} sourceMeter Meter in which the motif was authored.
+ * @param {RepeatRounding} rounding Selected hold-repeat rounding grid.
+ * @returns {number} Exact or rounded source length in PPQ ticks.
+ */
+export function roundRepeatLengthTicks(
+  lengthTicks: number,
+  sourceMeter: TimeSignature,
+  rounding: RepeatRounding,
+): number {
+  if (rounding === "exact") {
+    return lengthTicks;
+  }
+  const barTicks = barLengthTicks(sourceMeter);
+  let subdivision = 1;
+  if (rounding === "1/4-bar") {
+    subdivision = 0.25;
+  } else if (rounding === "1/2-bar") {
+    subdivision = 0.5;
+  }
+  const gridTicks = barTicks * subdivision;
+  return Math.max(gridTicks, Math.ceil(lengthTicks / gridTicks) * gridTicks);
 }
 
 /**

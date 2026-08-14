@@ -13,7 +13,7 @@ description: >-
 
 | Kind         | Path                       | How it ships                                                                             |
 | ------------ | -------------------------- | ---------------------------------------------------------------------------------------- |
-| Built-in     | `motifs/builtin/<id>.json` | `npm run generate` → `src/generated/builtins.ts` → bundled into `motif-device-<hash>.js` |
+| Built-in     | `motifs/builtin/<id>.json` | `npm run generate` ➜ `src/generated/builtins.ts` ➜ bundled into `motif-device-<hash>.js` |
 | User library | any `.json` Motif file     | Live Library/Info Choose path at runtime (not generated)                                 |
 
 **Never edit `src/generated/builtins.ts` by hand.** Always add/edit JSON under `motifs/builtin/`, then regenerate.
@@ -96,8 +96,8 @@ Device UI Pitch Mode `motif` = use the phrase’s stored `pitchMode` (not an ove
 
 ## Authoring heuristics
 
-- **Famous lick** → usually `chromatic`, trigger = first/anchor pitch, short description of rhythm + intervals.
-- **Scale toy / demo** → `scale`, pitches as degree steps (`0,1,2,4...`).
+- **Famous lick** ➜ usually `chromatic`, trigger = first/anchor pitch, short description of rhythm + intervals.
+- **Scale toy / demo** ➜ `scale`, pitches as degree steps (`0,1,2,4...`).
 - Keep phrases playable as one-shots: 1-2 bars is the sweet spot unless the user asks for longer.
 - Preview in Live: pick the motif, hit a trigger in-zone; contour updates from native Song observers.
 
