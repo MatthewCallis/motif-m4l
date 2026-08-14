@@ -23,11 +23,12 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
 
   return (
     <div class="property-grid">
-      <label for="hotkey-input">Trigger note</label>
+      <label htmlFor="hotkey-input">Trigger note</label>
       <div class="wide" id="hotkey-controls">
         <input
           class="field identity"
           id="hotkey-input"
+          name="hotkey-input"
           type="text"
           value={pitch}
           placeholder="C3"
@@ -45,6 +46,7 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
         <select
           class="field"
           id="hotkey-action"
+          name="hotkey-action"
           disabled={disabled}
           value={action}
           onInput={(event) => setAction(event.currentTarget.value)}

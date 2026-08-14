@@ -58,6 +58,7 @@ export function PropertyForm({
           <input
             class="field"
             id="notes-summary"
+            name="notes-summary"
             type="text"
             readonly
             disabled
@@ -67,6 +68,7 @@ export function PropertyForm({
           <input
             class="field"
             id="bars-summary"
+            name="bars-summary"
             type="text"
             readonly
             disabled
@@ -100,6 +102,7 @@ export function PropertyForm({
             class="field editable-property"
             id="pitch-mode-edit"
             disabled={controlsDisabled}
+            name="pitch-mode-edit"
             value={draft.pitchMode}
             onInput={(event) => updateDraft({ pitchMode: event.currentTarget.value })}
             onChange={pushProperties}
@@ -112,6 +115,7 @@ export function PropertyForm({
           <select
             class="field editable-property"
             id="trigger-mode-edit"
+            name="trigger-mode-edit"
             disabled={controlsDisabled}
             value={draft.triggerMode}
             onInput={(event) => updateDraft({ triggerMode: event.currentTarget.value })}
@@ -143,6 +147,7 @@ export function PropertyForm({
             <input
               class="field editable-property"
               id="source-anchor-edit"
+              name="source-anchor-edit"
               type="number"
               min="0"
               max="127"
@@ -162,6 +167,7 @@ export function PropertyForm({
             <input
               class="field editable-property"
               id="source-root-edit"
+              name="source-root-edit"
               type="number"
               min="0"
               max="11"
@@ -180,6 +186,7 @@ export function PropertyForm({
           <input
             class="field editable-property"
             id="source-scale-name-edit"
+            name="source-scale-name-edit"
             type="text"
             disabled={controlsDisabled}
             value={draft.sourceScaleName}
@@ -191,6 +198,7 @@ export function PropertyForm({
           <input
             class="field editable-property"
             id="source-scale-intervals-edit"
+            name="source-scale-intervals-edit"
             type="text"
             placeholder="0, 2, 4, 5, 7, 9, 11"
             disabled={controlsDisabled}
@@ -211,6 +219,7 @@ export function PropertyForm({
           <input
             class="field editable-property"
             id="default-gate-edit"
+            name="default-gate-edit"
             type="number"
             min="0.01"
             step="0.01"
@@ -225,6 +234,7 @@ export function PropertyForm({
             <input
               class="field editable-property"
               id="meter-numerator-edit"
+              name="meter-numerator-edit"
               type="number"
               min="1"
               step="1"
@@ -263,6 +273,7 @@ export function PropertyForm({
           <input
             class="field editable-property"
             id="curve-input-min"
+            name="curve-input-min"
             type="number"
             placeholder="default"
             disabled={controlsDisabled}
@@ -274,6 +285,7 @@ export function PropertyForm({
           <input
             class="field editable-property"
             id="curve-input-max"
+            name="curve-input-max"
             type="number"
             placeholder="default"
             disabled={controlsDisabled}
@@ -285,6 +297,7 @@ export function PropertyForm({
           <input
             class="field editable-property"
             id="curve-output-min"
+            name="curve-output-min"
             type="number"
             placeholder="default"
             disabled={controlsDisabled}
@@ -296,6 +309,7 @@ export function PropertyForm({
           <input
             class="field editable-property"
             id="curve-output-max"
+            name="curve-output-max"
             type="number"
             placeholder="default"
             disabled={controlsDisabled}
@@ -307,6 +321,7 @@ export function PropertyForm({
           <input
             class="field editable-property"
             id="curve-exponent"
+            name="curve-exponent"
             type="number"
             min="0.01"
             step="0.01"

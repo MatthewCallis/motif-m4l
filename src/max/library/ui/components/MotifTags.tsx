@@ -40,11 +40,12 @@ export function MotifTags({
     return (
       <>
         <div class="wide" id="motif-tags" />
-        <label for="tag-edit-input">Add tag</label>
+        <label htmlFor="tag-edit-input">Add tag</label>
         <div class="wide" id="tag-edit-controls">
           <input
             class="field"
             id="tag-edit-input"
+            name="tag-edit-input"
             type="text"
             placeholder="Existing or new tag"
             autocomplete="off"
@@ -82,11 +83,12 @@ export function MotifTags({
           ))
         )}
       </div>
-      <label for="tag-edit-input">Add tag</label>
+      <label htmlFor="tag-edit-input">Add tag</label>
       <div class="wide" id="tag-edit-controls">
         <input
           class="field"
           id="tag-edit-input"
+          name="tag-edit-input"
           type="text"
           placeholder="Existing or new tag"
           autocomplete="off"

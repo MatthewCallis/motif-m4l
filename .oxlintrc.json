@@ -1,6 +1,6 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["import", "node", "promise", "typescript"],
+  "plugins": ["import", "jsdoc", "node", "promise", "typescript"],
   "options": {
     "typeAware": true
   },
@@ -87,6 +87,15 @@
     ]
   },
   "overrides": [
+    {
+      "files": ["src/**/*.{ts,tsx,js}"],
+      "rules": {
+        "jsdoc/check-tag-names": ["error", { "jsxTags": true }],
+        "jsdoc/check-property-names": "error",
+        "jsdoc/require-param-name": "error",
+        "jsdoc/empty-tags": "error"
+      }
+    },
     {
       "files": ["tests/**/*.ts", "tests/**/*.mts", "scripts/**/*.ts"],
       "rules": {
