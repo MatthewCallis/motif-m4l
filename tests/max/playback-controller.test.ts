@@ -32,11 +32,18 @@ function createPlayback(eventDispatchMilliseconds = 0): PlaybackHarness {
   let nowMilliseconds = 1_000_000;
   class MockTask {
     #cancelled = false;
+    callback: (...args: unknown[]) => void;
+    context?: object;
+    args: unknown[];
     constructor(
-      readonly callback: (...args: unknown[]) => void,
-      readonly context?: object,
-      readonly args: unknown[] = [],
-    ) {}
+      callback: (...args: unknown[]) => void,
+      context: object = {},
+      args: unknown[] = [],
+    ) {
+      this.callback = callback;
+      this.context = context;
+      this.args = args;
+    }
     cancel(): void {
       this.#cancelled = true;
     }

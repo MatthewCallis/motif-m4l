@@ -53,12 +53,12 @@ declare function error(...values: unknown[]): void;
  */
 declare class Folder {
   constructor(pathname: string);
-  readonly count: number;
-  readonly end: boolean;
-  readonly extension: string | null;
-  readonly pathname: string;
-  readonly filename: string;
-  readonly filetype: string | null;
+  count: number;
+  end: boolean;
+  extension: string | null;
+  pathname: string;
+  filename: string;
+  filetype: string | null;
   next(): void;
   close(): void;
 }
@@ -78,9 +78,9 @@ declare class Task {
  */
 declare class File {
   constructor(filename?: string, access?: "read" | "write" | "readwrite", typelist?: string[]);
-  readonly isopen: boolean;
+  isopen: boolean;
   eof: number;
-  readonly foldername: string;
+  foldername: string;
   position: number;
   readstring(count: number): string;
   writestring(text: string): void;

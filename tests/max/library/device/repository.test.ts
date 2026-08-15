@@ -120,11 +120,18 @@ describe("Max user library", () => {
     const deferred: Array<() => void> = [];
     class DeferredTask {
       #cancelled = false;
+      callback: (...args: unknown[]) => void;
+      context?: object;
+      args: unknown[];
       constructor(
-        readonly callback: (...args: unknown[]) => void,
-        readonly context?: object,
-        readonly args: unknown[] = [],
-      ) {}
+        callback: (...args: unknown[]) => void,
+        context: object = {},
+        args: unknown[] = [],
+      ) {
+        this.callback = callback;
+        this.context = context;
+        this.args = args;
+      }
       cancel(): void {
         this.#cancelled = true;
       }
@@ -165,11 +172,18 @@ describe("Max user library", () => {
     mocks.folders[`${path}/child`] = [];
     Object.assign(globalThis, {
       Task: class ImmediateTask {
+        callback: (...args: unknown[]) => void;
+        context?: object;
+        args: unknown[];
         constructor(
-          readonly callback: (...args: unknown[]) => void,
-          readonly context?: object,
-          readonly args: unknown[] = [],
-        ) {}
+          callback: (...args: unknown[]) => void,
+          context: object = {},
+          args: unknown[] = [],
+        ) {
+          this.callback = callback;
+          this.context = context;
+          this.args = args;
+        }
         cancel(): void {}
         freepeer(): void {}
         schedule(): void {

@@ -66,7 +66,7 @@ export interface HostContext {
   /** Song.scale_name display string. */
   scaleName: string;
   /** Semitone intervals of the current scale, from Song.scale_intervals. */
-  scaleIntervals: readonly number[];
+  scaleIntervals: number[];
   /** Whether Live scale mode is active (Song.scale_mode). */
   scaleMode: boolean;
   timeSignature: TimeSignature;
@@ -98,7 +98,7 @@ export interface SourcePitchContext {
    * Authoritative semitone intervals of the original scale. `null` means the
    * import was preserved chromatically but its source scale could not be resolved.
    */
-  scaleIntervals: readonly number[] | null;
+  scaleIntervals: number[] | null;
 }
 
 /** One note (or rest gap) inside a motif phrase. */
@@ -150,13 +150,13 @@ export interface Motif {
   /** Optional hold-repeat cycle rounding; legacy motifs default to exact length. */
   repeatRounding?: RepeatRounding;
   /** Notes in the motif. */
-  notes: readonly MotifNote[];
+  notes: MotifNote[];
   /** Default gate when a note omits `gate`. */
   defaultGate?: number;
   /** Optional velocity curve for mapping trigger velocity to note velocity. */
   velocityCurve?: VelocityCurve;
   /** Optional freeform labels used for Library filtering and browse. */
-  tags?: readonly string[];
+  tags?: string[];
 }
 
 /** Options for compiling a motif into scheduled MIDI note-on/off events. */

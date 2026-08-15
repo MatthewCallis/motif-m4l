@@ -50,16 +50,20 @@ export class MaxUserLibrary {
   scanGeneration = 0;
   /** Low-priority directory-entry batch task. */
   scanTask: Task | undefined;
+  /** In-memory motif catalog replaced after successful scans. */
+  store: MotifStore;
+  /** Controller integration hooks. */
+  callbacks: MaxUserLibraryCallbacks;
 
   /**
    * Create a repository around an in-memory motif catalog.
    * @param {MotifStore} store Catalog replaced after successful scans.
    * @param {MaxUserLibraryCallbacks} callbacks Controller integration hooks.
    */
-  constructor(
-    readonly store: MotifStore,
-    readonly callbacks: MaxUserLibraryCallbacks,
-  ) {}
+  constructor(store: MotifStore, callbacks: MaxUserLibraryCallbacks) {
+    this.store = store;
+    this.callbacks = callbacks;
+  }
 
   /**
    * Return the root-relative browser folder for a motif.

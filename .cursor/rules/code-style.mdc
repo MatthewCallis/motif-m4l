@@ -88,3 +88,30 @@ preview: MotifPreviewPaintData;
 
 Allowed: a new `interface` / `type` that adds or narrows fields. Not allowed: a pure
 `export type Foo = Bar` (or `type Foo = Bar` used only to rebrand `Bar`).
+
+## No constructor parameter properties
+
+Never use TypeScript parameter properties (`readonly`, `public`, `private`, or
+`protected` on a constructor parameter). They declare and assign the field as a
+side effect of the parameter list — stripping the modifier leaves an empty
+constructor and `this.x` is `undefined`.
+
+Declare the field on the class and assign it in the constructor body.
+
+```ts
+// ❌ Parameter property — `readonly` both declares and assigns `this.store`
+constructor(readonly store: MotifStore) {}
+
+// ❌ Same trap with any access modifier
+constructor(private callbacks: PlaybackControllerCallbacks) {}
+
+// ❌ Half-fix — modifier removed, field never assigned
+constructor(store: MotifStore) {}
+
+// ✅ Declared field + explicit assignment
+store: MotifStore;
+
+constructor(store: MotifStore) {
+  this.store = store;
+}
+```

@@ -84,12 +84,13 @@ export async function createEngine(options: EngineOptions = {}): Promise<TestMax
     isopen: boolean;
     eof: number;
     position = 0;
+    filename: string;
+    access: string;
     #buffer = "";
 
-    constructor(
-      readonly filename: string,
-      readonly access = "read",
-    ) {
+    constructor(filename: string, access = "read") {
+      this.filename = filename;
+      this.access = access;
       this.isopen = access === "write" || Object.prototype.hasOwnProperty.call(files, filename);
       this.#buffer = access === "write" ? "" : (files[filename] ?? "");
       this.eof = this.#buffer.length;
@@ -164,12 +165,19 @@ export async function createEngine(options: EngineOptions = {}): Promise<TestMax
 
   class MockTask {
     #cancelled = false;
+    callback: (...args: unknown[]) => void;
+    context?: object;
+    args: unknown[];
 
     constructor(
-      readonly callback: (...args: unknown[]) => void,
-      readonly context?: object,
-      readonly args: unknown[] = [],
-    ) {}
+      callback: (...args: unknown[]) => void,
+      context: object = {},
+      args: unknown[] = [],
+    ) {
+      this.callback = callback;
+      this.context = context;
+      this.args = args;
+    }
 
     cancel(): void {
       this.#cancelled = true;

@@ -238,9 +238,15 @@ select:disabled {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 2px 5px;
+  width: 100%;
   padding: 5px 8px;
-  cursor: pointer;
+  border: 0;
   border-bottom: 1px solid transparent;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
 }
 .browser-item:hover {
   background: var(--btn);
@@ -450,7 +456,8 @@ select:disabled {
 .property-grid .wide {
   grid-column: 2 / 5;
 }
-.property-grid label {
+.property-grid label,
+.property-grid .field-label {
   color: var(--muted);
   font-size: 10px;
   text-align: right;
@@ -588,7 +595,19 @@ select:disabled {
 .note-row input[type="number"]:focus {
   background: var(--input);
 }
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
 .check-cell {
+  position: relative;
   display: flex;
   justify-content: center;
   border-left: 1px solid var(--border);
@@ -629,7 +648,16 @@ select:disabled {
   justify-content: center;
   background: rgba(0, 0, 0, 0.68);
 }
+#modal-dismiss {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  background: transparent;
+  cursor: default;
+}
 #modal {
+  position: relative;
+  z-index: 1;
   width: 420px;
   max-width: calc(100% - 32px);
   background: var(--surface);

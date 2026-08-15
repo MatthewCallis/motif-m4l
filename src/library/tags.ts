@@ -58,11 +58,11 @@ export function normalizeTagFilterMode(
 
 /**
  * Case-insensitive membership test for one tag against a motif tag list.
- * @param {readonly string[] | undefined} motifTags Motif tags.
+ * @param {string[] | undefined} motifTags Motif tags.
  * @param {string} tag Candidate tag.
  * @returns {boolean} Whether the motif has the tag.
  */
-export function motifHasTag(motifTags: readonly string[] | undefined, tag: string): boolean {
+export function motifHasTag(motifTags: string[] | undefined, tag: string): boolean {
   const needle = tag.trim().toLowerCase();
   if (!needle || !motifTags || motifTags.length === 0) {
     return false;
@@ -73,14 +73,14 @@ export function motifHasTag(motifTags: readonly string[] | undefined, tag: strin
 /**
  * Apply AND/OR multi-tag filtering against one motif's tags.
  * An empty selection matches everything.
- * @param {readonly string[] | undefined} motifTags Motif tags.
- * @param {readonly string[]} selectedTags Active filter tags.
+ * @param {string[] | undefined} motifTags Motif tags.
+ * @param {string[]} selectedTags Active filter tags.
  * @param {TagFilterMode} mode Combination mode.
  * @returns {boolean} Whether the motif passes the tag filter.
  */
 export function motifMatchesTagFilter(
-  motifTags: readonly string[] | undefined,
-  selectedTags: readonly string[],
+  motifTags: string[] | undefined,
+  selectedTags: string[],
   mode: TagFilterMode,
 ): boolean {
   if (selectedTags.length === 0) {

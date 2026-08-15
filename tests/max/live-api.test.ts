@@ -55,10 +55,9 @@ describe("LiveAPI adapter", () => {
     installMaxMocks();
     class DetailLiveApi {
       id: number;
-      constructor(
-        _callback?: (args: unknown[]) => void,
-        readonly path = "",
-      ) {
+      path: string;
+      constructor(_callback?: (args: unknown[]) => void, path = "") {
+        this.path = path;
         this.id = path.includes("detail_clip") ? 1 : 0;
       }
       get(property: string): number {
@@ -109,10 +108,9 @@ describe("LiveAPI adapter", () => {
     installMaxMocks();
     class StringTruthyApi {
       id = 1;
-      constructor(
-        _callback?: (args: unknown[]) => void,
-        readonly path = "",
-      ) {
+      path: string;
+      constructor(_callback?: (args: unknown[]) => void, path = "") {
+        this.path = path;
         this.id = path.includes("detail_clip") ? 1 : 0;
       }
       get(property: string): string {

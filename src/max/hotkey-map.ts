@@ -47,13 +47,18 @@ function hotkeyPitch(value: number | string): number | undefined {
 
 /** Owns MIDI-pitch-to-motif assignments and their catalog validation. */
 export class MotifHotkeyMap {
-  readonly mappings = new Map<number, HotkeyMapping>();
+  /** MIDI-pitch-to-motif assignments. */
+  mappings = new Map<number, HotkeyMapping>();
+  /** Motif identity source used to resolve and prune assignments. */
+  store: MotifStore;
 
   /**
    * Create an assignment map resolved against one motif catalog.
    * @param {MotifStore} store Motif identity source.
    */
-  constructor(readonly store: MotifStore) {}
+  constructor(store: MotifStore) {
+    this.store = store;
+  }
 
   /**
    * Read the mapping for a MIDI pitch.

@@ -44,13 +44,30 @@ export interface AuthoringControllerCallbacks {
  * owns the workflows that must update those collaborators atomically.
  */
 export class MotifAuthoringController {
+  /** Catalog source of truth for selection and edits. */
+  store: MotifStore;
+  /** Rollback snapshots for in-progress authoring. */
+  editor: MotifEditorState;
+  /** Filesystem persistence for user motifs. */
+  library: MaxUserLibrary;
+  /** Observed Song context used when importing clips. */
+  hostContext: HostContext;
+  /** View, persistence, and diagnostic effects. */
+  callbacks: AuthoringControllerCallbacks;
+
   constructor(
-    readonly store: MotifStore,
-    readonly editor: MotifEditorState,
-    readonly library: MaxUserLibrary,
-    readonly hostContext: HostContext,
-    readonly callbacks: AuthoringControllerCallbacks,
-  ) {}
+    store: MotifStore,
+    editor: MotifEditorState,
+    library: MaxUserLibrary,
+    hostContext: HostContext,
+    callbacks: AuthoringControllerCallbacks,
+  ) {
+    this.store = store;
+    this.editor = editor;
+    this.library = library;
+    this.hostContext = hostContext;
+    this.callbacks = callbacks;
+  }
 
   /**
    * Select a motif by id, generated label, or display name.

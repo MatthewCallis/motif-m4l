@@ -887,9 +887,9 @@ const handlers = {
  *
  * @see https://docs.cycling74.com/apiref/js/jsthis/
  * @param {string} message The Max `messagename` selector after `prepend`.
- * @param {readonly unknown[]} args The remaining atoms from `arrayfromargs(arguments)`.
+ * @param {unknown[]} args The remaining atoms from `arrayfromargs(arguments)`.
  */
-export function dispatch(message: string, args: readonly unknown[]): void {
+export function dispatch(message: string, args: unknown[]): void {
   const handler = (handlers as unknown as Record<string, (...values: unknown[]) => void>)[message];
   if (!handler) {
     emitError(`Unknown message: ${message}`);

@@ -8,10 +8,10 @@ export type LibraryActionDecodeResult =
 
 /**
  * Decode and normalize one URL-encoded action emitted by the Library page.
- * @param {readonly unknown[]} encodedParts Possibly nested Max atoms.
+ * @param {unknown[]} encodedParts Possibly nested Max atoms.
  * @returns {LibraryActionDecodeResult} Typed command or boundary diagnostic.
  */
-export function decodeLibraryAction(encodedParts: readonly unknown[]): LibraryActionDecodeResult {
+export function decodeLibraryAction(encodedParts: unknown[]): LibraryActionDecodeResult {
   const payloads = flattenValues(encodedParts)
     .map((value) => stringAtom(value))
     .filter(Boolean);

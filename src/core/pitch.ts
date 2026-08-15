@@ -10,10 +10,10 @@ import { clamp, floorDiv, mod } from "./math.js";
 
 /**
  * Normalize a scale's intervals to ensure the root note is included and the intervals are sorted.
- * @param {readonly number[]} intervals The intervals to normalize.
+ * @param {number[]} intervals The intervals to normalize.
  * @returns {number[]} The normalized intervals.
  */
-export function normalizeScaleIntervals(intervals: readonly number[]): number[] {
+export function normalizeScaleIntervals(intervals: number[]): number[] {
   const normalized = [...new Set(intervals.map((value) => mod(Math.round(value), 12)))].sort(
     (left, right) => left - right,
   );
@@ -31,13 +31,13 @@ export function normalizeScaleIntervals(intervals: readonly number[]): number[] 
  * Exact matches are unchanged; equidistant ties prefer the lower note.
  * @param {number} pitch MIDI pitch to resolve.
  * @param {number} rootNote Scale root pitch class.
- * @param {readonly number[]} scaleIntervals Scale intervals from the root.
+ * @param {number[]} scaleIntervals Scale intervals from the root.
  * @returns {number} A MIDI-range pitch belonging to the scale.
  */
 export function quantizePitchToScale(
   pitch: number,
   rootNote: number,
-  scaleIntervals: readonly number[],
+  scaleIntervals: number[],
 ): number {
   const rounded = Math.round(clamp(pitch, 0, 127));
   const rootPitchClass = mod(rootNote, 12);
@@ -69,14 +69,14 @@ export function quantizePitchToScale(
  * @param {number} triggerPitch The pitch to transpose.
  * @param {number} degreeOffset The scale-degree offset to apply.
  * @param {number} rootNote The root note of the scale.
- * @param {readonly number[]} scaleIntervals The intervals of the scale.
+ * @param {number[]} scaleIntervals The intervals of the scale.
  * @returns {number} The semitone offset.
  */
 export function scaleDegreeSemitoneOffset(
   triggerPitch: number,
   degreeOffset: number,
   rootNote: number,
-  scaleIntervals: readonly number[],
+  scaleIntervals: number[],
 ): number {
   const intervals = normalizeScaleIntervals(scaleIntervals);
   const rootPitchClass = mod(rootNote, 12);
@@ -103,14 +103,14 @@ export function scaleDegreeSemitoneOffset(
  * @param {number} triggerPitch The pitch to transpose.
  * @param {number} degreeOffset The scale-degree offset to apply.
  * @param {number} rootNote The root note of the scale.
- * @param {readonly number[]} scaleIntervals The intervals of the scale.
+ * @param {number[]} scaleIntervals The intervals of the scale.
  * @returns {number} The transposed pitch.
  */
 export function transposeByScaleDegree(
   triggerPitch: number,
   degreeOffset: number,
   rootNote: number,
-  scaleIntervals: readonly number[],
+  scaleIntervals: number[],
 ): number {
   return clamp(
     triggerPitch + scaleDegreeSemitoneOffset(triggerPitch, degreeOffset, rootNote, scaleIntervals),
@@ -135,7 +135,7 @@ export function transposeChromatically(triggerPitch: number, semitones: number):
  * @param {number} degreeOffset The scale-degree offset to apply.
  * @param {number} accidental The chromatic accidental to apply.
  * @param {number} rootNote The root note of the scale.
- * @param {readonly number[]} scaleIntervals The intervals of the scale.
+ * @param {number[]} scaleIntervals The intervals of the scale.
  * @returns {number} The transposed pitch.
  */
 export function transposeHybrid(
@@ -143,7 +143,7 @@ export function transposeHybrid(
   degreeOffset: number,
   accidental: number,
   rootNote: number,
-  scaleIntervals: readonly number[],
+  scaleIntervals: number[],
 ): number {
   return clamp(
     triggerPitch +

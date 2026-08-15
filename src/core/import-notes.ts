@@ -31,7 +31,7 @@ export interface AbsoluteNotesImportOptions {
   /** Original Live scale label. Defaults to Major. */
   scaleName?: string;
   /** Original scale intervals. A known-name fallback is used when omitted. */
-  scaleIntervals?: readonly number[] | null;
+  scaleIntervals?: number[] | null;
   /** Stored source meter; defaults to 4/4. */
   sourceMeter?: TimeSignature;
   /** The motif description. */
@@ -44,11 +44,15 @@ export interface PitchModeConversionContext {
   /** Scale root pitch class. */
   rootNote: number;
   /** Scale intervals. */
-  scaleIntervals: readonly number[];
+  scaleIntervals: number[];
 }
 
-/** Return the resolved scale intervals stored with a motif, if available. */
-function sourceScaleIntervals(context: SourcePitchContext): readonly number[] | null {
+/**
+ * Return the resolved scale intervals stored with a motif, if available.
+ * @param {SourcePitchContext} context The source pitch context.
+ * @returns {number[] | null} The resolved scale intervals.
+ */
+function sourceScaleIntervals(context: SourcePitchContext): number[] | null {
   return context.scaleIntervals ?? knownScaleIntervals(context.scaleName) ?? null;
 }
 
@@ -60,14 +64,14 @@ function sourceScaleIntervals(context: SourcePitchContext): readonly number[] | 
  * negative-degree choices around octave boundaries. Searching actual relative
  * scale degrees guarantees that encoding mirrors playback resolution.
  * @param {number} semitoneOffset The chromatic offset from the trigger pitch.
- * @param {readonly number[]} intervals The scale intervals.
+ * @param {number[]} intervals The scale intervals.
  * @param {number} triggerPitch The trigger pitch.
  * @param {number} scaleRootNote The scale root pitch.
  * @returns {{ degree: number, accidental: number }} The nearest scale degree and accidental.
  */
 function analyzeScaleOffset(
   semitoneOffset: number,
-  intervals: readonly number[],
+  intervals: number[],
   triggerPitch = 60,
   scaleRootNote = 0,
 ): { degree: number; accidental: number } {
@@ -204,12 +208,12 @@ export function convertMotifPitchMode(motif: Motif, targetMode: PitchMode): Moti
 /**
  * Convert absolute MIDI notes into a lossless relative Chromatic Motif.
  * Notes are sorted by time, `length` is the end of the last note.
- * @param {readonly AbsoluteNote[]} absoluteNotes The absolute MIDI notes to convert.
+ * @param {AbsoluteNote[]} absoluteNotes The absolute MIDI notes to convert.
  * @param {AbsoluteNotesImportOptions} options The import options.
  * @returns {Motif} The converted motif.
  */
 export function absoluteNotesToMotif(
-  absoluteNotes: readonly AbsoluteNote[],
+  absoluteNotes: AbsoluteNote[],
   options: AbsoluteNotesImportOptions,
 ): Motif {
   const completed = [...absoluteNotes]

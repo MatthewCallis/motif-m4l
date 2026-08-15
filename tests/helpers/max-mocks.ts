@@ -27,12 +27,13 @@ export function installMaxMocks(): MaxMocks {
     eof: number;
     foldername = "/tmp";
     position = 0;
+    filename: string;
+    access: "read" | "write" | "readwrite";
     #buffer: string;
 
-    constructor(
-      readonly filename = "",
-      readonly access: "read" | "write" | "readwrite" = "read",
-    ) {
+    constructor(filename = "", access: "read" | "write" | "readwrite" = "read") {
+      this.filename = filename;
+      this.access = access;
       this.isopen =
         access !== "read" || Object.prototype.hasOwnProperty.call(mocks.files, filename);
       this.#buffer = access === "write" ? "" : (mocks.files[filename] ?? "");
@@ -107,12 +108,19 @@ export function installMaxMocks(): MaxMocks {
 
   class MockTask {
     #cancelled = false;
+    callback: (...args: unknown[]) => void;
+    context?: object;
+    args: unknown[];
 
     constructor(
-      readonly callback: (...args: unknown[]) => void,
-      readonly context?: object,
-      readonly args: unknown[] = [],
-    ) {}
+      callback: (...args: unknown[]) => void,
+      context: object = {},
+      args: unknown[] = [],
+    ) {
+      this.callback = callback;
+      this.context = context;
+      this.args = args;
+    }
 
     cancel(): void {
       this.#cancelled = true;

@@ -246,6 +246,48 @@ void describe("Library browser runtime", () => {
     const importClip = doc.getElementById("import-clip-btn") as HTMLButtonElement | null;
     assert.equal(importClip?.disabled, true);
     assert.equal(importClip?.title, "Finish or cancel editing before importing a clip");
+
+    const lastLibAction = (): Record<string, unknown> => {
+      for (let index = outlets.length - 1; index >= 0; index -= 1) {
+        const args = outlets[index];
+        if (!args || args[0] !== "lib_action" || typeof args[1] !== "string") {
+          continue;
+        }
+        return JSON.parse(decodeURIComponent(args[1])) as Record<string, unknown>;
+      }
+      throw new Error("expected a lib_action outlet");
+    };
+
+    outlets.length = 0;
+    (doc.querySelector('[data-tag-mode="and"]') as HTMLButtonElement | null)?.click();
+    assert.deepEqual(lastLibAction(), {
+      type: "filter_motifs",
+      query: "",
+      tags: [],
+      tagMode: "and",
+    });
+
+    outlets.length = 0;
+    (doc.querySelector('[data-tag-mode="or"]') as HTMLButtonElement | null)?.click();
+    assert.deepEqual(lastLibAction(), {
+      type: "filter_motifs",
+      query: "",
+      tags: [],
+      tagMode: "or",
+    });
+
+    outlets.length = 0;
+    const demoChip = [...doc.querySelectorAll("#tag-filter-chips .tag-chip")].find(
+      (button) => button.textContent === "demo",
+    ) as HTMLButtonElement | undefined;
+    assert.ok(demoChip);
+    demoChip.click();
+    assert.deepEqual(lastLibAction(), {
+      type: "filter_motifs",
+      query: "",
+      tags: ["demo"],
+      tagMode: "or",
+    });
     assert.ok(doc.getElementById("save-motif-btn")?.classList.contains("accent"));
     assert.equal(doc.getElementById("edit-btn")?.classList.contains("accent"), false);
     const resizer = doc.getElementById("library-resizer");

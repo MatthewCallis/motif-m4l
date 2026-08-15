@@ -5,22 +5,22 @@ import { flattenValues } from "./max-helpers.js";
 /**
  * Determine whether a string belongs to one readonly string enum.
  * @param {string} value Candidate value.
- * @param {readonly T[]} values Allowed values.
+ * @param {T[]} values Allowed values.
  * @returns {value is T} Whether the candidate is allowed.
  */
 export function isStringEnumValue<T extends string>(
   value: string,
-  values: readonly T[],
+  values: T[],
 ): value is T {
   return values.some((candidate) => candidate === value);
 }
 
 /**
  * Normalize a Max Library search message into one query string.
- * @param {readonly unknown[]} values Possibly nested Max atoms.
+ * @param {unknown[]} values Possibly nested Max atoms.
  * @returns {string} Trimmed query.
  */
-export function libraryQueryFromAtoms(values: readonly unknown[]): string {
+export function libraryQueryFromAtoms(values: unknown[]): string {
   return flattenValues(values)
     .map(String)
     .map((part) => part.trim())

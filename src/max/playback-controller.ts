@@ -144,28 +144,47 @@ export function repeatTaskDelayFor(boundaryMilliseconds: number, nowMilliseconds
  */
 export class PlaybackController {
   /** Trigger pitches retained by hold/toggle/latch/release-tail modes. */
-  readonly activeTriggers = new Set<number>();
+  activeTriggers = new Set<number>();
   /** Lifecycle captured when each retained non-repeat trigger started. */
-  readonly activeTriggerModes = new Map<number, TriggerMode>();
+  activeTriggerModes = new Map<number, TriggerMode>();
   /** Hold-mode releases deferred until the sustain pedal rises. */
-  readonly sustainedReleases = new Set<number>();
+  sustainedReleases = new Set<number>();
   /** Active repeat task for each pitch held in `hold-repeat` mode. */
-  readonly heldRepeats = new Map<number, HeldRepeat>();
+  heldRepeats = new Map<number, HeldRepeat>();
   /** Hold-repeat releases deferred while the sustain pedal remains down. */
-  readonly sustainedRepeatReleases = new Set<number>();
+  sustainedRepeatReleases = new Set<number>();
   /** Whether MIDI sustain CC 64 is currently down. */
   sustainDown = false;
   /** Monotonic identity assigned to compiled motif instances. */
   instanceCounter = 1;
+  /** Motif catalog used to resolve trigger targets. */
+  store: MotifStore;
+  /** MIDI-pitch-to-motif assignments. */
+  hotkeys: MotifHotkeyMap;
+  /** Device-local playback settings. */
+  settings: DeviceSettingsState;
+  /** Observed Song context used for timing and scale. */
+  hostContext: HostContext;
+  /** Side effects crossing into the Max device composition root. */
+  callbacks: PlaybackControllerCallbacks;
+  /** Wall-clock source for repeat scheduling. */
+  nowMilliseconds: () => number;
 
   constructor(
-    readonly store: MotifStore,
-    readonly hotkeys: MotifHotkeyMap,
-    readonly settings: DeviceSettingsState,
-    readonly hostContext: HostContext,
-    readonly callbacks: PlaybackControllerCallbacks,
-    readonly nowMilliseconds: () => number = () => Date.now(),
-  ) {}
+    store: MotifStore,
+    hotkeys: MotifHotkeyMap,
+    settings: DeviceSettingsState,
+    hostContext: HostContext,
+    callbacks: PlaybackControllerCallbacks,
+    nowMilliseconds: () => number = () => Date.now(),
+  ) {
+    this.store = store;
+    this.hotkeys = hotkeys;
+    this.settings = settings;
+    this.hostContext = hostContext;
+    this.callbacks = callbacks;
+    this.nowMilliseconds = nowMilliseconds;
+  }
 
   /**
    * Flush Max `pipe` queues and reset retained non-repeat trigger state.

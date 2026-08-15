@@ -68,8 +68,9 @@ export function BrowserList({ server }: { server: LibraryServerState | null }) {
 
     const selected = server.selected?.id === item.id;
     nodes.push(
-      <div
+      <button
         key={item.id}
+        type="button"
         class={`browser-item${selected ? " selected" : ""}`}
         title={item.showId ? `${item.name}\nID: ${item.id}` : item.name}
         onClick={() => {
@@ -94,7 +95,7 @@ export function BrowserList({ server }: { server: LibraryServerState | null }) {
           </div>
         ) : null}
         {item.showId ? <div class="browser-id">{item.id}</div> : null}
-      </div>,
+      </button>,
     );
   }
 

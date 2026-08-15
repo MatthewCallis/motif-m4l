@@ -43,9 +43,14 @@ export function NoteTable({
             <span>{index + 1}</span>
             {NOTE_FIELDS.map((field) => {
               if (field.type === "checkbox") {
+                const controlId = `note-${index}-${field.name}`;
                 return (
-                  <label class="check-cell" key={field.name} htmlFor={field.name}>
+                  <label class="check-cell" key={field.name} htmlFor={controlId}>
+                    <span class="visually-hidden">
+                      {field.name === "legato" ? "Legato" : "Tie"}
+                    </span>
                     <input
+                      id={controlId}
                       type="checkbox"
                       name={field.name}
                       checked={Boolean(note[field.name])}

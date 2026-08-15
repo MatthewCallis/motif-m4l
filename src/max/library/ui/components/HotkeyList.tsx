@@ -64,7 +64,7 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
           Assign to Motif
         </button>
       </div>
-      <label>Assigned</label>
+      <span class="field-label">Assigned</span>
       <div class="wide" id="hotkey-list">
         {selected && mappings.length === 0 ? <span class="help">None</span> : null}
         {selected

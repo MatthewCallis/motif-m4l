@@ -81,7 +81,7 @@ let payloadErrorSignature = "";
 let pendingStateTransfer: PendingStateTransfer | null = null;
 let latestStateTransferId = 0;
 
-type DebugListener = (entries: readonly string[], level: DebugLevel, message: string) => void;
+type DebugListener = (entries: string[], level: DebugLevel, message: string) => void;
 const debugListeners = new Set<DebugListener>();
 
 /**
@@ -185,12 +185,12 @@ export function confirmDiscard(
 /**
  * Serialize the property draft for device-side validation.
  * @param {PropertyDraft} draft Form draft.
- * @param {readonly string[]} tags Motif tags.
+ * @param {string[]} tags Motif tags.
  * @returns {Record<string, unknown>} Submitted motif properties.
  */
 export function propertiesFromDraft(
   draft: PropertyDraft,
-  tags: readonly string[],
+  tags: string[],
 ): Record<string, unknown> {
   const intervals = draft.sourceScaleIntervals
     .split(/[\s,]+/)

@@ -1,13 +1,7 @@
 /** @jsxImportSource preact */
-import { normalizeTagFilterMode, type TagFilterMode } from "../../../../library/tags.js";
 import type { LibraryServerState } from "../../protocol.js";
 import { send } from "../bridge.js";
 import { toggleTagSelection } from "../browser-model.js";
-
-/** Submit one complete filter snapshot to avoid partially applied controls. */
-function sendBrowserFilter(query: string, tags: readonly string[], tagMode: TagFilterMode): void {
-  send({ type: "filter_motifs", query, tags: [...tags], tagMode });
-}
 
 /**
  * Sidebar tag filter chips and AND/OR mode controls.
@@ -23,6 +17,7 @@ export function TagFilter({
   const available = server?.availableTags ?? [];
   const selected = server?.tags ?? [];
   const tagMode = server?.tagMode ?? "or";
+  const query = server?.query ?? searchQuery;
 
   return (
     <div id="tag-filter">
@@ -33,11 +28,7 @@ export function TagFilter({
           data-tag-mode="or"
           title="Match any selected tag"
           onClick={() => {
-            sendBrowserFilter(
-              server?.query ?? searchQuery,
-              selected,
-              normalizeTagFilterMode("or", "or"),
-            );
+            send({ type: "filter_motifs", query, tags: [...selected], tagMode: "or" });
           }}
         >
           OR
@@ -48,11 +39,7 @@ export function TagFilter({
           data-tag-mode="and"
           title="Match all selected tags"
           onClick={() => {
-            sendBrowserFilter(
-              server?.query ?? searchQuery,
-              selected,
-              normalizeTagFilterMode("and", "or"),
-            );
+            send({ type: "filter_motifs", query, tags: [...selected], tagMode: "and" });
           }}
         >
           AND
@@ -71,8 +58,12 @@ export function TagFilter({
                 class={`tag-chip${isSelected ? " selected" : ""}`}
                 title={isSelected ? `Remove filter: ${tag}` : `Filter by ${tag}`}
                 onClick={() => {
-                  const nextTags = toggleTagSelection(tag, selected);
-                  sendBrowserFilter(server?.query ?? searchQuery, nextTags, tagMode);
+                  send({
+                    type: "filter_motifs",
+                    query,
+                    tags: toggleTagSelection(tag, selected),
+                    tagMode,
+                  });
                 }}
               >
                 {tag}
@@ -84,5 +75,3 @@ export function TagFilter({
     </div>
   );
 }
-
-export { sendBrowserFilter };

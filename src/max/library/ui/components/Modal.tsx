@@ -22,30 +22,13 @@ export function Modal() {
   }, [modal]);
 
   if (!modal) {
-    return (
-      <div
-        id="modal-backdrop"
-        class="hidden"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-      />
-    );
+    return <div id="modal-backdrop" class="hidden" />;
   }
 
   return (
-    <div
-      id="modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="modal-title"
-      onClick={(event) => {
-        if (event.target === event.currentTarget) {
-          closeModal();
-        }
-      }}
-    >
-      <div id="modal">
+    <div id="modal-backdrop">
+      <button type="button" id="modal-dismiss" aria-label="Dismiss dialog" onClick={closeModal} />
+      <div id="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
         <div id="modal-title">{modal.title}</div>
         <div id="modal-message">{modal.message}</div>
         <div id="modal-actions">

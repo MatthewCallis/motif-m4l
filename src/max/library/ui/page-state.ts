@@ -86,7 +86,7 @@ export const PITCH_CLASS_NAMES = [
 ] as const;
 
 /** Editable note schema used to generate rows and coerce outgoing field values. */
-export const NOTE_FIELDS: readonly NoteField[] = [
+export const NOTE_FIELDS: NoteField[] = [
   { name: "pitch", type: "number", required: true, step: "1" },
   { name: "accidental", type: "number", step: "1" },
   { name: "at", type: "number", required: true, min: "0", step: "1" },

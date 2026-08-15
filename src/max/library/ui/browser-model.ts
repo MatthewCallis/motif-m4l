@@ -5,14 +5,14 @@
  * @param {string} folder Browser folder.
  * @param {string} query Active browser query.
  * @param {Set<string>} collapsedFolders Locally collapsed folders.
- * @param {readonly string[]} selectedTags Active tag filter chips.
+ * @param {string[]} selectedTags Active tag filter chips.
  * @returns {boolean} Whether the folder contents should be hidden.
  */
 export function isFolderCollapsed(
   folder: string,
   query: string,
   collapsedFolders: Set<string>,
-  selectedTags: readonly string[] = [],
+  selectedTags: string[] = [],
 ): boolean {
   return query.trim() === "" && selectedTags.length === 0 && collapsedFolders.has(folder);
 }
@@ -21,7 +21,7 @@ export function isFolderCollapsed(
  * Toggle one tag in a filter or edit selection without mutating the source.
  * Matching is case-insensitive; first-seen casing is preserved when adding.
  */
-export function toggleTagSelection(tag: string, selected: readonly string[]): string[] {
+export function toggleTagSelection(tag: string, selected: string[]): string[] {
   const trimmed = tag.trim();
   if (!trimmed) {
     return [...selected];
@@ -32,7 +32,7 @@ export function toggleTagSelection(tag: string, selected: readonly string[]): st
 }
 
 /** Add one tag if missing (case-insensitive), without mutating the source. */
-export function addTagSelection(tags: readonly string[], tag: string): string[] {
+export function addTagSelection(tags: string[], tag: string): string[] {
   const trimmed = tag.trim();
   if (!trimmed) {
     return [...tags];
@@ -42,15 +42,15 @@ export function addTagSelection(tags: readonly string[], tag: string): string[] 
 }
 
 /** Remove one tag if present (case-insensitive), without mutating the source. */
-export function removeTagSelection(tags: readonly string[], tag: string): string[] {
+export function removeTagSelection(tags: string[], tag: string): string[] {
   const key = tag.trim().toLowerCase();
   return key ? tags.filter((entry) => entry.toLowerCase() !== key) : [...tags];
 }
 
 /** Suggest unused vocabulary tags matching a partial query. */
 export function suggestTags(
-  available: readonly string[],
-  applied: readonly string[],
+  available: string[],
+  applied: string[],
   query: string,
   limit = 8,
 ): string[] {

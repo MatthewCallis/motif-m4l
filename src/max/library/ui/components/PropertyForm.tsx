@@ -54,7 +54,7 @@ export function PropertyForm({
       <div class="section">
         <div class="section-title">Motif</div>
         <div class="property-grid">
-          <label for="notes-summary">Notes</label>
+          <label htmlFor="notes-summary">Notes</label>
           <input
             class="field"
             id="notes-summary"
@@ -64,7 +64,7 @@ export function PropertyForm({
             disabled
             value={selected ? String(selected.noteCount) : ""}
           />
-          <label for="bars-summary">Bars</label>
+          <label htmlFor="bars-summary">Bars</label>
           <input
             class="field"
             id="bars-summary"
@@ -80,7 +80,7 @@ export function PropertyForm({
       <div class="section">
         <div class="section-title">Tags</div>
         <div class="property-grid">
-          <label>Labels</label>
+          <span class="field-label">Labels</span>
           <MotifTags server={server} editing={editing} />
           <div class="help">
             Click a library tag to add it, or type a new name and press Enter or comma. Click a chip
@@ -97,7 +97,7 @@ export function PropertyForm({
       <div class="section">
         <div class="section-title">Pitch &amp; Timing</div>
         <div class="property-grid">
-          <label for="pitch-mode-edit">Pitch mode</label>
+          <label htmlFor="pitch-mode-edit">Pitch mode</label>
           <select
             class="field editable-property"
             id="pitch-mode-edit"
@@ -111,7 +111,7 @@ export function PropertyForm({
             <option value="chromatic">Chromatic</option>
             <option value="hybrid">Hybrid</option>
           </select>
-          <label for="trigger-mode-edit">Trigger mode</label>
+          <label htmlFor="trigger-mode-edit">Trigger mode</label>
           <select
             class="field editable-property"
             id="trigger-mode-edit"
@@ -128,7 +128,7 @@ export function PropertyForm({
             <option value="latch">Latch</option>
             <option value="release-tail">Release tail</option>
           </select>
-          <label for="repeat-rounding-edit">Repeat rounding</label>
+          <label htmlFor="repeat-rounding-edit">Repeat rounding</label>
           <select
             class="field editable-property"
             id="repeat-rounding-edit"
@@ -142,7 +142,7 @@ export function PropertyForm({
             <option value="1/2-bar">1/2 bar</option>
             <option value="1-bar">1 bar</option>
           </select>
-          <label for="source-anchor-edit">Source anchor</label>
+          <label htmlFor="source-anchor-edit">Source anchor</label>
           <div class="source-pitch-controls" id="source-anchor-controls">
             <input
               class="field editable-property"
@@ -162,7 +162,7 @@ export function PropertyForm({
               {sourceAnchorLabel(draft.sourceAnchor)}
             </output>
           </div>
-          <label for="source-root-edit">Source root</label>
+          <label htmlFor="source-root-edit">Source root</label>
           <div class="source-pitch-controls" id="source-root-controls">
             <input
               class="field editable-property"
@@ -182,7 +182,7 @@ export function PropertyForm({
               {sourceRootLabel(draft.sourceRoot)}
             </output>
           </div>
-          <label for="source-scale-name-edit">Source scale</label>
+          <label htmlFor="source-scale-name-edit">Source scale</label>
           <input
             class="field editable-property"
             id="source-scale-name-edit"
@@ -194,7 +194,7 @@ export function PropertyForm({
             onChange={pushProperties}
             onBlur={pushProperties}
           />
-          <label for="source-scale-intervals-edit">Source intervals</label>
+          <label htmlFor="source-scale-intervals-edit">Source intervals</label>
           <input
             class="field editable-property"
             id="source-scale-intervals-edit"
@@ -215,7 +215,7 @@ export function PropertyForm({
             Imports are exact Chromatic motifs. Changing Pitch Mode analyzes notes against this
             saved source scale; Live&apos;s current scale is the playback target.
           </div>
-          <label for="default-gate-edit">Default gate</label>
+          <label htmlFor="default-gate-edit">Default gate</label>
           <input
             class="field editable-property"
             id="default-gate-edit"
@@ -229,7 +229,7 @@ export function PropertyForm({
             onInput={(event) => updateDraft({ defaultGate: event.currentTarget.value })}
             onChange={pushProperties}
           />
-          <label for="meter-numerator-edit">Source meter</label>
+          <label htmlFor="meter-numerator-edit">Source meter</label>
           <div id="source-meter-controls">
             <input
               class="field editable-property"
@@ -269,7 +269,7 @@ export function PropertyForm({
       <div class="section">
         <div class="section-title">Velocity Curve</div>
         <div class="property-grid">
-          <label for="curve-input-min">Input min</label>
+          <label htmlFor="curve-input-min">Input min</label>
           <input
             class="field editable-property"
             id="curve-input-min"
@@ -281,7 +281,7 @@ export function PropertyForm({
             onInput={(event) => updateDraft({ curveInputMin: event.currentTarget.value })}
             onChange={pushProperties}
           />
-          <label for="curve-input-max">Input max</label>
+          <label htmlFor="curve-input-max">Input max</label>
           <input
             class="field editable-property"
             id="curve-input-max"
@@ -293,7 +293,7 @@ export function PropertyForm({
             onInput={(event) => updateDraft({ curveInputMax: event.currentTarget.value })}
             onChange={pushProperties}
           />
-          <label for="curve-output-min">Output min</label>
+          <label htmlFor="curve-output-min">Output min</label>
           <input
             class="field editable-property"
             id="curve-output-min"
@@ -305,7 +305,7 @@ export function PropertyForm({
             onInput={(event) => updateDraft({ curveOutputMin: event.currentTarget.value })}
             onChange={pushProperties}
           />
-          <label for="curve-output-max">Output max</label>
+          <label htmlFor="curve-output-max">Output max</label>
           <input
             class="field editable-property"
             id="curve-output-max"
@@ -317,7 +317,7 @@ export function PropertyForm({
             onInput={(event) => updateDraft({ curveOutputMax: event.currentTarget.value })}
             onChange={pushProperties}
           />
-          <label for="curve-exponent">Exponent</label>
+          <label htmlFor="curve-exponent">Exponent</label>
           <input
             class="field editable-property"
             id="curve-exponent"

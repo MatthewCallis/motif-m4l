@@ -32,10 +32,10 @@ export function emitError(message: string): void {
 
 /**
  * Flatten Max arguments that may contain nested atom arrays.
- * @param {readonly unknown[]} values Possibly nested atoms.
+ * @param {unknown[]} values Possibly nested atoms.
  * @returns {unknown[]} One-dimensional atom list.
  */
-export function flattenValues(values: readonly unknown[]): unknown[] {
+export function flattenValues(values: unknown[]): unknown[] {
   const out: unknown[] = [];
   for (const value of values) {
     if (Array.isArray(value)) {
@@ -65,10 +65,10 @@ export function stringAtom(value: unknown, fallback = ""): string {
 
 /**
  * Extract finite numbers from Max atoms.
- * @param {readonly unknown[]} values Possibly nested atoms.
+ * @param {unknown[]} values Possibly nested atoms.
  * @returns {number[]} Finite numeric values.
  */
-export function numbers(values: readonly unknown[]): number[] {
+export function numbers(values: unknown[]): number[] {
   return flattenValues(values).map(Number).filter(Number.isFinite);
 }
 
@@ -159,10 +159,10 @@ export function canonicalMaxPath(filename: string): string {
 
 /**
  * Assemble a filesystem path from Max atoms.
- * @param {readonly unknown[]} values Path atoms.
+ * @param {unknown[]} values Path atoms.
  * @returns {string} Trimmed path with one surrounding quote pair removed.
  */
-export function pathFromAtoms(values: readonly unknown[]): string {
+export function pathFromAtoms(values: unknown[]): string {
   return flattenValues(values)
     .map((value) => stringAtom(value))
     .filter(Boolean)

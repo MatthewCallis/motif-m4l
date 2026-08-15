@@ -13,7 +13,7 @@ import {
 } from "../sidebar-layout.js";
 import { useLibraryStore } from "../store.js";
 import { BrowserList } from "./BrowserList.js";
-import { sendBrowserFilter, TagFilter } from "./TagFilter.js";
+import { TagFilter } from "./TagFilter.js";
 
 /** Browser-local key for the user's preferred Library browser width. */
 export const SIDEBAR_WIDTH_STORAGE_KEY = "motif-library-sidebar-width";
@@ -216,7 +216,12 @@ export function LibrarySidebar() {
               clearTimeout(searchDebounce.current);
               searchDebounce.current = setTimeout(() => {
                 const current = pageStore.getState().server;
-                sendBrowserFilter(value, current?.tags ?? [], current?.tagMode ?? "or");
+                send({
+                  type: "filter_motifs",
+                  query: value,
+                  tags: [...(current?.tags ?? [])],
+                  tagMode: current?.tagMode ?? "or",
+                });
               }, 80);
             }}
           />
@@ -228,7 +233,12 @@ export function LibrarySidebar() {
               // The timer captures typed text; cancel it before sending the clear.
               clearTimeout(searchDebounce.current);
               setSearchText("");
-              sendBrowserFilter("", [], pageStore.getState().server?.tagMode ?? "or");
+              send({
+                type: "filter_motifs",
+                query: "",
+                tags: [],
+                tagMode: pageStore.getState().server?.tagMode ?? "or",
+              });
             }}
           >
             ✕

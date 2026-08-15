@@ -55,7 +55,7 @@ export interface LibraryStateProjectionInput {
   /** Current browser query. */
   browserQuery: string;
   /** Selected tag filter chips. */
-  browserTags?: readonly string[];
+  browserTags?: string[];
   /** Whether selected tags combine with AND or OR. */
   browserTagMode?: TagFilterMode;
   /** Latest warning displayed by the Library page. */

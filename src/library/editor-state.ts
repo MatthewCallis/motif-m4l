@@ -2,11 +2,11 @@ import type { Motif } from "../core/types.js";
 import { MotifStore, uniqueMotifId } from "./store.js";
 
 export interface EditSnapshot {
-  readonly active: boolean;
-  readonly dirty: boolean;
-  readonly created: boolean;
-  readonly sourceId: string | null;
-  readonly targetId: string | null;
+  active: boolean;
+  dirty: boolean;
+  created: boolean;
+  sourceId: string | null;
+  targetId: string | null;
 }
 
 interface ActiveEdit {
@@ -24,13 +24,13 @@ interface ActiveEdit {
 
 export interface BeginEditOptions {
   /** Mark the session dirty immediately (for freshly imported motifs). */
-  readonly dirty?: boolean;
+  dirty?: boolean;
   /** Remove the target on cancel instead of restoring it. */
-  readonly created?: boolean;
+  created?: boolean;
   /** Selection restored when a newly created target is cancelled. */
-  readonly sourceId?: string;
+  sourceId?: string;
   /** Precomputed filesystem-safe id for a built-in draft. */
-  readonly targetId?: string;
+  targetId?: string;
 }
 
 function cloneMotif(motif: Motif): Motif {

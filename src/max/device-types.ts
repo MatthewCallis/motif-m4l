@@ -156,11 +156,11 @@ export const PITCH_MODE_OVERRIDES = [
   "scale",
   "chromatic",
   "hybrid",
-] as const satisfies readonly PitchMode[];
+] as const satisfies PitchMode[];
 /** Valid meter scaling behaviors. */
-export const METER_MODES = ["preserve", "fit-bar"] as const satisfies readonly MeterMode[];
+export const METER_MODES = ["preserve", "fit-bar"] as const satisfies MeterMode[];
 /** Valid retrigger collision behaviors. */
-export const RETRIGGER_MODES = ["replace", "overlap"] as const satisfies readonly RetriggerMode[];
+export const RETRIGGER_MODES = ["replace", "overlap"] as const satisfies RetriggerMode[];
 /** Valid global trigger lifecycles. */
 export const TRIGGER_MODES = [
   "one-shot",
@@ -169,24 +169,24 @@ export const TRIGGER_MODES = [
   "toggle",
   "latch",
   "release-tail",
-] as const satisfies readonly TriggerMode[];
+] as const satisfies TriggerMode[];
 /** Valid device trigger-mode choices, including motif-owned behavior. */
 export const TRIGGER_MODE_OVERRIDES = [
   "motif",
   ...TRIGGER_MODES,
-] as const satisfies readonly TriggerModeOverride[];
+] as const satisfies TriggerModeOverride[];
 /** Valid motif-owned hold-repeat rounding grids. */
 export const REPEAT_ROUNDINGS = [
   "exact",
   "1/4-bar",
   "1/2-bar",
   "1-bar",
-] as const satisfies readonly RepeatRounding[];
+] as const satisfies RepeatRounding[];
 /** Valid device repeat-rounding choices, including motif-owned behavior. */
 export const REPEAT_ROUNDING_OVERRIDES = [
   "motif",
   ...REPEAT_ROUNDINGS,
-] as const satisfies readonly RepeatRoundingOverride[];
+] as const satisfies RepeatRoundingOverride[];
 /** Valid launch quantization grids. */
 export const LAUNCH_QUANTIZATIONS = [
   "immediate",
@@ -194,10 +194,10 @@ export const LAUNCH_QUANTIZATIONS = [
   "1/8",
   "1/4",
   "bar",
-] as const satisfies readonly LaunchQuantization[];
+] as const satisfies LaunchQuantization[];
 /** Valid dry-MIDI pass-through behaviors. */
 export const PASS_THROUGH_POLICIES = [
   "none",
   "non-triggers",
   "all",
-] as const satisfies readonly PassThroughPolicy[];
+] as const satisfies PassThroughPolicy[];
