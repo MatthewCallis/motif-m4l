@@ -1,7 +1,6 @@
-import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import vm from "node:vm";
 import { loadCompiledEngine } from "../helpers/max-engine.js";
 import { readLibraryWindowConfig } from "../../scripts/library-window-config.js";
@@ -113,55 +112,55 @@ describe("Motif Max patch integration", () => {
     const previewFilename = dependencyNames.find((name) =>
       /^motif-preview-[a-f0-9]{12}\.js$/.test(name),
     );
-    assert.ok(
+    expect(
       engineFilename && previewFilename,
       "runtime dependencies must use content-addressed filenames",
-    );
+    ).toBeTruthy();
     const engineSource = await readFile(`max/${engineFilename}`, "utf8");
     const previewSource = await readFile(`max/${previewFilename}`, "utf8");
-    assert.doesNotThrow(() => new vm.Script(previewSource, { filename: previewFilename }));
-    assert.doesNotMatch(
+    expect(() => new vm.Script(previewSource, { filename: previewFilename })).not.toThrow();
+    expect(
       previewSource,
-      /`|=>|\b(?:const|let)\b|catch\s*\{/,
       "production preview must remain compatible with the legacy jsui JavaScript host",
-    );
-    assert.ok(
+    ).not.toMatch(/`|=>|\b(?:const|let)\b|catch\s*\{/);
+    expect(
       Math.max(...previewSource.split("\n").map((line) => line.length)) <= 1_100,
       "production preview lines must stay below jsui error-reporting limits",
-    );
-    assert.equal(
-      engineFilename,
+    ).toBeTruthy();
+    expect(engineFilename).toBe(
       `motif-device-${createHash("sha256").update(engineSource).digest("hex").slice(0, 12)}.js`,
     );
-    assert.equal(
-      previewFilename,
+    expect(previewFilename).toBe(
       `motif-preview-${createHash("sha256").update(previewSource).digest("hex").slice(0, 12)}.js`,
     );
     const v8Text = `v8 ${engineFilename}`;
 
-    assert.equal(patcher.openinpresentation, 1);
-    assert.equal(patcher.devicewidth, 475);
-    assert.equal(patcher.default_fontname, "Ableton Sans");
-    assert.ok(boxes.filter(({ box }) => box.presentation === 1).length >= 24);
+    expect(patcher.openinpresentation).toBe(1);
+    expect(patcher.devicewidth).toBe(475);
+    expect(patcher.default_fontname).toBe("Ableton Sans");
+    expect(boxes.filter(({ box }) => box.presentation === 1).length >= 24).toBeTruthy();
     for (const { box } of boxes.filter(({ box }) => box.presentation === 1)) {
       const rect = box.presentation_rect;
-      assert.ok(rect, `${box.varname ?? box.id} is missing a presentation rectangle`);
-      const [x, y, width, height] = rect;
-      assert.ok(x >= 0 && y >= 0, `${box.varname ?? box.id} starts outside the device`);
-      assert.ok(
+      expect(rect, `${box.varname ?? box.id} is missing a presentation rectangle`).toBeTruthy();
+      const [x, y, width, height] = rect!;
+      expect(x >= 0 && y >= 0, `${box.varname ?? box.id} starts outside the device`).toBeTruthy();
+      expect(
         x + width <= patcher.devicewidth,
         `${box.varname ?? box.id} exceeds the device width`,
-      );
-      assert.ok(y + height <= 169, `${box.varname ?? box.id} exceeds Live's fixed 169px height`);
+      ).toBeTruthy();
+      expect(
+        y + height <= 169,
+        `${box.varname ?? box.id} exceeds Live's fixed 169px height`,
+      ).toBeTruthy();
     }
 
     const texts = boxes.map(({ box }) => box.text).filter((text): text is string => Boolean(text));
-    assert.ok(texts.includes(v8Text));
-    assert.ok(texts.includes("live.path live_set"));
-    assert.ok(texts.includes("live.observer"));
-    assert.ok(texts.includes("pcontrol"));
-    assert.ok(texts.includes("p library-info"));
-    assert.ok(texts.includes("prepend tempo_multiplier"));
+    expect(texts.includes(v8Text)).toBeTruthy();
+    expect(texts.includes("live.path live_set")).toBeTruthy();
+    expect(texts.includes("live.observer")).toBeTruthy();
+    expect(texts.includes("pcontrol")).toBeTruthy();
+    expect(texts.includes("p library-info")).toBeTruthy();
+    expect(texts.includes("prepend tempo_multiplier")).toBeTruthy();
     for (const property of [
       "tempo",
       "root_note",
@@ -173,53 +172,57 @@ describe("Motif Max patch integration", () => {
       "is_playing",
       "current_song_time",
     ]) {
-      assert.ok(texts.includes(`property ${property}`));
-      assert.ok(texts.includes(`prepend ${property}`));
+      expect(texts.includes(`property ${property}`)).toBeTruthy();
+      expect(texts.includes(`prepend ${property}`)).toBeTruthy();
     }
 
-    assert.ok(texts.includes("prepend song_context"));
-    assert.ok(texts.includes("deferlow"));
-    assert.ok(!texts.some((text) => text === "prepend host" || text.startsWith("prepend host_")));
-    assert.ok(texts.includes("route Ready"));
-    assert.ok(texts.includes("t b b b b b b b b b"));
-    assert.ok(
+    expect(texts.includes("prepend song_context")).toBeTruthy();
+    expect(texts.includes("deferlow")).toBeTruthy();
+    expect(
+      !texts.some((text) => text === "prepend host" || text.startsWith("prepend host_")),
+    ).toBeTruthy();
+    expect(texts.includes("route Ready")).toBeTruthy();
+    expect(texts.includes("t b b b b b b b b b")).toBeTruthy();
+    expect(
       texts.includes(
         "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page persist",
       ),
-    );
-    assert.ok(
+    ).toBeTruthy();
+    expect(
       texts.includes("route lib preview transforms"),
       "ui-route must handle library, preview, and transform state",
-    );
-    assert.ok(texts.includes(libraryWindowSizeMessage));
-    assert.ok(texts.includes("window flags float nogrow close zoom"));
-    assert.ok(!texts.includes("window flags float grow close zoom"));
-    assert.ok(
+    ).toBeTruthy();
+    expect(texts.includes(libraryWindowSizeMessage)).toBeTruthy();
+    expect(texts.includes("window flags float nogrow close zoom")).toBeTruthy();
+    expect(!texts.includes("window flags float grow close zoom")).toBeTruthy();
+    expect(
       texts.filter((text) => text === libraryWindowSizeMessage).length >= 2,
       "size must be applied before and after open",
-    );
-    assert.ok(texts.includes("receive ---motif_author"));
-    assert.ok(texts.includes("pipe 0 0 0 0."));
+    ).toBeTruthy();
+    expect(texts.includes("receive ---motif_author")).toBeTruthy();
+    expect(texts.includes("pipe 0 0 0 0.")).toBeTruthy();
 
     const v8 = boxByText(boxes, v8Text);
-    assert.equal(v8?.numoutlets, 1);
-    assert.ok(v8);
-    assert.ok(
-      lines.every(({ patchline }) => patchline.source[0] !== v8.id || patchline.source[1] === 0),
-    );
+    expect(v8?.numoutlets).toBe(1);
+    expect(v8).toBeTruthy();
+    expect(
+      lines.every(({ patchline }) => patchline.source[0] !== v8!.id || patchline.source[1] === 0),
+    ).toBeTruthy();
 
     const engineRoute = boxByText(
       boxes,
       "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page persist",
     );
-    assert.ok(engineRoute);
-    assert.ok(!boxByText(boxes, "prepend delete_file"));
-    assert.ok(!boxByText(boxes, "node.script motif-file-service.cjs @autostart 1 @restart 1"));
+    expect(engineRoute).toBeTruthy();
+    expect(!boxByText(boxes, "prepend delete_file")).toBeTruthy();
+    expect(
+      !boxByText(boxes, "node.script motif-file-service.cjs @autostart 1 @restart 1"),
+    ).toBeTruthy();
 
     const songContextIds = boxes
       .filter(({ box }) => box.text === "prepend song_context")
       .map(({ box }) => box);
-    assert.equal(songContextIds.length, 9);
+    expect(songContextIds.length).toBe(9);
     const songContextDestinationIds = new Set(
       songContextIds.flatMap((source) =>
         lines
@@ -227,57 +230,44 @@ describe("Motif Max patch integration", () => {
           .map(({ patchline }) => patchline.destination[0]),
       ),
     );
-    assert.equal(
-      songContextDestinationIds.size,
-      1,
-      "all Song context messages must share one deferred path",
-    );
+    expect(songContextDestinationIds.size).toBe(1);
     const songContextDefer = boxes.find(({ box }) => songContextDestinationIds.has(box.id))?.box;
-    assert.equal(songContextDefer?.text, "deferlow");
-    assert.ok(songContextDefer && hasLine(lines, songContextDefer, 0, v8, 0));
+    expect(songContextDefer?.text).toBe("deferlow");
+    expect(songContextDefer && hasLine(lines, songContextDefer, 0, v8!, 0)).toBeTruthy();
 
     const rootDisplay = boxByVarname(boxes, "root-display");
-    assert.equal(
-      rootDisplay?.maxclass,
-      "live.menu",
-      "root must use theme-default live.menu like Live’s Scale device",
-    );
-    assert.equal(
-      rootDisplay?.parameter_enable,
-      1,
-      "live.menu needs an enabled parameter to own its enum",
-    );
-    assert.equal(
-      rootDisplay?.saved_attribute_attributes?.valueof?.parameter_invisible,
-      2,
-      "Song-owned root display must be hidden from Live parameter storage and automation",
-    );
-    assert.equal(rootDisplay?.ignoreclick, 1, "root display must not be user-editable");
+    expect(rootDisplay?.maxclass).toBe("live.menu");
+    expect(rootDisplay?.parameter_enable).toBe(1);
+    expect(rootDisplay?.saved_attribute_attributes?.valueof?.parameter_invisible).toBe(2);
+    expect(rootDisplay?.ignoreclick).toBe(1);
     const scaleNameDisplay = boxByVarname(boxes, "scale-name-display");
-    assert.equal(scaleNameDisplay?.maxclass, "live.menu");
-    assert.equal(scaleNameDisplay?.ignoreclick, 1);
-    assert.equal(scaleNameDisplay?.saved_attribute_attributes?.valueof?.parameter_invisible, 2);
-    assert.ok(!boxByVarname(boxes, "scale-mode-display"), "scale ♭♯ chip must be removed");
-    assert.ok(
+    expect(scaleNameDisplay?.maxclass).toBe("live.menu");
+    expect(scaleNameDisplay?.ignoreclick).toBe(1);
+    expect(scaleNameDisplay?.saved_attribute_attributes?.valueof?.parameter_invisible).toBe(2);
+    expect(
+      !boxByVarname(boxes, "scale-mode-display"),
+      "scale ♭♯ chip must be removed",
+    ).toBeTruthy();
+    expect(
       !boxByVarname(boxes, "tempo-display"),
       "computed BPM readout must be removed from the Presentation UI",
-    );
-    assert.ok(
+    ).toBeTruthy();
+    expect(
       !boxByVarname(boxes, "status-display"),
       "debug status-display must not appear in the Presentation UI",
-    );
-    assert.ok(
+    ).toBeTruthy();
+    expect(
       !boxByVarname(boxes, "preview-root-display"),
       "anchor/debug metadata line must be removed from Presentation",
-    );
-    assert.ok(
+    ).toBeTruthy();
+    expect(
       texts.includes("active 0") && texts.includes("active 1"),
       "Scale menus must toggle active from Song.scale_mode",
-    );
-    assert.ok(
+    ).toBeTruthy();
+    expect(
       texts.some((text) => text.startsWith("§ ")),
       "unlocked patcher should label major sections",
-    );
+    ).toBeTruthy();
 
     const preview = boxByVarname(boxes, "motif-preview");
     const previewReadyRoute = boxByText(boxes, "route preview_ready preview_debug");
@@ -295,7 +285,7 @@ describe("Motif Max patch integration", () => {
         )?.patchline.destination[0]
       : undefined;
     const readyTrigger = boxes.find(({ box }) => box.id === readyTriggerId)?.box;
-    assert.ok(
+    expect(
       preview &&
         previewReadyRoute &&
         previewReadyMessage &&
@@ -303,141 +293,123 @@ describe("Motif Max patch integration", () => {
         previewDebugPage &&
         previewDebugPrepend &&
         readyTrigger,
-    );
-    assert.equal(preview.maxclass, "jsui", "preview must use native jsui rather than jweb in Live");
-    assert.equal(preview.filename, previewFilename);
-    assert.equal(
-      preview.template,
-      previewFilename,
-      "preview must never fall back to Max’s stock radial dial",
-    );
-    assert.equal(preview.border, 0, "preview draws its own rounded border in motif-preview.js");
-    assert.deepEqual(
-      preview.jsarguments,
-      [6, 1],
-      "preview chrome radius and border are forwarded to jsui",
-    );
-    assert.equal(
-      preview.ignoreclick,
-      0,
-      "preview diagnostics must remain clickable in locked Presentation Mode",
-    );
-    assert.ok(
+    ).toBeTruthy();
+    expect(preview!.maxclass).toBe("jsui");
+    expect(preview!.filename).toBe(previewFilename);
+    expect(preview!.template).toBe(previewFilename);
+    expect(preview!.border).toBe(0);
+    expect(preview!.jsarguments).toEqual([6, 1]);
+    expect(preview!.ignoreclick).toBe(0);
+    expect(
       !boxByText(boxes, "readfile preview.html"),
       "native preview must not load an external HTML page",
-    );
-    assert.ok(
-      hasLine(lines, preview, 0, previewReadyRoute, 0),
+    ).toBeTruthy();
+    expect(
+      hasLine(lines, preview!, 0, previewReadyRoute!, 0),
       "preview output must route readiness and diagnostics",
-    );
-    assert.ok(hasLine(lines, previewReadyRoute, 0, previewReadyMessage, 0));
-    assert.ok(
-      hasLine(lines, previewReadyMessage, 0, v8, 0),
+    ).toBeTruthy();
+    expect(hasLine(lines, previewReadyRoute!, 0, previewReadyMessage!, 0)).toBeTruthy();
+    expect(
+      hasLine(lines, previewReadyMessage!, 0, v8!, 0),
       "preview readiness must request fresh engine state",
-    );
-    assert.ok(
-      hasLine(lines, readyTrigger, 2, previewLoadMessage, 0),
+    ).toBeTruthy();
+    expect(
+      hasLine(lines, readyTrigger!, 2, previewLoadMessage!, 0),
       "engine readiness must reload the frozen jsui dependency",
-    );
-    assert.ok(
-      hasLine(lines, previewLoadMessage, 0, preview, 0),
+    ).toBeTruthy();
+    expect(
+      hasLine(lines, previewLoadMessage!, 0, preview!, 0),
       "the explicit jsfile message must target the preview",
-    );
-    assert.ok(hasLine(lines, previewReadyRoute, 1, previewDebugPage, 0));
-    assert.ok(hasLine(lines, previewDebugPage, 0, previewDebugPrepend, 0));
-    assert.ok(
-      hasLine(lines, previewDebugPrepend, 0, v8, 0),
+    ).toBeTruthy();
+    expect(hasLine(lines, previewReadyRoute!, 1, previewDebugPage!, 0)).toBeTruthy();
+    expect(hasLine(lines, previewDebugPage!, 0, previewDebugPrepend!, 0)).toBeTruthy();
+    expect(
+      hasLine(lines, previewDebugPrepend!, 0, v8!, 0),
       "native preview diagnostics must reach the engine",
-    );
-    assert.ok(
-      (preview.presentation_rect?.[3] ?? 0) >= 80,
+    ).toBeTruthy();
+    expect(
+      (preview!.presentation_rect?.[3] ?? 0) >= 80,
       "preview contour should use the height freed by collapsing the control row",
-    );
-    assert.ok(!boxes.some(({ box }) => box.maxclass === "v8ui"), "preview must not depend on v8ui");
-    assert.ok(
+    ).toBeTruthy();
+    expect(
+      !boxes.some(({ box }) => box.maxclass === "v8ui"),
+      "preview must not depend on v8ui",
+    ).toBeTruthy();
+    expect(
       !JSON.stringify(patcher).includes("live_lcd_"),
       "maxpat must not embed invalid live_lcd_* color tokens",
-    );
+    ).toBeTruthy();
 
     const pageTab = boxByVarname(boxes, "page-tab");
-    assert.equal(pageTab?.maxclass, "live.tab");
-    assert.equal(pageTab?.livemode, 1, "page tabs must use Live mode");
+    expect(pageTab?.maxclass).toBe("live.tab");
+    expect(pageTab?.livemode).toBe(1);
 
     const tempoMult = boxByVarname(boxes, "tempo-mult-menu");
-    assert.equal(tempoMult?.maxclass, "live.menu");
+    expect(tempoMult?.maxclass).toBe("live.menu");
     const motifMenu = boxByVarname(boxes, "motif-menu");
-    assert.ok(
+    expect(
       (motifMenu?.presentation_rect?.[1] ?? 99) <= 8,
       "selected motif must sit on the top control row",
-    );
+    ).toBeTruthy();
     const pitchMenu = boxByVarname(boxes, "pitch-menu");
-    assert.ok(
+    expect(
       (pitchMenu?.presentation_rect?.[0] ?? 999) <
         (boxByVarname(boxes, "root-display")?.presentation_rect?.[0] ?? 0),
       "pitch menu must sit to the left of the Scale menus",
-    );
+    ).toBeTruthy();
     const pitchEnum = pitchMenu?.saved_attribute_attributes?.valueof?.parameter_enum;
-    assert.ok(pitchEnum?.includes("motif"), "Pitch Mode first item is motif");
-    assert.ok(!pitchEnum?.includes("auto"), "Pitch Mode auto was renamed to motif");
+    expect(pitchEnum?.includes("motif"), "Pitch Mode first item is motif").toBeTruthy();
+    expect(!pitchEnum?.includes("auto"), "Pitch Mode auto was renamed to motif").toBeTruthy();
     const invertButton = boxByVarname(boxes, "invert-button");
     const reverseButton = boxByVarname(boxes, "reverse-button");
-    assert.equal(invertButton?.maxclass, "live.text");
-    assert.equal(invertButton?.text, "Invert");
-    assert.equal(invertButton?.mode, 1, "Invert must visually latch on/off");
-    assert.equal(
-      invertButton?.outputmode,
-      0,
-      "Invert must emit the new toggle state on mouse-down",
-    );
-    assert.equal(invertButton?.parameter_enable, 1, "Invert must be stored as a Live parameter");
-    assert.deepEqual(invertButton?.saved_attribute_attributes?.valueof?.parameter_initial, [0]);
-    assert.equal(reverseButton?.maxclass, "live.text");
-    assert.equal(reverseButton?.text, "Reverse");
-    assert.equal(reverseButton?.mode, 1, "Reverse must visually latch on/off");
-    assert.equal(
-      reverseButton?.outputmode,
-      0,
-      "Reverse must emit the new toggle state on mouse-down",
-    );
-    assert.equal(reverseButton?.parameter_enable, 1, "Reverse must be stored as a Live parameter");
-    assert.deepEqual(reverseButton?.saved_attribute_attributes?.valueof?.parameter_initial, [0]);
+    expect(invertButton?.maxclass).toBe("live.text");
+    expect(invertButton?.text).toBe("Invert");
+    expect(invertButton?.mode).toBe(1);
+    expect(invertButton?.outputmode).toBe(0);
+    expect(invertButton?.parameter_enable).toBe(1);
+    expect(invertButton?.saved_attribute_attributes?.valueof?.parameter_initial).toEqual([0]);
+    expect(reverseButton?.maxclass).toBe("live.text");
+    expect(reverseButton?.text).toBe("Reverse");
+    expect(reverseButton?.mode).toBe(1);
+    expect(reverseButton?.outputmode).toBe(0);
+    expect(reverseButton?.parameter_enable).toBe(1);
+    expect(reverseButton?.saved_attribute_attributes?.valueof?.parameter_initial).toEqual([0]);
     const invertPrepend = boxByText(boxes, "prepend invert");
     const reversePrepend = boxByText(boxes, "prepend reverse");
-    assert.ok(invertButton && invertPrepend && hasLine(lines, invertButton, 0, invertPrepend, 0));
-    assert.ok(invertPrepend && hasLine(lines, invertPrepend, 0, v8, 0));
-    assert.ok(
+    expect(
+      invertButton && invertPrepend && hasLine(lines, invertButton, 0, invertPrepend, 0),
+    ).toBeTruthy();
+    expect(invertPrepend && hasLine(lines, invertPrepend, 0, v8!, 0)).toBeTruthy();
+    expect(
       reverseButton && reversePrepend && hasLine(lines, reverseButton, 0, reversePrepend, 0),
-    );
-    assert.ok(reversePrepend && hasLine(lines, reversePrepend, 0, v8, 0));
-    assert.equal(
-      boxes.filter(({ box }) => box.text === "loadmess set 0").length,
-      0,
-      "startup messages must not overwrite Live-restored transform values",
-    );
+    ).toBeTruthy();
+    expect(reversePrepend && hasLine(lines, reversePrepend, 0, v8!, 0)).toBeTruthy();
+    expect(boxes.filter(({ box }) => box.text === "loadmess set 0").length).toBe(0);
     const parameterRestore = boxByText(boxes, "t b b b b b b b b b b b b b");
     const invertOutputValue = boxByText(boxes, "outputvalue");
     const outputValueMessages = boxes
       .filter(({ box }) => box.text === "outputvalue")
       .map(({ box }) => box);
-    assert.equal(outputValueMessages.length, 2);
-    assert.ok(parameterRestore && invertOutputValue);
-    assert.ok(
+    expect(outputValueMessages.length).toBe(2);
+    expect(parameterRestore && invertOutputValue).toBeTruthy();
+    expect(
       outputValueMessages.some(
         (box) =>
-          hasLine(lines, parameterRestore, 11, box, 0) && hasLine(lines, box, 0, invertButton, 0),
+          hasLine(lines, parameterRestore!, 11, box, 0) && hasLine(lines, box, 0, invertButton!, 0),
       ),
-    );
-    assert.ok(
+    ).toBeTruthy();
+    expect(
       outputValueMessages.some(
         (box) =>
-          hasLine(lines, parameterRestore, 12, box, 0) && hasLine(lines, box, 0, reverseButton, 0),
+          hasLine(lines, parameterRestore!, 12, box, 0) &&
+          hasLine(lines, box, 0, reverseButton!, 0),
       ),
-    );
+    ).toBeTruthy();
     const lowNumber = boxByVarname(boxes, "low-number");
     const highNumber = boxByVarname(boxes, "high-number");
-    assert.ok(lowNumber && highNumber);
-    assert.ok(hasLine(lines, parameterRestore, 8, lowNumber, 0));
-    assert.ok(hasLine(lines, parameterRestore, 7, highNumber, 0));
+    expect(lowNumber && highNumber).toBeTruthy();
+    expect(hasLine(lines, parameterRestore!, 8, lowNumber!, 0)).toBeTruthy();
+    expect(hasLine(lines, parameterRestore!, 7, highNumber!, 0)).toBeTruthy();
     const transformRoute = boxByText(boxes, "route lib preview transforms");
     const transformUnpackId = transformRoute
       ? lines.find(
@@ -446,91 +418,92 @@ describe("Motif Max patch integration", () => {
       : undefined;
     const transformUnpack = boxes.find(({ box }) => box.id === transformUnpackId)?.box;
     const setPrepends = boxes.filter(({ box }) => box.text === "prepend set").map(({ box }) => box);
-    assert.ok(transformRoute && transformUnpack);
-    assert.ok(hasLine(lines, transformRoute, 2, transformUnpack, 0));
-    assert.ok(
+    expect(transformRoute && transformUnpack).toBeTruthy();
+    expect(hasLine(lines, transformRoute!, 2, transformUnpack!, 0)).toBeTruthy();
+    expect(
       setPrepends.some(
         (box) =>
-          hasLine(lines, transformUnpack, 0, box, 0) && hasLine(lines, box, 0, invertButton, 0),
+          hasLine(lines, transformUnpack!, 0, box, 0) && hasLine(lines, box, 0, invertButton!, 0),
       ),
-    );
-    assert.ok(
+    ).toBeTruthy();
+    expect(
       setPrepends.some(
         (box) =>
-          hasLine(lines, transformUnpack, 1, box, 0) && hasLine(lines, box, 0, reverseButton, 0),
+          hasLine(lines, transformUnpack!, 1, box, 0) && hasLine(lines, box, 0, reverseButton!, 0),
       ),
-    );
+    ).toBeTruthy();
     const triggerEnum = boxByVarname(boxes, "trigger-menu")?.saved_attribute_attributes?.valueof
       ?.parameter_enum;
-    assert.equal(triggerEnum?.[0], "motif", "Trigger Mode must default to motif-owned behavior");
-    assert.ok(triggerEnum?.includes("hold-repeat"), "Trigger Mode must expose hold-repeat");
+    expect(triggerEnum?.[0]).toBe("motif");
+    expect(
+      triggerEnum?.includes("hold-repeat"),
+      "Trigger Mode must expose hold-repeat",
+    ).toBeTruthy();
     const repeatMenu = boxByVarname(boxes, "repeat-menu");
     const repeatEnum = repeatMenu?.saved_attribute_attributes?.valueof?.parameter_enum;
-    assert.deepEqual(repeatEnum, ["motif", "exact", "1/4-bar", "1/2-bar", "1-bar"]);
+    expect(repeatEnum).toEqual(["motif", "exact", "1/4-bar", "1/2-bar", "1-bar"]);
     const repeatPrepend = boxByText(boxes, "prepend repeat_rounding");
-    assert.ok(repeatMenu && repeatPrepend && hasLine(lines, repeatMenu, 1, repeatPrepend, 0));
-    assert.ok(repeatPrepend && hasLine(lines, repeatPrepend, 0, v8, 0));
+    expect(
+      repeatMenu && repeatPrepend && hasLine(lines, repeatMenu, 1, repeatPrepend, 0),
+    ).toBeTruthy();
+    expect(repeatPrepend && hasLine(lines, repeatPrepend, 0, v8!, 0)).toBeTruthy();
 
     const libraryPatcher = boxByText(boxes, "p library-info")?.patcher;
-    assert.ok(libraryPatcher, "Library/Info floating window subpatcher is required");
+    expect(libraryPatcher, "Library/Info floating window subpatcher is required").toBeTruthy();
 
-    assert.deepEqual(
-      patcher.dependency_cache.map(({ name }) => name),
-      [engineFilename, previewFilename],
-    );
-    assert.ok(!JSON.stringify(patcher).match(/motif-(?:device|preview)-v\d/i));
-    assert.ok(
+    expect(patcher.dependency_cache.map(({ name }) => name)).toEqual([
+      engineFilename,
+      previewFilename,
+    ]);
+    expect(!JSON.stringify(patcher).match(/motif-(?:device|preview)-v\d/i)).toBeTruthy();
+    expect(
       !JSON.stringify(patcher).includes("file://"),
       "patch must not embed platform-specific file URLs",
-    );
-    assert.ok(
+    ).toBeTruthy();
+    expect(
       !JSON.stringify(patcher).includes("Patcher:/"),
       "invalid Patcher:/ pseudo-path must not be generated",
-    );
-    assert.ok(
+    ).toBeTruthy();
+    expect(
       !JSON.stringify(patcher).includes("prepend call receiveData"),
       "jweb state must use a bound inlet selector rather than JavaScript call injection",
-    );
+    ).toBeTruthy();
 
     const nested = allBoxes(boxes);
     // Library window is now a single jweb object - check it exists.
     const jwebLibrary = nested.find((box) => box.varname === "jweb-library");
-    assert.ok(jwebLibrary, "library subpatcher must contain a jweb-library object");
-    assert.equal(jwebLibrary?.maxclass, "jweb", "jweb-library must be a jweb object");
-    assert.deepEqual(jwebLibrary?.patching_rect, [0, 0, libraryWindow.width, libraryWindow.height]);
-    assert.deepEqual(jwebLibrary?.presentation_rect, [
+    expect(jwebLibrary, "library subpatcher must contain a jweb-library object").toBeTruthy();
+    expect(jwebLibrary?.maxclass).toBe("jweb");
+    expect(jwebLibrary?.patching_rect).toEqual([0, 0, libraryWindow.width, libraryWindow.height]);
+    expect(jwebLibrary?.presentation_rect).toEqual([
       0,
       0,
       libraryWindow.width,
       libraryWindow.height,
     ]);
-    assert.deepEqual(libraryPatcher.rect, [100, 100, libraryWindow.width, libraryWindow.height]);
-    assert.equal(
-      jwebLibrary.url,
-      undefined,
-      "jweb must not navigate through an unsupported URL attribute",
-    );
-    assert.ok(
+    expect(libraryPatcher!.rect).toEqual([100, 100, libraryWindow.width, libraryWindow.height]);
+    expect(jwebLibrary!.url).toBe(undefined);
+    expect(
       !JSON.stringify(libraryPatcher).includes("data:text/html"),
       "jweb must not receive a data URI",
-    );
-    const libraryInlet = libraryPatcher.boxes.find(({ box }) => box.maxclass === "inlet")?.box;
-    const libraryInletRoute = boxByText(libraryPatcher.boxes, "route library_page");
-    const libraryReadfilePrepend = boxByText(libraryPatcher.boxes, "prepend readfile");
-    const libraryThispatcher = boxByText(libraryPatcher.boxes, "thispatcher");
+    ).toBeTruthy();
+    const libraryInlet = libraryPatcher!.boxes.find(({ box }) => box.maxclass === "inlet")?.box;
+    const libraryInletRoute = boxByText(libraryPatcher!.boxes, "route library_page");
+    const libraryReadfilePrepend = boxByText(libraryPatcher!.boxes, "prepend readfile");
+    const libraryThispatcher = boxByText(libraryPatcher!.boxes, "thispatcher");
     const libraryRoute = boxByText(
-      libraryPatcher.boxes,
+      libraryPatcher!.boxes,
       "route choose_library library_ready web_debug lib_action url title",
     );
-    const libraryReadyMessage = libraryPatcher.boxes.find(
+    const libraryReadyMessage = libraryPatcher!.boxes.find(
       ({ box }) => box.maxclass === "message" && box.text === "library_ready",
     )?.box;
-    const libraryAction = boxByText(libraryPatcher.boxes, "prepend lib_action");
-    const libraryAuthorSend = boxByText(libraryPatcher.boxes, "send ---motif_author");
-    const libraryDebugSend = boxByText(libraryPatcher.boxes, "send ---motif_web_debug");
-    const libraryTitle = boxByText(libraryPatcher.boxes, 'loadmess title "Motif Library"');
-    const libraryReceiveData = boxByText(libraryPatcher.boxes, "receive ---lib-data");
-    assert.ok(
+    const libraryAction = boxByText(libraryPatcher!.boxes, "prepend lib_action");
+    const libraryAuthorSend = boxByText(libraryPatcher!.boxes, "send ---motif_author");
+    const libraryDebugSend = boxByText(libraryPatcher!.boxes, "send ---motif_web_debug");
+    const libraryTitle = boxByText(libraryPatcher!.boxes, 'loadmess title "Motif Library"');
+    const libraryReceiveData = boxByText(libraryPatcher!.boxes, "receive ---lib-data");
+    expect(
       libraryInlet &&
         libraryInletRoute &&
         libraryReadfilePrepend &&
@@ -542,26 +515,30 @@ describe("Motif Max patch integration", () => {
         libraryDebugSend &&
         libraryTitle &&
         libraryReceiveData,
-    );
-    assert.equal(
-      jwebLibrary.rendermode,
-      1,
-      "standalone library window must use onscreen jweb rendering",
-    );
-    assert.ok(
-      !("autosize" in jwebLibrary),
+    ).toBeTruthy();
+    expect(jwebLibrary!.rendermode).toBe(1);
+    expect(
+      !("autosize" in jwebLibrary!),
       "library jweb must avoid undocumented sizing attributes",
-    );
-    assert.ok(hasLine(libraryPatcher.lines, libraryInlet, 0, libraryInletRoute, 0));
-    assert.ok(hasLine(libraryPatcher.lines, libraryInletRoute, 0, libraryReadfilePrepend, 0));
-    assert.ok(hasLine(libraryPatcher.lines, libraryReadfilePrepend, 0, jwebLibrary, 0));
-    assert.ok(hasLine(libraryPatcher.lines, libraryInletRoute, 1, libraryThispatcher, 0));
-    assert.ok(hasLine(libraryPatcher.lines, libraryReceiveData, 0, jwebLibrary, 0));
-    assert.ok(hasLine(libraryPatcher.lines, jwebLibrary, 0, libraryRoute, 0));
-    assert.ok(hasLine(libraryPatcher.lines, libraryRoute, 1, libraryReadyMessage, 0));
-    assert.ok(hasLine(libraryPatcher.lines, libraryReadyMessage, 0, libraryAuthorSend, 0));
-    assert.ok(hasLine(libraryPatcher.lines, libraryRoute, 2, libraryDebugSend, 0));
-    assert.ok(hasLine(libraryPatcher.lines, libraryRoute, 3, libraryAction, 0));
+    ).toBeTruthy();
+    expect(hasLine(libraryPatcher!.lines, libraryInlet!, 0, libraryInletRoute!, 0)).toBeTruthy();
+    expect(
+      hasLine(libraryPatcher!.lines, libraryInletRoute!, 0, libraryReadfilePrepend!, 0),
+    ).toBeTruthy();
+    expect(
+      hasLine(libraryPatcher!.lines, libraryReadfilePrepend!, 0, jwebLibrary!, 0),
+    ).toBeTruthy();
+    expect(
+      hasLine(libraryPatcher!.lines, libraryInletRoute!, 1, libraryThispatcher!, 0),
+    ).toBeTruthy();
+    expect(hasLine(libraryPatcher!.lines, libraryReceiveData!, 0, jwebLibrary!, 0)).toBeTruthy();
+    expect(hasLine(libraryPatcher!.lines, jwebLibrary!, 0, libraryRoute!, 0)).toBeTruthy();
+    expect(hasLine(libraryPatcher!.lines, libraryRoute!, 1, libraryReadyMessage!, 0)).toBeTruthy();
+    expect(
+      hasLine(libraryPatcher!.lines, libraryReadyMessage!, 0, libraryAuthorSend!, 0),
+    ).toBeTruthy();
+    expect(hasLine(libraryPatcher!.lines, libraryRoute!, 2, libraryDebugSend!, 0)).toBeTruthy();
+    expect(hasLine(libraryPatcher!.lines, libraryRoute!, 3, libraryAction!, 0)).toBeTruthy();
 
     const libraryInfo = boxByText(boxes, "p library-info");
     const libraryPcontrol = boxByText(boxes, "pcontrol");
@@ -598,7 +575,7 @@ describe("Motif Max patch integration", () => {
       boxes,
       "route event panic clear status error context motifs-reset motif-item motif-selected midi-pass ui library-page persist",
     );
-    assert.ok(
+    expect(
       libraryInfo &&
         libraryPcontrol &&
         infoTrigger &&
@@ -611,47 +588,47 @@ describe("Motif Max patch integration", () => {
         libraryPagePrepend &&
         libraryEngineRoute &&
         v8,
-    );
-    assert.ok(
-      hasLine(lines, infoTrigger, 1, libraryClose, 0),
+    ).toBeTruthy();
+    expect(
+      hasLine(lines, infoTrigger!, 1, libraryClose!, 0),
       "each Info press must close the prior window first",
-    );
-    assert.ok(
-      hasLine(lines, libraryClose, 0, libraryPcontrol, 0),
+    ).toBeTruthy();
+    expect(
+      hasLine(lines, libraryClose!, 0, libraryPcontrol!, 0),
       "close must be sent to pcontrol",
-    );
-    assert.ok(
-      hasLine(lines, infoTrigger, 0, libraryReopenDefer, 0),
+    ).toBeTruthy();
+    expect(
+      hasLine(lines, infoTrigger!, 0, libraryReopenDefer!, 0),
       "reopening must wait until the close completes",
-    );
-    assert.ok(hasLine(lines, libraryReopenDefer, 0, libraryOpenTrigger, 0));
-    assert.ok(
-      hasLine(lines, libraryOpenTrigger, 2, libraryOpen, 0),
+    ).toBeTruthy();
+    expect(hasLine(lines, libraryReopenDefer!, 0, libraryOpenTrigger!, 0)).toBeTruthy();
+    expect(
+      hasLine(lines, libraryOpenTrigger!, 2, libraryOpen!, 0),
       "window must open before page preparation is deferred",
-    );
-    assert.ok(hasLine(lines, libraryOpenTrigger, 1, libraryPrepareDefer, 0));
-    assert.ok(hasLine(lines, libraryPrepareDefer, 0, libraryPrepare, 0));
-    assert.ok(hasLine(lines, libraryPrepare, 0, v8, 0));
-    assert.ok(hasLine(lines, libraryEngineRoute, 11, libraryPagePrepend, 0));
-    assert.ok(hasLine(lines, libraryPagePrepend, 0, libraryInfo, 0));
-    assert.ok(
-      hasLine(lines, libraryOpen, 0, libraryPcontrol, 0),
+    ).toBeTruthy();
+    expect(hasLine(lines, libraryOpenTrigger!, 1, libraryPrepareDefer!, 0)).toBeTruthy();
+    expect(hasLine(lines, libraryPrepareDefer!, 0, libraryPrepare!, 0)).toBeTruthy();
+    expect(hasLine(lines, libraryPrepare!, 0, v8!, 0)).toBeTruthy();
+    expect(hasLine(lines, libraryEngineRoute!, 11, libraryPagePrepend!, 0)).toBeTruthy();
+    expect(hasLine(lines, libraryPagePrepend!, 0, libraryInfo!, 0)).toBeTruthy();
+    expect(
+      hasLine(lines, libraryOpen!, 0, libraryPcontrol!, 0),
       "only open should be sent to pcontrol",
-    );
+    ).toBeTruthy();
     for (const text of [
       "window flags float nogrow close zoom",
       libraryWindowSizeMessage,
       "window exec",
     ]) {
       for (const { box } of boxes.filter(({ box }) => box.text === text)) {
-        assert.ok(
-          hasLine(lines, box, 0, libraryInfo, 0),
+        expect(
+          hasLine(lines, box, 0, libraryInfo!, 0),
           `${text} must be forwarded to the subpatch thispatcher`,
-        );
-        assert.ok(
-          !hasLine(lines, box, 0, libraryPcontrol, 0),
+        ).toBeTruthy();
+        expect(
+          !hasLine(lines, box, 0, libraryPcontrol!, 0),
           `${text} must never be sent to pcontrol`,
-        );
+        ).toBeTruthy();
       }
     }
 
@@ -661,18 +638,18 @@ describe("Motif Max patch integration", () => {
       "pattr motif_library_path @autorestore 0 @thru 0 @type symbol @parameter_enable 1 @parameter_mappable 0",
     );
     const libraryPathPrepend = boxByText(boxes, "prepend library_path");
-    assert.ok(libraryPathReceive && libraryPathPattr && libraryPathPrepend);
-    assert.equal(libraryPathPattr.saved_attribute_attributes?.valueof?.parameter_type, 3);
-    assert.equal(libraryPathPattr.saved_attribute_attributes?.valueof?.parameter_invisible, 1);
-    assert.ok(hasLine(lines, libraryPathReceive, 0, libraryPathPattr, 0));
-    assert.ok(hasLine(lines, libraryPathReceive, 0, libraryPathPrepend, 0));
-    assert.ok(hasLine(lines, libraryPathPattr, 0, libraryPathPrepend, 0));
+    expect(libraryPathReceive && libraryPathPattr && libraryPathPrepend).toBeTruthy();
+    expect(libraryPathPattr!.saved_attribute_attributes?.valueof?.parameter_type).toBe(3);
+    expect(libraryPathPattr!.saved_attribute_attributes?.valueof?.parameter_invisible).toBe(1);
+    expect(hasLine(lines, libraryPathReceive!, 0, libraryPathPattr!, 0)).toBeTruthy();
+    expect(hasLine(lines, libraryPathReceive!, 0, libraryPathPrepend!, 0)).toBeTruthy();
+    expect(hasLine(lines, libraryPathPattr!, 0, libraryPathPrepend!, 0)).toBeTruthy();
 
     const pathRestoreBang = boxes.find(
       ({ box }) =>
         box.maxclass === "message" &&
         box.text === "bang" &&
-        hasLine(lines, box, 0, libraryPathPattr, 0),
+        hasLine(lines, box, 0, libraryPathPattr!, 0),
     )?.box;
     const deviceStatePattr = boxByText(
       boxes,
@@ -687,28 +664,28 @@ describe("Motif Max patch integration", () => {
         )?.box
       : undefined;
     const stateRestorePrepend = boxByText(boxes, "prepend restore_state");
-    assert.ok(deviceStatePattr && stateRestoreBang && stateRestorePrepend && engineRoute);
-    assert.equal(deviceStatePattr.saved_attribute_attributes?.valueof?.parameter_type, 3);
-    assert.equal(deviceStatePattr.saved_attribute_attributes?.valueof?.parameter_invisible, 1);
-    assert.ok(hasLine(lines, deviceStatePattr, 0, stateRestorePrepend, 0));
-    assert.ok(hasLine(lines, stateRestorePrepend, 0, v8, 0));
-    assert.ok(hasLine(lines, engineRoute, 12, deviceStatePattr, 0));
+    expect(deviceStatePattr && stateRestoreBang && stateRestorePrepend && engineRoute).toBeTruthy();
+    expect(deviceStatePattr!.saved_attribute_attributes?.valueof?.parameter_type).toBe(3);
+    expect(deviceStatePattr!.saved_attribute_attributes?.valueof?.parameter_invisible).toBe(1);
+    expect(hasLine(lines, deviceStatePattr!, 0, stateRestorePrepend!, 0)).toBeTruthy();
+    expect(hasLine(lines, stateRestorePrepend!, 0, v8!, 0)).toBeTruthy();
+    expect(hasLine(lines, engineRoute!, 12, deviceStatePattr!, 0)).toBeTruthy();
 
     const initOrder = boxByText(boxes, "t b b b b b b");
     const thisDevice = boxByText(boxes, "live.thisdevice");
-    assert.ok(pathRestoreBang && initOrder && thisDevice && parameterRestore);
-    assert.ok(hasLine(lines, thisDevice, 0, initOrder, 0));
-    assert.ok(hasLine(lines, initOrder, 5, pathRestoreBang, 0));
-    assert.ok(hasLine(lines, initOrder, 4, stateRestoreBang, 0));
-    assert.ok(hasLine(lines, initOrder, 3, parameterRestore, 0));
+    expect(pathRestoreBang && initOrder && thisDevice && parameterRestore).toBeTruthy();
+    expect(hasLine(lines, thisDevice!, 0, initOrder!, 0)).toBeTruthy();
+    expect(hasLine(lines, initOrder!, 5, pathRestoreBang!, 0)).toBeTruthy();
+    expect(hasLine(lines, initOrder!, 4, stateRestoreBang!, 0)).toBeTruthy();
+    expect(hasLine(lines, initOrder!, 3, parameterRestore!, 0)).toBeTruthy();
 
     const authorReceive = boxByText(boxes, "receive ---motif_author");
     const authorDefer = authorReceive
       ? boxes.find(({ box }) => box.text === "deferlow" && hasLine(lines, authorReceive, 0, box, 0))
           ?.box
       : undefined;
-    assert.ok(authorReceive && authorDefer);
-    assert.ok(hasLine(lines, authorDefer, 0, v8, 0));
+    expect(authorReceive && authorDefer).toBeTruthy();
+    expect(hasLine(lines, authorDefer!, 0, v8!, 0)).toBeTruthy();
 
     for (const varname of [
       "trigger-menu",
@@ -720,31 +697,25 @@ describe("Motif Max patch integration", () => {
       "low-number",
       "high-number",
     ]) {
-      assert.equal(
-        boxByVarname(boxes, varname)?.hidden,
-        1,
-        `${varname} should start hidden on the Settings tab`,
-      );
+      expect(boxByVarname(boxes, varname)?.hidden).toBe(1);
     }
   });
 
   it("compiled Library page parses, targets ES2018, and binds receiveData before readiness", async () => {
     const libraryHtml = await readFile("max/library.html", "utf8");
     const script = libraryHtml.match(/<script>([\s\S]*?)<\/script>/)?.[1];
-    assert.ok(script, "production Library HTML must contain the compiled inline script");
-    assert.doesNotThrow(
-      () => new vm.Script(script, { filename: "library.html" }),
-      "library JavaScript must parse",
-    );
-    assert.doesNotMatch(
-      script,
+    expect(script, "production Library HTML must contain the compiled inline script").toBeTruthy();
+    expect(() => new vm.Script(script!, { filename: "library.html" })).not.toThrow();
+    expect(script, "Library JavaScript must be compiled to its ES2018 target").not.toMatch(
       /\?\.|\?\?|\binterface\b/,
-      "Library JavaScript must be compiled to its ES2018 target",
     );
-    const bindIndex = script.search(/bindInlet\(\s*["']receiveData["']/);
-    const readyIndex = script.search(/outlet\(\s*["']library_ready["']/);
-    assert.ok(bindIndex >= 0, "library must bind the receiveData inlet");
-    assert.ok(readyIndex > bindIndex, "library must announce readiness after binding receiveData");
+    const bindIndex = script!.search(/bindInlet\(\s*["']receiveData["']/);
+    const readyIndex = script!.search(/outlet\(\s*["']library_ready["']/);
+    expect(bindIndex >= 0, "library must bind the receiveData inlet").toBeTruthy();
+    expect(
+      readyIndex > bindIndex,
+      "library must announce readiness after binding receiveData",
+    ).toBeTruthy();
   });
 
   it("native preview executes and renders a valid payload without jweb", async () => {
@@ -791,7 +762,7 @@ describe("Motif Max patch integration", () => {
 
     new vm.Script(previewScript, { filename: "motif-preview.js" }).runInContext(context);
     (context.loadbang as () => void)();
-    assert.ok(outletMessages.some((message) => message[1] === "preview_ready"));
+    expect(outletMessages.some((message) => message[1] === "preview_ready")).toBeTruthy();
 
     const payload = encodeURIComponent(
       JSON.stringify({
@@ -808,15 +779,15 @@ describe("Motif Max patch integration", () => {
     (context.receiveData as (value: string) => void)(payload);
     (context.paint as () => void)();
 
-    assert.equal(errors.length, 0);
+    expect(errors.length).toBe(0);
     const velocityColor = context.velocityColor as (color: number[], velocity: number) => number[];
     const dim = Array.from(velocityColor([1, 0.55, 0.12, 1], 1));
     const bright = Array.from(velocityColor([1, 0.55, 0.12, 1], 127));
-    assert.ok(dim[0]! < bright[0]! && dim[1]! < bright[1]! && dim[2]! < bright[2]!);
-    assert.equal(dim[3], bright[3], "velocity shading must not make notes transparent");
-    assert.ok(
+    expect(dim[0]! < bright[0]! && dim[1]! < bright[1]! && dim[2]! < bright[2]!).toBeTruthy();
+    expect(dim[3]).toBe(bright[3]);
+    expect(
       outletMessages.some((message) => message[1] === "preview_debug" && message[2] === "ok"),
-    );
+    ).toBeTruthy();
   });
 
   it("MIDI routing is fail-open and follows the documented midiselect pattern", async () => {
@@ -831,7 +802,7 @@ describe("Motif Max patch integration", () => {
     const midiout = boxByText(boxes, "midiout");
     const readyRoute = boxByText(boxes, "route Ready");
 
-    assert.ok(
+    expect(
       midiin &&
         inputGate &&
         bypassDefault &&
@@ -840,31 +811,31 @@ describe("Motif Max patch integration", () => {
         midiflush &&
         midiout &&
         readyRoute,
-    );
-    assert.ok(hasLine(lines, midiin, 0, inputGate, 1));
-    assert.ok(hasLine(lines, bypassDefault, 0, inputGate, 0));
-    assert.ok(
-      hasLine(lines, inputGate, 0, midiflush, 0),
+    ).toBeTruthy();
+    expect(hasLine(lines, midiin!, 0, inputGate!, 1)).toBeTruthy();
+    expect(hasLine(lines, bypassDefault!, 0, inputGate!, 0)).toBeTruthy();
+    expect(
+      hasLine(lines, inputGate!, 0, midiflush!, 0),
       "raw MIDI must bypass JavaScript before Ready",
-    );
-    assert.ok(
-      hasLine(lines, inputGate, 1, midiselect, 0),
+    ).toBeTruthy();
+    expect(
+      hasLine(lines, inputGate!, 1, midiselect!, 0),
       "Ready mode must feed native MIDI selection",
-    );
-    assert.ok(
-      hasLine(lines, midiselect, 7, midiflush, 0),
+    ).toBeTruthy();
+    expect(
+      hasLine(lines, midiselect!, 7, midiflush!, 0),
       "unselected raw MIDI must pass directly to output",
-    );
-    assert.ok(hasLine(lines, midiflush, 0, midiout, 0));
+    ).toBeTruthy();
+    expect(hasLine(lines, midiflush!, 0, midiout!, 0)).toBeTruthy();
 
     const readyTriggerId = lines.find(
-      ({ patchline }) => patchline.source[0] === readyRoute.id && patchline.source[1] === 0,
+      ({ patchline }) => patchline.source[0] === readyRoute!.id && patchline.source[1] === 0,
     )?.patchline.destination[0];
     const readyTrigger = boxes.find(({ box }) => box.id === readyTriggerId)?.box;
-    assert.equal(readyTrigger?.text, "t b b b");
-    assert.ok(readyTrigger);
-    assert.ok(hasLine(lines, readyTrigger, 1, engineMode, 0));
-    assert.ok(hasLine(lines, engineMode, 0, inputGate, 0));
+    expect(readyTrigger?.text).toBe("t b b b");
+    expect(readyTrigger).toBeTruthy();
+    expect(hasLine(lines, readyTrigger!, 1, engineMode!, 0)).toBeTruthy();
+    expect(hasLine(lines, engineMode!, 0, inputGate!, 0)).toBeTruthy();
   });
 
   it("separates ordinary queue clearing from a full sixteen-channel panic", async () => {
@@ -885,7 +856,7 @@ describe("Motif Max patch integration", () => {
     );
     const midiflush = boxByText(boxes, "midiflush");
 
-    assert.ok(
+    expect(
       engineRoute &&
         panicTrigger &&
         clearTrigger &&
@@ -895,34 +866,30 @@ describe("Motif Max patch integration", () => {
         controllerMessage &&
         panicMidiFormat &&
         midiflush,
-    );
-    assert.ok(hasLine(lines, engineRoute, 1, panicTrigger, 0));
-    assert.ok(hasLine(lines, panicTrigger, 2, clearMessage, 0));
-    assert.ok(hasLine(lines, panicTrigger, 1, channelUzi, 0));
-    assert.ok(hasLine(lines, panicTrigger, 0, midiflush, 0));
-    assert.ok(hasLine(lines, channelUzi, 2, channelTrigger, 0));
-    assert.ok(hasLine(lines, channelTrigger, 1, panicMidiFormat, 6));
-    assert.ok(hasLine(lines, channelTrigger, 0, controllerMessage, 0));
-    assert.ok(hasLine(lines, panicMidiFormat, 0, midiflush, 0));
-    assert.ok(hasLine(lines, engineRoute, 2, clearTrigger, 0));
-    assert.ok(hasLine(lines, clearTrigger, 1, clearMessage, 0));
-    assert.ok(hasLine(lines, clearTrigger, 0, midiflush, 0));
+    ).toBeTruthy();
+    expect(hasLine(lines, engineRoute!, 1, panicTrigger!, 0)).toBeTruthy();
+    expect(hasLine(lines, panicTrigger!, 2, clearMessage!, 0)).toBeTruthy();
+    expect(hasLine(lines, panicTrigger!, 1, channelUzi!, 0)).toBeTruthy();
+    expect(hasLine(lines, panicTrigger!, 0, midiflush!, 0)).toBeTruthy();
+    expect(hasLine(lines, channelUzi!, 2, channelTrigger!, 0)).toBeTruthy();
+    expect(hasLine(lines, channelTrigger!, 1, panicMidiFormat!, 6)).toBeTruthy();
+    expect(hasLine(lines, channelTrigger!, 0, controllerMessage!, 0)).toBeTruthy();
+    expect(hasLine(lines, panicMidiFormat!, 0, midiflush!, 0)).toBeTruthy();
+    expect(hasLine(lines, engineRoute!, 2, clearTrigger!, 0)).toBeTruthy();
+    expect(hasLine(lines, clearTrigger!, 1, clearMessage!, 0)).toBeTruthy();
+    expect(hasLine(lines, clearTrigger!, 0, midiflush!, 0)).toBeTruthy();
   });
 
   it("compiled bundle uses one hand-written top-level Max dispatcher", async () => {
     const { source } = await loadCompiledEngine();
-    assert.match(
-      source.slice(0, 600),
+    expect(source.slice(0, 600)).toMatch(
       /var inlets\s*=\s*1;[\s\S]*var outlets\s*=\s*1;[\s\S]*function anything\(\)/,
     );
-    assert.match(source, /var message\s*=\s*messagename/);
-    assert.match(source, /arrayfromargs\(arguments\)/);
-    assert.match(source, /MotifEngine\.dispatch\(message,\s*args\)/);
-    assert.doesNotMatch(
-      source.slice(0, source.indexOf('"use strict";')),
-      /function song_context\(/,
-    );
-    assert.doesNotMatch(source, /__motifHandlers/);
-    assert.doesNotMatch(source, /function host(?:_|\()/);
+    expect(source).toMatch(/var message\s*=\s*messagename/);
+    expect(source).toMatch(/arrayfromargs\(arguments\)/);
+    expect(source).toMatch(/MotifEngine\.dispatch\(message,\s*args\)/);
+    expect(source.slice(0, source.indexOf('"use strict";'))).not.toMatch(/function song_context\(/);
+    expect(source).not.toMatch(/__motifHandlers/);
+    expect(source).not.toMatch(/function host(?:_|\()/);
   });
 });

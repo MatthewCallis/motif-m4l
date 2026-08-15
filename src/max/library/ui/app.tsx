@@ -5,6 +5,7 @@
 
 import { useEffect, useRef } from "preact/hooks";
 import { confirmDiscard, pushProperties, readProperties, send } from "./bridge.js";
+import { classNames } from "./class-names.js";
 import { renderLibraryPreview } from "./preview.js";
 import { LibraryStoreProvider, useLibraryStore } from "./store.js";
 import { DebugBar } from "./components/DebugBar.js";
@@ -81,7 +82,7 @@ function LibraryShell() {
           <div id="detail-actions">
             <button
               type="button"
-              class="btn"
+              className="btn"
               id="import-clip-btn"
               title={importTitle}
               disabled={!server?.actions.canImportClip || editing}
@@ -96,7 +97,7 @@ function LibraryShell() {
             </button>
             <button
               type="button"
-              class={`btn${editing ? " accent" : ""}`}
+              className={classNames("btn", { accent: editing })}
               id="save-motif-btn"
               disabled={!server?.actions.canSave}
               title={
@@ -113,7 +114,7 @@ function LibraryShell() {
           <div id="meta">
             <div id="meta-row-1">
               <input
-                class="field"
+                className="field"
                 id="name-edit"
                 type="text"
                 placeholder="(no motif selected)"
@@ -133,7 +134,7 @@ function LibraryShell() {
               />
               <button
                 type="button"
-                class={`btn${!editing ? " accent" : ""}${editing ? " hidden" : ""}`}
+                className={classNames("btn", { accent: !editing, hidden: editing })}
                 id="edit-btn"
                 disabled={!selected || !server?.actions.canEdit}
                 onClick={() => send({ type: "begin_edit" })}
@@ -142,7 +143,7 @@ function LibraryShell() {
               </button>
               <button
                 type="button"
-                class={`btn${editing ? "" : " hidden"}`}
+                className={classNames("btn", { hidden: !editing })}
                 id="cancel-edit-btn"
                 onClick={() => confirmDiscard(() => send({ type: "cancel_edit" }))}
               >
@@ -150,7 +151,7 @@ function LibraryShell() {
               </button>
             </div>
             <textarea
-              class="field"
+              className="field"
               id="description-edit"
               placeholder="Description"
               readOnly={!editing}
@@ -177,7 +178,7 @@ function LibraryShell() {
           <div id="panel-tabs">
             <button
               type="button"
-              class={`panel-tab${activePanel === "properties" ? " active" : ""}`}
+              className={classNames("panel-tab", { active: activePanel === "properties" })}
               data-panel="properties"
               onClick={() => pageStore.setState({ activePanel: "properties" })}
             >
@@ -185,7 +186,7 @@ function LibraryShell() {
             </button>
             <button
               type="button"
-              class={`panel-tab${activePanel === "notes" ? " active" : ""}`}
+              className={classNames("panel-tab", { active: activePanel === "notes" })}
               data-panel="notes"
               onClick={() => pageStore.setState({ activePanel: "notes" })}
             >
@@ -194,7 +195,10 @@ function LibraryShell() {
           </div>
 
           <PropertyForm server={server} editing={editing} hidden={activePanel !== "properties"} />
-          <div class={`panel${activePanel === "notes" ? "" : " hidden"}`} id="notes-panel">
+          <div
+            className={classNames("panel", { hidden: activePanel !== "notes" })}
+            id="notes-panel"
+          >
             <NoteTable server={server} editing={editing} />
           </div>
         </div>

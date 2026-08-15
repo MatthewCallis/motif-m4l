@@ -2,6 +2,7 @@
 import { useState } from "preact/hooks";
 import { propertiesFromDraft, send } from "../bridge.js";
 import { addTagSelection, removeTagSelection, suggestTags } from "../browser-model.js";
+import { classNames } from "../class-names.js";
 import { useLibraryStore } from "../store.js";
 import type { LibraryServerState } from "../../protocol.js";
 
@@ -39,20 +40,20 @@ export function MotifTags({
   if (!server?.selected) {
     return (
       <>
-        <div class="wide" id="motif-tags" />
+        <div className="wide" id="motif-tags" />
         <label htmlFor="tag-edit-input">Add tag</label>
-        <div class="wide" id="tag-edit-controls">
+        <div className="wide" id="tag-edit-controls">
           <input
-            class="field"
+            className="field"
             id="tag-edit-input"
             name="tag-edit-input"
             type="text"
             placeholder="Existing or new tag"
-            autocomplete="off"
-            spellcheck={false}
+            autoComplete="off"
+            spellCheck={false}
             disabled
           />
-          <div id="tag-suggestions" class="hidden" />
+          <div id="tag-suggestions" className="hidden" />
         </div>
       </>
     );
@@ -60,15 +61,15 @@ export function MotifTags({
 
   return (
     <>
-      <div class="wide" id="motif-tags">
+      <div className="wide" id="motif-tags">
         {editTags.length === 0 ? (
-          <span class="tag-chip empty">{editing ? "None" : "No tags"}</span>
+          <span className="tag-chip empty">{editing ? "None" : "No tags"}</span>
         ) : (
           editTags.map((tag) => (
             <button
               key={tag}
               type="button"
-              class="tag-chip applied"
+              className="tag-chip applied"
               disabled={!editing}
               title={editing ? `Remove ${tag}` : tag}
               onClick={() => {
@@ -84,15 +85,15 @@ export function MotifTags({
         )}
       </div>
       <label htmlFor="tag-edit-input">Add tag</label>
-      <div class="wide" id="tag-edit-controls">
+      <div className="wide" id="tag-edit-controls">
         <input
-          class="field"
+          className="field"
           id="tag-edit-input"
           name="tag-edit-input"
           type="text"
           placeholder="Existing or new tag"
-          autocomplete="off"
-          spellcheck={false}
+          autoComplete="off"
+          spellCheck={false}
           disabled={!editing}
           value={query}
           onFocus={() => setSuggestionsOpen(true)}
@@ -112,7 +113,7 @@ export function MotifTags({
           }}
           onBlur={() => setSuggestionsOpen(false)}
         />
-        <div id="tag-suggestions" class={matches.length === 0 ? "hidden" : undefined}>
+        <div id="tag-suggestions" className={classNames({ hidden: matches.length === 0 })}>
           {matches.map((tag) => (
             <button
               key={tag}

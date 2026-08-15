@@ -4,8 +4,7 @@
  * When adding a handler in `src/max/device.ts`, add a valid invocation here.
  */
 
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import vm from "node:vm";
 import { loadCompiledEngine } from "../helpers/max-engine.js";
 
@@ -163,12 +162,11 @@ describe("Max handler contract", () => {
       vm.runInContext("anything.apply(null, __args)", context);
     }
 
-    assert.deepEqual(
+    expect(
       errors.filter(
         (message) =>
           message.includes("Unknown message") || message.includes("dispatcher is unavailable"),
       ),
-      [],
-    );
+    ).toEqual([]);
   });
 });

@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import {
   DEVICE_STATE_SCHEMA_VERSION,
   decodePersistedDeviceState,
@@ -17,8 +16,8 @@ describe("Live-stored device state", () => {
       ],
     });
 
-    assert.ok(!encoded.includes(" "));
-    assert.deepEqual(decodePersistedDeviceState(encoded), {
+    expect(!encoded.includes(" ")).toBeTruthy();
+    expect(decodePersistedDeviceState(encoded)).toEqual({
       schemaVersion: DEVICE_STATE_SCHEMA_VERSION,
       selectedMotifId: "user-phrase",
       hotkeys: [
@@ -29,7 +28,7 @@ describe("Live-stored device state", () => {
   });
 
   it("accepts raw JSON and normalizes duplicate or malformed assignments", () => {
-    assert.deepEqual(
+    expect(
       decodePersistedDeviceState(
         JSON.stringify({
           schemaVersion: 1,
@@ -43,20 +42,19 @@ describe("Live-stored device state", () => {
           ],
         }),
       ),
-      {
-        schemaVersion: DEVICE_STATE_SCHEMA_VERSION,
-        selectedMotifId: "scale-turn",
-        hotkeys: [{ pitch: 20, motifId: "scale-turn", action: "select" }],
-      },
-    );
+    ).toEqual({
+      schemaVersion: DEVICE_STATE_SCHEMA_VERSION,
+      selectedMotifId: "scale-turn",
+      hotkeys: [{ pitch: 20, motifId: "scale-turn", action: "select" }],
+    });
   });
 
   it("rejects empty, malformed, and unsupported snapshots", () => {
-    assert.equal(decodePersistedDeviceState(""), undefined);
-    assert.equal(decodePersistedDeviceState("%not-json"), undefined);
-    assert.equal(decodePersistedDeviceState("null"), undefined);
-    assert.equal(decodePersistedDeviceState("[]"), undefined);
-    assert.equal(
+    expect(decodePersistedDeviceState("")).toBe(undefined);
+    expect(decodePersistedDeviceState("%not-json")).toBe(undefined);
+    expect(decodePersistedDeviceState("null")).toBe(undefined);
+    expect(decodePersistedDeviceState("[]")).toBe(undefined);
+    expect(
       decodePersistedDeviceState(
         encodeURIComponent(
           JSON.stringify({
@@ -66,9 +64,8 @@ describe("Live-stored device state", () => {
           }),
         ),
       ),
-      undefined,
-    );
-    assert.equal(
+    ).toBe(undefined);
+    expect(
       decodePersistedDeviceState(
         encodeURIComponent(
           JSON.stringify({
@@ -78,9 +75,8 @@ describe("Live-stored device state", () => {
           }),
         ),
       ),
-      undefined,
-    );
-    assert.deepEqual(
+    ).toBe(undefined);
+    expect(
       decodePersistedDeviceState(
         JSON.stringify({
           schemaVersion: 1,
@@ -88,9 +84,8 @@ describe("Live-stored device state", () => {
           hotkeys: [{ pitch: 60, motifId: "scale-turn", action: "trigger" }],
         }),
       ),
-      undefined,
-    );
-    assert.deepEqual(
+    ).toEqual(undefined);
+    expect(
       decodePersistedDeviceState(
         JSON.stringify({
           schemaVersion: 1,
@@ -98,11 +93,10 @@ describe("Live-stored device state", () => {
           hotkeys: [null, "bad", { pitch: 60, motifId: "scale-turn", action: "trigger" }],
         }),
       ),
-      {
-        schemaVersion: DEVICE_STATE_SCHEMA_VERSION,
-        selectedMotifId: "scale-turn",
-        hotkeys: [{ pitch: 60, motifId: "scale-turn", action: "trigger" }],
-      },
-    );
+    ).toEqual({
+      schemaVersion: DEVICE_STATE_SCHEMA_VERSION,
+      selectedMotifId: "scale-turn",
+      hotkeys: [{ pitch: 60, motifId: "scale-turn", action: "trigger" }],
+    });
   });
 });

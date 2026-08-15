@@ -1,6 +1,5 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { installMaxMocks } from "../helpers/max-mocks.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { installMaxMocks, mockMessages, outletLists } from "../helpers/max-mocks.js";
 import {
   canonicalMaxPath,
   discardAllowed,
@@ -21,54 +20,58 @@ import {
 } from "../../src/max/max-helpers.js";
 
 describe("Max helpers", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
   it("normalizes atoms, paths, toggles, and outlet messages", () => {
     const mocks = installMaxMocks();
-    assert.deepEqual(flattenValues([1, [2, 3], "four"]), [1, 2, 3, "four"]);
-    assert.deepEqual(numbers([1, ["2", "bad"]]), [1, 2]);
-    assert.equal(stringAtom(true), "true");
-    assert.equal(stringAtom({}, "fallback"), "fallback");
-    assert.equal(pathFromAtoms(["/tmp/My", "Library"]), "/tmp/My Library");
-    assert.equal(joinMaxPath("/tmp", "file.json"), "/tmp/file.json");
-    assert.equal(joinMaxPath("Volume:", "file.json"), "Volume:file.json");
-    assert.equal(canonicalMaxPath("C:\\Foo//Bar"), "c:/foo/bar");
-    assert.equal(toggleEnabled("on"), true);
-    assert.equal(toggleEnabled(0), false);
-    assert.equal(discardAllowed(true), true);
-    assert.equal(discardAllowed(0), false);
+    expect(flattenValues([1, [2, 3], "four"])).toEqual([1, 2, 3, "four"]);
+    expect(numbers([1, ["2", "bad"]])).toEqual([1, 2]);
+    expect(stringAtom(true)).toBe("true");
+    expect(stringAtom({}, "fallback")).toBe("fallback");
+    expect(pathFromAtoms(["/tmp/My", "Library"])).toBe("/tmp/My Library");
+    expect(joinMaxPath("/tmp", "file.json")).toBe("/tmp/file.json");
+    expect(joinMaxPath("Volume:", "file.json")).toBe("Volume:file.json");
+    expect(canonicalMaxPath("C:\\Foo//Bar")).toBe("c:/foo/bar");
+    expect(toggleEnabled("on")).toBe(true);
+    expect(toggleEnabled(0)).toBe(false);
+    expect(discardAllowed(true)).toBe(true);
+    expect(discardAllowed(0)).toBe(false);
 
     emit("value", 1);
     emitStatus("ready");
     emitError("broken");
-    assert.deepEqual(mocks.outlets, [
+    expect(outletLists(mocks.outlet)).toEqual([
       ["value", 1],
       ["status", "ready"],
       ["error", "broken"],
     ]);
-    assert.match(mocks.errors[0] ?? "", /Motif: broken/);
+    expect(mockMessages(mocks.error)[0] ?? "").toMatch(/Motif: broken/);
   });
 
   it("reads, writes, checks, and materializes Max files", () => {
     const mocks = installMaxMocks();
     mocks.files["/tmp/input.json"] = '{"value":1}';
-    assert.deepEqual(readJsonFile("/tmp/input.json"), { value: 1 });
-    assert.equal(fileExists("/tmp/input.json"), true);
-    assert.equal(fileExists("/tmp/missing.json"), false);
+    expect(readJsonFile("/tmp/input.json")).toEqual({ value: 1 });
+    expect(fileExists("/tmp/input.json")).toBe(true);
+    expect(fileExists("/tmp/missing.json")).toBe(false);
 
     writeJsonFile("/tmp/output.json", { value: 2 });
-    assert.match(mocks.files["/tmp/output.json"] ?? "", /"value": 2/);
-    assert.equal(
-      prepareLibraryPage("library.html", "<!doctype html><p>ready</p>"),
+    expect(mocks.files["/tmp/output.json"] ?? "").toMatch(/"value": 2/);
+    expect(prepareLibraryPage("library.html", "<!doctype html><p>ready</p>")).toBe(
       "/tmp/library.html",
     );
-    assert.match(mocks.files["/tmp/library.html"] ?? "", /ready/);
-    assert.throws(() => readJsonFile("/tmp/missing.json"), /could not open/);
+    expect(mocks.files["/tmp/library.html"] ?? "").toMatch(/ready/);
+    expect(() => readJsonFile("/tmp/missing.json")).toThrow(/could not open/);
   });
 
   it("routes decoded and malformed web diagnostics to the correct console stream", () => {
     const mocks = installMaxMocks();
     mirrorWebDebug("library", "info", encodeURIComponent("ready now"));
     mirrorWebDebug("preview", "error", "%invalid");
-    assert.match(mocks.posts[0] ?? "", /ready now/);
-    assert.match(mocks.errors[0] ?? "", /%invalid/);
+    expect(mockMessages(mocks.post)[0] ?? "").toMatch(/ready now/);
+    expect(mockMessages(mocks.error)[0] ?? "").toMatch(/%invalid/);
   });
 });

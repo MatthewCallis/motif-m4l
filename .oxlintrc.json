@@ -1,6 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["import", "jsdoc", "node", "promise", "typescript"],
+  "jsPlugins": ["./scripts/eslint-plugin-unicode/index.ts"],
   "options": {
     "typeAware": true
   },
@@ -16,6 +17,7 @@
     }
   },
   "rules": {
+    "unicode/no-invisible": "error",
     "curly": ["error", "all"],
     "import/namespace": "error",
     "import/default": "error",
@@ -97,7 +99,7 @@
       }
     },
     {
-      "files": ["tests/**/*.ts", "tests/**/*.mts", "scripts/**/*.ts"],
+      "files": ["tests/**/*.ts", "tests/**/*.tsx", "scripts/**/*.ts"],
       "rules": {
         "typescript/no-floating-promises": "off",
         "typescript/no-unsafe-argument": "off",
@@ -146,24 +148,7 @@
         "react/prefer-function-component": "error",
         "react/react-in-jsx-scope": "off",
         "react/only-export-components": "off",
-        "react/no-unknown-property": [
-          "error",
-          {
-            "ignore": [
-              "class",
-              "for",
-              "autocomplete",
-              "spellcheck",
-              "readonly",
-              "tabindex",
-              "autofocus",
-              "crossorigin",
-              "maxlength",
-              "minlength",
-              "novalidate"
-            ]
-          }
-        ],
+        "react/no-unknown-property": "error",
         "jsx-a11y/alt-text": "error",
         "jsx-a11y/anchor-has-content": "error",
         "jsx-a11y/aria-props": "error",

@@ -39,14 +39,14 @@ export function NoteTable({
           // Notes have no stable IDs: the device protocol intentionally
           // addresses every edit and removal by its current array index.
           // oxlint-disable-next-line react/no-array-index-key
-          <div class="note-row" key={index}>
+          <div className="note-row" key={index}>
             <span>{index + 1}</span>
             {NOTE_FIELDS.map((field) => {
               if (field.type === "checkbox") {
                 const controlId = `note-${index}-${field.name}`;
                 return (
-                  <label class="check-cell" key={field.name} htmlFor={controlId}>
-                    <span class="visually-hidden">
+                  <label className="check-cell" key={field.name} htmlFor={controlId}>
+                    <span className="visually-hidden">
                       {field.name === "legato" ? "Legato" : "Tie"}
                     </span>
                     <input
@@ -90,7 +90,7 @@ export function NoteTable({
             })}
             <button
               type="button"
-              class="remove-btn"
+              className="remove-btn"
               title="Remove note"
               disabled={!canRemove}
               onClick={() => send({ type: "remove_note", index })}
@@ -103,7 +103,7 @@ export function NoteTable({
       <div id="add-row">
         <button
           type="button"
-          class="btn"
+          className="btn"
           id="add-note-btn"
           disabled={!canAdd}
           onClick={() => send({ type: "add_note" })}

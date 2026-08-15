@@ -1,18 +1,17 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import { validateMotif } from "../../src/library/validate.js";
 
 describe("motif validation", () => {
   it("reports useful errors for malformed motif files", () => {
     const result = validateMotif({ schemaVersion: 1, id: "", notes: [] });
-    assert.equal(result.valid, false);
-    assert.ok(result.errors.some((error) => error.includes("id")));
-    assert.ok(result.errors.some((error) => error.includes("sourceMeter")));
-    assert.ok(result.errors.some((error) => error.includes("notes")));
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((error) => error.includes("id"))).toBeTruthy();
+    expect(result.errors.some((error) => error.includes("sourceMeter"))).toBeTruthy();
+    expect(result.errors.some((error) => error.includes("notes"))).toBeTruthy();
   });
 
   it("rejects non-object values and invalid required fields", () => {
-    assert.deepEqual(validateMotif(null), { valid: false, errors: ["motif must be an object"] });
+    expect(validateMotif(null)).toEqual({ valid: false, errors: ["motif must be an object"] });
 
     const result = validateMotif({
       schemaVersion: 2,
@@ -27,7 +26,7 @@ describe("motif validation", () => {
       notes: [null],
     });
 
-    assert.equal(result.valid, false);
+    expect(result.valid).toBe(false);
     for (const fragment of [
       "schemaVersion",
       "name",
@@ -40,10 +39,10 @@ describe("motif validation", () => {
       "velocityCurve",
       "notes[0]",
     ]) {
-      assert.ok(
+      expect(
         result.errors.some((error) => error.includes(fragment)),
         `missing ${fragment}`,
-      );
+      ).toBeTruthy();
     }
   });
 
@@ -79,7 +78,7 @@ describe("motif validation", () => {
       ],
     });
 
-    assert.equal(result.valid, false);
+    expect(result.valid).toBe(false);
     for (const fragment of [
       "velocityCurve.inputMin",
       "velocityCurve.inputMax",
@@ -97,10 +96,10 @@ describe("motif validation", () => {
       "notes[0].legato",
       "notes[0].tie",
     ]) {
-      assert.ok(
+      expect(
         result.errors.some((error) => error.includes(fragment)),
         `missing ${fragment}`,
-      );
+      ).toBeTruthy();
     }
   });
 
@@ -122,12 +121,12 @@ describe("motif validation", () => {
       notes: [{ at: 0, duration: 1, pitch: 0 }],
     });
 
-    assert.equal(result.valid, false);
+    expect(result.valid).toBe(false);
     for (const field of ["anchorPitch", "scaleRootNote", "scaleName", "scaleIntervals"]) {
-      assert.ok(
+      expect(
         result.errors.some((error) => error.includes(field)),
         `missing ${field}`,
-      );
+      ).toBeTruthy();
     }
 
     const badIntervals = validateMotif({
@@ -146,12 +145,12 @@ describe("motif validation", () => {
       length: 1,
       notes: [{ at: 0, duration: 1, pitch: 0 }],
     });
-    assert.equal(badIntervals.valid, false);
-    assert.ok(
+    expect(badIntervals.valid).toBe(false);
+    expect(
       badIntervals.errors.some((error) =>
         error.includes("scaleIntervals must be null or contain 1 to 12 integers"),
       ),
-    );
+    ).toBeTruthy();
   });
 
   it("returns a typed motif for complete valid input and catches notes beyond its length", () => {
@@ -177,24 +176,24 @@ describe("motif validation", () => {
     };
 
     const valid = validateMotif(motif);
-    assert.equal(valid.valid, true);
-    assert.equal(valid.motif?.id, motif.id);
-    assert.equal(valid.motif?.triggerMode, "hold-repeat");
-    assert.equal(valid.motif?.repeatRounding, "1-bar");
-    assert.deepEqual(valid.errors, []);
+    expect(valid.valid).toBe(true);
+    expect(valid.motif?.id).toBe(motif.id);
+    expect(valid.motif?.triggerMode).toBe("hold-repeat");
+    expect(valid.motif?.repeatRounding).toBe("1-bar");
+    expect(valid.errors).toEqual([]);
 
     const tooShort = validateMotif({ ...motif, length: 959 });
-    assert.equal(tooShort.valid, false);
-    assert.ok(tooShort.errors.includes("notes[0] extends beyond motif length"));
+    expect(tooShort.valid).toBe(false);
+    expect(tooShort.errors.includes("notes[0] extends beyond motif length")).toBeTruthy();
 
     const badPerformance = validateMotif({
       ...motif,
       triggerMode: "repeat-forever",
       repeatRounding: "nearest",
     });
-    assert.equal(badPerformance.valid, false);
-    assert.ok(badPerformance.errors.some((error) => error.includes("triggerMode")));
-    assert.ok(badPerformance.errors.some((error) => error.includes("repeatRounding")));
+    expect(badPerformance.valid).toBe(false);
+    expect(badPerformance.errors.some((error) => error.includes("triggerMode"))).toBeTruthy();
+    expect(badPerformance.errors.some((error) => error.includes("repeatRounding"))).toBeTruthy();
   });
 
   it("normalizes optional tags and rejects invalid tag values", () => {
@@ -216,19 +215,19 @@ describe("motif validation", () => {
     };
 
     const valid = validateMotif({ ...base, tags: [" Demo ", "demo", "Scale"] });
-    assert.equal(valid.valid, true);
-    assert.deepEqual(valid.motif?.tags, ["Demo", "Scale"]);
+    expect(valid.valid).toBe(true);
+    expect(valid.motif?.tags).toEqual(["Demo", "Scale"]);
 
     const omitted = validateMotif({ ...base, tags: ["  ", ""] });
-    assert.equal(omitted.valid, false);
-    assert.ok(omitted.errors.some((error) => error.includes("tags[0]")));
+    expect(omitted.valid).toBe(false);
+    expect(omitted.errors.some((error) => error.includes("tags[0]"))).toBeTruthy();
 
     const empty = validateMotif({ ...base, tags: [] });
-    assert.equal(empty.valid, true);
-    assert.equal(empty.motif?.tags, undefined);
+    expect(empty.valid).toBe(true);
+    expect(empty.motif?.tags).toBe(undefined);
 
     const badType = validateMotif({ ...base, tags: "demo" });
-    assert.equal(badType.valid, false);
-    assert.ok(badType.errors.some((error) => error.includes("tags must be an array")));
+    expect(badType.valid).toBe(false);
+    expect(badType.errors.some((error) => error.includes("tags must be an array"))).toBeTruthy();
   });
 });

@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import { transformMotif } from "../../src/core/transform-motif.js";
 import type { Motif } from "../../src/core/types.js";
 
@@ -26,53 +25,37 @@ const MOTIF: Motif = {
 
 describe("performance motif transforms", () => {
   it("returns the stored motif unchanged when both toggles are off", () => {
-    assert.equal(transformMotif(MOTIF, {}), MOTIF);
+    expect(transformMotif(MOTIF, {})).toBe(MOTIF);
   });
 
   it("inverts encoded pitch offsets and accidentals without mutating the motif", () => {
     const transformed = transformMotif(MOTIF, { invert: true });
 
-    assert.deepEqual(
-      transformed.notes.map(({ pitch, accidental }) => [pitch, accidental]),
-      [
-        [0, 0],
-        [-1, 1],
-        [2, -1],
-      ],
-    );
-    assert.deepEqual(
-      MOTIF.notes.map(({ pitch, accidental }) => [pitch, accidental]),
-      [
-        [0, 0],
-        [1, -1],
-        [-2, 1],
-      ],
-      "stored note offsets must remain unchanged",
-    );
+    expect(transformed.notes.map(({ pitch, accidental }) => [pitch, accidental])).toEqual([
+      [0, 0],
+      [-1, 1],
+      [2, -1],
+    ]);
+    expect(MOTIF.notes.map(({ pitch, accidental }) => [pitch, accidental])).toEqual([
+      [0, 0],
+      [1, -1],
+      [-2, 1],
+    ]);
   });
 
   it("reverses complete note spans while preserving durations and rests", () => {
     const transformed = transformMotif(MOTIF, { reverse: true });
 
-    assert.deepEqual(
-      transformed.notes.map(({ at, duration, pitch }) => [at, duration, pitch]),
-      [
-        [120, 240, -2],
-        [600, 120, 1],
-        [840, 120, 0],
-      ],
-    );
-    assert.deepEqual(
-      MOTIF.notes.map(({ at }) => at),
-      [0, 240, 600],
-    );
+    expect(transformed.notes.map(({ at, duration, pitch }) => [at, duration, pitch])).toEqual([
+      [120, 240, -2],
+      [600, 120, 1],
+      [840, 120, 0],
+    ]);
+    expect(MOTIF.notes.map(({ at }) => at)).toEqual([0, 240, 600]);
   });
 
   it("combines inversion and reversal in one transient copy", () => {
     const transformed = transformMotif(MOTIF, { invert: true, reverse: true });
-    assert.deepEqual(
-      transformed.notes.map(({ pitch }) => pitch),
-      [2, -1, 0],
-    );
+    expect(transformed.notes.map(({ pitch }) => pitch)).toEqual([2, -1, 0]);
   });
 });

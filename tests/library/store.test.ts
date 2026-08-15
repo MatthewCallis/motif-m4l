@@ -1,146 +1,141 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import { MotifStore, uniqueMotifId } from "../../src/library/store.js";
 import { addUserCopy } from "../helpers/motif-store.js";
 
 describe("MotifStore", () => {
   it("filter matches name, id, description, and tags", () => {
     const store = new MotifStore("scale-turn");
-    assert.equal(store.current?.id, "scale-turn");
-    assert.equal(store.select("chromatic-turn")?.id, "chromatic-turn");
-    assert.equal(store.select("missing"), undefined);
-    assert.equal(store.current?.id, "chromatic-turn", "unknown selections preserve current state");
+    expect(store.current?.id).toBe("scale-turn");
+    expect(store.select("chromatic-turn")?.id).toBe("chromatic-turn");
+    expect(store.select("missing")).toBe(undefined);
+    expect(store.current?.id).toBe("chromatic-turn");
     const byName = store.filter("chromatic");
-    assert.ok(byName.some((motif) => motif.id === "chromatic-turn"));
-    assert.deepEqual(store.allTags(), []);
+    expect(byName.some((motif) => motif.id === "chromatic-turn")).toBeTruthy();
+    expect(store.allTags()).toEqual([]);
 
     const tagged = addUserCopy(store, "chromatic-turn", "tagged-user");
-    assert.ok(tagged);
-    assert.deepEqual(store.update({ ...tagged, tags: ["Demo", "lick"] }), []);
-    assert.ok(store.filter("demo").some((motif) => motif.id === "tagged-user"));
-    assert.deepEqual(store.allTags(), ["Demo", "lick"]);
+    expect(tagged).toBeTruthy();
+    expect(store.update({ ...tagged, tags: ["Demo", "lick"] })).toEqual([]);
+    expect(store.filter("demo").some((motif) => motif.id === "tagged-user")).toBeTruthy();
+    expect(store.allTags()).toEqual(["Demo", "lick"]);
 
     const secondTagged = addUserCopy(store, "scale-turn", "tagged-scale");
-    assert.ok(secondTagged);
-    assert.deepEqual(store.update({ ...secondTagged, tags: ["lick"] }), []);
-    assert.deepEqual(store.allTags(), ["lick", "Demo"]);
+    expect(secondTagged).toBeTruthy();
+    expect(store.update({ ...secondTagged, tags: ["lick"] })).toEqual([]);
+    expect(store.allTags()).toEqual(["lick", "Demo"]);
 
-    assert.equal(store.filter("zzz-no-such-motif").length, 0);
-    assert.ok(store.filter("").length >= store.filter("chromatic").length);
+    expect(store.filter("zzz-no-such-motif").length).toBe(0);
+    expect(store.filter("").length >= store.filter("chromatic").length).toBeTruthy();
   });
 
   it("addUserCopy stores a builtin clone under a new editable id", () => {
     const store = new MotifStore();
-    assert.equal(store.isBuiltin("chromatic-turn"), true);
+    expect(store.isBuiltin("chromatic-turn")).toBe(true);
 
     const clone = addUserCopy(store, "chromatic-turn");
-    assert.ok(clone);
-    assert.equal(clone.id, "chromatic-turn-2");
-    assert.equal(store.isBuiltin(clone.id), false);
-    assert.equal(
-      clone.name,
-      "Chromatic Turn",
-      "duplicate display names are allowed; ids are the identity",
-    );
+    expect(clone).toBeTruthy();
+    expect(clone!.id).toBe("chromatic-turn-2");
+    expect(store.isBuiltin(clone!.id)).toBe(false);
+    expect(clone!.name).toBe("Chromatic Turn");
 
     const again = addUserCopy(store, "chromatic-turn");
-    assert.ok(again);
-    assert.notEqual(again.id, clone.id);
+    expect(again).toBeTruthy();
+    expect(again!.id).not.toBe(clone!.id);
   });
 
   it("unique ids are deterministic and duplicate names sort stably", () => {
     const store = new MotifStore();
     const first = addUserCopy(store, "chromatic-turn");
     const second = addUserCopy(store, "chromatic-turn");
-    assert.ok(first && second);
-    assert.equal(first.id, "chromatic-turn-2");
-    assert.equal(second.id, "chromatic-turn-3");
+    expect(first && second).toBeTruthy();
+    expect(first!.id).toBe("chromatic-turn-2");
+    expect(second!.id).toBe("chromatic-turn-3");
 
     const sameName = store.list().filter((motif) => motif.name === "Chromatic Turn");
-    assert.deepEqual(
-      sameName.map((motif) => motif.id),
-      ["chromatic-turn", "chromatic-turn-2", "chromatic-turn-3"],
-    );
-    assert.equal(store.labels().get("chromatic-turn"), "Chromatic Turn · chromatic-turn");
-    assert.equal(store.resolve("Chromatic Turn · chromatic-turn-2")?.id, "chromatic-turn-2");
-    assert.equal(store.resolve("chromatic-turn-3")?.id, "chromatic-turn-3");
+    expect(sameName.map((motif) => motif.id)).toEqual([
+      "chromatic-turn",
+      "chromatic-turn-2",
+      "chromatic-turn-3",
+    ]);
+    expect(store.labels().get("chromatic-turn")).toBe("Chromatic Turn · chromatic-turn");
+    expect(store.resolve("Chromatic Turn · chromatic-turn-2")?.id).toBe("chromatic-turn-2");
+    expect(store.resolve("chromatic-turn-3")?.id).toBe("chromatic-turn-3");
   });
 
   it("allocates around external reservations and atomically replaces user motifs", () => {
     const current = new MotifStore();
-    assert.equal(
-      current.uniqueId("Reserved", undefined, (candidate) => candidate === "reserved"),
+    expect(current.uniqueId("Reserved", undefined, (candidate) => candidate === "reserved")).toBe(
       "reserved-2",
     );
 
     const candidate = new MotifStore();
     const user = addUserCopy(candidate, "chromatic-turn", "replacement-user");
-    assert.ok(user);
+    expect(user).toBeTruthy();
     current.replaceUsersFrom(candidate);
 
-    assert.ok(current.has("chromatic-turn"), "builtins remain present");
-    assert.ok(current.has(user.id), "candidate user motifs are committed");
-    current.select(user.id);
+    expect(current.has("chromatic-turn"), "builtins remain present").toBeTruthy();
+    expect(current.has(user!.id), "candidate user motifs are committed").toBeTruthy();
+    current.select(user!.id);
     current.replaceUsersFrom(new MotifStore());
-    assert.equal(current.ensureCurrent("scale-turn")?.id, "scale-turn");
+    expect(current.ensureCurrent("scale-turn")?.id).toBe("scale-turn");
   });
 
   it("built-in ids cannot be overwritten or removed", () => {
     const store = new MotifStore();
     const builtin = store.get("chromatic-turn");
-    assert.ok(builtin);
-    assert.deepEqual(store.add({ ...builtin, name: "Corrupted" }), [
+    expect(builtin).toBeTruthy();
+    expect(store.add({ ...builtin, name: "Corrupted" })).toEqual([
       "Cannot overwrite built-in motif: chromatic-turn",
     ]);
-    assert.equal(store.remove("chromatic-turn"), false);
-    assert.equal(store.get("chromatic-turn")?.name, "Chromatic Turn");
+    expect(store.remove("chromatic-turn")).toBe(false);
+    expect(store.get("chromatic-turn")?.name).toBe("Chromatic Turn");
   });
 
   it("setNotes recomputes length and validates", () => {
     const store = new MotifStore();
     const clone = addUserCopy(store, "chromatic-turn");
-    assert.ok(clone);
+    expect(clone).toBeTruthy();
 
-    const errors = store.setNotes(clone.id, [
+    const errors = store.setNotes(clone!.id, [
       { at: 0, duration: 480, pitch: 0 },
       { at: 480, duration: 960, pitch: 2 },
     ]);
-    assert.deepEqual(errors, []);
+    expect(errors).toEqual([]);
 
-    const updated = store.get(clone.id);
-    assert.ok(updated);
-    assert.equal(updated.notes.length, 2);
-    assert.equal(updated.length, 1440);
+    const updated = store.get(clone!.id);
+    expect(updated).toBeTruthy();
+    expect(updated!.notes.length).toBe(2);
+    expect(updated!.length).toBe(1440);
 
-    assert.deepEqual(store.setNotes(clone.id, [{ at: 0, duration: 240, pitch: 0 }]), []);
-    assert.equal(store.get(clone.id)?.length, 240, "shortening notes must shrink motif length");
+    expect(store.setNotes(clone!.id, [{ at: 0, duration: 240, pitch: 0 }])).toEqual([]);
+    expect(store.get(clone!.id)?.length).toBe(240);
 
-    assert.deepEqual(store.setNotes(clone.id, []), ["notes must be a non-empty array"]);
-    assert.equal(store.get(clone.id)?.length, 240, "invalid empty updates must preserve the motif");
-    assert.deepEqual(store.setNotes("missing-motif", [{ at: 0, duration: 240, pitch: 0 }]), [
+    expect(store.setNotes(clone!.id, [])).toEqual(["notes must be a non-empty array"]);
+    expect(store.get(clone!.id)?.length).toBe(240);
+    expect(store.setNotes("missing-motif", [{ at: 0, duration: 240, pitch: 0 }])).toEqual([
       "Unknown motif: missing-motif",
     ]);
   });
 
   it("normalizes ids and safely handles unknown or invalid values", () => {
-    assert.equal(uniqueMotifId("  Déjà Vu!  "), "deja-vu");
-    assert.equal(uniqueMotifId("🎵", "fallback"), "fallback");
+    expect(uniqueMotifId("  Déjà Vu!  ")).toBe("deja-vu");
+    expect(uniqueMotifId("🎵", "fallback")).toBe("fallback");
 
     const store = new MotifStore();
-    assert.equal(store.has("chromatic-turn"), true);
-    assert.equal(store.get("missing"), undefined);
-    assert.equal(addUserCopy(store, "missing"), undefined);
-    assert.equal(store.remove("missing"), false);
-    assert.ok(store.add(null).some((error) => error.includes("object")));
+    expect(store.has("chromatic-turn")).toBe(true);
+    expect(store.get("missing")).toBe(undefined);
+    expect(addUserCopy(store, "missing")).toBe(undefined);
+    expect(store.remove("missing")).toBe(false);
+    expect(store.add(null).some((error) => error.includes("object"))).toBeTruthy();
 
     const clone = addUserCopy(store, "chromatic-turn", "custom");
-    assert.ok(clone);
-    store.select(clone.id);
-    assert.equal(store.remove(clone.id), true);
-    assert.equal(store.has(clone.id), false);
-    assert.equal(store.current, undefined, "remove leaves selection dangling for the caller");
-    assert.equal(store.ensureCurrent("scale-turn")?.id, "scale-turn");
+    expect(clone).toBeTruthy();
+    store.select(clone!.id);
+    expect(store.remove(clone!.id)).toBe(true);
+    expect(store.has(clone!.id)).toBe(false);
+    expect(store.current).toBe(undefined);
+    expect(store.ensureCurrent("scale-turn")?.id).toBe("scale-turn");
     store.resetToBuiltins();
-    assert.equal(store.list().length, 2);
+    expect(store.list().length).toBe(2);
   });
 });

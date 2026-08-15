@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HostContext, Motif } from "../../src/core/types.js";
 import { MotifStore } from "../../src/library/store.js";
 import { DeviceSettingsState } from "../../src/max/device-settings.js";
@@ -62,7 +61,7 @@ function createPlayback(eventDispatchMilliseconds = 0): PlaybackHarness {
       });
     }
   }
-  Object.assign(globalThis, { Task: MockTask });
+  vi.stubGlobal("Task", MockTask);
 
   const store = new MotifStore("scale-turn");
   const hotkeys = new MotifHotkeyMap(store);
@@ -164,68 +163,70 @@ const repeatMotif: Motif = {
 
 describe("launchOffsetTicksFor", () => {
   it("calculates launch offsets from song position and quantization", () => {
-    assert.equal(launchOffsetTicksFor(launchHost, "1/4"), 480);
-    assert.equal(launchOffsetTicksFor({ ...launchHost, isPlaying: false }, "1/4"), 0);
-    assert.equal(launchOffsetTicksFor(launchHost, "immediate"), 0);
+    expect(launchOffsetTicksFor(launchHost, "1/4")).toBe(480);
+    expect(launchOffsetTicksFor({ ...launchHost, isPlaying: false }, "1/4")).toBe(0);
+    expect(launchOffsetTicksFor(launchHost, "immediate")).toBe(0);
   });
 });
 
 describe("motifRepeatDelayFor", () => {
   it("calculates preserve/fit repeat delays", () => {
-    assert.equal(motifRepeatDelayFor(repeatMotif, "preserve", launchHost, 1), 2000);
-    assert.equal(motifRepeatDelayFor(repeatMotif, "fit-bar", launchHost, 1), 1500);
-    assert.equal(motifRepeatDelayFor(repeatMotif, "fit-bar", launchHost, 2), 750);
-    assert.equal(motifRepeatDelayFor({ ...repeatMotif, length: 0 }, "preserve", launchHost, 1), 1);
-    assert.equal(
+    expect(motifRepeatDelayFor(repeatMotif, "preserve", launchHost, 1)).toBe(2000);
+    expect(motifRepeatDelayFor(repeatMotif, "fit-bar", launchHost, 1)).toBe(1500);
+    expect(motifRepeatDelayFor(repeatMotif, "fit-bar", launchHost, 2)).toBe(750);
+    expect(motifRepeatDelayFor({ ...repeatMotif, length: 0 }, "preserve", launchHost, 1)).toBe(1);
+    expect(
       motifRepeatDelayFor({ ...repeatMotif, length: 3360 }, "preserve", launchHost, 1, "1-bar"),
-      2000,
-    );
-    assert.equal(
+    ).toBe(2000);
+    expect(
       motifRepeatDelayFor({ ...repeatMotif, length: 3360 }, "fit-bar", launchHost, 1, "1-bar"),
-      1500,
-    );
-    assert.equal(
+    ).toBe(1500);
+    expect(
       motifRepeatDelayFor({ ...repeatMotif, length: 9480 }, "preserve", launchHost, 1, "1-bar"),
-      6000,
-    );
+    ).toBe(6000);
   });
 });
 
 describe("repeatTaskDelayFor", () => {
   it("wakes the low-priority Task before the intended repeat boundary", () => {
-    assert.equal(repeatTaskDelayFor(2_000, 1_000), 875);
-    assert.equal(repeatTaskDelayFor(1_000, 1_000), 1);
+    expect(repeatTaskDelayFor(2_000, 1_000)).toBe(875);
+    expect(repeatTaskDelayFor(1_000, 1_000)).toBe(1);
   });
 });
 
 describe("PlaybackController", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
   it("routes pass-through notes and select-mode hot keys", () => {
     const harness = createPlayback();
     harness.playback.note(20, 100, 1);
-    assert.deepEqual(harness.events, [[20, 100, 1, 0]]);
+    expect(harness.events).toEqual([[20, 100, 1, 0]]);
 
     harness.events.length = 0;
     harness.hotkeys.assign(20, "chromatic-turn", "select");
     harness.playback.note(20, 100, 1);
-    assert.deepEqual(harness.selections, ["chromatic-turn"]);
-    assert.equal(harness.store.currentId, "chromatic-turn");
-    assert.equal(harness.events.length, 0);
+    expect(harness.selections).toEqual(["chromatic-turn"]);
+    expect(harness.store.currentId).toBe("chromatic-turn");
+    expect(harness.events.length).toBe(0);
   });
 
   it("compiles triggers and owns hold/sustain cleanup state", () => {
     const harness = createPlayback();
     harness.settings.triggerMode = "hold";
     harness.playback.note(60, 100, 2);
-    assert.ok(harness.events.some((event) => (event[1] ?? 0) > 0));
-    assert.deepEqual(harness.previews, [60]);
-    assert.equal(harness.playback.activeTriggers.has(60), true);
+    expect(harness.events.some((event) => (event[1] ?? 0) > 0)).toBeTruthy();
+    expect(harness.previews).toEqual([60]);
+    expect(harness.playback.activeTriggers.has(60)).toBe(true);
 
     harness.playback.sustain(127);
     harness.playback.note(60, 0, 2);
-    assert.equal(harness.playback.sustainedReleases.has(60), true);
+    expect(harness.playback.sustainedReleases.has(60)).toBe(true);
     harness.playback.sustain(0);
-    assert.equal(harness.playback.sustainedReleases.size, 0);
-    assert.ok(harness.clears > 0);
+    expect(harness.playback.sustainedReleases.size).toBe(0);
+    expect(harness.clears > 0).toBeTruthy();
   });
 
   it("schedules one held repeat and cancels it on release and panic", () => {
@@ -234,22 +235,24 @@ describe("PlaybackController", () => {
     harness.settings.repeatRounding = "exact";
     harness.playback.note(60, 100, 1);
     harness.playback.note(60, 80, 1);
-    assert.equal(harness.playback.heldRepeats.size, 1);
-    assert.equal(harness.scheduled.length, 1);
-    assert.equal(harness.scheduled[0]?.delay, 1625);
+    expect(harness.playback.heldRepeats.size).toBe(1);
+    expect(harness.scheduled.length).toBe(1);
+    expect(harness.scheduled[0]?.delay).toBe(1625);
 
     harness.scheduled.shift()?.run();
-    assert.ok(harness.statuses.filter(([selector]) => selector === "trigger").length >= 2);
-    assert.deepEqual(harness.previews, [60]);
-    assert.equal(harness.scheduled[0]?.delay, 1750);
+    expect(
+      harness.statuses.filter(([selector]) => selector === "trigger").length >= 2,
+    ).toBeTruthy();
+    expect(harness.previews).toEqual([60]);
+    expect(harness.scheduled[0]?.delay).toBe(1750);
     harness.playback.note(60, 0, 1);
-    assert.equal(harness.playback.heldRepeats.size, 0);
+    expect(harness.playback.heldRepeats.size).toBe(0);
 
     harness.playback.note(60, 100, 1);
     harness.playback.panic();
-    assert.equal(harness.playback.heldRepeats.size, 0);
-    assert.ok(harness.statuses.some(([selector]) => selector === "panic"));
-    assert.deepEqual(harness.errors, []);
+    expect(harness.playback.heldRepeats.size).toBe(0);
+    expect(harness.statuses.some(([selector]) => selector === "panic")).toBeTruthy();
+    expect(harness.errors).toEqual([]);
   });
 
   it("panic discards every retained trigger, repeat, and sustain state", () => {
@@ -265,21 +268,17 @@ describe("PlaybackController", () => {
 
     harness.playback.panic();
 
-    assert.equal(harness.playback.heldRepeats.size, 0);
-    assert.equal(harness.playback.activeTriggers.size, 0);
-    assert.equal(harness.playback.activeTriggerModes.size, 0);
-    assert.equal(harness.playback.sustainedReleases.size, 0);
-    assert.equal(harness.playback.sustainedRepeatReleases.size, 0);
-    assert.equal(harness.playback.sustainDown, false);
-    assert.equal(harness.clears, clearsBeforePanic);
-    assert.equal(harness.panics, 1);
+    expect(harness.playback.heldRepeats.size).toBe(0);
+    expect(harness.playback.activeTriggers.size).toBe(0);
+    expect(harness.playback.activeTriggerModes.size).toBe(0);
+    expect(harness.playback.sustainedReleases.size).toBe(0);
+    expect(harness.playback.sustainedRepeatReleases.size).toBe(0);
+    expect(harness.playback.sustainDown).toBe(false);
+    expect(harness.clears).toBe(clearsBeforePanic);
+    expect(harness.panics).toBe(1);
 
     harness.scheduled.shift()?.run();
-    assert.equal(
-      harness.statuses.filter(([selector]) => selector === "trigger").length,
-      1,
-      "a canceled repeat callback must not relaunch after panic",
-    );
+    expect(harness.statuses.filter(([selector]) => selector === "trigger").length).toBe(1);
   });
 
   it("absorbs a late repeat Task inside the native scheduling lookahead", () => {
@@ -293,12 +292,12 @@ describe("PlaybackController", () => {
     harness.scheduled.shift()?.run(90);
 
     const repeatedEvents = harness.events.slice(initialEventCount);
-    assert.equal(repeatedEvents[0]?.[3], 35);
-    assert.equal(harness.clears, initialClearCount);
-    assert.equal(harness.scheduled[0]?.delay, 1660);
+    expect(repeatedEvents[0]?.[3]).toBe(35);
+    expect(harness.clears).toBe(initialClearCount);
+    expect(harness.scheduled[0]?.delay).toBe(1660);
 
     harness.playback.note(60, 0, 1);
-    assert.equal(harness.clears, initialClearCount + 1);
+    expect(harness.clears).toBe(initialClearCount + 1);
   });
 
   it("anchors the first repeat to the first native event instead of the end of dispatch", () => {
@@ -308,18 +307,18 @@ describe("PlaybackController", () => {
     harness.playback.note(60, 100, 1);
     const initialEventCount = harness.events.length;
 
-    assert.ok(initialEventCount > 1);
-    assert.equal(harness.scheduled[0]?.delay, 1625 - initialEventCount * 5);
+    expect(initialEventCount > 1).toBeTruthy();
+    expect(harness.scheduled[0]?.delay).toBe(1625 - initialEventCount * 5);
 
     harness.scheduled.shift()?.run();
-    assert.equal(harness.events[initialEventCount]?.[3], 125);
+    expect(harness.events[initialEventCount]?.[3]).toBe(125);
   });
 
   it("resolves motif-owned trigger mode and repeat rounding with device overrides", () => {
     const harness = createPlayback();
     const motif = harness.store.current;
-    assert.ok(motif);
-    assert.deepEqual(
+    expect(motif).toBeTruthy();
+    expect(
       harness.store.add({
         ...motif,
         id: "motif-owned-repeat",
@@ -327,22 +326,21 @@ describe("PlaybackController", () => {
         triggerMode: "hold-repeat",
         repeatRounding: "1-bar",
       }),
-      [],
-    );
-    assert.ok(harness.store.select("motif-owned-repeat"));
+    ).toEqual([]);
+    expect(harness.store.select("motif-owned-repeat")).toBeTruthy();
 
     harness.playback.note(60, 100, 1);
-    assert.equal(harness.playback.heldRepeats.size, 1);
-    assert.equal(harness.scheduled[0]?.delay, 1875);
+    expect(harness.playback.heldRepeats.size).toBe(1);
+    expect(harness.scheduled[0]?.delay).toBe(1875);
     harness.playback.note(60, 0, 1);
 
     harness.settings.triggerMode = "one-shot";
     harness.playback.note(61, 100, 1);
-    assert.equal(harness.playback.heldRepeats.size, 0);
+    expect(harness.playback.heldRepeats.size).toBe(0);
 
     harness.settings.triggerMode = "hold-repeat";
     harness.settings.repeatRounding = "exact";
     harness.playback.note(62, 100, 1);
-    assert.equal(harness.scheduled[harness.scheduled.length - 1]?.delay, 1625);
+    expect(harness.scheduled[harness.scheduled.length - 1]?.delay).toBe(1625);
   });
 });

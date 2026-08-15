@@ -207,8 +207,8 @@ export function LibrarySidebar() {
             id="search"
             type="text"
             placeholder="Search..."
-            autocomplete="off"
-            spellcheck={false}
+            autoComplete="off"
+            spellCheck={false}
             value={searchText}
             onInput={(event) => {
               const value = event.currentTarget.value;
@@ -249,7 +249,7 @@ export function LibrarySidebar() {
         <div id="browser-actions">
           <button
             type="button"
-            class="btn"
+            className="btn"
             id="choose-btn"
             title="Choose and remember a library folder"
             onClick={() => {
@@ -265,7 +265,7 @@ export function LibrarySidebar() {
           </button>
           <button
             type="button"
-            class="btn"
+            className="btn"
             id="refresh-btn"
             title="Reload the chosen library folder"
             disabled={!server?.actions.canRefreshLibrary}

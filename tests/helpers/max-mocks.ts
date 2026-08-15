@@ -1,26 +1,24 @@
+import { vi } from "vitest";
 import { joinMaxPath } from "../../src/max/max-helpers.js";
 
 export interface MaxMocks {
   files: Record<string, string>;
   folders: Record<string, string[]>;
-  outlets: unknown[][];
-  errors: string[];
-  posts: string[];
+  outlet: ReturnType<typeof vi.fn<(index: number, ...values: unknown[]) => void>>;
+  error: ReturnType<typeof vi.fn<(value: unknown) => void>>;
+  post: ReturnType<typeof vi.fn<(value: unknown) => void>>;
 }
 
 /**
- * Install deterministic Max globals (File, Folder, Task, outlet, error, post)
- * onto globalThis and return the mutable capture buffers used to assert behavior.
- * @returns {MaxMocks} Capture buffers for files, folders, outlets, errors, and posts.
+ * Stub Max host globals with an in-memory File/Folder FS and `vi.fn` I/O.
+ * @returns {MaxMocks} Mutable FS buffers and spy handles.
  */
 export function installMaxMocks(): MaxMocks {
-  const mocks: MaxMocks = {
-    files: {},
-    folders: {},
-    outlets: [],
-    errors: [],
-    posts: [],
-  };
+  const files: Record<string, string> = {};
+  const folders: Record<string, string[]> = {};
+  const outlet = vi.fn<(index: number, ...values: unknown[]) => void>();
+  const error = vi.fn<(value: unknown) => void>();
+  const post = vi.fn<(value: unknown) => void>();
 
   class MockFile {
     isopen: boolean;
@@ -34,9 +32,8 @@ export function installMaxMocks(): MaxMocks {
     constructor(filename = "", access: "read" | "write" | "readwrite" = "read") {
       this.filename = filename;
       this.access = access;
-      this.isopen =
-        access !== "read" || Object.prototype.hasOwnProperty.call(mocks.files, filename);
-      this.#buffer = access === "write" ? "" : (mocks.files[filename] ?? "");
+      this.isopen = access !== "read" || Object.prototype.hasOwnProperty.call(files, filename);
+      this.#buffer = access === "write" ? "" : (files[filename] ?? "");
       this.eof = this.#buffer.length;
     }
 
@@ -51,9 +48,9 @@ export function installMaxMocks(): MaxMocks {
 
     close(): void {
       if (this.access !== "read" && this.isopen) {
-        mocks.files[this.filename] = this.#buffer;
+        files[this.filename] = this.#buffer;
         const basename = this.filename.split("/").pop() ?? this.filename;
-        mocks.files[`/tmp/${basename}`] = this.#buffer;
+        files[`/tmp/${basename}`] = this.#buffer;
       }
       this.isopen = false;
     }
@@ -66,7 +63,7 @@ export function installMaxMocks(): MaxMocks {
     #index = 0;
 
     constructor(pathname: string) {
-      const entries = mocks.folders[pathname];
+      const entries = folders[pathname];
       this.pathname = entries ? pathname : "";
       this.#entries = entries ?? [];
       this.filename = this.#entries[0] ?? "";
@@ -90,7 +87,7 @@ export function installMaxMocks(): MaxMocks {
         return null;
       }
       const fullPath = joinMaxPath(this.pathname, this.filename);
-      if (Object.prototype.hasOwnProperty.call(mocks.folders, fullPath)) {
+      if (Object.prototype.hasOwnProperty.call(folders, fullPath)) {
         return "fold";
       }
       return this.filename.toLowerCase().endsWith(".json") ? "JSON" : null;
@@ -137,13 +134,30 @@ export function installMaxMocks(): MaxMocks {
     }
   }
 
-  Object.assign(globalThis, {
-    File: MockFile,
-    Folder: MockFolder,
-    Task: MockTask,
-    outlet: (_index: number, ...values: unknown[]) => mocks.outlets.push(values),
-    error: (value: unknown) => mocks.errors.push(String(value)),
-    post: (value: unknown) => mocks.posts.push(String(value)),
-  });
-  return mocks;
+  vi.stubGlobal("File", MockFile);
+  vi.stubGlobal("Folder", MockFolder);
+  vi.stubGlobal("Task", MockTask);
+  vi.stubGlobal("outlet", outlet);
+  vi.stubGlobal("error", error);
+  vi.stubGlobal("post", post);
+
+  return { files, folders, outlet, error, post };
+}
+
+/**
+ * Collect string arguments passed to a Max console spy.
+ * @param {ReturnType<typeof vi.fn>} spy `error` or `post` mock.
+ * @returns {string[]} Stringified first arguments.
+ */
+export function mockMessages(spy: ReturnType<typeof vi.fn<(value: unknown) => void>>): string[] {
+  return spy.mock.calls.map(([value]) => String(value));
+}
+
+/**
+ * Outlet payloads without the Max outlet index.
+ * @param {MaxMocks["outlet"]} outlet Stubbed `outlet`.
+ * @returns {unknown[][]} Message atoms.
+ */
+export function outletLists(outlet: MaxMocks["outlet"]): unknown[][] {
+  return outlet.mock.calls.map(([, ...values]) => values);
 }

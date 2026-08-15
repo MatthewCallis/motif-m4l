@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import {
   isStringEnumValue,
   libraryQueryFromAtoms,
@@ -16,21 +15,21 @@ import {
 
 describe("device pure logic", () => {
   it("normalizes Library queries, tempo ratios, retrigger modes, and enums", () => {
-    assert.equal(libraryQueryFromAtoms(["  bass ", [" fills ", "", 2]]), "bass fills 2");
-    assert.equal(libraryQueryFromAtoms([]), "");
-    assert.equal(parseTempoMultiplier("1.5x"), 1.5);
-    assert.equal(parseTempoMultiplier(2), 2);
-    assert.equal(parseTempoMultiplier("3x"), undefined);
-    assert.equal(parseRetriggerMode(1), "replace");
-    assert.equal(parseRetriggerMode(0), "overlap");
-    assert.equal(parseRetriggerMode("replace"), "replace");
-    assert.equal(parseRetriggerMode("invalid"), undefined);
+    expect(libraryQueryFromAtoms(["  bass ", [" fills ", "", 2]])).toBe("bass fills 2");
+    expect(libraryQueryFromAtoms([])).toBe("");
+    expect(parseTempoMultiplier("1.5x")).toBe(1.5);
+    expect(parseTempoMultiplier(2)).toBe(2);
+    expect(parseTempoMultiplier("3x")).toBe(undefined);
+    expect(parseRetriggerMode(1)).toBe("replace");
+    expect(parseRetriggerMode(0)).toBe("overlap");
+    expect(parseRetriggerMode("replace")).toBe("replace");
+    expect(parseRetriggerMode("invalid")).toBe(undefined);
 
-    assert.equal(isStringEnumValue("hybrid", PITCH_MODE_OVERRIDES), true);
-    assert.equal(isStringEnumValue("fit-bar", METER_MODES), true);
-    assert.equal(isStringEnumValue("hold-repeat", TRIGGER_MODES), true);
-    assert.equal(isStringEnumValue("bar", LAUNCH_QUANTIZATIONS), true);
-    assert.equal(isStringEnumValue("non-triggers", PASS_THROUGH_POLICIES), true);
-    assert.equal(isStringEnumValue("invalid", PASS_THROUGH_POLICIES), false);
+    expect(isStringEnumValue("hybrid", PITCH_MODE_OVERRIDES)).toBe(true);
+    expect(isStringEnumValue("fit-bar", METER_MODES)).toBe(true);
+    expect(isStringEnumValue("hold-repeat", TRIGGER_MODES)).toBe(true);
+    expect(isStringEnumValue("bar", LAUNCH_QUANTIZATIONS)).toBe(true);
+    expect(isStringEnumValue("non-triggers", PASS_THROUGH_POLICIES)).toBe(true);
+    expect(isStringEnumValue("invalid", PASS_THROUGH_POLICIES)).toBe(false);
   });
 });

@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import {
   MaxPatchBuilder,
   createEnumParameterAttributes,
@@ -34,14 +33,14 @@ function createBuilder(): MaxPatchBuilder {
 
 function boxById(builder: MaxPatchBuilder, id: string): MaxBox {
   const box = builder.boxes.find((entry) => entry.box.id === id)?.box;
-  assert.ok(box, `missing box ${id}`);
-  return box;
+  expect(box, `missing box ${id}`).toBeTruthy();
+  return box!;
 }
 
 describe("Max patch attribute helpers", () => {
   describe("createHelpAttributes", () => {
     it("creates the three Max and Live help attributes", () => {
-      assert.deepEqual(createHelpAttributes(HELP), {
+      expect(createHelpAttributes(HELP)).toEqual({
         annotation_name: HELP.name,
         annotation: HELP.description,
         hint: HELP.description,
@@ -49,36 +48,33 @@ describe("Max patch attribute helpers", () => {
     });
 
     it("rejects missing or blank help text", () => {
-      assert.throws(
-        () => createHelpAttributes({ name: "", description: HELP.description }),
+      expect(() => createHelpAttributes({ name: "", description: HELP.description })).toThrow(
         /help\.name must be a non-empty string/,
       );
-      assert.throws(
-        () => createHelpAttributes({ name: HELP.name, description: "   " }),
+      expect(() => createHelpAttributes({ name: HELP.name, description: "   " })).toThrow(
         /help\.description must be a non-empty string/,
       );
-      assert.throws(
-        () => createHelpAttributes({ name: 1 as unknown as string, description: HELP.description }),
-        /help\.name must be a non-empty string/,
-      );
+      expect(() =>
+        createHelpAttributes({ name: 1 as unknown as string, description: HELP.description }),
+      ).toThrow(/help\.name must be a non-empty string/);
     });
   });
 
   describe("createMenuItems", () => {
     it("encodes empty, single, and multiple-item menus", () => {
-      assert.deepEqual(createMenuItems([]), []);
-      assert.deepEqual(createMenuItems(["One"]), ["One"]);
-      assert.deepEqual(createMenuItems(["One", "Two", "Three"]), ["One", ",", "Two", ",", "Three"]);
+      expect(createMenuItems([])).toEqual([]);
+      expect(createMenuItems(["One"])).toEqual(["One"]);
+      expect(createMenuItems(["One", "Two", "Three"])).toEqual(["One", ",", "Two", ",", "Three"]);
     });
 
     it("rejects empty menu labels", () => {
-      assert.throws(() => createMenuItems(["One", ""]), /menu item must be a non-empty string/);
+      expect(() => createMenuItems(["One", ""])).toThrow(/menu item must be a non-empty string/);
     });
   });
 
   describe("createEnumParameterAttributes", () => {
     it("creates a zero-based enum with a validated initial index", () => {
-      assert.deepEqual(createEnumParameterAttributes("Mode", "Mode", ["A", "B"], 1), {
+      expect(createEnumParameterAttributes("Mode", "Mode", ["A", "B"], 1)).toEqual({
         valueof: {
           parameter_enum: ["A", "B"],
           parameter_longname: "Mode",
@@ -90,38 +86,34 @@ describe("Max patch attribute helpers", () => {
           parameter_initial: [1],
         },
       });
-      assert.deepEqual(
+      expect(
         createEnumParameterAttributes("Default", "Def", ["Only"]).valueof.parameter_initial,
-        [0],
-      );
+      ).toEqual([0]);
     });
 
     it("can hide Song-owned enum helpers from Live parameter storage", () => {
-      assert.equal(
+      expect(
         createEnumParameterAttributes("Song Root", "Root", ["C", "C♯"], 0, 2).valueof
           .parameter_invisible,
-        2,
-      );
+      ).toBe(2);
     });
 
     it("rejects invalid names, values, and initial indices", () => {
-      assert.throws(() => createEnumParameterAttributes("", "Mode", ["A"]), /parameter long name/);
-      assert.throws(() => createEnumParameterAttributes("Mode", "", ["A"]), /parameter short name/);
-      assert.throws(() => createEnumParameterAttributes("Mode", "Mode", []), /must not be empty/);
-      assert.throws(
-        () => createEnumParameterAttributes("Mode", "Mode", [""]),
+      expect(() => createEnumParameterAttributes("", "Mode", ["A"])).toThrow(/parameter long name/);
+      expect(() => createEnumParameterAttributes("Mode", "", ["A"])).toThrow(
+        /parameter short name/,
+      );
+      expect(() => createEnumParameterAttributes("Mode", "Mode", [])).toThrow(/must not be empty/);
+      expect(() => createEnumParameterAttributes("Mode", "Mode", [""])).toThrow(
         /enum parameter value/,
       );
-      assert.throws(
-        () => createEnumParameterAttributes("Mode", "Mode", ["A"], -1),
+      expect(() => createEnumParameterAttributes("Mode", "Mode", ["A"], -1)).toThrow(
         /between 0 and 0/,
       );
-      assert.throws(
-        () => createEnumParameterAttributes("Mode", "Mode", ["A"], 1),
+      expect(() => createEnumParameterAttributes("Mode", "Mode", ["A"], 1)).toThrow(
         /between 0 and 0/,
       );
-      assert.throws(
-        () => createEnumParameterAttributes("Mode", "Mode", ["A"], 0.5),
+      expect(() => createEnumParameterAttributes("Mode", "Mode", ["A"], 0.5)).toThrow(
         /between 0 and 0/,
       );
     });
@@ -129,25 +121,24 @@ describe("Max patch attribute helpers", () => {
 
   describe("createStoredBlobParameterAttributes", () => {
     it("creates a Stored Only Blob parameter for opaque device state", () => {
-      assert.deepEqual(
+      expect(
         createStoredBlobParameterAttributes("Motif Device State", "State", ["encoded"]),
-        {
-          valueof: {
-            parameter_initial: ["encoded"],
-            parameter_initial_enable: 1,
-            parameter_invisible: 1,
-            parameter_longname: "Motif Device State",
-            parameter_shortname: "State",
-            parameter_type: 3,
-          },
+      ).toEqual({
+        valueof: {
+          parameter_initial: ["encoded"],
+          parameter_initial_enable: 1,
+          parameter_invisible: 1,
+          parameter_longname: "Motif Device State",
+          parameter_shortname: "State",
+          parameter_type: 3,
         },
-      );
+      });
     });
   });
 
   describe("createIntegerParameterAttributes", () => {
     it("creates bounded integer parameter metadata", () => {
-      assert.deepEqual(createIntegerParameterAttributes("MIDI Note", "Note", 60, 0, 127), {
+      expect(createIntegerParameterAttributes("MIDI Note", "Note", 60, 0, 127)).toEqual({
         valueof: {
           parameter_initial: [60],
           parameter_initial_enable: 1,
@@ -162,36 +153,28 @@ describe("Max patch attribute helpers", () => {
     });
 
     it("rejects invalid ranges and initial values", () => {
-      assert.throws(
-        () => createIntegerParameterAttributes("", "Note", 0, 0, 1),
+      expect(() => createIntegerParameterAttributes("", "Note", 0, 0, 1)).toThrow(
         /parameter long name/,
       );
-      assert.throws(
-        () => createIntegerParameterAttributes("Note", "", 0, 0, 1),
+      expect(() => createIntegerParameterAttributes("Note", "", 0, 0, 1)).toThrow(
         /parameter short name/,
       );
-      assert.throws(
-        () => createIntegerParameterAttributes("Note", "Note", 0, Number.NaN, 1),
+      expect(() => createIntegerParameterAttributes("Note", "Note", 0, Number.NaN, 1)).toThrow(
         /minimum/,
       );
-      assert.throws(
-        () => createIntegerParameterAttributes("Note", "Note", 0, 0, Number.POSITIVE_INFINITY),
-        /maximum/,
-      );
-      assert.throws(
-        () => createIntegerParameterAttributes("Note", "Note", 0, 2, 1),
+      expect(() =>
+        createIntegerParameterAttributes("Note", "Note", 0, 0, Number.POSITIVE_INFINITY),
+      ).toThrow(/maximum/);
+      expect(() => createIntegerParameterAttributes("Note", "Note", 0, 2, 1)).toThrow(
         /must not exceed/,
       );
-      assert.throws(
-        () => createIntegerParameterAttributes("Note", "Note", -1, 0, 1),
+      expect(() => createIntegerParameterAttributes("Note", "Note", -1, 0, 1)).toThrow(
         /between 0 and 1/,
       );
-      assert.throws(
-        () => createIntegerParameterAttributes("Note", "Note", 2, 0, 1),
+      expect(() => createIntegerParameterAttributes("Note", "Note", 2, 0, 1)).toThrow(
         /between 0 and 1/,
       );
-      assert.throws(
-        () => createIntegerParameterAttributes("Note", "Note", 0.5, 0, 1),
+      expect(() => createIntegerParameterAttributes("Note", "Note", 0.5, 0, 1)).toThrow(
         /between 0 and 1/,
       );
     });
@@ -202,34 +185,31 @@ describe("MaxPatchBuilder", () => {
   describe("construction and generic boxes", () => {
     it("validates shared font and color configuration", () => {
       const builder = createBuilder();
-      assert.equal(builder.fontName, "Ableton Sans");
-      assert.equal(builder.colors, COLORS);
+      expect(builder.fontName).toBe("Ableton Sans");
+      expect(builder.colors).toBe(COLORS);
 
-      assert.throws(() => new MaxPatchBuilder({ fontName: "", colors: COLORS }), /fontName/);
-      assert.throws(
+      expect(() => new MaxPatchBuilder({ fontName: "", colors: COLORS })).toThrow(/fontName/);
+      expect(
         () =>
           new MaxPatchBuilder({
             fontName: "Ableton Sans",
             colors: { ...COLORS, panel: [0, 0, 0] as unknown as MaxRgba },
           }),
-        /four RGBA values/,
-      );
-      assert.throws(
+      ).toThrow(/four RGBA values/);
+      expect(
         () =>
           new MaxPatchBuilder({
             fontName: "Ableton Sans",
             colors: { ...COLORS, panel: [0, 0, Number.NaN, 1] },
           }),
-        /finite number/,
-      );
-      assert.throws(
+      ).toThrow(/finite number/);
+      expect(
         () =>
           new MaxPatchBuilder({
             fontName: "Ableton Sans",
             colors: { ...COLORS, panel: [0, 0, 2, 1] },
           }),
-        /between 0 and 1/,
-      );
+      ).toThrow(/between 0 and 1/);
     });
 
     it("adds immutable core box identity and validates names and rectangles", () => {
@@ -243,18 +223,18 @@ describe("MaxPatchBuilder", () => {
       });
       rect[0] = 999;
 
-      assert.equal(id, "obj-1");
-      assert.deepEqual(boxById(builder, id), {
+      expect(id).toBe("obj-1");
+      expect(boxById(builder, id)).toEqual({
         id: "obj-1",
         maxclass: "toggle",
         patching_rect: [-10, 20, 30, 40],
         hidden: 1,
       });
-      assert.throws(() => builder.addBox("generic", "toggle", [0, 0, 1, 1]), /Duplicate/);
-      assert.throws(() => builder.addBox("", "toggle", [0, 0, 1, 1]), /box name/);
-      assert.throws(() => builder.addBox("blank-class", "", [0, 0, 1, 1]), /maxclass/);
-      assert.throws(() => builder.addBox("nan", "toggle", [0, 0, Number.NaN, 1]), /finite number/);
-      assert.throws(() => builder.addBox("negative", "toggle", [0, 0, -1, 1]), /non-negative/);
+      expect(() => builder.addBox("generic", "toggle", [0, 0, 1, 1])).toThrow(/Duplicate/);
+      expect(() => builder.addBox("", "toggle", [0, 0, 1, 1])).toThrow(/box name/);
+      expect(() => builder.addBox("blank-class", "", [0, 0, 1, 1])).toThrow(/maxclass/);
+      expect(() => builder.addBox("nan", "toggle", [0, 0, Number.NaN, 1])).toThrow(/finite number/);
+      expect(() => builder.addBox("negative", "toggle", [0, 0, -1, 1])).toThrow(/non-negative/);
     });
 
     it("adds newobj and message boxes with default and custom sizes", () => {
@@ -264,27 +244,27 @@ describe("MaxPatchBuilder", () => {
       const messageId = builder.addMessage("message", "clear", 5, 6, 70);
       const defaultMessageId = builder.addMessage("default-message", "bang", 7, 8);
 
-      assert.deepEqual(boxById(builder, objectId), {
+      expect(boxById(builder, objectId)).toEqual({
         id: objectId,
         maxclass: "newobj",
         patching_rect: [1, 2, 140, 22],
         text: "pack 0 0",
         numinlets: 2,
       });
-      assert.deepEqual(boxById(builder, defaultObjectId).patching_rect, [3, 4, 120, 22]);
-      assert.deepEqual(boxById(builder, messageId).patching_rect, [5, 6, 70, 22]);
-      assert.deepEqual(boxById(builder, defaultMessageId).patching_rect, [7, 8, 90, 22]);
-      assert.throws(() => builder.addObject("bad-object", "", 0, 0), /object text/);
-      assert.throws(() => builder.addMessage("bad-message", "", 0, 0), /message text/);
+      expect(boxById(builder, defaultObjectId).patching_rect).toEqual([3, 4, 120, 22]);
+      expect(boxById(builder, messageId).patching_rect).toEqual([5, 6, 70, 22]);
+      expect(boxById(builder, defaultMessageId).patching_rect).toEqual([7, 8, 90, 22]);
+      expect(() => builder.addObject("bad-object", "", 0, 0)).toThrow(/object text/);
+      expect(() => builder.addMessage("bad-message", "", 0, 0)).toThrow(/message text/);
     });
 
     it("shares IDs but not scripting names with child patchers", () => {
       const parent = createBuilder();
-      assert.equal(parent.addBox("same-name", "button", [0, 0, 1, 1]), "obj-1");
+      expect(parent.addBox("same-name", "button", [0, 0, 1, 1])).toBe("obj-1");
       const child = parent.createChild();
-      assert.equal(child.addBox("same-name", "button", [0, 0, 1, 1]), "obj-2");
-      assert.equal(parent.boxes.length, 1);
-      assert.equal(child.boxes.length, 1);
+      expect(child.addBox("same-name", "button", [0, 0, 1, 1])).toBe("obj-2");
+      expect(parent.boxes.length).toBe(1);
+      expect(child.boxes.length).toBe(1);
     });
   });
 
@@ -298,7 +278,7 @@ describe("MaxPatchBuilder", () => {
         hidden: 1,
       });
 
-      assert.deepEqual(boxById(builder, defaultId), {
+      expect(boxById(builder, defaultId)).toEqual({
         id: defaultId,
         maxclass: "panel",
         patching_rect: [1, 2, 3, 4],
@@ -311,8 +291,8 @@ describe("MaxPatchBuilder", () => {
         varname: "default-panel",
         hidden: 0,
       });
-      assert.equal(boxById(builder, customId).hidden, 1);
-      assert.equal(boxById(builder, customId).rounded, 4);
+      expect(boxById(builder, customId).hidden).toBe(1);
+      expect(boxById(builder, customId).rounded).toBe(4);
     });
 
     it("adds comments with defaults, optional help, and custom typography", () => {
@@ -330,18 +310,18 @@ describe("MaxPatchBuilder", () => {
       });
 
       const defaultBox = boxById(builder, defaultId);
-      assert.equal(defaultBox.fontsize, 10);
-      assert.equal(defaultBox.fontface, 0);
-      assert.equal(defaultBox.textjustification, 0);
-      assert.equal(defaultBox.ignoreclick, 1);
-      assert.equal(defaultBox.annotation, undefined);
+      expect(defaultBox.fontsize).toBe(10);
+      expect(defaultBox.fontface).toBe(0);
+      expect(defaultBox.textjustification).toBe(0);
+      expect(defaultBox.ignoreclick).toBe(1);
+      expect(defaultBox.annotation).toBe(undefined);
 
       const customBox = boxById(builder, customId);
-      assert.equal(customBox.fontsize, 12);
-      assert.equal(customBox.fontface, 1);
-      assert.equal(customBox.textjustification, 2);
-      assert.equal(customBox.linecount, 2);
-      assert.equal(customBox.annotation_name, HELP.name);
+      expect(customBox.fontsize).toBe(12);
+      expect(customBox.fontface).toBe(1);
+      expect(customBox.textjustification).toBe(2);
+      expect(customBox.linecount).toBe(2);
+      expect(customBox.annotation_name).toBe(HELP.name);
     });
 
     it("adds styled dynamic umenus with default and custom interaction attributes", () => {
@@ -360,15 +340,15 @@ describe("MaxPatchBuilder", () => {
       );
       const defaultBox = boxById(builder, defaultId);
       const customBox = boxById(builder, customId);
-      assert.equal(defaultBox.fontsize, 10);
-      assert.equal(defaultBox.ignoreclick, 0);
-      assert.equal(defaultBox.hidden, 0);
-      assert.equal(customBox.maxclass, "umenu");
-      assert.deepEqual(customBox.items, ["One", ",", "Two"]);
-      assert.equal(customBox.fontsize, 11);
-      assert.equal(customBox.ignoreclick, 1);
-      assert.equal(customBox.hidden, 1);
-      assert.equal(customBox.annotation_name, HELP.name);
+      expect(defaultBox.fontsize).toBe(10);
+      expect(defaultBox.ignoreclick).toBe(0);
+      expect(defaultBox.hidden).toBe(0);
+      expect(customBox.maxclass).toBe("umenu");
+      expect(customBox.items).toEqual(["One", ",", "Two"]);
+      expect(customBox.fontsize).toBe(11);
+      expect(customBox.ignoreclick).toBe(1);
+      expect(customBox.hidden).toBe(1);
+      expect(customBox.annotation_name).toBe(HELP.name);
     });
 
     it("adds live.menu with parameter metadata and theme-owned chrome", () => {
@@ -397,11 +377,11 @@ describe("MaxPatchBuilder", () => {
         },
       );
 
-      assert.equal(boxById(builder, defaultId).parameter_enable, 1);
-      assert.equal(boxById(builder, defaultId).ignoreclick, 0);
-      assert.equal(boxById(builder, customId).parameter_enable, 0);
-      assert.equal(boxById(builder, customId).ignoreclick, 1);
-      assert.equal(boxById(builder, customId).hidden, 1);
+      expect(boxById(builder, defaultId).parameter_enable).toBe(1);
+      expect(boxById(builder, defaultId).ignoreclick).toBe(0);
+      expect(boxById(builder, customId).parameter_enable).toBe(0);
+      expect(boxById(builder, customId).ignoreclick).toBe(1);
+      expect(boxById(builder, customId).hidden).toBe(1);
     });
 
     it("adds live.comment labels", () => {
@@ -410,9 +390,9 @@ describe("MaxPatchBuilder", () => {
       const hiddenId = builder.addLiveComment("hidden-label", "Hidden", [0, 20, 40, 20], {
         hidden: 1,
       });
-      assert.equal(boxById(builder, defaultId).maxclass, "live.comment");
-      assert.equal(boxById(builder, defaultId).hidden, 0);
-      assert.equal(boxById(builder, hiddenId).hidden, 1);
+      expect(boxById(builder, defaultId).maxclass).toBe("live.comment");
+      expect(boxById(builder, defaultId).hidden).toBe(0);
+      expect(boxById(builder, hiddenId).hidden).toBe(1);
     });
 
     it("adds parameter-enabled live.text toggles with a stored initial value", () => {
@@ -433,25 +413,24 @@ describe("MaxPatchBuilder", () => {
       );
 
       const toggle = boxById(builder, toggleId);
-      assert.equal(toggle.parameter_enable, 1);
-      assert.deepEqual(
+      expect(toggle.parameter_enable).toBe(1);
+      expect(
         (
           toggle.saved_attribute_attributes as {
             valueof: { parameter_initial: number[]; parameter_mmax: number };
           }
         ).valueof,
-        {
-          parameter_initial: [0],
-          parameter_initial_enable: 1,
-          parameter_longname: "Transform Toggle",
-          parameter_mmax: 1,
-          parameter_mmin: 0,
-          parameter_shortname: "Toggle",
-          parameter_type: 1,
-          parameter_unitstyle: 8,
-        },
-      );
-      assert.equal(boxById(builder, momentaryId).parameter_enable, 0);
+      ).toEqual({
+        parameter_initial: [0],
+        parameter_initial_enable: 1,
+        parameter_longname: "Transform Toggle",
+        parameter_mmax: 1,
+        parameter_mmin: 0,
+        parameter_shortname: "Toggle",
+        parameter_type: 1,
+        parameter_unitstyle: 8,
+      });
+      expect(boxById(builder, momentaryId).parameter_enable).toBe(0);
     });
 
     it("adds live.tab controls with enum parameter metadata", () => {
@@ -475,9 +454,9 @@ describe("MaxPatchBuilder", () => {
         HELP,
         { hidden: 1 },
       );
-      assert.equal(boxById(builder, defaultId).livemode, 1);
-      assert.equal(boxById(builder, defaultId).hidden, 0);
-      assert.equal(boxById(builder, hiddenId).hidden, 1);
+      expect(boxById(builder, defaultId).livemode).toBe(1);
+      expect(boxById(builder, defaultId).hidden).toBe(0);
+      expect(boxById(builder, hiddenId).hidden).toBe(1);
     });
 
     it("adds live.numbox controls with default and custom ranges", () => {
@@ -509,14 +488,14 @@ describe("MaxPatchBuilder", () => {
       const customValue = boxById(builder, customId).saved_attribute_attributes as {
         valueof: { parameter_mmin: number; parameter_mmax: number };
       };
-      assert.deepEqual(defaultValue.valueof, {
+      expect(defaultValue.valueof).toEqual({
         ...defaultValue.valueof,
         parameter_mmin: 0,
         parameter_mmax: 127,
       });
-      assert.equal(customValue.valueof.parameter_mmin, 1);
-      assert.equal(customValue.valueof.parameter_mmax, 16);
-      assert.equal(boxById(builder, customId).hidden, 1);
+      expect(customValue.valueof.parameter_mmin).toBe(1);
+      expect(customValue.valueof.parameter_mmax).toBe(16);
+      expect(boxById(builder, customId).hidden).toBe(1);
     });
 
     it("adds momentary and toggle live.text buttons", () => {
@@ -527,22 +506,22 @@ describe("MaxPatchBuilder", () => {
         hidden: 1,
         mode: 1,
       });
-      assert.equal(boxById(builder, defaultId).outputmode, 0);
-      assert.equal(boxById(builder, defaultId).mode, 0);
-      assert.equal(boxById(builder, defaultId).fontsize, 10);
-      assert.equal(boxById(builder, customId).fontsize, 12);
-      assert.equal(boxById(builder, customId).hidden, 1);
-      assert.equal(boxById(builder, customId).mode, 1);
-      assert.equal(boxById(builder, customId).outputmode, 0);
+      expect(boxById(builder, defaultId).outputmode).toBe(0);
+      expect(boxById(builder, defaultId).mode).toBe(0);
+      expect(boxById(builder, defaultId).fontsize).toBe(10);
+      expect(boxById(builder, customId).fontsize).toBe(12);
+      expect(boxById(builder, customId).hidden).toBe(1);
+      expect(boxById(builder, customId).mode).toBe(1);
+      expect(boxById(builder, customId).outputmode).toBe(0);
     });
 
     it("adds patch-only comments", () => {
       const builder = createBuilder();
       const defaultId = builder.addPatchComment("default-section", "§ Default", 1, 2);
       const customId = builder.addPatchComment("custom-section", "§ Custom", 3, 4, 300);
-      assert.deepEqual(boxById(builder, defaultId).patching_rect, [1, 2, 240, 20]);
-      assert.deepEqual(boxById(builder, customId).patching_rect, [3, 4, 300, 20]);
-      assert.equal(boxById(builder, customId).presentation, 0);
+      expect(boxById(builder, defaultId).patching_rect).toEqual([1, 2, 240, 20]);
+      expect(boxById(builder, customId).patching_rect).toEqual([3, 4, 300, 20]);
+      expect(boxById(builder, customId).presentation).toBe(0);
     });
 
     it("adds jsui previews with matching patching and presentation rectangles", () => {
@@ -555,17 +534,17 @@ describe("MaxPatchBuilder", () => {
         rounded: 8,
       });
       const defaultBox = boxById(builder, defaultId);
-      assert.equal(defaultBox.filename, "motif-preview.js");
-      assert.equal(defaultBox.template, "motif-preview.js");
-      assert.deepEqual(defaultBox.patching_rect, defaultBox.presentation_rect);
-      assert.equal(defaultBox.border, 0);
-      assert.equal(defaultBox.jsarguments, undefined);
+      expect(defaultBox.filename).toBe("motif-preview.js");
+      expect(defaultBox.template).toBe("motif-preview.js");
+      expect(defaultBox.patching_rect).toEqual(defaultBox.presentation_rect);
+      expect(defaultBox.border).toBe(0);
+      expect(defaultBox.jsarguments).toBe(undefined);
 
       const customBox = boxById(builder, customId);
-      assert.equal(customBox.filename, "custom-preview.js");
-      assert.equal(customBox.template, "custom-preview.js");
-      assert.equal(customBox.hidden, 1);
-      assert.deepEqual(customBox.jsarguments, [8, 1]);
+      expect(customBox.filename).toBe("custom-preview.js");
+      expect(customBox.template).toBe("custom-preview.js");
+      expect(customBox.hidden).toBe(1);
+      expect(customBox.jsarguments).toEqual([8, 1]);
     });
   });
 
@@ -577,7 +556,7 @@ describe("MaxPatchBuilder", () => {
       builder.connect("source", 0, "destination", 1);
       builder.connect(sourceId, 2, destinationId, 3, 4);
 
-      assert.deepEqual(builder.lines, [
+      expect(builder.lines).toEqual([
         { patchline: { source: [sourceId, 0], destination: [destinationId, 1] } },
         { patchline: { source: [sourceId, 2], destination: [destinationId, 3], order: 4 } },
       ]);
@@ -588,16 +567,15 @@ describe("MaxPatchBuilder", () => {
       builder.addBox("source", "button", [0, 0, 10, 10]);
       builder.addBox("destination", "button", [20, 0, 10, 10]);
 
-      assert.throws(
-        () => builder.connect("missing", 0, "destination", 0),
+      expect(() => builder.connect("missing", 0, "destination", 0)).toThrow(
         /Unknown Max box reference/,
       );
-      assert.throws(() => builder.connect("source", 0, "missing", 0), /Unknown Max box reference/);
-      assert.throws(() => builder.connect("", 0, "destination", 0), /object reference/);
-      assert.throws(() => builder.connect("source", -1, "destination", 0), /source outlet/);
-      assert.throws(() => builder.connect("source", 0.5, "destination", 0), /source outlet/);
-      assert.throws(() => builder.connect("source", 0, "destination", -1), /destination inlet/);
-      assert.throws(() => builder.connect("source", 0, "destination", 0, -1), /patchline order/);
+      expect(() => builder.connect("source", 0, "missing", 0)).toThrow(/Unknown Max box reference/);
+      expect(() => builder.connect("", 0, "destination", 0)).toThrow(/object reference/);
+      expect(() => builder.connect("source", -1, "destination", 0)).toThrow(/source outlet/);
+      expect(() => builder.connect("source", 0.5, "destination", 0)).toThrow(/source outlet/);
+      expect(() => builder.connect("source", 0, "destination", -1)).toThrow(/destination inlet/);
+      expect(() => builder.connect("source", 0, "destination", 0, -1)).toThrow(/patchline order/);
     });
 
     it("wires hide/show messages across multiple layout columns", () => {
@@ -615,41 +593,39 @@ describe("MaxPatchBuilder", () => {
       const fan = builder.boxes.find(
         ({ box }) => box.text === `t ${Array.from({ length: 15 }, () => "b").join(" ")}`,
       )?.box;
-      assert.ok(fan);
-      assert.deepEqual(
+      expect(fan).toBeTruthy();
+      expect(
         builder.boxes.find(({ box }) => box.text === "script sendbox hide-12 hidden 1")?.box
           .patching_rect,
-        [540, 200, 260, 22],
-      );
-      assert.ok(builder.boxes.some(({ box }) => box.text === "script sendbox show-1 hidden 0"));
-      assert.equal(builder.lines.length, 31);
+      ).toEqual([540, 200, 260, 22]);
+      expect(
+        builder.boxes.some(({ box }) => box.text === "script sendbox show-1 hidden 0"),
+      ).toBeTruthy();
+      expect(builder.lines.length).toBe(31);
     });
 
     it("rejects empty visibility groups and unknown controls", () => {
       const empty = createBuilder();
-      assert.throws(() => empty.wireTabVisibility("trigger", [], [], 0, 0), /at least one target/);
+      expect(() => empty.wireTabVisibility("trigger", [], [], 0, 0)).toThrow(/at least one target/);
 
       const missingTrigger = createBuilder();
       missingTrigger.addObject("thispatcher", "thispatcher", 0, 0);
       missingTrigger.addBox("target", "panel", [0, 0, 10, 10]);
-      assert.throws(
-        () => missingTrigger.wireTabVisibility("trigger", ["target"], [], 0, 0),
+      expect(() => missingTrigger.wireTabVisibility("trigger", ["target"], [], 0, 0)).toThrow(
         /Unknown Max box reference/,
       );
 
       const missingTarget = createBuilder();
       missingTarget.addBox("trigger", "button", [0, 0, 10, 10]);
       missingTarget.addObject("thispatcher", "thispatcher", 0, 0);
-      assert.throws(
-        () => missingTarget.wireTabVisibility("trigger", ["target"], [], 0, 0),
+      expect(() => missingTarget.wireTabVisibility("trigger", ["target"], [], 0, 0)).toThrow(
         /Unknown Max box reference/,
       );
 
       const missingThispatcher = createBuilder();
       missingThispatcher.addBox("trigger", "button", [0, 0, 10, 10]);
       missingThispatcher.addBox("target", "panel", [0, 0, 10, 10]);
-      assert.throws(
-        () => missingThispatcher.wireTabVisibility("trigger", ["target"], [], 0, 0),
+      expect(() => missingThispatcher.wireTabVisibility("trigger", ["target"], [], 0, 0)).toThrow(
         /thispatcher/,
       );
     });

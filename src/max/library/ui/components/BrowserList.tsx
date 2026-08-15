@@ -6,6 +6,7 @@ import {
   toggleCollapsedFolder,
 } from "../browser-model.js";
 import { confirmDiscard, send } from "../bridge.js";
+import { classNames } from "../class-names.js";
 import { useLibraryStore } from "../store.js";
 import type { LibraryServerState } from "../../protocol.js";
 
@@ -46,7 +47,7 @@ export function BrowserList({ server }: { server: LibraryServerState | null }) {
         <button
           key={`folder:${folderName}`}
           type="button"
-          class="browser-folder"
+          className="browser-folder"
           aria-expanded={!collapsed}
           title={`${collapsed ? "Expand" : "Collapse"} ${folderName}`}
           onClick={() => {
@@ -71,7 +72,7 @@ export function BrowserList({ server }: { server: LibraryServerState | null }) {
       <button
         key={item.id}
         type="button"
-        class={`browser-item${selected ? " selected" : ""}`}
+        className={classNames("browser-item", { selected })}
         title={item.showId ? `${item.name}\nID: ${item.id}` : item.name}
         onClick={() => {
           if (server.selected?.id === item.id) {
@@ -86,15 +87,15 @@ export function BrowserList({ server }: { server: LibraryServerState | null }) {
           );
         }}
       >
-        <div class="browser-name">{libraryBrowserDisplayName(item.name, folder)}</div>
+        <div className="browser-name">{libraryBrowserDisplayName(item.name, folder)}</div>
         {item.hotkeys.length > 0 ? (
-          <div class="hotkey-badge">
+          <div className="hotkey-badge">
             {item.hotkeys
               .map((mapping) => `${mapping.label} ${mapping.action === "select" ? "↦" : "▶"}`)
               .join(" ")}
           </div>
         ) : null}
-        {item.showId ? <div class="browser-id">{item.id}</div> : null}
+        {item.showId ? <div className="browser-id">{item.id}</div> : null}
       </button>,
     );
   }

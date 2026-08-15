@@ -1,6 +1,7 @@
 /** @jsxImportSource preact */
 import { midiNoteName } from "../../../../core/preview.js";
 import { pushProperties } from "../bridge.js";
+import { classNames } from "../class-names.js";
 import { formatPreviewBarCount } from "../format.js";
 import { PITCH_CLASS_NAMES, type PropertyDraft } from "../page-state.js";
 import { useLibraryStore } from "../store.js";
@@ -50,56 +51,56 @@ export function PropertyForm({
   }
 
   return (
-    <div class={`panel${hidden ? " hidden" : ""}`} id="properties-panel">
-      <div class="section">
-        <div class="section-title">Motif</div>
-        <div class="property-grid">
+    <div className={classNames("panel", { hidden })} id="properties-panel">
+      <div className="section">
+        <div className="section-title">Motif</div>
+        <div className="property-grid">
           <label htmlFor="notes-summary">Notes</label>
           <input
-            class="field"
+            className="field"
             id="notes-summary"
             name="notes-summary"
             type="text"
-            readonly
+            readOnly
             disabled
             value={selected ? String(selected.noteCount) : ""}
           />
           <label htmlFor="bars-summary">Bars</label>
           <input
-            class="field"
+            className="field"
             id="bars-summary"
             name="bars-summary"
             type="text"
-            readonly
+            readOnly
             disabled
             value={selected ? formatPreviewBarCount(selected.previewBars) : ""}
           />
         </div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Tags</div>
-        <div class="property-grid">
-          <span class="field-label">Labels</span>
+      <div className="section">
+        <div className="section-title">Tags</div>
+        <div className="property-grid">
+          <span className="field-label">Labels</span>
           <MotifTags server={server} editing={editing} />
-          <div class="help">
+          <div className="help">
             Click a library tag to add it, or type a new name and press Enter or comma. Click a chip
             to remove it while editing.
           </div>
         </div>
       </div>
 
-      <div class="section">
-        <div class="section-title">MIDI Hot Keys</div>
+      <div className="section">
+        <div className="section-title">MIDI Hot Keys</div>
         <HotkeyList selected={selected} />
       </div>
 
-      <div class="section">
-        <div class="section-title">Pitch &amp; Timing</div>
-        <div class="property-grid">
+      <div className="section">
+        <div className="section-title">Pitch &amp; Timing</div>
+        <div className="property-grid">
           <label htmlFor="pitch-mode-edit">Pitch mode</label>
           <select
-            class="field editable-property"
+            className="field editable-property"
             id="pitch-mode-edit"
             disabled={controlsDisabled}
             name="pitch-mode-edit"
@@ -113,7 +114,7 @@ export function PropertyForm({
           </select>
           <label htmlFor="trigger-mode-edit">Trigger mode</label>
           <select
-            class="field editable-property"
+            className="field editable-property"
             id="trigger-mode-edit"
             name="trigger-mode-edit"
             disabled={controlsDisabled}
@@ -130,7 +131,7 @@ export function PropertyForm({
           </select>
           <label htmlFor="repeat-rounding-edit">Repeat rounding</label>
           <select
-            class="field editable-property"
+            className="field editable-property"
             id="repeat-rounding-edit"
             disabled={controlsDisabled}
             value={draft.repeatRounding}
@@ -143,9 +144,9 @@ export function PropertyForm({
             <option value="1-bar">1 bar</option>
           </select>
           <label htmlFor="source-anchor-edit">Source anchor</label>
-          <div class="source-pitch-controls" id="source-anchor-controls">
+          <div className="source-pitch-controls" id="source-anchor-controls">
             <input
-              class="field editable-property"
+              className="field editable-property"
               id="source-anchor-edit"
               name="source-anchor-edit"
               type="number"
@@ -158,14 +159,14 @@ export function PropertyForm({
               onInput={(event) => updateDraft({ sourceAnchor: event.currentTarget.value })}
               onChange={pushProperties}
             />
-            <output id="source-anchor-name" for="source-anchor-edit" aria-live="polite">
+            <output id="source-anchor-name" htmlFor="source-anchor-edit" aria-live="polite">
               {sourceAnchorLabel(draft.sourceAnchor)}
             </output>
           </div>
           <label htmlFor="source-root-edit">Source root</label>
-          <div class="source-pitch-controls" id="source-root-controls">
+          <div className="source-pitch-controls" id="source-root-controls">
             <input
-              class="field editable-property"
+              className="field editable-property"
               id="source-root-edit"
               name="source-root-edit"
               type="number"
@@ -178,13 +179,13 @@ export function PropertyForm({
               onInput={(event) => updateDraft({ sourceRoot: event.currentTarget.value })}
               onChange={pushProperties}
             />
-            <output id="source-root-name" for="source-root-edit" aria-live="polite">
+            <output id="source-root-name" htmlFor="source-root-edit" aria-live="polite">
               {sourceRootLabel(draft.sourceRoot)}
             </output>
           </div>
           <label htmlFor="source-scale-name-edit">Source scale</label>
           <input
-            class="field editable-property"
+            className="field editable-property"
             id="source-scale-name-edit"
             name="source-scale-name-edit"
             type="text"
@@ -196,7 +197,7 @@ export function PropertyForm({
           />
           <label htmlFor="source-scale-intervals-edit">Source intervals</label>
           <input
-            class="field editable-property"
+            className="field editable-property"
             id="source-scale-intervals-edit"
             name="source-scale-intervals-edit"
             type="text"
@@ -211,13 +212,13 @@ export function PropertyForm({
             onChange={pushProperties}
             onBlur={pushProperties}
           />
-          <div class="help wide">
+          <div className="help wide">
             Imports are exact Chromatic motifs. Changing Pitch Mode analyzes notes against this
             saved source scale; Live&apos;s current scale is the playback target.
           </div>
           <label htmlFor="default-gate-edit">Default gate</label>
           <input
-            class="field editable-property"
+            className="field editable-property"
             id="default-gate-edit"
             name="default-gate-edit"
             type="number"
@@ -232,7 +233,7 @@ export function PropertyForm({
           <label htmlFor="meter-numerator-edit">Source meter</label>
           <div id="source-meter-controls">
             <input
-              class="field editable-property"
+              className="field editable-property"
               id="meter-numerator-edit"
               name="meter-numerator-edit"
               type="number"
@@ -244,7 +245,7 @@ export function PropertyForm({
               onChange={pushProperties}
             />
             <select
-              class="field editable-property"
+              className="field editable-property"
               id="meter-denominator-edit"
               disabled={controlsDisabled}
               value={draft.meterDenominator}
@@ -266,12 +267,12 @@ export function PropertyForm({
         </div>
       </div>
 
-      <div class="section">
-        <div class="section-title">Velocity Curve</div>
-        <div class="property-grid">
+      <div className="section">
+        <div className="section-title">Velocity Curve</div>
+        <div className="property-grid">
           <label htmlFor="curve-input-min">Input min</label>
           <input
-            class="field editable-property"
+            className="field editable-property"
             id="curve-input-min"
             name="curve-input-min"
             type="number"
@@ -283,7 +284,7 @@ export function PropertyForm({
           />
           <label htmlFor="curve-input-max">Input max</label>
           <input
-            class="field editable-property"
+            className="field editable-property"
             id="curve-input-max"
             name="curve-input-max"
             type="number"
@@ -295,7 +296,7 @@ export function PropertyForm({
           />
           <label htmlFor="curve-output-min">Output min</label>
           <input
-            class="field editable-property"
+            className="field editable-property"
             id="curve-output-min"
             name="curve-output-min"
             type="number"
@@ -307,7 +308,7 @@ export function PropertyForm({
           />
           <label htmlFor="curve-output-max">Output max</label>
           <input
-            class="field editable-property"
+            className="field editable-property"
             id="curve-output-max"
             name="curve-output-max"
             type="number"
@@ -319,7 +320,7 @@ export function PropertyForm({
           />
           <label htmlFor="curve-exponent">Exponent</label>
           <input
-            class="field editable-property"
+            className="field editable-property"
             id="curve-exponent"
             name="curve-exponent"
             type="number"

@@ -1,6 +1,7 @@
 /** @jsxImportSource preact */
 import { useEffect } from "preact/hooks";
 import { closeModal } from "../bridge.js";
+import { classNames } from "../class-names.js";
 import { useLibraryStore } from "../store.js";
 
 /** Confirm / dismiss modal overlay. */
@@ -22,7 +23,7 @@ export function Modal() {
   }, [modal]);
 
   if (!modal) {
-    return <div id="modal-backdrop" class="hidden" />;
+    return <div id="modal-backdrop" className="hidden" />;
   }
 
   return (
@@ -34,7 +35,7 @@ export function Modal() {
         <div id="modal-actions">
           <button
             type="button"
-            class={`btn${modal.dismissOnly ? " hidden" : ""}`}
+            className={classNames("btn", { hidden: modal.dismissOnly })}
             id="modal-cancel"
             onClick={closeModal}
           >
@@ -42,7 +43,7 @@ export function Modal() {
           </button>
           <button
             type="button"
-            class="btn"
+            className="btn"
             id="modal-confirm"
             onClick={() => {
               const onConfirm = modal.onConfirm;

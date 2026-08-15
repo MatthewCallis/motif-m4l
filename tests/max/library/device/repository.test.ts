@@ -1,11 +1,15 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { installMaxMocks } from "../../../helpers/max-mocks.js";
 import { MotifStore } from "../../../../src/library/store.js";
 import { MAX_LIBRARY_DEPTH } from "../../../../src/max/device-types.js";
 import { MaxUserLibrary } from "../../../../src/max/library/device/repository.js";
 
 describe("Max user library", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
   it("scans, groups, saves, and collision-protects a Max user library", () => {
     const mocks = installMaxMocks();
     const store = new MotifStore();
@@ -27,27 +31,27 @@ describe("Max user library", () => {
       },
     });
 
-    assert.equal(library.selectPath("/library"), true);
-    assert.equal(library.loaded, true);
-    assert.equal(store.has("user-one"), true);
-    assert.equal(library.browserFolder("scale-turn"), "Library");
-    assert.equal(library.browserFolder("user-one"), "Library");
-    assert.equal(library.uniqueId("User One"), "user-one-2");
-    assert.equal(library.save("user-one"), "/library/user-one.json");
-    assert.ok(changes > 0);
-    assert.ok(statuses.some(([status]) => status === "library"));
-    assert.equal(errors.length, 0);
+    expect(library.selectPath("/library")).toBe(true);
+    expect(library.loaded).toBe(true);
+    expect(store.has("user-one")).toBe(true);
+    expect(library.browserFolder("scale-turn")).toBe("Library");
+    expect(library.browserFolder("user-one")).toBe("Library");
+    expect(library.uniqueId("User One")).toBe("user-one-2");
+    expect(library.save("user-one")).toBe("/library/user-one.json");
+    expect(changes > 0).toBeTruthy();
+    expect(statuses.some(([status]) => status === "library")).toBeTruthy();
+    expect(errors.length).toBe(0);
 
     mocks.files["/library/collision.json"] = "{}";
     const collision = { ...userMotif, id: "collision" };
-    assert.deepEqual(store.add(collision), []);
-    assert.throws(() => library.save("collision"), /already exists/);
-    assert.equal(library.isOccupied("/LIBRARY/collision.json"), true);
-    assert.throws(() => library.save("missing"), /Unknown motif/);
+    expect(store.add(collision)).toEqual([]);
+    expect(() => library.save("collision")).toThrow(/already exists/);
+    expect(library.isOccupied("/LIBRARY/collision.json")).toBe(true);
+    expect(() => library.save("missing")).toThrow(/Unknown motif/);
 
-    assert.equal(library.selectPath("/missing"), false);
-    assert.equal(library.loaded, false);
-    assert.ok(errors.some((message) => message.includes("not found")));
+    expect(library.selectPath("/missing")).toBe(false);
+    expect(library.loaded).toBe(false);
+    expect(errors.some((message) => message.includes("not found"))).toBeTruthy();
   });
 
   it("skips invalid, builtin-conflicting, and duplicate motif files during scan", () => {
@@ -85,25 +89,25 @@ describe("Max user library", () => {
       onContentsChanged: () => undefined,
     });
 
-    assert.equal(library.selectPath("/library"), true);
-    assert.equal(library.loaded, true);
-    assert.equal(store.has("user-valid"), true);
-    assert.equal(store.has("nested-user"), true);
-    assert.equal(library.browserFolder("nested-user"), "nested");
-    assert.equal(library.browserFolder("missing-user"), "Library");
+    expect(library.selectPath("/library")).toBe(true);
+    expect(library.loaded).toBe(true);
+    expect(store.has("user-valid")).toBe(true);
+    expect(store.has("nested-user")).toBe(true);
+    expect(library.browserFolder("nested-user")).toBe("nested");
+    expect(library.browserFolder("missing-user")).toBe("Library");
     library.files.set("outside", "/elsewhere/outside.json");
-    assert.equal(library.browserFolder("outside"), "Library");
-    assert.ok(errors.some((message) => message.includes("broken.json")));
-    assert.ok(errors.some((message) => message.includes("conflicts with a built-in")));
-    assert.ok(errors.some((message) => message.includes("duplicate motif id")));
+    expect(library.browserFolder("outside")).toBe("Library");
+    expect(errors.some((message) => message.includes("broken.json"))).toBeTruthy();
+    expect(errors.some((message) => message.includes("conflicts with a built-in"))).toBeTruthy();
+    expect(errors.some((message) => message.includes("duplicate motif id"))).toBeTruthy();
 
     const changesBefore = stateChanges;
-    assert.equal(library.selectPath("/library"), false);
-    assert.equal(stateChanges, changesBefore + 1);
-    assert.equal(library.loaded, true);
+    expect(library.selectPath("/library")).toBe(false);
+    expect(stateChanges).toBe(changesBefore + 1);
+    expect(library.loaded).toBe(true);
 
     library.load("library-refreshed");
-    assert.ok(statuses.some(([status]) => status === "library-refreshed"));
+    expect(statuses.some(([status]) => status === "library-refreshed")).toBeTruthy();
   });
 
   it("cancels mid-scan work and reports maximum folder depth", () => {
@@ -146,7 +150,7 @@ describe("Max user library", () => {
         });
       }
     }
-    Object.assign(globalThis, { Task: DeferredTask });
+    vi.stubGlobal("Task", DeferredTask);
     mocks.folders["/slow"] = ["a.json"];
     mocks.files["/slow/a.json"] = JSON.stringify({
       ...store.get("chromatic-turn")!,
@@ -154,13 +158,13 @@ describe("Max user library", () => {
       name: "Slow",
     });
 
-    assert.equal(library.selectPath("/slow"), true);
-    assert.equal(library.scanning, true);
-    assert.ok(library.scanTask);
+    expect(library.selectPath("/slow")).toBe(true);
+    expect(library.scanning).toBe(true);
+    expect(library.scanTask).toBeTruthy();
     library.cancelScan();
-    assert.equal(library.scanning, false);
-    assert.equal(library.scanTask, undefined);
-    assert.equal(store.has("slow-user"), false);
+    expect(library.scanning).toBe(false);
+    expect(library.scanTask).toBe(undefined);
+    expect(store.has("slow-user")).toBe(false);
 
     let path = "/deep";
     mocks.folders[path] = ["child"];
@@ -170,8 +174,9 @@ describe("Max user library", () => {
       path = child;
     }
     mocks.folders[`${path}/child`] = [];
-    Object.assign(globalThis, {
-      Task: class ImmediateTask {
+    vi.stubGlobal(
+      "Task",
+      class ImmediateTask {
         callback: (...args: unknown[]) => void;
         context?: object;
         args: unknown[];
@@ -190,9 +195,11 @@ describe("Max user library", () => {
           this.callback.apply(this.context, this.args);
         }
       },
-    });
+    );
     errors.length = 0;
     library.selectPath("/deep");
-    assert.ok(errors.some((message) => message.includes("maximum library folder depth exceeded")));
+    expect(
+      errors.some((message) => message.includes("maximum library folder depth exceeded")),
+    ).toBeTruthy();
   });
 });

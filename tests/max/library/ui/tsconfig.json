@@ -1,0 +1,14 @@
+{
+  "extends": "../../../../tsconfig.library.json",
+  "include": [
+    "./**/*.ts",
+    "./**/*.tsx",
+    "../../../../src/max/library/ui/**/*.ts",
+    "../../../../src/max/library/ui/**/*.tsx",
+    "../../../../src/max/library/ui/**/*.d.ts",
+    "../../../../src/max/library/protocol.ts",
+    "../../../../src/core/preview.ts",
+    "../../../../src/library/note-edit-schema.ts",
+    "../../../../src/library/tags.ts"
+  ]
+}

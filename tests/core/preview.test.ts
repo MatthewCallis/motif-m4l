@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import {
   buildMotifPreview,
   midiNoteName,
@@ -28,38 +27,34 @@ const host: HostContext = {
 
 describe("motif preview", () => {
   it("formats MIDI note names using Ableton octave numbering", () => {
-    assert.equal(midiNoteName(60), "C3");
-    assert.equal(midiNoteName(58), "A♯2");
-    assert.equal(midiNoteName(0), "C-2");
+    expect(midiNoteName(60)).toBe("C3");
+    expect(midiNoteName(58)).toBe("A♯2");
+    expect(midiNoteName(0)).toBe("C-2");
   });
 
   it("parses Ableton-style MIDI note names with sharps and flats", () => {
-    assert.equal(parseMidiNoteName("C3"), 60);
-    assert.equal(parseMidiNoteName(" c-2 "), 0);
-    assert.equal(parseMidiNoteName("F♯2"), 54);
-    assert.equal(parseMidiNoteName("F#2"), 54);
-    assert.equal(parseMidiNoteName("Bb4"), 82);
-    assert.equal(parseMidiNoteName("B♭4"), 82);
-    assert.equal(parseMidiNoteName("G8"), 127);
-    assert.equal(parseMidiNoteName("Cb-2"), undefined);
-    assert.equal(parseMidiNoteName("G#8"), undefined);
-    assert.equal(parseMidiNoteName("60"), undefined);
-    assert.equal(parseMidiNoteName("H3"), undefined);
+    expect(parseMidiNoteName("C3")).toBe(60);
+    expect(parseMidiNoteName(" c-2 ")).toBe(0);
+    expect(parseMidiNoteName("F♯2")).toBe(54);
+    expect(parseMidiNoteName("F#2")).toBe(54);
+    expect(parseMidiNoteName("Bb4")).toBe(82);
+    expect(parseMidiNoteName("B♭4")).toBe(82);
+    expect(parseMidiNoteName("G8")).toBe(127);
+    expect(parseMidiNoteName("Cb-2")).toBe(undefined);
+    expect(parseMidiNoteName("G#8")).toBe(undefined);
+    expect(parseMidiNoteName("60")).toBe(undefined);
+    expect(parseMidiNoteName("H3")).toBe(undefined);
   });
 
   it("previews the Chromatic Turn contour from C3", () => {
     const preview = buildMotifPreview(chromaticTurn, host, 60, undefined, "preserve");
-    assert.deepEqual(
-      preview.notes.map(({ pitch }) => pitch),
-      [60, 62, 63, 67, 65, 62, 60],
-    );
-    assert.deepEqual(preview.noteNames, ["C3", "D3", "D♯3", "G3", "F3", "D3", "C3"]);
-    assert.deepEqual(
-      preview.notes.map(({ velocity }) => velocity),
-      [100, 100, 100, 106, 100, 100, 100],
-    );
-    assert.equal(preview.bars, 0.875);
-    assert.equal(preview.effectivePitchMode, "chromatic");
+    expect(preview.notes.map(({ pitch }) => pitch)).toEqual([60, 62, 63, 67, 65, 62, 60]);
+    expect(preview.noteNames).toEqual(["C3", "D3", "D♯3", "G3", "F3", "D3", "C3"]);
+    expect(preview.notes.map(({ velocity }) => velocity)).toEqual([
+      100, 100, 100, 106, 100, 100, 100,
+    ]);
+    expect(preview.bars).toBe(0.875);
+    expect(preview.effectivePitchMode).toBe("chromatic");
   });
 
   it("scale-mode preview follows Live root and intervals", () => {
@@ -70,16 +65,12 @@ describe("motif preview", () => {
       scaleIntervals: [0, 2, 3, 5, 7, 9, 10],
     };
     const preview = buildMotifPreview(scaleTurn, dorian, 62, "scale", "preserve");
-    assert.deepEqual(
-      preview.notes.map(({ pitch }) => pitch),
-      [62, 64, 65, 69, 67, 64, 62],
-    );
-    assert.equal(preview.noteNames[0], "D3");
-    assert.equal(preview.effectivePitchMode, "scale");
-    assert.deepEqual(
-      preview.notes.map(({ velocity }) => velocity),
-      [104, 100, 103, 107, 100, 97, 102],
-    );
+    expect(preview.notes.map(({ pitch }) => pitch)).toEqual([62, 64, 65, 69, 67, 64, 62]);
+    expect(preview.noteNames[0]).toBe("D3");
+    expect(preview.effectivePitchMode).toBe("scale");
+    expect(preview.notes.map(({ velocity }) => velocity)).toEqual([
+      104, 100, 103, 107, 100, 97, 102,
+    ]);
   });
 
   it("previews the target-aware Hybrid contour used by playback", () => {
@@ -109,10 +100,7 @@ describe("motif preview", () => {
       "preserve",
     );
 
-    assert.deepEqual(
-      preview.notes.map(({ pitch }) => pitch),
-      [51, 50, 49, 48],
-    );
+    expect(preview.notes.map(({ pitch }) => pitch)).toEqual([51, 50, 49, 48]);
   });
 
   it("keeps the stored pitch mode when a preview override cannot convert", () => {
@@ -126,19 +114,19 @@ describe("motif preview", () => {
       },
     };
     const preview = buildMotifPreview(unresolved, host, 60, "scale", "preserve");
-    assert.equal(preview.effectivePitchMode, "chromatic");
-    assert.equal(preview.notes.length, chromaticTurn.notes.length);
+    expect(preview.effectivePitchMode).toBe("chromatic");
+    expect(preview.notes.length).toBe(chromaticTurn.notes.length);
   });
 
   it("clamps note names and expands flat or empty preview ranges", () => {
-    assert.equal(midiNoteName(-20), "C-2");
-    assert.equal(midiNoteName(200), "G8");
+    expect(midiNoteName(-20)).toBe("C-2");
+    expect(midiNoteName(200)).toBe("G8");
 
     const flat = buildMotifPreview(chromaticTurn, host, 60, undefined, "fit-bar", 1);
-    assert.equal(flat.notes.length, 1);
-    assert.equal(flat.lowPitch, 59);
-    assert.equal(flat.highPitch, 61);
-    assert.equal(flat.bars, chromaticTurn.length / 3840);
+    expect(flat.notes.length).toBe(1);
+    expect(flat.lowPitch).toBe(59);
+    expect(flat.highPitch).toBe(61);
+    expect(flat.bars).toBe(chromaticTurn.length / 3840);
 
     const empty = buildMotifPreview(
       { ...chromaticTurn, length: 0, notes: [] },
@@ -147,25 +135,25 @@ describe("motif preview", () => {
       undefined,
       "preserve",
     );
-    assert.deepEqual(empty.notes, []);
-    assert.equal(empty.lowPitch, 63);
-    assert.equal(empty.highPitch, 65);
-    assert.ok(empty.bars > 0);
+    expect(empty.notes).toEqual([]);
+    expect(empty.lowPitch).toBe(63);
+    expect(empty.highPitch).toBe(65);
+    expect(empty.bars > 0).toBeTruthy();
   });
 
   it("projects paint payloads with totalTicks from the last note end", () => {
     const preview = buildMotifPreview(chromaticTurn, host, 60, undefined, "preserve");
     const paint = toMotifPreviewPaintData(preview);
-    assert.equal(paint.notes.length, preview.notes.length);
-    assert.equal(paint.lowPitch, preview.lowPitch);
-    assert.equal(paint.highPitch, preview.highPitch);
-    assert.equal(paint.noteNames, preview.noteNames.join(" ·  "));
+    expect(paint.notes.length).toBe(preview.notes.length);
+    expect(paint.lowPitch).toBe(preview.lowPitch);
+    expect(paint.highPitch).toBe(preview.highPitch);
+    expect(paint.noteNames).toBe(preview.noteNames.join(" ·  "));
     const expectedTicks = preview.notes.reduce(
       (max, note) => Math.max(max, note.atTicks + note.durationTicks),
       1,
     );
-    assert.equal(paint.totalTicks, expectedTicks);
-    assert.deepEqual(paint.notes[0], {
+    expect(paint.totalTicks).toBe(expectedTicks);
+    expect(paint.notes[0]).toEqual({
       pitch: preview.notes[0]?.pitch,
       atTicks: preview.notes[0]?.atTicks,
       durationTicks: preview.notes[0]?.durationTicks,

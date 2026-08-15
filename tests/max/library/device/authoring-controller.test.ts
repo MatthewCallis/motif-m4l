@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { HostContext } from "../../../../src/core/types.js";
 import { MotifEditorState } from "../../../../src/library/editor-state.js";
 import { MotifStore } from "../../../../src/library/store.js";
@@ -76,26 +75,31 @@ function installClipLiveApi(options: {
       return [];
     }
   }
-  Object.assign(globalThis, { LiveAPI: MockLiveAPI });
+  vi.stubGlobal("LiveAPI", MockLiveAPI);
 }
 
 describe("MotifAuthoringController", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
   it("coordinates built-in draft editing and cancellation", () => {
     const harness = createAuthoring();
     harness.controller.beginEdit();
     const draftId = harness.store.currentId;
-    assert.notEqual(draftId, "scale-turn");
-    assert.equal(harness.editor.isEditing(draftId), true);
+    expect(draftId).not.toBe("scale-turn");
+    expect(harness.editor.isEditing(draftId)).toBe(true);
 
     harness.controller.editMotif({ name: "Controller Draft" });
-    assert.equal(harness.store.current?.name, "Controller Draft");
-    assert.equal(harness.editor.isDirty(), true);
+    expect(harness.store.current?.name).toBe("Controller Draft");
+    expect(harness.editor.isDirty()).toBe(true);
 
     harness.controller.cancelEdit();
-    assert.equal(harness.store.currentId, "scale-turn");
-    assert.equal(harness.store.has(draftId), false);
-    assert.ok(harness.effects.includes("prune"));
-    assert.ok(harness.effects.includes("persist"));
+    expect(harness.store.currentId).toBe("scale-turn");
+    expect(harness.store.has(draftId)).toBe(false);
+    expect(harness.effects.includes("prune")).toBeTruthy();
+    expect(harness.effects.includes("persist")).toBeTruthy();
   });
 
   it("guards dirty selection and accepts explicit browser discard", () => {
@@ -105,15 +109,17 @@ describe("MotifAuthoringController", () => {
     const draftId = harness.store.currentId;
 
     harness.controller.selectBrowser("chromatic-turn");
-    assert.equal(harness.store.currentId, draftId);
-    assert.ok(
+    expect(harness.store.currentId).toBe(draftId);
+    expect(
       harness.effects.some((effect) => effect.includes("Unsaved edits must be saved or discarded")),
-    );
+    ).toBeTruthy();
 
     harness.controller.selectBrowser("chromatic-turn", true);
-    assert.equal(harness.store.currentId, "chromatic-turn");
-    assert.equal(harness.editor.isEditing(), false);
-    assert.ok(harness.effects.some((effect) => effect.startsWith("selected:chromatic-turn:")));
+    expect(harness.store.currentId).toBe("chromatic-turn");
+    expect(harness.editor.isEditing()).toBe(false);
+    expect(
+      harness.effects.some((effect) => effect.startsWith("selected:chromatic-turn:")),
+    ).toBeTruthy();
   });
 
   it("rejects edits and saves when their preconditions are absent", () => {
@@ -121,46 +127,50 @@ describe("MotifAuthoringController", () => {
     harness.controller.editNoteAt(0, "pitch", 4);
     harness.controller.saveMotif();
 
-    assert.ok(
+    expect(
       harness.effects.some((effect) => effect.includes("Start editing before changing this motif")),
-    );
-    assert.ok(
+    ).toBeTruthy();
+    expect(
       harness.effects.some((effect) =>
         effect.includes("Choose a valid library folder before saving"),
       ),
-    );
+    ).toBeTruthy();
   });
 
   it("guards motif menu selection against unknown, current, dirty, and clean edits", () => {
     const harness = createAuthoring();
     harness.controller.selectMotif("missing-motif");
-    assert.ok(harness.effects.some((effect) => effect.includes("Unknown motif: missing-motif")));
+    expect(
+      harness.effects.some((effect) => effect.includes("Unknown motif: missing-motif")),
+    ).toBeTruthy();
 
     harness.effects.length = 0;
     harness.controller.selectMotif("scale-turn");
-    assert.deepEqual(harness.effects, []);
+    expect(harness.effects).toEqual([]);
 
     harness.controller.beginEdit();
     harness.controller.editMotif({ name: "Dirty Draft" });
     harness.effects.length = 0;
     harness.controller.selectMotif("chromatic-turn");
-    assert.ok(harness.effects.some((effect: string) => effect.includes("Save or cancel")));
-    assert.ok(
+    expect(
+      harness.effects.some((effect: string) => effect.includes("Save or cancel")),
+    ).toBeTruthy();
+    expect(
       harness.effects.some((effect: string) =>
         effect.startsWith(`selected:${harness.store.currentId}:`),
       ),
-    );
-    assert.notEqual(harness.store.currentId, "chromatic-turn");
+    ).toBeTruthy();
+    expect(harness.store.currentId).not.toBe("chromatic-turn");
 
     harness.controller.cancelEdit();
     harness.controller.beginEdit();
-    assert.equal(harness.editor.isDirty(), false);
+    expect(harness.editor.isDirty()).toBe(false);
     harness.effects.length = 0;
     harness.controller.selectMotif("chromatic-turn");
-    assert.equal(harness.store.currentId, "chromatic-turn");
-    assert.equal(harness.editor.isEditing(), false);
-    assert.ok(harness.effects.some((effect: string) => effect === "selected-ui"));
-    assert.ok(harness.effects.some((effect: string) => effect === "persist"));
+    expect(harness.store.currentId).toBe("chromatic-turn");
+    expect(harness.editor.isEditing()).toBe(false);
+    expect(harness.effects.some((effect: string) => effect === "selected-ui")).toBeTruthy();
+    expect(harness.effects.some((effect: string) => effect === "persist")).toBeTruthy();
   });
 
   it("blocks import and edit while scanning or dirty, and requires a library folder", () => {
@@ -170,25 +180,27 @@ describe("MotifAuthoringController", () => {
     harness.library.scanning = true;
     harness.controller.importClip();
     harness.controller.beginEdit();
-    assert.ok(harness.effects.some((effect) => effect.includes("Wait for the library scan")));
+    expect(
+      harness.effects.some((effect) => effect.includes("Wait for the library scan")),
+    ).toBeTruthy();
     harness.library.scanning = false;
 
     harness.controller.beginEdit();
     harness.controller.editMotif({ description: "Dirty before import" });
     harness.effects.length = 0;
     harness.controller.importClip();
-    assert.ok(
+    expect(
       harness.effects.some((effect) =>
         effect.includes("Save or cancel the current edits before importing"),
       ),
-    );
+    ).toBeTruthy();
 
     harness.controller.cancelEdit();
     harness.effects.length = 0;
     harness.controller.importClip();
-    assert.ok(
+    expect(
       harness.effects.some((effect) => effect.startsWith("alert:Library folder required:")),
-    );
+    ).toBeTruthy();
   });
 
   it("imports a Detail View clip into a dirty draft and rolls back on begin failure", () => {
@@ -199,16 +211,20 @@ describe("MotifAuthoringController", () => {
 
     harness.effects.length = 0;
     harness.controller.importClip();
-    assert.ok(harness.effects.some((effect) => effect.startsWith("status:imported-clip:")));
-    assert.equal(harness.editor.isDirty(), true);
-    assert.equal(harness.editor.snapshot().created, true);
-    assert.equal(harness.store.current?.name, "Phrase A");
+    expect(
+      harness.effects.some((effect) => effect.startsWith("status:imported-clip:")),
+    ).toBeTruthy();
+    expect(harness.editor.isDirty()).toBe(true);
+    expect(harness.editor.snapshot().created).toBe(true);
+    expect(harness.store.current?.name).toBe("Phrase A");
 
     harness.controller.cancelEdit();
     installClipLiveApi({ notes: [] });
     harness.effects.length = 0;
     harness.controller.importClip();
-    assert.ok(harness.effects.some((effect) => effect.includes("Selected clip has no notes")));
+    expect(
+      harness.effects.some((effect) => effect.includes("Selected clip has no notes")),
+    ).toBeTruthy();
 
     const tooMany = Array.from({ length: MAX_MOTIF_NOTES + 1 }, (_, index) => ({
       pitch: 60 + (index % 12),
@@ -220,16 +236,18 @@ describe("MotifAuthoringController", () => {
     installClipLiveApi({ notes: tooMany });
     harness.effects.length = 0;
     harness.controller.importClip();
-    assert.ok(harness.effects.some((effect) => effect.startsWith("alert:MIDI file is too long:")));
+    expect(
+      harness.effects.some((effect) => effect.startsWith("alert:MIDI file is too long:")),
+    ).toBeTruthy();
 
     installClipLiveApi({ throwOnRead: new Error("Live notes unavailable") });
     harness.effects.length = 0;
     harness.controller.importClip();
-    assert.ok(
+    expect(
       harness.effects.some((effect) =>
         effect.includes("Clip import failed: Live notes unavailable"),
       ),
-    );
+    ).toBeTruthy();
 
     installClipLiveApi({});
     const begin = harness.editor.begin.bind(harness.editor);
@@ -238,52 +256,51 @@ describe("MotifAuthoringController", () => {
     const before = harness.store.list().map((motif) => motif.id);
     harness.controller.importClip();
     harness.editor.begin = begin;
-    assert.ok(
+    expect(
       harness.effects.some((effect) =>
         effect.includes("Could not start editing the imported motif"),
       ),
-    );
-    assert.deepEqual(
-      harness.store.list().map((motif) => motif.id),
-      before,
-    );
+    ).toBeTruthy();
+    expect(harness.store.list().map((motif) => motif.id)).toEqual(before);
   });
 
   it("alerts when pitch-mode conversion needs unresolved source intervals", () => {
     const harness = createAuthoring();
     const user = addUserCopy(harness.store, "chromatic-turn", "user-phrase");
-    assert.ok(user);
-    harness.store.select(user.id);
+    expect(user).toBeTruthy();
+    harness.store.select(user!.id);
     harness.controller.beginEdit();
     harness.effects.length = 0;
 
     harness.controller.editMotif({
       pitchMode: "scale",
       sourcePitchContext: {
-        ...user.sourcePitchContext,
+        ...user!.sourcePitchContext,
         scaleIntervals: null,
         scaleName: "Custom Unknown Scale",
       },
     });
-    assert.ok(harness.effects.some((effect) => effect.startsWith("alert:Source scale required:")));
-    assert.equal(harness.store.current?.pitchMode, "chromatic");
+    expect(
+      harness.effects.some((effect) => effect.startsWith("alert:Source scale required:")),
+    ).toBeTruthy();
+    expect(harness.store.current?.pitchMode).toBe("chromatic");
   });
 
   it("edits motif-owned trigger mode and repeat rounding", () => {
     const harness = createAuthoring();
     const user = addUserCopy(harness.store, "chromatic-turn", "performance-fields");
-    assert.ok(user);
-    harness.store.select(user.id);
+    expect(user).toBeTruthy();
+    harness.store.select(user!.id);
     harness.controller.beginEdit();
 
     harness.controller.editMotif({ triggerMode: "hold-repeat", repeatRounding: "1-bar" });
-    assert.equal(harness.store.current?.triggerMode, "hold-repeat");
-    assert.equal(harness.store.current?.repeatRounding, "1-bar");
+    expect(harness.store.current?.triggerMode).toBe("hold-repeat");
+    expect(harness.store.current?.repeatRounding).toBe("1-bar");
 
     harness.controller.editMotif({ triggerMode: "forever", repeatRounding: "nearest" });
-    assert.ok(harness.effects.some((effect) => effect.includes("triggerMode must be")));
-    assert.equal(harness.store.current?.triggerMode, "hold-repeat");
-    assert.equal(harness.store.current?.repeatRounding, "1-bar");
+    expect(harness.effects.some((effect) => effect.includes("triggerMode must be"))).toBeTruthy();
+    expect(harness.store.current?.triggerMode).toBe("hold-repeat");
+    expect(harness.store.current?.repeatRounding).toBe("1-bar");
   });
 
   it("saves drafts, reports collisions, and no-ops cancel without a session", () => {
@@ -291,23 +308,25 @@ describe("MotifAuthoringController", () => {
     harness.library.path = "/library";
     harness.library.loaded = true;
     const user = addUserCopy(harness.store, "chromatic-turn", "save-me");
-    assert.ok(user);
-    harness.store.select(user.id);
+    expect(user).toBeTruthy();
+    harness.store.select(user!.id);
 
     harness.effects.length = 0;
     harness.controller.saveMotif();
-    assert.ok(harness.effects.some((effect) => effect.includes("Start editing before saving")));
+    expect(
+      harness.effects.some((effect) => effect.includes("Start editing before saving")),
+    ).toBeTruthy();
 
     harness.controller.beginEdit();
     const savedPath = "/library/save-me.json";
     harness.library.save = () => savedPath;
     harness.effects.length = 0;
     harness.controller.saveMotif({ name: "Saved Name" });
-    assert.equal(harness.store.current?.name, "Saved Name");
-    assert.equal(harness.editor.isEditing(), false);
-    assert.ok(
+    expect(harness.store.current?.name).toBe("Saved Name");
+    expect(harness.editor.isEditing()).toBe(false);
+    expect(
       harness.effects.some((effect) => effect.includes(`status:saved:save-me:${savedPath}`)),
-    );
+    ).toBeTruthy();
 
     harness.controller.beginEdit();
     harness.library.save = () => {
@@ -315,51 +334,55 @@ describe("MotifAuthoringController", () => {
     };
     harness.effects.length = 0;
     harness.controller.saveMotif();
-    assert.ok(harness.effects.some((effect) => effect.includes("Save refused because")));
+    expect(harness.effects.some((effect) => effect.includes("Save refused because"))).toBeTruthy();
 
     harness.library.save = () => {
       throw new Error("disk full");
     };
     harness.effects.length = 0;
     harness.controller.saveMotif();
-    assert.ok(harness.effects.some((effect) => effect.includes("Save failed: disk full")));
+    expect(
+      harness.effects.some((effect) => effect.includes("Save failed: disk full")),
+    ).toBeTruthy();
 
     harness.controller.cancelEdit();
     harness.effects.length = 0;
     harness.controller.cancelEdit();
-    assert.deepEqual(harness.effects, ["library-state"]);
+    expect(harness.effects).toEqual(["library-state"]);
   });
 
   it("edits notes through authoring guards and reports field errors", () => {
     const harness = createAuthoring();
     const user = addUserCopy(harness.store, "chromatic-turn", "note-edit");
-    assert.ok(user);
-    harness.store.select(user.id);
+    expect(user).toBeTruthy();
+    harness.store.select(user!.id);
     harness.controller.beginEdit();
 
-    assert.equal(harness.controller.updateNoteAt(0, "pitch", 3), true);
-    assert.equal(harness.store.current?.notes[0]?.pitch, 3);
+    expect(harness.controller.updateNoteAt(0, "pitch", 3)).toBe(true);
+    expect(harness.store.current?.notes[0]?.pitch).toBe(3);
 
     harness.effects.length = 0;
-    assert.equal(harness.controller.updateNoteAt(0, "velocity", 200), false);
-    assert.ok(harness.effects.some((effect) => effect.includes("velocity must be an integer")));
+    expect(harness.controller.updateNoteAt(0, "velocity", 200)).toBe(false);
+    expect(
+      harness.effects.some((effect) => effect.includes("velocity must be an integer")),
+    ).toBeTruthy();
 
     harness.controller.addNote();
-    assert.equal(harness.store.current?.notes.length, user.notes.length + 1);
+    expect(harness.store.current?.notes.length).toBe(user!.notes.length + 1);
     const lastIndex = (harness.store.current?.notes.length ?? 1) - 1;
     harness.controller.removeNote(lastIndex);
-    assert.equal(harness.store.current?.notes.length, user.notes.length);
+    expect(harness.store.current?.notes.length).toBe(user!.notes.length);
 
     harness.effects.length = 0;
     harness.controller.beginEdit();
-    assert.ok(harness.effects.includes("library-state"));
+    expect(harness.effects.includes("library-state")).toBeTruthy();
   });
 
   it("falls back to the default motif when cancel restore targets a missing id", () => {
     const harness = createAuthoring();
     const user = addUserCopy(harness.store, "chromatic-turn", "ephemeral");
-    assert.ok(user);
-    harness.store.select(user.id);
+    expect(user).toBeTruthy();
+    harness.store.select(user!.id);
     harness.controller.beginEdit();
     harness.controller.editMotif({ name: "Will Cancel" });
 
@@ -367,55 +390,58 @@ describe("MotifAuthoringController", () => {
     harness.editor.cancel = (store) => {
       cancel(store);
       // Restore target vanished; remove must not pre-empt DEFAULT via list()[0].
-      store.remove(user.id);
-      return user.id;
+      store.remove(user!.id);
+      return user!.id;
     };
     harness.controller.cancelEdit();
     harness.editor.cancel = cancel;
-    assert.equal(harness.store.currentId, "scale-turn");
-    assert.ok(harness.effects.includes("prune"));
+    expect(harness.store.currentId).toBe("scale-turn");
+    expect(harness.effects.includes("prune")).toBeTruthy();
   });
 
   it("reports note mutation failures when the store rejects the update", () => {
     const harness = createAuthoring();
     const user = addUserCopy(harness.store, "chromatic-turn", "store-reject");
-    assert.ok(user);
-    harness.store.select(user.id);
+    expect(user).toBeTruthy();
+    harness.store.select(user!.id);
     harness.controller.beginEdit();
 
     const setNotes = harness.store.setNotes.bind(harness.store);
     harness.store.setNotes = () => ["forced note failure"];
     harness.effects.length = 0;
-    assert.equal(harness.controller.updateNoteAt(0, "pitch", 1), false);
+    expect(harness.controller.updateNoteAt(0, "pitch", 1)).toBe(false);
     harness.controller.addNote();
     harness.controller.removeNote(0);
     harness.store.setNotes = setNotes;
-    assert.equal(
-      harness.effects.filter((effect) => effect.includes("forced note failure")).length,
+    expect(harness.effects.filter((effect) => effect.includes("forced note failure")).length).toBe(
       3,
     );
 
     const update = harness.store.update.bind(harness.store);
     harness.store.update = () => ["forced property failure"];
     harness.effects.length = 0;
-    assert.equal(harness.controller.applyMotifProperties({ name: "Nope" }), false);
+    expect(harness.controller.applyMotifProperties({ name: "Nope" })).toBe(false);
     harness.store.update = update;
-    assert.ok(harness.effects.some((effect) => effect.includes("forced property failure")));
+    expect(
+      harness.effects.some((effect) => effect.includes("forced property failure")),
+    ).toBeTruthy();
 
     while ((harness.store.current?.notes.length ?? 0) < MAX_MOTIF_NOTES) {
       harness.controller.addNote();
     }
     harness.effects.length = 0;
     harness.controller.addNote();
-    assert.ok(harness.effects.some((effect) => effect.includes(`Maximum ${MAX_MOTIF_NOTES}`)));
+    expect(
+      harness.effects.some((effect) => effect.includes(`Maximum ${MAX_MOTIF_NOTES}`)),
+    ).toBeTruthy();
   });
 
   it("covers selection/import failure branches that leave catalog state intact", () => {
     const harness = createAuthoring();
     const vanishing = addUserCopy(harness.store, "chromatic-turn", "vanishing-target");
-    assert.ok(vanishing);
+    expect(vanishing).toBeTruthy();
     harness.controller.beginEdit();
-    assert.equal(harness.editor.isDirty(), false);
+    expect(harness.editor.isDirty()).toBe(false);
     const cancel = harness.editor.cancel.bind(harness.editor);
     harness.editor.cancel = (store) => {
       const restored = cancel(store);
@@ -425,12 +451,12 @@ describe("MotifAuthoringController", () => {
     harness.effects.length = 0;
     harness.controller.selectMotif("vanishing-target");
     harness.editor.cancel = cancel;
-    assert.ok(
+    expect(
       harness.effects.some((effect) =>
         effect.includes("Unknown motif after cancelling edit: vanishing-target"),
       ),
-    );
-    assert.ok(harness.effects.includes("motif-list"));
+    ).toBeTruthy();
+    expect(harness.effects.includes("motif-list")).toBeTruthy();
 
     harness.library.path = "/library";
     harness.library.loaded = true;
@@ -441,12 +467,12 @@ describe("MotifAuthoringController", () => {
     harness.effects.length = 0;
     harness.controller.importClip();
     harness.store.add = add;
-    assert.ok(harness.effects.some((effect) => effect.includes("forced add failure")));
+    expect(harness.effects.some((effect) => effect.includes("forced add failure"))).toBeTruthy();
 
     harness.store.currentId = "ghost";
     harness.effects.length = 0;
-    assert.equal(harness.controller.applyMotifProperties({ name: "x" }), false);
-    assert.ok(harness.effects.some((effect) => effect.includes("No motif selected")));
+    expect(harness.controller.applyMotifProperties({ name: "x" })).toBe(false);
+    expect(harness.effects.some((effect) => effect.includes("No motif selected"))).toBeTruthy();
 
     const begin = harness.editor.begin.bind(harness.editor);
     harness.store.select("scale-turn");
@@ -454,10 +480,10 @@ describe("MotifAuthoringController", () => {
     harness.effects.length = 0;
     harness.controller.beginEdit();
     harness.editor.begin = begin;
-    assert.ok(
+    expect(
       harness.effects.some((effect) =>
         effect.includes("Could not start editing the selected motif"),
       ),
-    );
+    ).toBeTruthy();
   });
 });

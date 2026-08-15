@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import { MotifStore } from "../../src/library/store.js";
 import { MotifHotkeyMap } from "../../src/max/hotkey-map.js";
 
@@ -7,25 +6,22 @@ describe("hotkey map", () => {
   it("validates, sorts, removes, clears, and prunes hotkeys", () => {
     const store = new MotifStore();
     const hotkeys = new MotifHotkeyMap(store);
-    assert.equal(hotkeys.assign("invalid", "scale-turn").ok, false);
-    assert.equal(hotkeys.assign(Number.NaN, "scale-turn").ok, false);
-    assert.equal(hotkeys.assign(60, "missing").ok, false);
-    assert.equal(hotkeys.assign(60, "scale-turn", "invalid").ok, false);
-    assert.equal(hotkeys.assign("62", "scale-turn", "select").ok, true);
-    assert.equal(hotkeys.assign(60, "scale-turn").ok, true);
-    assert.equal(hotkeys.has(60), true);
-    assert.deepEqual(
-      hotkeys.forMotif("scale-turn").map(({ pitch }) => pitch),
-      [60, 62],
-    );
-    assert.equal(hotkeys.remove("C3"), 60);
-    assert.equal(hotkeys.remove("invalid"), undefined);
+    expect(hotkeys.assign("invalid", "scale-turn").ok).toBe(false);
+    expect(hotkeys.assign(Number.NaN, "scale-turn").ok).toBe(false);
+    expect(hotkeys.assign(60, "missing").ok).toBe(false);
+    expect(hotkeys.assign(60, "scale-turn", "invalid").ok).toBe(false);
+    expect(hotkeys.assign("62", "scale-turn", "select").ok).toBe(true);
+    expect(hotkeys.assign(60, "scale-turn").ok).toBe(true);
+    expect(hotkeys.has(60)).toBe(true);
+    expect(hotkeys.forMotif("scale-turn").map(({ pitch }) => pitch)).toEqual([60, 62]);
+    expect(hotkeys.remove("C3")).toBe(60);
+    expect(hotkeys.remove("invalid")).toBe(undefined);
 
     const user = { ...store.get("chromatic-turn")!, id: "temporary" };
-    assert.deepEqual(store.add(user), []);
-    assert.equal(hotkeys.assign(64, "temporary").ok, true);
+    expect(store.add(user)).toEqual([]);
+    expect(hotkeys.assign(64, "temporary").ok).toBe(true);
     store.remove("temporary");
-    assert.deepEqual(hotkeys.prune(), [64]);
-    assert.deepEqual(hotkeys.clear(), [62]);
+    expect(hotkeys.prune()).toEqual([64]);
+    expect(hotkeys.clear()).toEqual([62]);
   });
 });

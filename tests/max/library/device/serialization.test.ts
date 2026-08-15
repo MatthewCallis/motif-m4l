@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import {
   encodeLibraryStateMessages,
   toLibraryHotkeyData,
@@ -8,7 +7,7 @@ import {
 
 describe("library serialization", () => {
   it("projects notes and hotkeys into Library payload shapes", () => {
-    assert.deepEqual(
+    expect(
       toLibraryNoteData({
         pitch: 2,
         accidental: -1,
@@ -16,20 +15,19 @@ describe("library serialization", () => {
         duration: 20,
         legato: true,
       }),
-      {
-        pitch: 2,
-        accidental: -1,
-        at: 10,
-        duration: 20,
-        gate: null,
-        velocity: null,
-        velocityOffset: null,
-        velocityScale: null,
-        legato: true,
-        tie: false,
-      },
-    );
-    assert.deepEqual(toLibraryHotkeyData({ pitch: 60, action: "select" }), {
+    ).toEqual({
+      pitch: 2,
+      accidental: -1,
+      at: 10,
+      duration: 20,
+      gate: null,
+      velocity: null,
+      velocityOffset: null,
+      velocityScale: null,
+      legato: true,
+      tie: false,
+    });
+    expect(toLibraryHotkeyData({ pitch: 60, action: "select" })).toEqual({
       pitch: 60,
       action: "select",
       label: "C3",
@@ -55,8 +53,8 @@ describe("library serialization", () => {
       },
     };
     const messages = encodeLibraryStateMessages(state, 7);
-    assert.ok(messages.length > 1);
-    assert.ok(messages.every((message) => message.length < 6_000));
+    expect(messages.length > 1).toBeTruthy();
+    expect(messages.every((message) => message.length < 6_000)).toBeTruthy();
 
     const chunks = messages.map(
       (message) =>
@@ -67,11 +65,11 @@ describe("library serialization", () => {
           data: string;
         },
     );
-    assert.ok(chunks.every((chunk) => chunk.transferId === 7));
+    expect(chunks.every((chunk) => chunk.transferId === 7)).toBeTruthy();
     const encodedState = chunks
       .sort((left, right) => left.index - right.index)
       .map((chunk) => chunk.data)
       .join("");
-    assert.deepEqual(JSON.parse(decodeURIComponent(encodedState)), state);
+    expect(JSON.parse(decodeURIComponent(encodedState))).toEqual(state);
   });
 });

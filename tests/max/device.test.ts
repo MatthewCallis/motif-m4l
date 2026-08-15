@@ -1,8 +1,12 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
-import { installMaxMocks } from "../helpers/max-mocks.js";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { installMaxMocks, mockMessages } from "../helpers/max-mocks.js";
 
 describe("TypeScript device dispatcher", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
   it("executes source handlers directly in addition to compiled-bundle contract tests", async () => {
     const mocks = installMaxMocks();
     class EmptyLiveApi {
@@ -17,11 +21,9 @@ describe("TypeScript device dispatcher", () => {
         return { notes: [] };
       }
     }
-    Object.assign(globalThis, {
-      LiveAPI: EmptyLiveApi,
-      __MOTIF_LIBRARY_HTML__: "<!doctype html><p>Motif</p>",
-      __MOTIF_LIBRARY_PAGE_NAME__: "motif-library-test.html",
-    });
+    vi.stubGlobal("LiveAPI", EmptyLiveApi);
+    vi.stubGlobal("__MOTIF_LIBRARY_HTML__", "<!doctype html><p>Motif</p>");
+    vi.stubGlobal("__MOTIF_LIBRARY_PAGE_NAME__", "motif-library-test.html");
 
     const { dispatch } = await import("../../src/max/device.js");
     const messages: ReadonlyArray<readonly [string, ...unknown[]]> = [
@@ -160,15 +162,15 @@ describe("TypeScript device dispatcher", () => {
     dispatch("library_path", ["/Motifs"]);
     dispatch("begin_edit", []);
     dispatch("edit_motif", [{ name: "Dirty Path" }]);
-    const errorsBeforePath = mocks.errors.length;
+    const errorsBeforePath = mockMessages(mocks.error).length;
     dispatch("library_path", ["/Other"]);
-    assert.ok(
-      mocks.errors
+    expect(
+      mockMessages(mocks.error)
         .slice(errorsBeforePath)
         .some((message) =>
           message.includes("Finish or cancel editing before changing the library"),
         ),
-    );
+    ).toBeTruthy();
     dispatch("library_path", []);
     dispatch("cancel_edit", []);
     dispatch("library_path", ["/Motifs"]);
@@ -176,8 +178,14 @@ describe("TypeScript device dispatcher", () => {
 
     dispatch("unknown-source-message", []);
 
-    assert.ok(mocks.errors.some((message) => message.includes("Unknown message")));
-    assert.ok(mocks.errors.some((message) => message.includes("Unknown pitch mode")));
-    assert.ok(mocks.errors.some((message) => message.includes("Unknown Song property")));
+    expect(
+      mockMessages(mocks.error).some((message) => message.includes("Unknown message")),
+    ).toBeTruthy();
+    expect(
+      mockMessages(mocks.error).some((message) => message.includes("Unknown pitch mode")),
+    ).toBeTruthy();
+    expect(
+      mockMessages(mocks.error).some((message) => message.includes("Unknown Song property")),
+    ).toBeTruthy();
   });
 });

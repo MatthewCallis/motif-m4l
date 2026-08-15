@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import type { HostContext } from "../../../../src/core/types.js";
 import { MotifEditorState } from "../../../../src/library/editor-state.js";
 import { MotifStore } from "../../../../src/library/store.js";
@@ -42,9 +41,9 @@ function setup() {
 
 describe("formatPreviewBarCount", () => {
   it("formats integer and fractional preview bars without redundant zeros", () => {
-    assert.equal(formatPreviewBarCount(1), "1");
-    assert.equal(formatPreviewBarCount(1.5), "1.5");
-    assert.equal(formatPreviewBarCount(2.0), "2");
+    expect(formatPreviewBarCount(1)).toBe("1");
+    expect(formatPreviewBarCount(1.5)).toBe("1.5");
+    expect(formatPreviewBarCount(2.0)).toBe("2");
   });
 });
 
@@ -63,9 +62,9 @@ describe("Library state projection", () => {
       browserQuery: "",
     });
 
-    assert.equal(state.selected?.id, "scale-turn");
-    assert.equal(state.selected?.noteLimit, 512);
-    assert.ok(Array.isArray(state.selected?.sourcePitchContext.scaleIntervals));
+    expect(state.selected?.id).toBe("scale-turn");
+    expect(state.selected?.noteLimit).toBe(512);
+    expect(Array.isArray(state.selected?.sourcePitchContext.scaleIntervals)).toBeTruthy();
 
     const unresolved = {
       ...model.store.current!,
@@ -75,7 +74,7 @@ describe("Library state projection", () => {
         scaleIntervals: null,
       },
     };
-    assert.deepEqual(model.store.add(unresolved), []);
+    expect(model.store.add(unresolved)).toEqual([]);
     model.store.select(unresolved.id);
     const unresolvedState = buildLibraryServerState({
       ...model,
@@ -84,62 +83,56 @@ describe("Library state projection", () => {
       noteLimit: 512,
       browserQuery: "",
     });
-    assert.equal(unresolvedState.selected?.sourcePitchContext.scaleIntervals, null);
+    expect(unresolvedState.selected?.sourcePitchContext.scaleIntervals).toBe(null);
     model.store.select("scale-turn");
-    assert.deepEqual(state.selected?.hotkeys, [{ pitch: 36, action: "trigger", label: "C1" }]);
-    assert.equal(state.actions.canEdit, true);
-    assert.equal(state.actions.canSave, false);
-    assert.equal(state.actions.canImportClip, true);
-    assert.equal(state.selected?.noteCount, model.store.current?.notes.length);
-    assert.ok(typeof state.selected?.previewBars === "number");
-    assert.equal(state.selected?.effectivePitchMode, "scale");
+    expect(state.selected?.hotkeys).toEqual([{ pitch: 36, action: "trigger", label: "C1" }]);
+    expect(state.actions.canEdit).toBe(true);
+    expect(state.actions.canSave).toBe(false);
+    expect(state.actions.canImportClip).toBe(true);
+    expect(state.selected?.noteCount).toBe(model.store.current?.notes.length);
+    expect(typeof state.selected?.previewBars === "number").toBeTruthy();
+    expect(state.selected?.effectivePitchMode).toBe("scale");
     const preview = state.selected?.preview;
-    assert.ok(preview);
-    assert.ok(Array.isArray(preview.notes));
-    assert.ok(preview.notes.length > 0);
-    assert.ok(preview.totalTicks >= 1);
-    assert.ok(typeof preview.noteNames === "string");
-    assert.ok(preview.highPitch >= preview.lowPitch);
-    for (const note of preview.notes) {
-      assert.ok(Number.isFinite(note.pitch));
-      assert.ok(Number.isFinite(note.atTicks));
-      assert.ok(note.durationTicks >= 1);
-      assert.ok(note.velocity >= 1 && note.velocity <= 127);
+    expect(preview).toBeTruthy();
+    expect(Array.isArray(preview!.notes)).toBeTruthy();
+    expect(preview!.notes.length > 0).toBeTruthy();
+    expect(preview!.totalTicks >= 1).toBeTruthy();
+    expect(typeof preview!.noteNames === "string").toBeTruthy();
+    expect(preview!.highPitch >= preview!.lowPitch).toBeTruthy();
+    for (const note of preview!.notes) {
+      expect(Number.isFinite(note.pitch)).toBeTruthy();
+      expect(Number.isFinite(note.atTicks)).toBeTruthy();
+      expect(note.durationTicks >= 1).toBeTruthy();
+      expect(note.velocity >= 1 && note.velocity <= 127).toBeTruthy();
     }
-    assert.deepEqual(state.selected?.tags, []);
-    assert.deepEqual(state.availableTags, []);
-    assert.equal(state.tagMode, "or");
-    assert.deepEqual(state.tags, []);
-    assert.deepEqual(
-      model.store.current?.notes.map(({ pitch }) => pitch),
-      storedPitches,
-      "projection must not mutate catalog notes",
-    );
+    expect(state.selected?.tags).toEqual([]);
+    expect(state.availableTags).toEqual([]);
+    expect(state.tagMode).toBe("or");
+    expect(state.tags).toEqual([]);
+    expect(model.store.current?.notes.map(({ pitch }) => pitch)).toEqual(storedPitches);
   });
 
   it("filters motifs by selected tags with AND and OR modes", () => {
     const model = setup();
     const chromatic = model.store.get("chromatic-turn");
     const scale = model.store.get("scale-turn");
-    assert.ok(chromatic && scale);
-    assert.deepEqual(
+    expect(chromatic && scale).toBeTruthy();
+    expect(
       model.store.add({
         ...chromatic,
         id: "chromatic-tagged",
         name: "Chromatic Tagged",
         tags: ["chromatic", "demo"],
       }),
-      [],
-    );
-    assert.deepEqual(
+    ).toEqual([]);
+    expect(
       model.store.add({
         ...scale,
         id: "scale-tagged",
         name: "Scale Tagged",
         tags: ["demo", "scale"],
       }),
-      [],
-    );
+    ).toEqual([]);
 
     const orState = buildLibraryServerState({
       ...model,
@@ -150,13 +143,10 @@ describe("Library state projection", () => {
       browserTags: ["chromatic"],
       browserTagMode: "or",
     });
-    assert.deepEqual(
-      orState.items.map((item) => item.id),
-      ["chromatic-tagged"],
-    );
-    assert.deepEqual(orState.tags, ["chromatic"]);
-    assert.equal(orState.tagMode, "or");
-    assert.deepEqual(orState.availableTags, ["demo", "chromatic", "scale"]);
+    expect(orState.items.map((item) => item.id)).toEqual(["chromatic-tagged"]);
+    expect(orState.tags).toEqual(["chromatic"]);
+    expect(orState.tagMode).toBe("or");
+    expect(orState.availableTags).toEqual(["demo", "chromatic", "scale"]);
 
     const andState = buildLibraryServerState({
       ...model,
@@ -167,10 +157,7 @@ describe("Library state projection", () => {
       browserTags: ["demo", "scale"],
       browserTagMode: "and",
     });
-    assert.deepEqual(
-      andState.items.map((item) => item.id),
-      ["scale-tagged"],
-    );
+    expect(andState.items.map((item) => item.id)).toEqual(["scale-tagged"]);
 
     const combined = buildLibraryServerState({
       ...model,
@@ -181,10 +168,7 @@ describe("Library state projection", () => {
       browserTags: ["demo"],
       browserTagMode: "or",
     });
-    assert.deepEqual(
-      combined.items.map((item) => item.id),
-      ["chromatic-tagged"],
-    );
+    expect(combined.items.map((item) => item.id)).toEqual(["chromatic-tagged"]);
   });
 
   it("filters by folder and exposes edit and scan progress state", () => {
@@ -192,8 +176,8 @@ describe("Library state projection", () => {
     const draft = model.editor.begin(model.store, "scale-turn", {
       targetId: "scale-turn-copy",
     });
-    assert.ok(draft);
-    model.store.select(draft.id);
+    expect(draft).toBeTruthy();
+    model.store.select(draft!.id);
     model.editor.markDirty();
     model.library.scanning = true;
     model.library.scanState = { processedEntries: 12, loadedMotifs: 3 };
@@ -208,16 +192,16 @@ describe("Library state projection", () => {
       alert: { id: 1, title: "Warning", message: "Check this" },
     });
 
-    assert.equal(state.items.length, 1);
-    assert.equal(state.selected?.id, draft.id);
-    assert.equal(state.editing.dirty, true);
-    assert.equal(state.actions.canEdit, false);
-    assert.equal(state.actions.canImportClip, false);
-    assert.deepEqual(state.scanProgress, {
+    expect(state.items.length).toBe(1);
+    expect(state.selected?.id).toBe(draft!.id);
+    expect(state.editing.dirty).toBe(true);
+    expect(state.actions.canEdit).toBe(false);
+    expect(state.actions.canImportClip).toBe(false);
+    expect(state.scanProgress).toEqual({
       processedEntries: 12,
       loadedMotifs: 3,
     });
-    assert.equal(state.alert?.title, "Warning");
+    expect(state.alert?.title).toBe("Warning");
 
     model.library.scanning = false;
     const editingOnly = buildLibraryServerState({
@@ -227,17 +211,17 @@ describe("Library state projection", () => {
       noteLimit: 512,
       browserQuery: "",
     });
-    assert.equal(editingOnly.actions.editing, true);
-    assert.equal(editingOnly.actions.canImportClip, false);
+    expect(editingOnly.actions.editing).toBe(true);
+    expect(editingOnly.actions.canImportClip).toBe(false);
   });
 
   it("pins built-ins above naturally sorted user folders", () => {
     const model = setup();
     const source = model.store.current;
-    assert.ok(source);
-    assert.deepEqual(model.store.add({ ...source, id: "zebra-item", name: "First" }), []);
-    assert.deepEqual(model.store.add({ ...source, id: "alpha-item", name: "Second" }), []);
-    assert.deepEqual(model.store.add({ ...source, id: "library-item", name: "Third" }), []);
+    expect(source).toBeTruthy();
+    expect(model.store.add({ ...source, id: "zebra-item", name: "First" })).toEqual([]);
+    expect(model.store.add({ ...source, id: "alpha-item", name: "Second" })).toEqual([]);
+    expect(model.store.add({ ...source, id: "library-item", name: "Third" })).toEqual([]);
     model.library.browserFolder = (id) => {
       if (model.store.isBuiltin(id) || id === "library-item") {
         return "Library";
@@ -256,10 +240,13 @@ describe("Library state projection", () => {
     const alphaIndex = state.items.findIndex(({ id }) => id === "alpha-item");
     const zebraIndex = state.items.findIndex(({ id }) => id === "zebra-item");
 
-    assert.ok(libraryIndex > 0);
-    assert.ok(state.items.slice(0, libraryIndex).every(({ isBuiltin }) => isBuiltin));
-    assert.ok(libraryIndex < alphaIndex, "the Library group must stay above nested folders");
-    assert.ok(alphaIndex < zebraIndex, "Folder 2 must naturally sort before Folder 10");
-    assert.equal(state.items[alphaIndex]?.isBuiltin, false);
+    expect(libraryIndex > 0).toBeTruthy();
+    expect(state.items.slice(0, libraryIndex).every(({ isBuiltin }) => isBuiltin)).toBeTruthy();
+    expect(
+      libraryIndex < alphaIndex,
+      "the Library group must stay above nested folders",
+    ).toBeTruthy();
+    expect(alphaIndex < zebraIndex, "Folder 2 must naturally sort before Folder 10").toBeTruthy();
+    expect(state.items[alphaIndex]?.isBuiltin).toBe(false);
   });
 });

@@ -1,96 +1,65 @@
-import assert from "node:assert/strict";
-import { afterEach, describe, it } from "node:test";
-import { Window } from "happy-dom";
-import { Fragment, h } from "preact";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { encodeLibraryStateMessages } from "../../../../src/max/library/device/serialization.js";
 
-// tsx's JSX transform still emits React.createElement for some .tsx loads;
-// point that at Preact before the Library page module evaluates.
-(globalThis as { React?: { createElement: typeof h; Fragment: typeof Fragment } }).React = {
-  createElement: h,
-  Fragment,
-};
-
-type OutletHandler = (...args: unknown[]) => void;
-
-void describe("Library browser runtime", () => {
-  const previous = {
-    window: globalThis.window,
-    document: globalThis.document,
-    location: globalThis.location,
-    HTMLElement: globalThis.HTMLElement,
-    HTMLInputElement: globalThis.HTMLInputElement,
-    HTMLTextAreaElement: globalThis.HTMLTextAreaElement,
-    HTMLSelectElement: globalThis.HTMLSelectElement,
-    HTMLButtonElement: globalThis.HTMLButtonElement,
-    HTMLDivElement: globalThis.HTMLDivElement,
-    HTMLSpanElement: globalThis.HTMLSpanElement,
-    ResizeObserver: globalThis.ResizeObserver,
-    requestAnimationFrame: globalThis.requestAnimationFrame,
-    cancelAnimationFrame: globalThis.cancelAnimationFrame,
-  };
-
+describe("Library browser runtime", () => {
   afterEach(() => {
-    Object.assign(globalThis, previous);
+    document.body.innerHTML = "";
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
   });
 
-  void it("boots the typed controller, renders state, assembles chunks, and emits actions", async () => {
-    const dom = new Window({ url: "file:///tmp/library.html" });
+  it("boots the typed controller, renders state, assembles chunks, and emits actions", async () => {
     const outlets: unknown[][] = [];
     let receiveData: ((...values: unknown[]) => void) | undefined;
+    const outlet = vi.fn((...args: unknown[]) => {
+      outlets.push(args);
+    });
+    const bindInlet = vi.fn((name: string, handler: (...values: unknown[]) => void) => {
+      if (name === "receiveData") {
+        receiveData = handler;
+      }
+    });
 
-    Object.assign(globalThis, {
-      window: dom,
-      document: dom.document,
-      location: dom.location,
-      HTMLElement: dom.HTMLElement,
-      HTMLInputElement: dom.HTMLInputElement,
-      HTMLTextAreaElement: dom.HTMLTextAreaElement,
-      HTMLSelectElement: dom.HTMLSelectElement,
-      HTMLButtonElement: dom.HTMLButtonElement,
-      HTMLDivElement: dom.HTMLDivElement,
-      HTMLSpanElement: dom.HTMLSpanElement,
-      ResizeObserver: class {
+    vi.stubGlobal(
+      "ResizeObserver",
+      class {
         observe(): void {}
         unobserve(): void {}
         disconnect(): void {}
       },
-      requestAnimationFrame: (callback: FrameRequestCallback) =>
-        dom.setTimeout(() => callback(0), 0) as unknown as number,
-      cancelAnimationFrame: (id: number) => dom.clearTimeout(id),
-    });
+    );
+    HTMLCanvasElement.prototype.getContext = vi.fn(() => ({
+      clearRect: vi.fn(),
+      fillRect: vi.fn(),
+      strokeRect: vi.fn(),
+      beginPath: vi.fn(),
+      moveTo: vi.fn(),
+      lineTo: vi.fn(),
+      stroke: vi.fn(),
+      fillText: vi.fn(),
+      measureText: (text: string) => ({ width: text.length * 6 }),
+      setTransform: vi.fn(),
+    })) as unknown as typeof HTMLCanvasElement.prototype.getContext;
+    window.max = { outlet, bindInlet };
+    document.body.innerHTML = '<div id="root"></div>';
 
-    dom.document.body.innerHTML = '<div id="root"></div>';
-    (dom as unknown as { max: unknown }).max = {
-      outlet: ((...args: unknown[]) => {
-        outlets.push(args);
-      }) satisfies OutletHandler,
-      bindInlet: (name: string, handler: (...values: unknown[]) => void) => {
-        if (name === "receiveData") {
-          receiveData = handler;
-        }
-      },
-    };
-    // happy-dom Window is assigned to globalThis.window; bridge reads window.max.
-    (globalThis.window as unknown as { max: unknown }).max = (
-      dom as unknown as { max: unknown }
-    ).max;
-
-    const moduleUrl = new URL("../../../../src/max/library/ui/main.ts", import.meta.url);
-    moduleUrl.searchParams.set("t", String(Date.now()));
-    await import(moduleUrl.href);
+    await import("../../../../src/max/library/ui/main.js");
     // Flush Preact useEffect subscriptions before pushing device state.
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    assert.ok(receiveData, "Library client must bind its Max inlet");
-    assert.ok(outlets.some((args) => args[0] === "library_ready"));
+    expect(receiveData, "Library client must bind its Max inlet").toBeTruthy();
+    if (!receiveData) {
+      throw new Error("Library client must bind its Max inlet");
+    }
+    expect(outlets.some((args) => args[0] === "library_ready")).toBeTruthy();
     const { subscribeDebug } = await import("../../../../src/max/library/ui/bridge.js");
     let replayedDebug = "";
     const unsubscribeDebug = subscribeDebug((_entries, _level, message) => {
       replayedDebug = message;
     });
     unsubscribeDebug();
-    assert.match(replayedDebug, /Bridge ready/);
+    expect(replayedDebug).toBeTruthy();
+    expect(replayedDebug).toMatch(/Bridge ready/);
 
     const state = {
       query: "",
@@ -213,39 +182,32 @@ void describe("Library browser runtime", () => {
     // Allow Preact store subscribers to flush.
     await new Promise((resolve) => setTimeout(resolve, 0));
 
-    const doc = dom.document;
+    const doc = document;
     const nameEdit = doc.getElementById("name-edit") as HTMLInputElement | null;
-    assert.equal(nameEdit?.value, "Browser Test");
-    assert.equal(
-      (doc.getElementById("source-anchor-edit") as HTMLInputElement | null)?.value,
-      "60",
-    );
-    assert.equal(doc.getElementById("source-anchor-name")?.textContent, "C3");
-    assert.equal((doc.getElementById("source-root-edit") as HTMLInputElement | null)?.value, "0");
-    assert.equal(doc.getElementById("source-root-name")?.textContent, "C");
-    assert.equal(
-      (doc.getElementById("source-scale-name-edit") as HTMLInputElement | null)?.value,
+    expect(nameEdit?.value).toBe("Browser Test");
+    expect((doc.getElementById("source-anchor-edit") as HTMLInputElement | null)?.value).toBe("60");
+    expect(doc.getElementById("source-anchor-name")?.textContent).toBe("C3");
+    expect((doc.getElementById("source-root-edit") as HTMLInputElement | null)?.value).toBe("0");
+    expect(doc.getElementById("source-root-name")?.textContent).toBe("C");
+    expect((doc.getElementById("source-scale-name-edit") as HTMLInputElement | null)?.value).toBe(
       "Major",
     );
-    assert.equal(
+    expect(
       (doc.getElementById("source-scale-intervals-edit") as HTMLInputElement | null)?.value,
-      "0, 2, 4, 5, 7, 9, 11",
-    );
-    assert.equal(doc.getElementById("note-rows")?.children.length, 2);
-    assert.equal(doc.getElementById("browser-list")?.children.length, 4);
-    assert.equal(doc.getElementById("browser-list")?.children[0]?.textContent, "▾ Library");
-    assert.equal(
+    ).toBe("0, 2, 4, 5, 7, 9, 11");
+    expect(doc.getElementById("note-rows")?.children.length).toBe(2);
+    expect(doc.getElementById("browser-list")?.children.length).toBe(4);
+    expect(doc.getElementById("browser-list")?.children[0]?.textContent).toBe("▾ Library");
+    expect(
       doc.getElementById("browser-list")?.children[1]?.querySelector(".browser-name")?.textContent,
-      "Scale Turn",
-    );
-    assert.equal(doc.getElementById("browser-list")?.children[2]?.textContent, "▾ Tests");
-    assert.equal(
+    ).toBe("Scale Turn");
+    expect(doc.getElementById("browser-list")?.children[2]?.textContent).toBe("▾ Tests");
+    expect(
       doc.getElementById("browser-list")?.children[3]?.querySelector(".browser-name")?.textContent,
-      "Browser Test",
-    );
+    ).toBe("Browser Test");
     const importClip = doc.getElementById("import-clip-btn") as HTMLButtonElement | null;
-    assert.equal(importClip?.disabled, true);
-    assert.equal(importClip?.title, "Finish or cancel editing before importing a clip");
+    expect(importClip?.disabled).toBe(true);
+    expect(importClip?.title).toBe("Finish or cancel editing before importing a clip");
 
     const lastLibAction = (): Record<string, unknown> => {
       for (let index = outlets.length - 1; index >= 0; index -= 1) {
@@ -260,7 +222,7 @@ void describe("Library browser runtime", () => {
 
     outlets.length = 0;
     (doc.querySelector('[data-tag-mode="and"]') as HTMLButtonElement | null)?.click();
-    assert.deepEqual(lastLibAction(), {
+    expect(lastLibAction()).toEqual({
       type: "filter_motifs",
       query: "",
       tags: [],
@@ -269,7 +231,7 @@ void describe("Library browser runtime", () => {
 
     outlets.length = 0;
     (doc.querySelector('[data-tag-mode="or"]') as HTMLButtonElement | null)?.click();
-    assert.deepEqual(lastLibAction(), {
+    expect(lastLibAction()).toEqual({
       type: "filter_motifs",
       query: "",
       tags: [],
@@ -280,30 +242,28 @@ void describe("Library browser runtime", () => {
     const demoChip = [...doc.querySelectorAll("#tag-filter-chips .tag-chip")].find(
       (button) => button.textContent === "demo",
     ) as HTMLButtonElement | undefined;
-    assert.ok(demoChip);
-    demoChip.click();
-    assert.deepEqual(lastLibAction(), {
+    expect(demoChip).toBeTruthy();
+    demoChip!.click();
+    expect(lastLibAction()).toEqual({
       type: "filter_motifs",
       query: "",
       tags: ["demo"],
       tagMode: "or",
     });
-    assert.ok(doc.getElementById("save-motif-btn")?.classList.contains("accent"));
-    assert.equal(doc.getElementById("edit-btn")?.classList.contains("accent"), false);
+    expect(doc.getElementById("save-motif-btn")?.classList.contains("accent")).toBeTruthy();
+    expect(doc.getElementById("edit-btn")?.classList.contains("accent")).toBe(false);
     const resizer = doc.getElementById("library-resizer");
-    assert.ok(resizer);
-    assert.equal(resizer.getAttribute("aria-valuemin"), "160");
+    expect(resizer).toBeTruthy();
+    expect(resizer!.getAttribute("aria-valuemin")).toBe("160");
 
     const tagInput = doc.getElementById("tag-edit-input") as HTMLInputElement | null;
-    assert.ok(tagInput);
-    tagInput.focus();
+    expect(tagInput).toBeTruthy();
+    tagInput!.focus();
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.deepEqual(
+    expect(
       [...doc.querySelectorAll("#tag-suggestions button")].map((button) => button.textContent),
-      ["scale"],
-      "focusing an empty tag field should show unused popular tags",
-    );
-    tagInput.blur();
+    ).toEqual(["scale"]);
+    tagInput!.blur();
 
     receiveData(
       encodeURIComponent(
@@ -317,20 +277,19 @@ void describe("Library browser runtime", () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
     const saveBtn = doc.getElementById("save-motif-btn") as HTMLButtonElement | null;
-    assert.equal(saveBtn?.disabled, true);
-    assert.equal(saveBtn?.textContent, "Library Folder Required");
-    assert.match(doc.getElementById("edit-state")?.textContent ?? "", /Library folder required/);
-    assert.equal(
-      (doc.getElementById("import-clip-btn") as HTMLButtonElement | null)?.title,
+    expect(saveBtn?.disabled).toBe(true);
+    expect(saveBtn?.textContent).toBe("Library Folder Required");
+    expect(doc.getElementById("edit-state")?.textContent ?? "").toMatch(/Library folder required/);
+    expect((doc.getElementById("import-clip-btn") as HTMLButtonElement | null)?.title).toBe(
       "Finish or cancel editing before importing a clip",
     );
     receiveData(encodeURIComponent(JSON.stringify(state)));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     const search = doc.getElementById("search") as HTMLInputElement | null;
-    assert.ok(search);
-    search.value = "stale query";
-    search.dispatchEvent(new dom.Event("input", { bubbles: true }));
+    expect(search).toBeTruthy();
+    search!.value = "stale query";
+    search!.dispatchEvent(new Event("input", { bubbles: true }));
     (doc.getElementById("clear-search") as HTMLButtonElement | null)?.click();
     await new Promise((resolve) => setTimeout(resolve, 100));
     const filterActions = outlets.flatMap((args) => {
@@ -340,7 +299,7 @@ void describe("Library browser runtime", () => {
       const action = JSON.parse(decodeURIComponent(args[1])) as { type?: string; query?: string };
       return action.type === "filter_motifs" ? [action] : [];
     });
-    assert.equal(filterActions.at(-1)?.query, "", "clearing search must cancel a stale debounce");
+    expect(filterActions[filterActions.length - 1]?.query).toBe("");
 
     const chunkedState = {
       ...state,
@@ -358,16 +317,16 @@ void describe("Library browser runtime", () => {
       receiveData(message);
     }
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.equal(doc.getElementById("note-rows")?.children.length, 40);
+    expect(doc.getElementById("note-rows")?.children.length).toBe(40);
 
     const hotkeyInput = doc.getElementById("hotkey-input") as HTMLInputElement | null;
-    assert.ok(hotkeyInput);
-    hotkeyInput.value = "D3";
-    hotkeyInput.dispatchEvent(new dom.Event("input", { bubbles: true }));
+    expect(hotkeyInput).toBeTruthy();
+    hotkeyInput!.value = "D3";
+    hotkeyInput!.dispatchEvent(new Event("input", { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
     outlets.length = 0;
     (doc.getElementById("assign-hotkey-btn") as HTMLButtonElement | null)?.click();
-    assert.ok(
+    expect(
       outlets.some((args) => {
         if (args[0] !== "lib_action") {
           return false;
@@ -378,7 +337,7 @@ void describe("Library browser runtime", () => {
         };
         return action.type === "map_trigger" && action.pitch === "D3";
       }),
-    );
+    ).toBeTruthy();
 
     // Disabled buttons do not fire in a real DOM; exercise import while enabled.
     receiveData(
@@ -398,7 +357,7 @@ void describe("Library browser runtime", () => {
     await new Promise((resolve) => setTimeout(resolve, 0));
     outlets.length = 0;
     (doc.getElementById("import-clip-btn") as HTMLButtonElement | null)?.click();
-    assert.ok(
+    expect(
       outlets.some((args) => {
         if (args[0] !== "lib_action") {
           return false;
@@ -406,28 +365,28 @@ void describe("Library browser runtime", () => {
         const action = JSON.parse(decodeURIComponent(String(args[1]))) as Record<string, unknown>;
         return action["type"] === "import_clip" && !("pitchMode" in action);
       }),
-    );
+    ).toBeTruthy();
 
     receiveData(encodeURIComponent(JSON.stringify(state)));
     await new Promise((resolve) => setTimeout(resolve, 0));
 
     (doc.querySelector('.panel-tab[data-panel="notes"]') as HTMLButtonElement | null)?.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.equal(doc.getElementById("notes-panel")?.classList.contains("hidden"), false);
+    expect(doc.getElementById("notes-panel")?.classList.contains("hidden")).toBe(false);
 
     outlets.length = 0;
     (doc.getElementById("choose-btn") as HTMLButtonElement | null)?.click();
-    assert.ok(outlets.some((args) => args[0] === "choose_library"));
+    expect(outlets.some((args) => args[0] === "choose_library")).toBeTruthy();
 
     const sourceAnchorInput = doc.getElementById("source-anchor-edit") as HTMLInputElement | null;
-    assert.ok(sourceAnchorInput);
-    sourceAnchorInput.focus();
-    sourceAnchorInput.value = "61";
-    sourceAnchorInput.dispatchEvent(new dom.Event("input", { bubbles: true }));
+    expect(sourceAnchorInput).toBeTruthy();
+    sourceAnchorInput!.focus();
+    sourceAnchorInput!.value = "61";
+    sourceAnchorInput!.dispatchEvent(new Event("input", { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.equal(doc.getElementById("source-anchor-name")?.textContent, "C♯3");
-    sourceAnchorInput.dispatchEvent(new dom.Event("change", { bubbles: true }));
-    assert.ok(
+    expect(doc.getElementById("source-anchor-name")?.textContent).toBe("C♯3");
+    sourceAnchorInput!.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(
       outlets.some((args) => {
         if (args[0] !== "lib_action") {
           return false;
@@ -440,45 +399,45 @@ void describe("Library browser runtime", () => {
           action.type === "edit_motif" && action.properties?.sourcePitchContext?.anchorPitch === 61
         );
       }),
-    );
+    ).toBeTruthy();
 
     const sourceRootInput = doc.getElementById("source-root-edit") as HTMLInputElement | null;
-    assert.ok(sourceRootInput);
-    sourceRootInput.value = "6";
-    sourceRootInput.dispatchEvent(new dom.Event("input", { bubbles: true }));
+    expect(sourceRootInput).toBeTruthy();
+    sourceRootInput!.value = "6";
+    sourceRootInput!.dispatchEvent(new Event("input", { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.equal(doc.getElementById("source-root-name")?.textContent, "F♯");
-    sourceRootInput.value = "";
-    sourceRootInput.dispatchEvent(new dom.Event("input", { bubbles: true }));
+    expect(doc.getElementById("source-root-name")?.textContent).toBe("F♯");
+    sourceRootInput!.value = "";
+    sourceRootInput!.dispatchEvent(new Event("input", { bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.equal(doc.getElementById("source-root-name")?.textContent, "—");
+    expect(doc.getElementById("source-root-name")?.textContent).toBe("—");
 
     const hotkeyChip = doc.querySelector("#hotkey-list .hotkey-chip") as HTMLButtonElement | null;
-    assert.ok(hotkeyChip);
+    expect(hotkeyChip).toBeTruthy();
     outlets.length = 0;
-    hotkeyChip.click();
-    assert.ok(
+    hotkeyChip!.click();
+    expect(
       outlets.some(
         (args) =>
           args[0] === "lib_action" &&
           decodeURIComponent(String(args[1])).includes('"type":"unmap_trigger"'),
       ),
-    );
+    ).toBeTruthy();
 
     const pitchInput = doc.querySelector(
       "#note-rows .note-row input[type='number']",
     ) as HTMLInputElement | null;
-    assert.ok(pitchInput);
-    pitchInput.value = "4";
+    expect(pitchInput).toBeTruthy();
+    pitchInput!.value = "4";
     outlets.length = 0;
-    pitchInput.dispatchEvent(new dom.Event("change", { bubbles: true }));
-    assert.ok(
+    pitchInput!.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(
       outlets.some(
         (args) =>
           args[0] === "lib_action" &&
           decodeURIComponent(String(args[1])).includes('"type":"edit_note_at"'),
       ),
-    );
+    ).toBeTruthy();
 
     receiveData(
       encodeURIComponent(
@@ -497,13 +456,13 @@ void describe("Library browser runtime", () => {
       ),
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.equal(doc.getElementById("hotkey-list")?.textContent?.includes("None"), true);
-    assert.equal(doc.getElementById("modal-title")?.textContent, "Source scale required");
-    assert.equal(doc.getElementById("modal-cancel")?.classList.contains("hidden"), true);
+    expect(doc.getElementById("hotkey-list")?.textContent?.includes("None")).toBe(true);
+    expect(doc.getElementById("modal-title")?.textContent).toBe("Source scale required");
+    expect(doc.getElementById("modal-cancel")?.classList.contains("hidden")).toBe(true);
     (doc.getElementById("modal-confirm") as HTMLButtonElement | null)?.click();
 
-    dom.dispatchEvent(
-      new dom.ErrorEvent("error", {
+    window.dispatchEvent(
+      new ErrorEvent("error", {
         message: "browser failure",
         filename: "library.html",
         lineno: 1,
@@ -512,24 +471,22 @@ void describe("Library browser runtime", () => {
     receiveData("%broken");
     receiveData("%broken");
     await new Promise((resolve) => setTimeout(resolve, 0));
-    assert.match(
-      doc.getElementById("debug-panel")?.textContent ?? "",
+    expect(doc.getElementById("debug-panel")?.textContent ?? "").toMatch(
       /Library data could not be displayed/,
     );
-    doc.dispatchEvent(new dom.KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    doc.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
     await new Promise((resolve) => setTimeout(resolve, 0));
-    dom.close();
   });
 });
 
-void describe("Library canvas preview paint", () => {
-  void it("paints empty and note payloads without throwing", async () => {
+describe("Library canvas preview paint", () => {
+  it("paints empty and note payloads without throwing", async () => {
     const { paintLibraryPreview } = await import("../../../../src/max/library/ui/preview.js");
     const { buildMotifPreview, toMotifPreviewPaintData } =
       await import("../../../../src/core/preview.js");
     const { BUILTIN_MOTIFS } = await import("../../../../src/generated/builtins.js");
     const chromaticTurn = BUILTIN_MOTIFS.find(({ id }) => id === "chromatic-turn");
-    assert.ok(chromaticTurn);
+    expect(chromaticTurn).toBeTruthy();
 
     const calls: string[] = [];
     const ctx = {
@@ -551,12 +508,12 @@ void describe("Library canvas preview paint", () => {
     } as unknown as CanvasRenderingContext2D;
 
     paintLibraryPreview(ctx, null, 200, 100);
-    assert.ok(calls.includes("clear"));
-    assert.ok(calls.some((entry) => entry.startsWith("text:Select a motif")));
+    expect(calls.includes("clear")).toBeTruthy();
+    expect(calls.some((entry) => entry.startsWith("text:Select a motif"))).toBeTruthy();
 
     const paint = toMotifPreviewPaintData(
       buildMotifPreview(
-        chromaticTurn,
+        chromaticTurn!,
         {
           tempo: 120,
           rootNote: 0,
@@ -574,7 +531,7 @@ void describe("Library canvas preview paint", () => {
     );
     calls.length = 0;
     paintLibraryPreview(ctx, paint, 320, 140);
-    assert.ok(calls.includes("fill"));
-    assert.ok(calls.some((entry) => entry.startsWith("text:")));
+    expect(calls.includes("fill")).toBeTruthy();
+    expect(calls.some((entry) => entry.startsWith("text:"))).toBeTruthy();
   });
 });

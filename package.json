@@ -13,7 +13,9 @@
     "fmt:check": "oxfmt --check",
     "lint": "oxlint",
     "lint:fix": "oxlint --fix",
-    "test": "npm run build && c8 --all --include='src/**/*.{ts,tsx}' --exclude='src/generated/**' --exclude='src/**/*.d.ts' tsx --test tests/**/*.test.ts tests/**/*.test.mts",
+    "test": "npm run build && vitest run --coverage",
+    "test:unit": "MOTIF_UNIT_ONLY=1 vitest run --coverage.enabled=false",
+    "test:watch": "vitest",
     "verify": "npm run fmt && npm run lint && npm run check && npm test && npm run validate:max",
     "verify:release": "npm run verify && npm run validate:amxd",
     "midi:import": "tsx scripts/midi-to-motif.ts",
@@ -26,16 +28,17 @@
   "devDependencies": {
     "@preact/preset-vite": "^2.10.6",
     "@types/node": "^26.2.0",
-    "c8": "^12.0.0",
+    "@vitest/coverage-v8": "^4.1.0",
     "esbuild": "^0.28.2",
-    "happy-dom": "^20.11.2",
+    "jsdom": "^26.1.0",
     "midi-file": "^1.2.4",
     "oxfmt": "^0.63.0",
     "oxlint": "^1.78.0",
     "oxlint-tsgolint": "^7.0.2001",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2",
-    "vite": "^8.2.1"
+    "vite": "^8.2.1",
+    "vitest": "^4.1.0"
   },
   "allowScripts": {
     "fsevents@2.3.3": true,

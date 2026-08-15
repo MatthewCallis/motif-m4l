@@ -2,6 +2,7 @@
 import type { LibraryServerState } from "../../protocol.js";
 import { send } from "../bridge.js";
 import { toggleTagSelection } from "../browser-model.js";
+import { classNames } from "../class-names.js";
 
 /**
  * Sidebar tag filter chips and AND/OR mode controls.
@@ -24,7 +25,7 @@ export function TagFilter({
       <div id="tag-filter-mode" role="group" aria-label="Tag filter mode">
         <button
           type="button"
-          class={`tag-mode-btn${tagMode === "or" ? " active" : ""}`}
+          className={classNames("tag-mode-btn", { active: tagMode === "or" })}
           data-tag-mode="or"
           title="Match any selected tag"
           onClick={() => {
@@ -35,7 +36,7 @@ export function TagFilter({
         </button>
         <button
           type="button"
-          class={`tag-mode-btn${tagMode === "and" ? " active" : ""}`}
+          className={classNames("tag-mode-btn", { active: tagMode === "and" })}
           data-tag-mode="and"
           title="Match all selected tags"
           onClick={() => {
@@ -47,7 +48,7 @@ export function TagFilter({
       </div>
       <div id="tag-filter-chips">
         {available.length === 0 ? (
-          <span class="tag-chip empty">No tags yet</span>
+          <span className="tag-chip empty">No tags yet</span>
         ) : (
           available.map((tag) => {
             const isSelected = selected.some((entry) => entry.toLowerCase() === tag.toLowerCase());
@@ -55,7 +56,7 @@ export function TagFilter({
               <button
                 key={tag}
                 type="button"
-                class={`tag-chip${isSelected ? " selected" : ""}`}
+                className={classNames("tag-chip", { selected: isSelected })}
                 title={isSelected ? `Remove filter: ${tag}` : `Filter by ${tag}`}
                 onClick={() => {
                   send({

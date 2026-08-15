@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import { createEngine, lastLibState, lastPersistedState } from "../helpers/max-engine.js";
 
 describe("Max device runtime integration", () => {
@@ -11,26 +10,26 @@ describe("Max device runtime integration", () => {
     first.dispatch("map_trigger", 21, "chromatic-turn", "trigger");
 
     const encoded = lastPersistedState(first.outlets);
-    assert.ok(encoded, "state changes must emit an encoded persistence snapshot");
+    expect(encoded, "state changes must emit an encoded persistence snapshot").toBeTruthy();
 
     const restored = await createEngine();
     restored.dispatch("restore_state", encoded);
     restored.dispatch("initialize");
 
     const lib = lastLibState(restored.outlets);
-    assert.ok(lib);
-    assert.equal((lib["selected"] as Record<string, unknown>)["id"], "chromatic-turn");
-    const items = lib["items"] as Array<{
+    expect(lib).toBeTruthy();
+    expect((lib!["selected"] as Record<string, unknown>)["id"]).toBe("chromatic-turn");
+    const items = lib!["items"] as Array<{
       id: string;
       hotkeys: Array<{ pitch: number; action: string }>;
     }>;
-    assert.deepEqual(items.find((item) => item.id === "scale-turn")?.hotkeys, [
+    expect(items.find((item) => item.id === "scale-turn")?.hotkeys).toEqual([
       { pitch: 20, action: "select", label: "G♯-1" },
     ]);
-    assert.deepEqual(items.find((item) => item.id === "chromatic-turn")?.hotkeys, [
+    expect(items.find((item) => item.id === "chromatic-turn")?.hotkeys).toEqual([
       { pitch: 21, action: "trigger", label: "A-1" },
     ]);
-    assert.deepEqual(restored.errors, []);
+    expect(restored.errors).toEqual([]);
   });
 
   it("waits for an asynchronous user-library scan before restoring stable ids", async () => {
@@ -58,19 +57,19 @@ describe("Max device runtime integration", () => {
     restored.dispatch("library_path", path);
     restored.dispatch("restore_state", encoded);
     let lib = lastLibState(restored.outlets);
-    assert.ok(lib);
-    assert.equal(lib["libraryScanning"], true);
-    assert.equal((lib["selected"] as Record<string, unknown>)["id"], "scale-turn");
+    expect(lib).toBeTruthy();
+    expect(lib!["libraryScanning"]).toBe(true);
+    expect((lib!["selected"] as Record<string, unknown>)["id"]).toBe("scale-turn");
 
-    assert.ok(restored.runScheduledTasks() >= 1);
+    expect(restored.runScheduledTasks() >= 1).toBeTruthy();
     lib = lastLibState(restored.outlets);
-    assert.ok(lib);
-    assert.equal(lib["libraryScanning"], false);
-    assert.equal((lib["selected"] as Record<string, unknown>)["id"], "saved-user-motif");
-    assert.deepEqual((lib["selected"] as Record<string, unknown>)["hotkeys"], [
+    expect(lib).toBeTruthy();
+    expect(lib!["libraryScanning"]).toBe(false);
+    expect((lib!["selected"] as Record<string, unknown>)["id"]).toBe("saved-user-motif");
+    expect((lib!["selected"] as Record<string, unknown>)["hotkeys"]).toEqual([
       { pitch: 24, action: "trigger", label: "C0" },
     ]);
-    assert.deepEqual(restored.errors, []);
+    expect(restored.errors).toEqual([]);
   });
 
   it("fails soft when a saved engine snapshot is malformed or unsupported", async () => {
@@ -91,11 +90,10 @@ describe("Max device runtime integration", () => {
     const selected = lastLibState(engine.outlets)?.["selected"] as
       | Record<string, unknown>
       | undefined;
-    assert.equal(selected?.["id"], "scale-turn");
-    assert.equal(
+    expect(selected?.["id"]).toBe("scale-turn");
+    expect(
       engine.errors.filter((message) => message.includes("Saved device state is invalid")).length,
-      2,
-    );
+    ).toBe(2);
   });
 
   it("filter_motifs emits a filtered browser list", async () => {
@@ -105,10 +103,10 @@ describe("Max device runtime integration", () => {
     engine.dispatch("filter_motifs", "chromatic");
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib, "lib state must be emitted");
-    const items = lib["items"] as Array<{ name: string }>;
-    assert.ok(items.length >= 1);
-    assert.ok(items.every((item) => item.name.toLowerCase().includes("chromatic")));
+    expect(lib, "lib state must be emitted").toBeTruthy();
+    const items = lib!["items"] as Array<{ name: string }>;
+    expect(items.length >= 1).toBeTruthy();
+    expect(items.every((item) => item.name.toLowerCase().includes("chromatic"))).toBeTruthy();
   });
 
   it("clearing search restores the full browser list", async () => {
@@ -119,9 +117,9 @@ describe("Max device runtime integration", () => {
     engine.dispatch("filter_motifs");
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib, "lib state must be emitted");
-    const items = lib["items"] as Array<{ name: string }>;
-    assert.ok(items.length >= 2, "an empty query must restore builtins");
+    expect(lib, "lib state must be emitted").toBeTruthy();
+    const items = lib!["items"] as Array<{ name: string }>;
+    expect(items.length >= 2, "an empty query must restore builtins").toBeTruthy();
   });
 
   it("lib state includes notes for the selected motif", async () => {
@@ -130,122 +128,95 @@ describe("Max device runtime integration", () => {
     engine.dispatch("motif", "Chromatic Turn");
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib, "lib state must be emitted");
-    const selected = lib["selected"] as Record<string, unknown> | null;
-    assert.ok(selected, "selected motif must be present in lib state");
-    const notes = selected["notes"] as Array<Record<string, unknown>>;
-    assert.ok(notes.length >= 1, "at least one note visible in lib state");
+    expect(lib, "lib state must be emitted").toBeTruthy();
+    const selected = lib!["selected"] as Record<string, unknown> | null;
+    expect(selected, "selected motif must be present in lib state").toBeTruthy();
+    const notes = selected!["notes"] as Array<Record<string, unknown>>;
+    expect(notes.length >= 1, "at least one note visible in lib state").toBeTruthy();
     // note shape: { pitch, accidental, at, duration, gate, velocity }
     for (const note of notes) {
-      assert.ok("pitch" in note, "note must have pitch");
-      assert.ok("at" in note, "note must have at");
-      assert.ok("duration" in note, "note must have duration");
+      expect("pitch" in note, "note must have pitch").toBeTruthy();
+      expect("at" in note, "note must have at").toBeTruthy();
+      expect("duration" in note, "note must have duration").toBeTruthy();
     }
   });
 
   it("invert and reverse change playback and preview without mutating stored motif notes", async () => {
     const engine = await createEngine();
     engine.dispatch("initialize");
-    assert.deepEqual(
+    expect(
       [...engine.outlets]
         .reverse()
         .find((args) => args[0] === "ui" && args[1] === "transforms")
         ?.slice(2),
-      [0, 0],
-      "initialize must synchronize both visual transform latches off",
-    );
+    ).toEqual([0, 0]);
 
     engine.dispatch("invert", 1);
-    assert.deepEqual(
+    expect(
       [...engine.outlets]
         .reverse()
         .find((args) => args[0] === "ui" && args[1] === "transforms")
         ?.slice(2),
-      [1, 0],
-      "Invert parameter value 1 must latch the engine and UI on",
-    );
+    ).toEqual([1, 0]);
     engine.outlets.length = 0;
     engine.dispatch("note", 60, 100, 1);
-    assert.deepEqual(
+    expect(
       engine.outlets
         .filter((args) => args[0] === "event" && Number(args[2]) > 0)
         .map((args) => args[1]),
-      [60, 59, 57, 53, 55, 59, 60],
-      "Invert must mirror scale-degree offsets around the trigger pitch",
-    );
+    ).toEqual([60, 59, 57, 53, 55, 59, 60]);
     const invertedPreviewRaw = [...engine.outlets]
       .reverse()
       .find((args) => args[0] === "ui" && args[1] === "preview")?.[2];
     const invertedPreview = JSON.parse(decodeURIComponent(String(invertedPreviewRaw))) as {
       notes: Array<{ pitch: number }>;
     };
-    assert.deepEqual(
-      invertedPreview.notes.map(({ pitch }) => pitch),
-      [60, 59, 57, 53, 55, 59, 60],
-    );
+    expect(invertedPreview.notes.map(({ pitch }) => pitch)).toEqual([60, 59, 57, 53, 55, 59, 60]);
 
     engine.dispatch("invert", 0);
     engine.dispatch("reverse", 1);
-    assert.deepEqual(
+    expect(
       [...engine.outlets]
         .reverse()
         .find((args) => args[0] === "ui" && args[1] === "transforms")
         ?.slice(2),
-      [0, 1],
-      "absolute transform parameter values must synchronize their latch states",
-    );
+    ).toEqual([0, 1]);
     // Library state must show notes in stored (non-reversed) order even with Reverse active
     const selected = lastLibState(engine.outlets)?.["selected"] as Record<string, unknown>;
-    assert.deepEqual(
+    expect(
       (selected["notes"] as Array<Record<string, unknown>>).map((note) => note["pitch"]),
-      [0, 1, 2, 4, 3, 1, 0],
-      "Library note data must remain in stored order with stored offsets",
-    );
+    ).toEqual([0, 1, 2, 4, 3, 1, 0]);
     engine.outlets.length = 0;
     engine.dispatch("note", 60, 100, 1);
-    assert.deepEqual(
+    expect(
       engine.outlets
         .filter((args) => args[0] === "event" && Number(args[2]) > 0)
         .map((args) => args[1]),
-      [60, 62, 65, 67, 64, 62, 60],
-      "Reverse must play the stored note sequence backward",
-    );
-    assert.deepEqual(
-      engine.outlets.filter((args) => args[0] === "ui" && args[1] === "lib"),
-      [],
-      "note trigger must not emit Library state",
-    );
+    ).toEqual([60, 62, 65, 67, 64, 62, 60]);
+    expect(engine.outlets.filter((args) => args[0] === "ui" && args[1] === "lib")).toEqual([]);
 
     engine.dispatch("reverse", 0);
-    assert.deepEqual(
+    expect(
       [...engine.outlets]
         .reverse()
         .find((args) => args[0] === "ui" && args[1] === "transforms")
         ?.slice(2),
-      [0, 0],
-      "Reverse parameter value 0 must synchronize both transform latches off",
-    );
+    ).toEqual([0, 0]);
     engine.outlets.length = 0;
     engine.dispatch("note", 60, 100, 1);
-    assert.deepEqual(
+    expect(
       engine.outlets
         .filter((args) => args[0] === "event" && Number(args[2]) > 0)
         .map((args) => args[1]),
-      [60, 62, 64, 67, 65, 62, 60],
-      "Disabling Reverse after disabling Invert must restore original playback",
-    );
+    ).toEqual([60, 62, 64, 67, 65, 62, 60]);
     const restoredPreviewRaw = [...engine.outlets]
       .reverse()
       .find((args) => args[0] === "ui" && args[1] === "preview")?.[2];
     const restoredPreview = JSON.parse(decodeURIComponent(String(restoredPreviewRaw))) as {
       notes: Array<{ pitch: number }>;
     };
-    assert.deepEqual(
-      restoredPreview.notes.map(({ pitch }) => pitch),
-      [60, 62, 64, 67, 65, 62, 60],
-      "Disabling both transforms must restore the original preview",
-    );
-    assert.deepEqual(engine.errors, [], "valid transform toggles must not emit errors");
+    expect(restoredPreview.notes.map(({ pitch }) => pitch)).toEqual([60, 62, 64, 67, 65, 62, 60]);
+    expect(engine.errors).toEqual([]);
   });
 
   it("begin_edit clones builtins and edit_motif updates editable properties", async () => {
@@ -257,11 +228,11 @@ describe("Max device runtime integration", () => {
     engine.dispatch("edit_motif", { name: "My Lick", description: "Edited blurb" });
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib, "lib state must be emitted after edit_motif");
-    const selected = lib["selected"] as Record<string, unknown>;
-    assert.ok(selected);
-    assert.equal(String(selected["name"]), "My Lick");
-    assert.ok(String(selected["description"]).includes("Edited"));
+    expect(lib, "lib state must be emitted after edit_motif").toBeTruthy();
+    const selected = lib!["selected"] as Record<string, unknown>;
+    expect(selected).toBeTruthy();
+    expect(String(selected["name"])).toBe("My Lick");
+    expect(String(selected["description"]).includes("Edited")).toBeTruthy();
   });
 
   it("edit_note_at requires an explicit edit session and updates pitch", async () => {
@@ -282,20 +253,20 @@ describe("Max device runtime integration", () => {
       ),
     );
 
-    assert.ok(!engine.errors.some((message) => message.includes("Unknown message")));
+    expect(!engine.errors.some((message) => message.includes("Unknown message"))).toBeTruthy();
     const edited = engine.outlets.find((args) => args[0] === "status" && args[1] === "note-edited");
-    assert.ok(edited);
-    assert.equal(edited[3], "pitch");
-    assert.equal(edited[4], 7);
+    expect(edited).toBeTruthy();
+    expect(edited![3]).toBe("pitch");
+    expect(edited![4]).toBe(7);
 
     // lib state should reflect the updated pitch value
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib, "lib state must be emitted after edit_note_at");
-    const notes = (lib["selected"] as Record<string, unknown>)?.["notes"] as Array<
+    expect(lib, "lib state must be emitted after edit_note_at").toBeTruthy();
+    const notes = (lib!["selected"] as Record<string, unknown>)?.["notes"] as Array<
       Record<string, number>
     >;
-    assert.ok(notes, "selected notes must be present");
-    assert.equal(notes[0]?.["pitch"], 7, "pitch updated in lib state notes");
+    expect(notes, "selected notes must be present").toBeTruthy();
+    expect(notes[0]?.["pitch"]).toBe(7);
   });
 
   it("import_clip uses the documented LiveAPI constructor and full get_notes_extended pitch span", async () => {
@@ -341,28 +312,28 @@ describe("Max device runtime integration", () => {
     engine.outlets.length = 0;
     engine.dispatch("import_clip");
 
-    assert.ok(!engine.errors.some((message) => message.includes("No clip selected")));
+    expect(!engine.errors.some((message) => message.includes("No clip selected"))).toBeTruthy();
     const status = engine.outlets.find(
       (args) => args[0] === "status" && args[1] === "imported-clip",
     );
-    assert.ok(status);
-    assert.equal(status[3], 2);
+    expect(status).toBeTruthy();
+    expect(status![3]).toBe(2);
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib, "lib state must be emitted after import_clip");
-    const selected = lib["selected"] as Record<string, unknown>;
-    assert.ok(selected, "selected motif must be present after import");
-    assert.equal(String(selected["name"]), "Clip Phrase");
-    assert.equal(selected["pitchMode"], "chromatic");
-    assert.deepEqual(selected["sourcePitchContext"], {
+    expect(lib, "lib state must be emitted after import_clip").toBeTruthy();
+    const selected = lib!["selected"] as Record<string, unknown>;
+    expect(selected, "selected motif must be present after import").toBeTruthy();
+    expect(String(selected["name"])).toBe("Clip Phrase");
+    expect(selected["pitchMode"]).toBe("chromatic");
+    expect(selected["sourcePitchContext"]).toEqual({
       anchorPitch: 60,
       scaleRootNote: 2,
       scaleName: "Minor",
       scaleIntervals: [0, 2, 3, 5, 7, 8, 10],
     });
-    assert.equal((lib["actions"] as Record<string, unknown>)["canSave"], true);
-    assert.deepEqual(constructorCalls[0], [undefined, "live_set view detail_clip"]);
-    assert.deepEqual(methodCalls[0], ["get_notes_extended", 0, 128, 0, 4096]);
+    expect((lib!["actions"] as Record<string, unknown>)["canSave"]).toBe(true);
+    expect(constructorCalls[0]).toEqual([undefined, "live_set view detail_clip"]);
+    expect(methodCalls[0]).toEqual(["get_notes_extended", 0, 128, 0, 4096]);
   });
 
   it("import_clip parses get_notes_extended JSON strings from LiveAPI", async () => {
@@ -402,8 +373,8 @@ describe("Max device runtime integration", () => {
     const status = engine.outlets.find(
       (args) => args[0] === "status" && args[1] === "imported-clip",
     );
-    assert.ok(status);
-    assert.equal(status[3], 2);
+    expect(status).toBeTruthy();
+    expect(status![3]).toBe(2);
   });
 
   it("requires a loaded Library folder before creating an imported draft", async () => {
@@ -427,15 +398,17 @@ describe("Max device runtime integration", () => {
     engine.dispatch("import_clip");
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.deepEqual(lib["alert"], {
+    expect(lib).toBeTruthy();
+    expect(lib!["alert"]).toEqual({
       id: 1,
       title: "Library folder required",
       message:
         "Choose a valid Library folder before importing a clip so the new motif can be saved.",
     });
-    assert.equal((lib["editing"] as Record<string, unknown>)["active"], false);
-    assert.ok(!engine.outlets.some((args) => args[0] === "status" && args[1] === "imported-clip"));
+    expect((lib!["editing"] as Record<string, unknown>)["active"]).toBe(false);
+    expect(
+      !engine.outlets.some((args) => args[0] === "status" && args[1] === "imported-clip"),
+    ).toBeTruthy();
   });
 
   it("rejects oversized MIDI clips with an actionable Library warning before creating a large payload", async () => {
@@ -472,22 +445,24 @@ describe("Max device runtime integration", () => {
     engine.outlets.length = 0;
     engine.dispatch("import_clip");
 
-    assert.ok(!engine.outlets.some((args) => args[0] === "status" && args[1] === "imported-clip"));
+    expect(
+      !engine.outlets.some((args) => args[0] === "status" && args[1] === "imported-clip"),
+    ).toBeTruthy();
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.deepEqual(lib["alert"], {
+    expect(lib).toBeTruthy();
+    expect(lib!["alert"]).toEqual({
       id: 1,
       title: "MIDI file is too long",
       message:
         "The selected MIDI clip contains 513 notes. Motif can import up to 512 editable notes. Shorten the clip or split it into smaller phrases, then import it again.",
     });
-    assert.equal((lib["selected"] as Record<string, unknown>)["id"], "scale-turn");
-    assert.ok(
+    expect((lib!["selected"] as Record<string, unknown>)["id"]).toBe("scale-turn");
+    expect(
       engine.errors.some(
         (message) =>
           message.includes("MIDI clip contains 513 notes") && message.includes("up to 512"),
       ),
-    );
+    ).toBeTruthy();
   });
 
   it("imports exactly 512 notes using bounded chunks for one scrollable Library table", async () => {
@@ -522,26 +497,26 @@ describe("Max device runtime integration", () => {
     engine.dispatch("library_path", "/Motifs");
     engine.dispatch("import_clip");
 
-    assert.ok(
+    expect(
       engine.outlets.some(
         (args) => args[0] === "status" && args[1] === "imported-clip" && args[3] === 512,
       ),
-    );
+    ).toBeTruthy();
     const selected = lastLibState(engine.outlets)?.["selected"] as Record<string, unknown>;
-    assert.equal(selected["noteCount"], 512);
-    assert.equal(selected["noteLimit"], 512);
-    assert.equal((selected["notes"] as unknown[]).length, 512);
+    expect(selected["noteCount"]).toBe(512);
+    expect(selected["noteLimit"]).toBe(512);
+    expect((selected["notes"] as unknown[]).length).toBe(512);
 
     const chunks = engine.outlets
       .filter((args) => args[0] === "ui" && args[1] === "lib" && typeof args[2] === "string")
       .map((args) => JSON.parse(decodeURIComponent(String(args[2]))) as Record<string, unknown>)
       .filter((payload) => payload["kind"] === "state-chunk");
-    assert.ok(chunks.length > 1);
-    assert.ok(
+    expect(chunks.length > 1).toBeTruthy();
+    expect(
       engine.outlets
         .filter((args) => args[0] === "ui" && args[1] === "lib" && typeof args[2] === "string")
         .every((args) => String(args[2]).length < 6_000),
-    );
+    ).toBeTruthy();
   });
 
   function userMotif(id: string, name: string, pitch = 0): Record<string, unknown> {
@@ -598,14 +573,11 @@ describe("Max device runtime integration", () => {
     engine.dispatch("import_clip");
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    const selected = lib["selected"] as Record<string, unknown>;
-    assert.equal(selected["pitchMode"], "chromatic");
+    expect(lib).toBeTruthy();
+    const selected = lib!["selected"] as Record<string, unknown>;
+    expect(selected["pitchMode"]).toBe("chromatic");
     const notes = selected["notes"] as Array<Record<string, unknown>>;
-    assert.deepEqual(
-      notes.map((note) => note["pitch"]),
-      [0, -2],
-    );
+    expect(notes.map((note) => note["pitch"])).toEqual([0, -2]);
   });
 
   it("changing a hybrid motif to chromatic re-encodes pitches instead of reinterpreting them", async () => {
@@ -624,12 +596,12 @@ describe("Max device runtime integration", () => {
     });
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    const selected = lib["selected"] as Record<string, unknown>;
-    assert.equal(selected["pitchMode"], "chromatic");
+    expect(lib).toBeTruthy();
+    const selected = lib!["selected"] as Record<string, unknown>;
+    expect(selected["pitchMode"]).toBe("chromatic");
     const notes = selected["notes"] as Array<Record<string, unknown>>;
-    assert.equal(notes[1]?.["pitch"], 2);
-    assert.equal(notes[1]?.["accidental"], null);
+    expect(notes[1]?.["pitch"]).toBe(2);
+    expect(notes[1]?.["accidental"]).toBe(null);
   });
 
   it("chosen library folder loads immediately, including paths with spaces", async () => {
@@ -645,13 +617,15 @@ describe("Max device runtime integration", () => {
     engine.dispatch("library_path", "/Users/test/Motif", "Library");
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.equal(lib["libraryPath"], path);
-    assert.equal(lib["libraryLoaded"], true);
-    const items = lib["items"] as Array<{ id: string; name: string; showId: boolean }>;
-    assert.ok(items.some((item) => item.id === "user-alpha"));
-    assert.ok(items.some((item) => item.id === "user-beta"));
-    assert.ok(items.filter((item) => item.name === "Shared Name").every((item) => item.showId));
+    expect(lib).toBeTruthy();
+    expect(lib!["libraryPath"]).toBe(path);
+    expect(lib!["libraryLoaded"]).toBe(true);
+    const items = lib!["items"] as Array<{ id: string; name: string; showId: boolean }>;
+    expect(items.some((item) => item.id === "user-alpha")).toBeTruthy();
+    expect(items.some((item) => item.id === "user-beta")).toBeTruthy();
+    expect(
+      items.filter((item) => item.name === "Shared Name").every((item) => item.showId),
+    ).toBeTruthy();
   });
 
   it("transports the reported Chrono Trigger motif sizes without an oversized-MIDI warning", async () => {
@@ -684,18 +658,17 @@ describe("Max device runtime integration", () => {
       engine.outlets.length = 0;
       engine.dispatch("select_browser", id);
       const state = lastLibState(engine.outlets);
-      assert.ok(state);
-      assert.equal((state["selected"] as Record<string, unknown>)["noteCount"], noteCount);
-      assert.equal(
-        ((state["selected"] as Record<string, unknown>)["notes"] as unknown[]).length,
+      expect(state).toBeTruthy();
+      expect((state!["selected"] as Record<string, unknown>)["noteCount"]).toBe(noteCount);
+      expect(((state!["selected"] as Record<string, unknown>)["notes"] as unknown[]).length).toBe(
         noteCount,
       );
-      assert.equal(state["alert"], null);
-      assert.ok(
+      expect(state!["alert"]).toBe(null);
+      expect(
         engine.outlets
           .filter((args) => args[0] === "ui" && args[1] === "lib" && typeof args[2] === "string")
           .every((args) => String(args[2]).length < 6_000),
-      );
+      ).toBeTruthy();
     }
   });
 
@@ -719,13 +692,13 @@ describe("Max device runtime integration", () => {
     engine.dispatch("select_browser", "large-playback-motif");
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    const selected = lib["selected"] as Record<string, unknown>;
-    assert.equal(selected["noteCount"], 24);
-    assert.equal(selected["noteLimit"], 512);
-    assert.equal((selected["notes"] as unknown[]).length, 24);
-    assert.match(String(selected["previewBars"]), /^[\d.]+$/);
-    assert.equal((selected["notes"] as Array<Record<string, unknown>>)[16]?.["pitch"], 4);
+    expect(lib).toBeTruthy();
+    const selected = lib!["selected"] as Record<string, unknown>;
+    expect(selected["noteCount"]).toBe(24);
+    expect(selected["noteLimit"]).toBe(512);
+    expect((selected["notes"] as unknown[]).length).toBe(24);
+    expect(String(selected["previewBars"])).toMatch(/^[\d.]+$/);
+    expect((selected["notes"] as Array<Record<string, unknown>>)[16]?.["pitch"]).toBe(4);
   });
 
   it("recursively loads, groups, and searches motifs in sub-directories", async () => {
@@ -746,27 +719,24 @@ describe("Max device runtime integration", () => {
 
     engine.dispatch("library_path", path);
     let lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    const items = lib["items"] as Array<{ id: string; folder: string }>;
-    assert.equal(items.find((item) => item.id === "loose")?.folder, "Library");
-    assert.equal(items.find((item) => item.id === "bass-line")?.folder, "Bass");
-    assert.equal(items.find((item) => item.id === "bass-fill")?.folder, "Bass/Fills");
-    assert.equal(items.find((item) => item.id === "chromatic-turn")?.folder, "Library");
-    assert.ok(!engine.errors.some((message) => message.includes("notes.txt")));
-    assert.deepEqual(
-      engine.folderOpenPaths,
-      [path, `${path}/Bass`, `${path}/Empty`, `${path}/Bass/Fills`],
-      "each directory must open once and files must never be probed as Folder objects",
-    );
+    expect(lib).toBeTruthy();
+    const items = lib!["items"] as Array<{ id: string; folder: string }>;
+    expect(items.find((item) => item.id === "loose")?.folder).toBe("Library");
+    expect(items.find((item) => item.id === "bass-line")?.folder).toBe("Bass");
+    expect(items.find((item) => item.id === "bass-fill")?.folder).toBe("Bass/Fills");
+    expect(items.find((item) => item.id === "chromatic-turn")?.folder).toBe("Library");
+    expect(!engine.errors.some((message) => message.includes("notes.txt"))).toBeTruthy();
+    expect(engine.folderOpenPaths).toEqual([
+      path,
+      `${path}/Bass`,
+      `${path}/Empty`,
+      `${path}/Bass/Fills`,
+    ]);
 
     engine.dispatch("filter_motifs", "bass/fills");
     lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.deepEqual(
-      (lib["items"] as Array<{ id: string }>).map((item) => item.id),
-      ["bass-fill"],
-      "relative folder names must participate in search",
-    );
+    expect(lib).toBeTruthy();
+    expect((lib!["items"] as Array<{ id: string }>).map((item) => item.id)).toEqual(["bass-fill"]);
   });
 
   it("scans large libraries in bounded Task batches without replacing the active library early", async () => {
@@ -786,60 +756,50 @@ describe("Max device runtime integration", () => {
 
     engine.dispatch("library_path", path);
     let lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.equal(lib["libraryScanning"], true);
-    assert.equal(lib["libraryLoaded"], false);
-    assert.ok(
-      (lib["items"] as Array<{ id: string }>).some((item) => item.id === "scale-turn"),
+    expect(lib).toBeTruthy();
+    expect(lib!["libraryScanning"]).toBe(true);
+    expect(lib!["libraryLoaded"]).toBe(false);
+    expect(
+      (lib!["items"] as Array<{ id: string }>).some((item) => item.id === "scale-turn"),
       "the active library must remain available while the replacement scan is pending",
-    );
-    assert.equal(
-      (lib["items"] as Array<{ id: string }>).some((item) => item.id === "large-0"),
+    ).toBeTruthy();
+    expect((lib!["items"] as Array<{ id: string }>).some((item) => item.id === "large-0")).toBe(
       false,
     );
 
-    assert.equal(engine.runScheduledTasks(1), 1);
+    expect(engine.runScheduledTasks(1)).toBe(1);
     lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.equal(
-      lib["libraryScanning"],
-      true,
-      "one batch must not synchronously consume 100 files",
-    );
+    expect(lib).toBeTruthy();
+    expect(lib!["libraryScanning"]).toBe(true);
 
     engine.dispatch("begin_edit");
     lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.equal((lib["editing"] as Record<string, unknown>)["active"], false);
-    assert.ok(engine.errors.some((message) => message.includes("scan to finish")));
+    expect(lib).toBeTruthy();
+    expect((lib!["editing"] as Record<string, unknown>)["active"]).toBe(false);
+    expect(engine.errors.some((message) => message.includes("scan to finish"))).toBeTruthy();
 
     engine.dispatch("filter_motifs", "scale");
     lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.equal(lib["libraryScanning"], true, "the engine must remain responsive between batches");
+    expect(lib).toBeTruthy();
+    expect(lib!["libraryScanning"]).toBe(true);
 
-    assert.ok(engine.runScheduledTasks() >= 1);
+    expect(engine.runScheduledTasks() >= 1).toBeTruthy();
     lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.equal(lib["libraryScanning"], false);
-    assert.equal(lib["libraryLoaded"], true);
-    assert.equal(
-      (lib["items"] as Array<{ id: string }>).filter((item) => item.id.startsWith("large-")).length,
-      0,
-      "the active search remains applied after the scan commits",
-    );
+    expect(lib).toBeTruthy();
+    expect(lib!["libraryScanning"]).toBe(false);
+    expect(lib!["libraryLoaded"]).toBe(true);
+    expect(
+      (lib!["items"] as Array<{ id: string }>).filter((item) => item.id.startsWith("large-"))
+        .length,
+    ).toBe(0);
     engine.dispatch("filter_motifs");
     lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.equal(
-      (lib["items"] as Array<{ id: string }>).filter((item) => item.id.startsWith("large-")).length,
-      100,
-    );
-    assert.deepEqual(
-      engine.folderOpenPaths,
-      [path],
-      "flat-library files must not be opened as folders",
-    );
+    expect(lib).toBeTruthy();
+    expect(
+      (lib!["items"] as Array<{ id: string }>).filter((item) => item.id.startsWith("large-"))
+        .length,
+    ).toBe(100);
+    expect(engine.folderOpenPaths).toEqual([path]);
   });
 
   it("saves an edited motif back to its original sub-directory", async () => {
@@ -861,13 +821,12 @@ describe("Max device runtime integration", () => {
     engine.dispatch("begin_edit");
     engine.dispatch("save_motif", { name: "Nested Motif Updated" });
 
-    assert.equal(
+    expect(
       (JSON.parse(engine.files[nestedFilename] ?? "{}") as Record<string, unknown>)["name"],
-      "Nested Motif Updated",
-    );
-    assert.equal(engine.files[`${path}/nested-motif.json`], undefined);
+    ).toBe("Nested Motif Updated");
+    expect(engine.files[`${path}/nested-motif.json`]).toBe(undefined);
     const selected = lastLibState(engine.outlets)?.["selected"] as Record<string, unknown>;
-    assert.equal(selected["folder"], "Leads/Arps");
+    expect(selected["folder"]).toBe("Leads/Arps");
   });
 
   it("reports duplicate motif ids with their relative sub-directory paths", async () => {
@@ -886,12 +845,12 @@ describe("Max device runtime integration", () => {
     engine.dispatch("library_path", path);
 
     const items = lastLibState(engine.outlets)?.["items"] as Array<{ id: string }>;
-    assert.equal(items.filter((item) => item.id === "duplicate-nested").length, 1);
-    assert.ok(
+    expect(items.filter((item) => item.id === "duplicate-nested").length).toBe(1);
+    expect(
       engine.errors.some(
         (message) => message.includes("B/second.json") && message.includes("duplicate motif id"),
       ),
-    );
+    ).toBeTruthy();
   });
 
   it("assigns, reassigns, and removes MIDI hot keys through library actions", async () => {
@@ -914,13 +873,13 @@ describe("Max device runtime integration", () => {
       id: string;
       hotkeys: Array<{ pitch: number; action: string }>;
     }>;
-    assert.deepEqual(items.find((item) => item.id === "chromatic-turn")?.hotkeys, [
+    expect(items.find((item) => item.id === "chromatic-turn")?.hotkeys).toEqual([
       { pitch: 20, action: "trigger", label: "G♯-1" },
     ]);
 
     engine.outlets.length = 0;
     engine.dispatch("note", 20, 100, 1);
-    assert.ok(
+    expect(
       engine.outlets.some(
         (args) =>
           args[0] === "status" &&
@@ -929,7 +888,7 @@ describe("Max device runtime integration", () => {
           args[3] === 20,
       ),
       "a mapped note outside the trigger zone must play its assigned motif",
-    );
+    ).toBeTruthy();
 
     engine.dispatch(
       "lib_action",
@@ -942,16 +901,16 @@ describe("Max device runtime integration", () => {
       ),
     );
     lib = lastLibState(engine.outlets);
-    assert.ok(lib);
+    expect(lib).toBeTruthy();
     items = lib?.["items"] as Array<{
       id: string;
       hotkeys: Array<{ pitch: number; action: string }>;
     }>;
-    assert.deepEqual(items.find((item) => item.id === "chromatic-turn")?.hotkeys, []);
-    assert.deepEqual(items.find((item) => item.id === "scale-turn")?.hotkeys, [
+    expect(items.find((item) => item.id === "chromatic-turn")?.hotkeys).toEqual([]);
+    expect(items.find((item) => item.id === "scale-turn")?.hotkeys).toEqual([
       { pitch: 20, action: "trigger", label: "G♯-1" },
     ]);
-    assert.deepEqual((lib["selected"] as Record<string, unknown>)["hotkeys"], [
+    expect((lib!["selected"] as Record<string, unknown>)["hotkeys"]).toEqual([
       { pitch: 20, action: "trigger", label: "G♯-1" },
     ]);
 
@@ -969,15 +928,17 @@ describe("Max device runtime integration", () => {
       id: string;
       hotkeys: Array<{ pitch: number; action: string }>;
     }>;
-    assert.deepEqual(items.find((item) => item.id === "scale-turn")?.hotkeys, []);
+    expect(items.find((item) => item.id === "scale-turn")?.hotkeys).toEqual([]);
 
     engine.outlets.length = 0;
     engine.dispatch("note", 20, 100, 1);
-    assert.ok(!engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"));
-    assert.ok(
+    expect(
+      !engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"),
+    ).toBeTruthy();
+    expect(
       engine.outlets.some((args) => args[0] === "event" && args[1] === 20 && args[2] === 100),
       "an unmapped note outside the trigger zone must return to dry pass-through",
-    );
+    ).toBeTruthy();
   });
 
   it("select-mode MIDI hot keys change the motif used by later trigger notes without playing immediately", async () => {
@@ -996,22 +957,22 @@ describe("Max device runtime integration", () => {
     );
 
     let lib = lastLibState(engine.outlets);
-    assert.ok(lib);
+    expect(lib).toBeTruthy();
     const chromatic = (
-      lib["items"] as Array<{
+      lib!["items"] as Array<{
         id: string;
         hotkeys: Array<{ pitch: number; action: string }>;
       }>
     ).find((item) => item.id === "chromatic-turn");
-    assert.deepEqual(chromatic?.hotkeys, [{ pitch: 20, action: "select", label: "G♯-1" }]);
-    assert.equal((lib["selected"] as Record<string, unknown>)["id"], "scale-turn");
+    expect(chromatic?.hotkeys).toEqual([{ pitch: 20, action: "select", label: "G♯-1" }]);
+    expect((lib!["selected"] as Record<string, unknown>)["id"]).toBe("scale-turn");
 
     engine.outlets.length = 0;
     engine.dispatch("note", 20, 100, 1);
     lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.equal((lib["selected"] as Record<string, unknown>)["id"], "chromatic-turn");
-    assert.ok(
+    expect(lib).toBeTruthy();
+    expect((lib!["selected"] as Record<string, unknown>)["id"]).toBe("chromatic-turn");
+    expect(
       engine.outlets.some(
         (args) =>
           args[0] === "status" &&
@@ -1019,21 +980,23 @@ describe("Max device runtime integration", () => {
           args[2] === "chromatic-turn" &&
           args[3] === 20,
       ),
-    );
-    assert.ok(!engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"));
-    assert.ok(
+    ).toBeTruthy();
+    expect(
+      !engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"),
+    ).toBeTruthy();
+    expect(
       !engine.outlets.some((args) => args[0] === "event"),
       "selection must not play a phrase",
-    );
+    ).toBeTruthy();
 
     engine.outlets.length = 0;
     engine.dispatch("note", 60, 100, 1);
-    assert.ok(
+    expect(
       engine.outlets.some(
         (args) => args[0] === "status" && args[1] === "trigger" && args[2] === "chromatic-turn",
       ),
       "a later zone note must trigger the newly selected motif",
-    );
+    ).toBeTruthy();
   });
 
   it("global hold-repeat mode loops trigger-zone notes at motif boundaries until note-off", async () => {
@@ -1043,13 +1006,12 @@ describe("Max device runtime integration", () => {
 
     engine.outlets.length = 0;
     engine.dispatch("note", 60, 96, 2);
-    assert.equal(
+    expect(
       engine.outlets.filter(
         (args) => args[0] === "status" && args[1] === "trigger" && args[2] === "scale-turn",
       ).length,
-      1,
-    );
-    assert.ok(
+    ).toBe(1);
+    expect(
       engine.outlets.some(
         (args) =>
           args[0] === "status" &&
@@ -1057,40 +1019,28 @@ describe("Max device runtime integration", () => {
           args[2] === "scale-turn" &&
           args[3] === 60,
       ),
-    );
-    assert.equal(
-      engine.scheduledTaskDelays[engine.scheduledTaskDelays.length - 1],
-      1_875,
-      "the Task must wake 125 ms before the motif-owned one-bar boundary",
-    );
+    ).toBeTruthy();
+    expect(engine.scheduledTaskDelays[engine.scheduledTaskDelays.length - 1]).toBe(1_875);
 
     engine.dispatch("note", 60, 80, 2);
-    assert.equal(
-      engine.scheduledTaskDelays.length,
-      1,
-      "duplicate note-ons must not add repeat tasks",
-    );
+    expect(engine.scheduledTaskDelays.length).toBe(1);
 
     const libraryUpdatesBeforeRepeat = engine.outlets.filter(
       (args) => args[0] === "ui" && args[1] === "lib",
     ).length;
-    assert.equal(engine.runScheduledTasks(1), 1);
-    assert.equal(
+    expect(engine.runScheduledTasks(1)).toBe(1);
+    expect(
       engine.outlets.filter(
         (args) => args[0] === "status" && args[1] === "trigger" && args[2] === "scale-turn",
       ).length,
-      2,
-      "the scheduled boundary must launch the next motif cycle",
-    );
-    assert.equal(engine.scheduledTaskDelays[engine.scheduledTaskDelays.length - 1], 2_000);
-    assert.equal(
-      engine.outlets.filter((args) => args[0] === "ui" && args[1] === "lib").length,
+    ).toBe(2);
+    expect(engine.scheduledTaskDelays[engine.scheduledTaskDelays.length - 1]).toBe(2_000);
+    expect(engine.outlets.filter((args) => args[0] === "ui" && args[1] === "lib").length).toBe(
       libraryUpdatesBeforeRepeat,
-      "repeat cycles must not rebuild the Library and preview state",
     );
 
     engine.dispatch("note", 60, 0, 2);
-    assert.ok(
+    expect(
       engine.outlets.some(
         (args) =>
           args[0] === "status" &&
@@ -1098,22 +1048,22 @@ describe("Max device runtime integration", () => {
           args[2] === "scale-turn" &&
           args[3] === 60,
       ),
-    );
+    ).toBeTruthy();
     engine.outlets.length = 0;
     engine.runScheduledTasks();
-    assert.ok(
+    expect(
       !engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"),
       "a canceled task already queued by Max must not launch another cycle",
-    );
+    ).toBeTruthy();
 
     engine.dispatch("note", 60, 96, 2);
     engine.dispatch("trigger_mode", "one-shot");
     engine.outlets.length = 0;
     engine.runScheduledTasks();
-    assert.ok(
+    expect(
       !engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"),
       "leaving hold-repeat in Settings must cancel its pending cycle",
-    );
+    ).toBeTruthy();
   });
 
   it("global hold-repeat applies to Trigger hot keys, sustain, and panic cleanup", async () => {
@@ -1125,40 +1075,36 @@ describe("Max device runtime integration", () => {
     engine.dispatch("note", 20, 0, 1);
 
     engine.outlets.length = 0;
-    assert.equal(engine.runScheduledTasks(1), 1);
-    assert.ok(
+    expect(engine.runScheduledTasks(1)).toBe(1);
+    expect(
       engine.outlets.some(
         (args) => args[0] === "status" && args[1] === "trigger" && args[2] === "chromatic-turn",
       ),
       "sustain must defer stopping the Trigger hot key repeat",
-    );
+    ).toBeTruthy();
 
     engine.dispatch("sustain", 0, 1);
-    assert.ok(engine.outlets.some((args) => args[0] === "status" && args[1] === "repeat-stopped"));
+    expect(
+      engine.outlets.some((args) => args[0] === "status" && args[1] === "repeat-stopped"),
+    ).toBeTruthy();
     engine.outlets.length = 0;
     engine.runScheduledTasks();
-    assert.ok(!engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"));
+    expect(
+      !engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"),
+    ).toBeTruthy();
 
     engine.dispatch("note", 20, 100, 1);
     const outletsBeforePanic = engine.outlets.length;
     engine.dispatch("panic");
     const panicOutlets = engine.outlets.slice(outletsBeforePanic);
-    assert.equal(
-      panicOutlets.filter((args) => args[0] === "panic").length,
-      1,
-      "panic must emit one atomic Max-side hard reset",
-    );
-    assert.equal(
-      panicOutlets.filter((args) => args[0] === "clear").length,
-      0,
-      "hard panic must not also emit the ordinary clear path",
-    );
+    expect(panicOutlets.filter((args) => args[0] === "panic").length).toBe(1);
+    expect(panicOutlets.filter((args) => args[0] === "clear").length).toBe(0);
     engine.outlets.length = 0;
     engine.runScheduledTasks();
-    assert.ok(
+    expect(
       !engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"),
       "panic must cancel every pending repeat task",
-    );
+    ).toBeTruthy();
   });
 
   it("uses motif-owned trigger mode and repeat rounding unless Settings override them", async () => {
@@ -1178,13 +1124,13 @@ describe("Max device runtime integration", () => {
     engine.dispatch("motif", "self-repeating");
 
     engine.dispatch("note", 60, 100, 1);
-    assert.equal(engine.scheduledTaskDelays[engine.scheduledTaskDelays.length - 1], 1_875);
+    expect(engine.scheduledTaskDelays[engine.scheduledTaskDelays.length - 1]).toBe(1_875);
     engine.dispatch("note", 60, 0, 1);
 
     engine.dispatch("trigger_mode", "one-shot");
     const taskCount = engine.scheduledTaskDelays.length;
     engine.dispatch("note", 61, 100, 1);
-    assert.equal(engine.scheduledTaskDelays.length, taskCount);
+    expect(engine.scheduledTaskDelays.length).toBe(taskCount);
   });
 
   it("rejects invalid hot-key assignments and prunes mappings for removed library motifs", async () => {
@@ -1200,21 +1146,29 @@ describe("Max device runtime integration", () => {
     engine.dispatch("map_trigger", 12, "missing");
     engine.dispatch("map_trigger", 12, "temporary", "invalid-action");
     engine.dispatch("map_trigger", 13, "temporary", "repeat");
-    assert.ok(engine.errors.some((message) => message.includes("invalid MIDI note")));
-    assert.ok(engine.errors.some((message) => message.includes("unknown motif")));
-    assert.ok(engine.errors.some((message) => message.includes("unknown hot-key action")));
-    assert.ok(engine.errors.some((message) => message.includes("unknown hot-key action repeat")));
+    expect(engine.errors.some((message) => message.includes("invalid MIDI note"))).toBeTruthy();
+    expect(engine.errors.some((message) => message.includes("unknown motif"))).toBeTruthy();
+    expect(
+      engine.errors.some((message) => message.includes("unknown hot-key action")),
+    ).toBeTruthy();
+    expect(
+      engine.errors.some((message) => message.includes("unknown hot-key action repeat")),
+    ).toBeTruthy();
 
     engine.dispatch("map_trigger", 12, "temporary");
     folders[path] = [];
     engine.dispatch("refresh_library");
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.ok(!(lib["items"] as Array<{ id: string }>).some((item) => item.id === "temporary"));
+    expect(lib).toBeTruthy();
+    expect(
+      !(lib!["items"] as Array<{ id: string }>).some((item) => item.id === "temporary"),
+    ).toBeTruthy();
     engine.outlets.length = 0;
     engine.dispatch("note", 12, 100, 1);
-    assert.ok(!engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"));
+    expect(
+      !engine.outlets.some((args) => args[0] === "status" && args[1] === "trigger"),
+    ).toBeTruthy();
   });
 
   it("same-name saved motifs remain independently selectable by stable id", async () => {
@@ -1228,11 +1182,11 @@ describe("Max device runtime integration", () => {
 
     engine.dispatch("select_browser", "user-beta");
     let lib = lastLibState(engine.outlets);
-    assert.equal((lib?.["selected"] as Record<string, unknown>)?.["id"], "user-beta");
+    expect((lib?.["selected"] as Record<string, unknown>)?.["id"]).toBe("user-beta");
 
     engine.dispatch("select_browser", "user-alpha");
     lib = lastLibState(engine.outlets);
-    assert.equal((lib?.["selected"] as Record<string, unknown>)?.["id"], "user-alpha");
+    expect((lib?.["selected"] as Record<string, unknown>)?.["id"]).toBe("user-alpha");
   });
 
   it("save writes the unique id file and exits edit mode", async () => {
@@ -1244,8 +1198,8 @@ describe("Max device runtime integration", () => {
 
     let lib = lastLibState(engine.outlets);
     const draftId = String((lib?.["selected"] as Record<string, unknown>)?.["id"]);
-    assert.notEqual(draftId, "chromatic-turn");
-    assert.equal((lib?.["editing"] as Record<string, unknown>)?.["active"], true);
+    expect(draftId).not.toBe("chromatic-turn");
+    expect((lib?.["editing"] as Record<string, unknown>)?.["active"]).toBe(true);
 
     engine.dispatch(
       "lib_action",
@@ -1259,10 +1213,10 @@ describe("Max device runtime integration", () => {
     );
 
     lib = lastLibState(engine.outlets);
-    assert.equal((lib?.["editing"] as Record<string, unknown>)?.["active"], false);
-    assert.equal((lib?.["selected"] as Record<string, unknown>)?.["id"], draftId);
-    assert.equal((lib?.["selected"] as Record<string, unknown>)?.["isPersisted"], true);
-    assert.ok(engine.files[`${path}/${draftId}.json`]);
+    expect((lib?.["editing"] as Record<string, unknown>)?.["active"]).toBe(false);
+    expect((lib?.["selected"] as Record<string, unknown>)?.["id"]).toBe(draftId);
+    expect((lib?.["selected"] as Record<string, unknown>)?.["isPersisted"]).toBe(true);
+    expect(engine.files[`${path}/${draftId}.json`]).toBeTruthy();
   });
 
   it("cancel edit restores the original motif and removes a new draft", async () => {
@@ -1276,11 +1230,13 @@ describe("Max device runtime integration", () => {
     engine.dispatch("cancel_edit");
 
     const lib = lastLibState(engine.outlets);
-    assert.equal((lib?.["editing"] as Record<string, unknown>)?.["active"], false);
-    assert.equal((lib?.["selected"] as Record<string, unknown>)?.["id"], "chromatic-turn");
-    assert.equal((lib?.["selected"] as Record<string, unknown>)?.["name"], "Chromatic Turn");
-    assert.ok(lib);
-    assert.ok(!(lib["items"] as Array<{ id: string }>).some((item) => item.id === draftId));
+    expect((lib?.["editing"] as Record<string, unknown>)?.["active"]).toBe(false);
+    expect((lib?.["selected"] as Record<string, unknown>)?.["id"]).toBe("chromatic-turn");
+    expect((lib?.["selected"] as Record<string, unknown>)?.["name"]).toBe("Chromatic Turn");
+    expect(lib).toBeTruthy();
+    expect(
+      !(lib!["items"] as Array<{ id: string }>).some((item) => item.id === draftId),
+    ).toBeTruthy();
   });
 
   it("dirty edits block both browser and main-menu selection until explicitly discarded", async () => {
@@ -1294,18 +1250,20 @@ describe("Max device runtime integration", () => {
 
     engine.dispatch("select_browser", "scale-turn");
     let lib = lastLibState(engine.outlets);
-    assert.equal((lib?.["selected"] as Record<string, unknown>)?.["id"], draftId);
+    expect((lib?.["selected"] as Record<string, unknown>)?.["id"]).toBe(draftId);
 
     engine.dispatch("motif", "Scale Turn");
     lib = lastLibState(engine.outlets);
-    assert.equal((lib?.["selected"] as Record<string, unknown>)?.["id"], draftId);
+    expect((lib?.["selected"] as Record<string, unknown>)?.["id"]).toBe(draftId);
 
     engine.dispatch("select_browser", "scale-turn", true);
     lib = lastLibState(engine.outlets);
-    assert.equal((lib?.["selected"] as Record<string, unknown>)?.["id"], "scale-turn");
-    assert.equal((lib?.["editing"] as Record<string, unknown>)?.["active"], false);
-    assert.ok(lib);
-    assert.ok(!(lib["items"] as Array<{ id: string }>).some((item) => item.id === draftId));
+    expect((lib?.["selected"] as Record<string, unknown>)?.["id"]).toBe("scale-turn");
+    expect((lib?.["editing"] as Record<string, unknown>)?.["active"]).toBe(false);
+    expect(lib).toBeTruthy();
+    expect(
+      !(lib!["items"] as Array<{ id: string }>).some((item) => item.id === draftId),
+    ).toBeTruthy();
   });
 
   it("duplicate user ids are skipped without hiding distinct same-name motifs", async () => {
@@ -1322,9 +1280,9 @@ describe("Max device runtime integration", () => {
 
     const lib = lastLibState(engine.outlets);
     const items = lib?.["items"] as Array<{ id: string; name: string; showId: boolean }>;
-    assert.equal(items.filter((item) => item.id === "duplicate-id").length, 1);
-    assert.ok(items.some((item) => item.id === "unique-id"));
-    assert.ok(engine.errors.some((message) => message.includes("duplicate motif id")));
+    expect(items.filter((item) => item.id === "duplicate-id").length).toBe(1);
+    expect(items.some((item) => item.id === "unique-id")).toBeTruthy();
+    expect(engine.errors.some((message) => message.includes("duplicate motif id"))).toBeTruthy();
   });
 
   it("editable motif properties and advanced note fields save while data stays untouched", async () => {
@@ -1372,19 +1330,19 @@ describe("Max device runtime integration", () => {
     }
 
     let lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    let selected = lib["selected"] as Record<string, unknown>;
-    assert.equal(selected["name"], "Complete Motif");
-    assert.equal(selected["pitchMode"], "hybrid");
-    assert.deepEqual(selected["sourcePitchContext"], properties.sourcePitchContext);
-    assert.deepEqual(selected["sourceMeter"], { numerator: 3, denominator: 8 });
-    assert.equal(selected["defaultGate"], 0.75);
-    assert.deepEqual(selected["velocityCurve"], properties.velocityCurve);
+    expect(lib).toBeTruthy();
+    let selected = lib!["selected"] as Record<string, unknown>;
+    expect(selected["name"]).toBe("Complete Motif");
+    expect(selected["pitchMode"]).toBe("hybrid");
+    expect(selected["sourcePitchContext"]).toEqual(properties.sourcePitchContext);
+    expect(selected["sourceMeter"]).toEqual({ numerator: 3, denominator: 8 });
+    expect(selected["defaultGate"]).toBe(0.75);
+    expect(selected["velocityCurve"]).toEqual(properties.velocityCurve);
     const notes = selected["notes"] as Array<Record<string, unknown>>;
-    assert.equal(notes[0]?.["velocityOffset"], 7);
-    assert.equal(notes[0]?.["velocityScale"], 0.5);
-    assert.equal(notes[0]?.["legato"], true);
-    assert.equal(notes[0]?.["tie"], true);
+    expect(notes[0]?.["velocityOffset"]).toBe(7);
+    expect(notes[0]?.["velocityScale"]).toBe(0.5);
+    expect(notes[0]?.["legato"]).toBe(true);
+    expect(notes[0]?.["tie"]).toBe(true);
 
     const draftId = String(selected["id"]);
     engine.dispatch(
@@ -1392,14 +1350,14 @@ describe("Max device runtime integration", () => {
       encodeURIComponent(JSON.stringify({ type: "save_motif", properties })),
     );
     lib = lastLibState(engine.outlets);
-    assert.equal((lib?.["editing"] as Record<string, unknown>)?.["active"], false);
+    expect((lib?.["editing"] as Record<string, unknown>)?.["active"]).toBe(false);
     const saved = JSON.parse(engine.files[`${path}/${draftId}.json`] ?? "{}") as Record<
       string,
       unknown
     >;
-    assert.equal(saved["name"], "Complete Motif");
-    assert.deepEqual(saved["velocityCurve"], properties.velocityCurve);
-    assert.equal((saved["notes"] as Array<Record<string, unknown>>)[0]?.["legato"], true);
+    expect(saved["name"]).toBe("Complete Motif");
+    expect(saved["velocityCurve"]).toEqual(properties.velocityCurve);
+    expect((saved["notes"] as Array<Record<string, unknown>>)[0]?.["legato"]).toBe(true);
   });
 
   it("optional editable properties can be cleared while existing data is preserved", async () => {
@@ -1437,11 +1395,11 @@ describe("Max device runtime integration", () => {
     );
 
     const saved = JSON.parse(engine.files[filename] ?? "{}") as Record<string, unknown>;
-    assert.ok(!("defaultGate" in saved));
-    assert.ok(!("velocityCurve" in saved));
+    expect(!("defaultGate" in saved)).toBeTruthy();
+    expect(!("velocityCurve" in saved)).toBeTruthy();
     const selected = lastLibState(engine.outlets)?.["selected"] as Record<string, unknown>;
-    assert.equal(selected["defaultGate"], null);
-    assert.deepEqual(selected["velocityCurve"], {
+    expect(selected["defaultGate"]).toBe(null);
+    expect(selected["velocityCurve"]).toEqual({
       inputMin: null,
       inputMax: null,
       outputMin: null,
@@ -1472,9 +1430,11 @@ describe("Max device runtime integration", () => {
       ),
     );
     let selected = lastLibState(engine.outlets)?.["selected"] as Record<string, unknown>;
-    assert.equal(selected["name"], "Chromatic Turn");
-    assert.equal(selected["pitchMode"], "chromatic");
-    assert.ok(engine.errors.some((message) => message.includes("sourceMeter.denominator")));
+    expect(selected["name"]).toBe("Chromatic Turn");
+    expect(selected["pitchMode"]).toBe("chromatic");
+    expect(
+      engine.errors.some((message) => message.includes("sourceMeter.denominator")),
+    ).toBeTruthy();
 
     engine.dispatch(
       "lib_action",
@@ -1486,8 +1446,8 @@ describe("Max device runtime integration", () => {
       ),
     );
     selected = lastLibState(engine.outlets)?.["selected"] as Record<string, unknown>;
-    assert.equal(selected["id"], draftId);
-    assert.ok(engine.errors.some((message) => message.includes("cannot be changed")));
+    expect(selected["id"]).toBe(draftId);
+    expect(engine.errors.some((message) => message.includes("cannot be changed"))).toBeTruthy();
   });
 
   it("blank names and out-of-range note edits are rejected without corrupting state", async () => {
@@ -1509,9 +1469,9 @@ describe("Max device runtime integration", () => {
       ),
     );
     let lib = lastLibState(engine.outlets);
-    assert.equal((lib?.["editing"] as Record<string, unknown>)?.["active"], true);
-    assert.equal((lib?.["selected"] as Record<string, unknown>)?.["name"], "Chromatic Turn");
-    assert.equal(engine.files[`${path}/${draftId}.json`], undefined);
+    expect((lib?.["editing"] as Record<string, unknown>)?.["active"]).toBe(true);
+    expect((lib?.["selected"] as Record<string, unknown>)?.["name"]).toBe("Chromatic Turn");
+    expect(engine.files[`${path}/${draftId}.json`]).toBe(undefined);
 
     engine.dispatch(
       "lib_action",
@@ -1528,8 +1488,8 @@ describe("Max device runtime integration", () => {
     const notes = (lib?.["selected"] as Record<string, unknown>)?.["notes"] as Array<
       Record<string, unknown>
     >;
-    assert.equal(notes[0]?.["pitch"], 0);
-    assert.ok(engine.errors.some((message) => message.includes("Unknown note row")));
+    expect(notes[0]?.["pitch"]).toBe(0);
+    expect(engine.errors.some((message) => message.includes("Unknown note row"))).toBeTruthy();
   });
 
   it("invalid and conflicting JSON filenames are reserved when creating user ids", async () => {
@@ -1546,10 +1506,10 @@ describe("Max device runtime integration", () => {
     engine.dispatch("begin_edit");
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    const selected = lib["selected"] as Record<string, unknown>;
-    assert.equal(selected["id"], "chromatic-turn-4");
-    assert.ok(engine.errors.some((message) => message.includes("chromatic-turn-2.json")));
+    expect(lib).toBeTruthy();
+    const selected = lib!["selected"] as Record<string, unknown>;
+    expect(selected["id"]).toBe("chromatic-turn-4");
+    expect(engine.errors.some((message) => message.includes("chromatic-turn-2.json"))).toBeTruthy();
   });
 
   it("save never overwrites an unscanned file that appeared after library load", async () => {
@@ -1560,17 +1520,17 @@ describe("Max device runtime integration", () => {
     engine.dispatch("begin_edit");
 
     const editing = lastLibState(engine.outlets);
-    assert.ok(editing);
-    const draftId = String((editing["selected"] as Record<string, unknown>)["id"]);
+    expect(editing).toBeTruthy();
+    const draftId = String((editing!["selected"] as Record<string, unknown>)["id"]);
     const filename = `${path}/${draftId}.json`;
     engine.files[filename] = "external file";
     engine.dispatch("save_motif");
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.equal((lib["editing"] as Record<string, unknown>)["active"], true);
-    assert.equal(engine.files[filename], "external file");
-    assert.ok(engine.errors.some((message) => message.includes("Save refused")));
+    expect(lib).toBeTruthy();
+    expect((lib!["editing"] as Record<string, unknown>)["active"]).toBe(true);
+    expect(engine.files[filename]).toBe("external file");
+    expect(engine.errors.some((message) => message.includes("Save refused"))).toBeTruthy();
   });
 
   it("unavailable library paths cannot be used for saving through direct messages", async () => {
@@ -1581,10 +1541,10 @@ describe("Max device runtime integration", () => {
     engine.dispatch("save_motif");
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.equal(lib["libraryLoaded"], false);
-    assert.equal((lib["editing"] as Record<string, unknown>)["active"], true);
-    assert.ok(engine.errors.some((message) => message.includes("valid library folder")));
+    expect(lib).toBeTruthy();
+    expect(lib!["libraryLoaded"]).toBe(false);
+    expect((lib!["editing"] as Record<string, unknown>)["active"]).toBe(true);
+    expect(engine.errors.some((message) => message.includes("valid library folder"))).toBeTruthy();
   });
 
   it("a failed clip import does not cancel a clean edit session", async () => {
@@ -1592,16 +1552,16 @@ describe("Max device runtime integration", () => {
     engine.dispatch("motif", "Chromatic Turn");
     engine.dispatch("begin_edit");
     const before = lastLibState(engine.outlets);
-    assert.ok(before);
-    const draftId = (before["selected"] as Record<string, unknown>)["id"];
+    expect(before).toBeTruthy();
+    const draftId = (before!["selected"] as Record<string, unknown>)["id"];
 
     engine.dispatch("import_clip");
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.equal((lib["editing"] as Record<string, unknown>)["active"], true);
-    assert.equal((lib["selected"] as Record<string, unknown>)["id"], draftId);
-    assert.ok(engine.errors.some((message) => message.includes("No clip selected")));
+    expect(lib).toBeTruthy();
+    expect((lib!["editing"] as Record<string, unknown>)["active"]).toBe(true);
+    expect((lib!["selected"] as Record<string, unknown>)["id"]).toBe(draftId);
+    expect(engine.errors.some((message) => message.includes("No clip selected"))).toBeTruthy();
   });
 
   it("non-primitive property payloads are rejected without clearing fields", async () => {
@@ -1622,10 +1582,12 @@ describe("Max device runtime integration", () => {
     );
 
     const lib = lastLibState(engine.outlets);
-    assert.ok(lib);
-    assert.equal((lib["selected"] as Record<string, unknown>)["name"], "Chromatic Turn");
-    assert.equal((lib["editing"] as Record<string, unknown>)["active"], true);
-    assert.ok(engine.errors.some((message) => message.includes("Motif name must be text")));
+    expect(lib).toBeTruthy();
+    expect((lib!["selected"] as Record<string, unknown>)["name"]).toBe("Chromatic Turn");
+    expect((lib!["editing"] as Record<string, unknown>)["active"]).toBe(true);
+    expect(
+      engine.errors.some((message) => message.includes("Motif name must be text")),
+    ).toBeTruthy();
   });
 
   it("rejects unknown enum setters and dirty library path or refresh changes", async () => {
@@ -1647,15 +1609,25 @@ describe("Max device runtime integration", () => {
     engine.dispatch("song_context", "is_playing", 1);
     engine.dispatch("song_context", "is_playing", 0);
 
-    assert.ok(engine.errors.some((message) => message.includes("Unknown pitch mode")));
-    assert.ok(engine.errors.some((message) => message.includes("Unknown meter mode")));
-    assert.ok(engine.errors.some((message) => message.includes("Unknown retrigger mode")));
-    assert.ok(engine.errors.some((message) => message.includes("Unknown trigger mode")));
-    assert.ok(engine.errors.some((message) => message.includes("Unknown repeat rounding")));
-    assert.ok(engine.errors.some((message) => message.includes("Unknown launch quantization")));
-    assert.ok(engine.errors.some((message) => message.includes("Unknown pass-through policy")));
-    assert.ok(engine.errors.some((message) => message.includes("Unknown tempo multiplier")));
-    assert.ok(engine.errors.some((message) => message.includes("Unknown Song property")));
+    expect(engine.errors.some((message) => message.includes("Unknown pitch mode"))).toBeTruthy();
+    expect(engine.errors.some((message) => message.includes("Unknown meter mode"))).toBeTruthy();
+    expect(
+      engine.errors.some((message) => message.includes("Unknown retrigger mode")),
+    ).toBeTruthy();
+    expect(engine.errors.some((message) => message.includes("Unknown trigger mode"))).toBeTruthy();
+    expect(
+      engine.errors.some((message) => message.includes("Unknown repeat rounding")),
+    ).toBeTruthy();
+    expect(
+      engine.errors.some((message) => message.includes("Unknown launch quantization")),
+    ).toBeTruthy();
+    expect(
+      engine.errors.some((message) => message.includes("Unknown pass-through policy")),
+    ).toBeTruthy();
+    expect(
+      engine.errors.some((message) => message.includes("Unknown tempo multiplier")),
+    ).toBeTruthy();
+    expect(engine.errors.some((message) => message.includes("Unknown Song property"))).toBeTruthy();
 
     engine.dispatch("begin_edit");
     engine.dispatch(
@@ -1665,15 +1637,15 @@ describe("Max device runtime integration", () => {
     engine.errors.length = 0;
     engine.dispatch("library_path", "/Other");
     engine.dispatch("refresh_library");
-    assert.ok(
+    expect(
       engine.errors.some((message) =>
         message.includes("Finish or cancel editing before changing the library folder"),
       ),
-    );
-    assert.ok(
+    ).toBeTruthy();
+    expect(
       engine.errors.some((message) =>
         message.includes("Unsaved edits must be saved or discarded before refreshing"),
       ),
-    );
+    ).toBeTruthy();
   });
 });

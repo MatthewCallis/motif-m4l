@@ -152,11 +152,7 @@ export const TEMPO_MULTIPLIERS = [0.5, 1, 1.5, 2] as const;
 /** Maximum editable/importable notes in one motif. */
 export const MAX_MOTIF_NOTES = 512;
 /** Valid device-level motif pitch-mode overrides. */
-export const PITCH_MODE_OVERRIDES = [
-  "scale",
-  "chromatic",
-  "hybrid",
-] as const satisfies PitchMode[];
+export const PITCH_MODE_OVERRIDES = ["scale", "chromatic", "hybrid"] as const satisfies PitchMode[];
 /** Valid meter scaling behaviors. */
 export const METER_MODES = ["preserve", "fit-bar"] as const satisfies MeterMode[];
 /** Valid retrigger collision behaviors. */

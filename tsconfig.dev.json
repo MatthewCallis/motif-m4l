@@ -2,8 +2,8 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "lib": ["ES2020", "DOM"],
-    "types": ["node", "vite/client"]
+    "types": ["node", "vite/client", "vitest/config"]
   },
-  "include": ["dev/**/*.ts"],
+  "include": ["dev/**/*.ts", "vitest.config.ts"],
   "exclude": []
 }

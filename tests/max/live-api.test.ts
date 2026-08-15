@@ -1,9 +1,13 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { installMaxMocks } from "../helpers/max-mocks.js";
 import { readClipNotes, resolveDetailClip } from "../../src/max/live-api.js";
 
 describe("LiveAPI adapter", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.clearAllMocks();
+  });
+
   it("parses notes, filters muted notes, and clamps velocity through readClipNotes", () => {
     installMaxMocks();
     const payload = {
@@ -25,10 +29,10 @@ describe("LiveAPI adapter", () => {
         return JSON.stringify(payload);
       }
     }
-    Object.assign(globalThis, { LiveAPI: StringPayloadApi });
+    vi.stubGlobal("LiveAPI", StringPayloadApi);
     const clip = resolveDetailClip();
-    assert.ok(clip);
-    assert.deepEqual(readClipNotes(clip), [{ pitch: 64, at: 1440, duration: 480, velocity: 127 }]);
+    expect(clip).toBeTruthy();
+    expect(readClipNotes(clip!)).toEqual([{ pitch: 64, at: 1440, duration: 480, velocity: 127 }]);
   });
 
   it("gracefully returns empty notes for invalid payload and missing clip", () => {
@@ -45,10 +49,10 @@ describe("LiveAPI adapter", () => {
         return "{invalid";
       }
     }
-    Object.assign(globalThis, { LiveAPI: InvalidPayloadApi });
+    vi.stubGlobal("LiveAPI", InvalidPayloadApi);
     const clip = resolveDetailClip();
-    assert.ok(clip);
-    assert.deepEqual(readClipNotes(clip), []);
+    expect(clip).toBeTruthy();
+    expect(readClipNotes(clip!)).toEqual([]);
   });
 
   it("resolves Detail View and highlighted-slot clips and reads their notes", () => {
@@ -72,10 +76,10 @@ describe("LiveAPI adapter", () => {
         });
       }
     }
-    Object.assign(globalThis, { LiveAPI: DetailLiveApi });
+    vi.stubGlobal("LiveAPI", DetailLiveApi);
     const detail = resolveDetailClip();
-    assert.ok(detail);
-    assert.equal(readClipNotes(detail).length, 1);
+    expect(detail).toBeTruthy();
+    expect(readClipNotes(detail!).length).toBe(1);
 
     class SlotLiveApi extends DetailLiveApi {
       constructor(callback?: (args: unknown[]) => void, path = "") {
@@ -89,19 +93,19 @@ describe("LiveAPI adapter", () => {
         return 0;
       }
     }
-    Object.assign(globalThis, { LiveAPI: SlotLiveApi });
-    assert.ok(resolveDetailClip());
+    vi.stubGlobal("LiveAPI", SlotLiveApi);
+    expect(resolveDetailClip()).toBeTruthy();
 
     class AudioLiveApi extends DetailLiveApi {
       override get(property: string): number {
         return property === "is_audio_clip" ? 1 : 0;
       }
     }
-    Object.assign(globalThis, { LiveAPI: AudioLiveApi });
-    assert.equal(resolveDetailClip(), undefined);
+    vi.stubGlobal("LiveAPI", AudioLiveApi);
+    expect(resolveDetailClip()).toBe(undefined);
 
-    Object.assign(globalThis, { LiveAPI: undefined });
-    assert.equal(resolveDetailClip(), undefined);
+    vi.stubGlobal("LiveAPI", undefined);
+    expect(resolveDetailClip()).toBe(undefined);
   });
 
   it("interprets LiveAPI string truthiness and Dict-like note payloads", () => {
@@ -134,11 +138,11 @@ describe("LiveAPI adapter", () => {
         };
       }
     }
-    Object.assign(globalThis, { LiveAPI: StringTruthyApi });
+    vi.stubGlobal("LiveAPI", StringTruthyApi);
     // is_midi_clip "false" and is_audio_clip "id 0" both fail soft ➜ try notes.
     const clip = resolveDetailClip();
-    assert.ok(clip);
-    assert.deepEqual(readClipNotes(clip), [{ pitch: 61, at: 0, duration: 240, velocity: 90 }]);
+    expect(clip).toBeTruthy();
+    expect(readClipNotes(clip!)).toEqual([{ pitch: 61, at: 0, duration: 240, velocity: 90 }]);
 
     class ThrowingDetailApi {
       id = 1;
@@ -158,7 +162,7 @@ describe("LiveAPI adapter", () => {
         return [];
       }
     }
-    Object.assign(globalThis, { LiveAPI: ThrowingDetailApi });
-    assert.equal(resolveDetailClip(), undefined);
+    vi.stubGlobal("LiveAPI", ThrowingDetailApi);
+    expect(resolveDetailClip()).toBe(undefined);
   });
 });

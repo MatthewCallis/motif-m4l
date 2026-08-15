@@ -188,10 +188,7 @@ export function confirmDiscard(
  * @param {string[]} tags Motif tags.
  * @returns {Record<string, unknown>} Submitted motif properties.
  */
-export function propertiesFromDraft(
-  draft: PropertyDraft,
-  tags: string[],
-): Record<string, unknown> {
+export function propertiesFromDraft(draft: PropertyDraft, tags: string[]): Record<string, unknown> {
   const intervals = draft.sourceScaleIntervals
     .split(/[\s,]+/)
     .map((value) => value.trim())

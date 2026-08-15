@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import { MotifEditorState } from "../../src/library/editor-state.js";
 import { MotifStore } from "../../src/library/store.js";
 import { addUserCopy } from "../helpers/motif-store.js";
@@ -9,49 +8,49 @@ describe("MotifEditorState", () => {
     const store = new MotifStore();
     const editor = new MotifEditorState();
     const source = store.get("chromatic-turn");
-    assert.ok(source);
+    expect(source).toBeTruthy();
 
-    const draft = editor.begin(store, source.id);
-    assert.ok(draft);
-    assert.notEqual(draft.id, source.id);
-    assert.equal(draft.name, source.name);
-    assert.equal(editor.snapshot().created, true);
+    const draft = editor.begin(store, source!.id);
+    expect(draft).toBeTruthy();
+    expect(draft!.id).not.toBe(source!.id);
+    expect(draft!.name).toBe(source!.name);
+    expect(editor.snapshot().created).toBe(true);
 
     store.update({ ...draft, name: "Temporary" });
     editor.markDirty();
-    assert.equal(editor.cancel(store), source.id);
-    assert.equal(store.get(draft.id), undefined);
-    assert.equal(editor.snapshot().active, false);
+    expect(editor.cancel(store)).toBe(source!.id);
+    expect(store.get(draft!.id)).toBe(undefined);
+    expect(editor.snapshot().active).toBe(false);
   });
 
   it("cancel restores an existing user motif snapshot", () => {
     const store = new MotifStore();
     const editor = new MotifEditorState();
     const user = addUserCopy(store, "chromatic-turn", "user-motif");
-    assert.ok(user);
+    expect(user).toBeTruthy();
 
-    editor.begin(store, user.id);
+    editor.begin(store, user!.id);
     store.update({ ...user, name: "Changed" });
     editor.markDirty();
-    assert.equal(editor.cancel(store), user.id);
-    assert.equal(store.get(user.id)?.name, user.name);
+    expect(editor.cancel(store)).toBe(user!.id);
+    expect(store.get(user!.id)?.name).toBe(user!.name);
   });
 
   it("new imported sessions are removed on cancel and successful save exits editing", () => {
     const store = new MotifStore();
     const editor = new MotifEditorState();
     const imported = addUserCopy(store, "chromatic-turn", "imported");
-    assert.ok(imported);
+    expect(imported).toBeTruthy();
 
-    editor.begin(store, imported.id, { created: true, dirty: true, sourceId: "scale-turn" });
-    assert.equal(editor.cancel(store), "scale-turn");
-    assert.equal(store.has(imported.id), false);
+    editor.begin(store, imported!.id, { created: true, dirty: true, sourceId: "scale-turn" });
+    expect(editor.cancel(store)).toBe("scale-turn");
+    expect(store.has(imported!.id)).toBe(false);
 
     const saved = addUserCopy(store, "chromatic-turn", "saved-copy");
-    assert.ok(saved);
-    editor.begin(store, saved.id, { dirty: true });
-    assert.equal(editor.finishSave(), saved.id);
-    assert.deepEqual(editor.snapshot(), {
+    expect(saved).toBeTruthy();
+    editor.begin(store, saved!.id, { dirty: true });
+    expect(editor.finishSave()).toBe(saved!.id);
+    expect(editor.snapshot()).toEqual({
       active: false,
       dirty: false,
       created: false,
@@ -65,70 +64,70 @@ describe("MotifEditorState", () => {
     const editor = new MotifEditorState();
     const first = addUserCopy(store, "chromatic-turn", "first");
     const second = addUserCopy(store, "chromatic-turn", "second");
-    assert.ok(first && second);
+    expect(first && second).toBeTruthy();
 
-    assert.equal(editor.begin(store, first.id)?.id, first.id);
-    assert.equal(editor.begin(store, second.id), undefined);
-    assert.equal(editor.snapshot().targetId, first.id);
+    expect(editor.begin(store, first!.id)?.id).toBe(first!.id);
+    expect(editor.begin(store, second!.id)).toBe(undefined);
+    expect(editor.snapshot().targetId).toBe(first!.id);
   });
 
   it("built-in editing accepts a pre-reserved target id", () => {
     const store = new MotifStore();
     const editor = new MotifEditorState();
     const draft = editor.begin(store, "chromatic-turn", { targetId: "chromatic-turn-9" });
-    assert.equal(draft?.id, "chromatic-turn-9");
-    assert.equal(editor.snapshot().targetId, "chromatic-turn-9");
+    expect(draft?.id).toBe("chromatic-turn-9");
+    expect(editor.snapshot().targetId).toBe("chromatic-turn-9");
   });
 
   it("clones tags into cancel snapshots and fails closed when builtin draft add errors", () => {
     const store = new MotifStore();
     const editor = new MotifEditorState();
     const tagged = addUserCopy(store, "chromatic-turn", "tagged-source");
-    assert.ok(tagged);
-    assert.deepEqual(store.update({ ...tagged, tags: ["Demo", "lick"] }), []);
+    expect(tagged).toBeTruthy();
+    expect(store.update({ ...tagged, tags: ["Demo", "lick"] })).toEqual([]);
     const session = editor.begin(store, "tagged-source");
-    assert.ok(session);
-    assert.deepEqual(session.tags, ["Demo", "lick"]);
-    session.tags?.push("mutated");
-    assert.deepEqual(store.get("tagged-source")?.tags, ["Demo", "lick", "mutated"]);
+    expect(session).toBeTruthy();
+    expect(session!.tags).toEqual(["Demo", "lick"]);
+    session!.tags?.push("mutated");
+    expect(store.get("tagged-source")?.tags).toEqual(["Demo", "lick", "mutated"]);
     editor.cancel(store);
-    assert.deepEqual(store.get("tagged-source")?.tags, ["Demo", "lick"]);
+    expect(store.get("tagged-source")?.tags).toEqual(["Demo", "lick"]);
 
     const originalAdd = store.add.bind(store);
     store.add = () => ["forced add failure"];
-    assert.equal(editor.begin(store, "chromatic-turn"), undefined);
+    expect(editor.begin(store, "chromatic-turn")).toBe(undefined);
     store.add = originalAdd;
   });
 
   it("handles inactive and unknown edit transitions safely", () => {
     const store = new MotifStore();
     const editor = new MotifEditorState();
-    assert.deepEqual(editor.snapshot(), {
+    expect(editor.snapshot()).toEqual({
       active: false,
       dirty: false,
       created: false,
       sourceId: null,
       targetId: null,
     });
-    assert.equal(editor.isEditing(), false);
-    assert.equal(editor.isDirty(), false);
-    assert.equal(editor.current(store), undefined);
-    assert.equal(editor.begin(store, "missing"), undefined);
-    assert.equal(editor.cancel(store), undefined);
-    assert.equal(editor.finishSave(), undefined);
+    expect(editor.isEditing()).toBe(false);
+    expect(editor.isDirty()).toBe(false);
+    expect(editor.current(store)).toBe(undefined);
+    expect(editor.begin(store, "missing")).toBe(undefined);
+    expect(editor.cancel(store)).toBe(undefined);
+    expect(editor.finishSave()).toBe(undefined);
     editor.markDirty();
     editor.abandon();
-    assert.equal(editor.isEditing(), false);
+    expect(editor.isEditing()).toBe(false);
   });
 
   it("returns the active motif when begin repeats the same target", () => {
     const store = new MotifStore();
     const editor = new MotifEditorState();
     const first = editor.begin(store, "chromatic-turn");
-    assert.ok(first);
-    assert.equal(editor.begin(store, first.id)?.id, first.id);
-    assert.equal(editor.isEditing(first.id), true);
-    assert.equal(editor.current(store)?.id, first.id);
-    assert.equal(editor.isEditing("scale-turn"), false);
+    expect(first).toBeTruthy();
+    expect(editor.begin(store, first!.id)?.id).toBe(first!.id);
+    expect(editor.isEditing(first!.id)).toBe(true);
+    expect(editor.current(store)?.id).toBe(first!.id);
+    expect(editor.isEditing("scale-turn")).toBe(false);
   });
 });

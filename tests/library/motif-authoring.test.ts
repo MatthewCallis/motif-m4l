@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import {
   appendMotifNote,
   applyMotifProperties,
@@ -11,8 +10,8 @@ import { MotifStore } from "../../src/library/store.js";
 describe("motif authoring", () => {
   it("applies motif properties without mutating the source", () => {
     const motif = new MotifStore().get("chromatic-turn");
-    assert.ok(motif);
-    const result = applyMotifProperties(motif, {
+    expect(motif).toBeTruthy();
+    const result = applyMotifProperties(motif!, {
       name: "Edited",
       description: "Description",
       pitchMode: "hybrid",
@@ -21,47 +20,47 @@ describe("motif authoring", () => {
       velocityCurve: { inputMin: 1, exponent: 2 },
     });
 
-    assert.equal(result.ok, true);
+    expect(result.ok).toBe(true);
     if (!result.ok) {
       return;
     }
-    assert.equal(result.changed, true);
-    assert.equal(result.value.name, "Edited");
-    assert.equal(result.value.pitchMode, "hybrid");
-    assert.equal(motif.name, "Chromatic Turn");
+    expect(result.changed).toBe(true);
+    expect(result.value.name).toBe("Edited");
+    expect(result.value.pitchMode).toBe("hybrid");
+    expect(motif!.name).toBe("Chromatic Turn");
 
-    const unchanged = applyMotifProperties(motif, {});
-    assert.equal(unchanged.ok && unchanged.changed, false);
+    const unchanged = applyMotifProperties(motif!, {});
+    expect(unchanged.ok && unchanged.changed).toBe(false);
 
-    const tagged = applyMotifProperties(motif, { tags: [" Demo ", "demo", "lick"] });
-    assert.equal(tagged.ok, true);
+    const tagged = applyMotifProperties(motif!, { tags: [" Demo ", "demo", "lick"] });
+    expect(tagged.ok).toBe(true);
     if (!tagged.ok) {
       return;
     }
-    assert.deepEqual(tagged.value.tags, ["Demo", "lick"]);
+    expect(tagged.value.tags).toEqual(["Demo", "lick"]);
     const cleared = applyMotifProperties(tagged.value, { tags: [] });
-    assert.equal(cleared.ok, true);
+    expect(cleared.ok).toBe(true);
     if (!cleared.ok) {
       return;
     }
-    assert.equal(cleared.value.tags, undefined);
+    expect(cleared.value.tags).toBe(undefined);
     const clearedNull = applyMotifProperties(tagged.value, { tags: null });
-    assert.equal(clearedNull.ok, true);
+    expect(clearedNull.ok).toBe(true);
     if (!clearedNull.ok) {
       return;
     }
-    assert.equal(clearedNull.value.tags, undefined);
+    expect(clearedNull.value.tags).toBe(undefined);
     const preserved = applyMotifProperties(tagged.value, { name: tagged.value.name });
-    assert.equal(preserved.ok, true);
+    expect(preserved.ok).toBe(true);
     if (!preserved.ok) {
       return;
     }
-    assert.deepEqual(preserved.value.tags, ["Demo", "lick"]);
+    expect(preserved.value.tags).toEqual(["Demo", "lick"]);
   });
 
   it("rejects invalid motif properties atomically", () => {
     const motif = new MotifStore().get("chromatic-turn");
-    assert.ok(motif);
+    expect(motif).toBeTruthy();
     for (const [value, message] of [
       [null, "object"],
       [{ id: "changed" }, "generated"],
@@ -83,7 +82,7 @@ describe("motif authoring", () => {
       [
         {
           sourcePitchContext: {
-            ...motif.sourcePitchContext,
+            ...motif!.sourcePitchContext,
             anchorPitch: 128,
           },
         },
@@ -92,7 +91,7 @@ describe("motif authoring", () => {
       [
         {
           sourcePitchContext: {
-            ...motif.sourcePitchContext,
+            ...motif!.sourcePitchContext,
             scaleRootNote: 12,
           },
         },
@@ -101,7 +100,7 @@ describe("motif authoring", () => {
       [
         {
           sourcePitchContext: {
-            ...motif.sourcePitchContext,
+            ...motif!.sourcePitchContext,
             scaleName: "   ",
           },
         },
@@ -110,7 +109,7 @@ describe("motif authoring", () => {
       [
         {
           sourcePitchContext: {
-            ...motif.sourcePitchContext,
+            ...motif!.sourcePitchContext,
             scaleIntervals: "Major",
           },
         },
@@ -119,7 +118,7 @@ describe("motif authoring", () => {
       [
         {
           sourcePitchContext: {
-            ...motif.sourcePitchContext,
+            ...motif!.sourcePitchContext,
             scaleIntervals: [0, 2, 2],
           },
         },
@@ -128,99 +127,99 @@ describe("motif authoring", () => {
       [
         {
           sourcePitchContext: {
-            ...motif.sourcePitchContext,
+            ...motif!.sourcePitchContext,
             scaleIntervals: [1, 2, 4],
           },
         },
         "starting at 0",
       ],
     ] as const) {
-      const result = applyMotifProperties(motif, value);
-      assert.equal(result.ok, false);
+      const result = applyMotifProperties(motif!, value);
+      expect(result.ok).toBe(false);
       if (!result.ok) {
-        assert.match(result.error, new RegExp(message));
+        expect(result.error).toMatch(new RegExp(message));
       }
     }
   });
 
   it("validates sourcePitchContext updates and pitch-mode conversion failures", () => {
     const motif = new MotifStore().get("chromatic-turn");
-    assert.ok(motif);
+    expect(motif).toBeTruthy();
 
-    const unchanged = applyMotifProperties(motif, {
-      sourcePitchContext: { ...motif.sourcePitchContext },
+    const unchanged = applyMotifProperties(motif!, {
+      sourcePitchContext: { ...motif!.sourcePitchContext },
     });
-    assert.equal(unchanged.ok && unchanged.changed, false);
+    expect(unchanged.ok && unchanged.changed).toBe(false);
 
-    const withNullIntervals = applyMotifProperties(motif, {
+    const withNullIntervals = applyMotifProperties(motif!, {
       sourcePitchContext: {
-        ...motif.sourcePitchContext,
+        ...motif!.sourcePitchContext,
         scaleIntervals: null,
       },
     });
-    assert.equal(withNullIntervals.ok, true);
+    expect(withNullIntervals.ok).toBe(true);
     if (!withNullIntervals.ok) {
       return;
     }
-    assert.equal(withNullIntervals.changed, true);
-    assert.equal(withNullIntervals.value.sourcePitchContext.scaleIntervals, null);
+    expect(withNullIntervals.changed).toBe(true);
+    expect(withNullIntervals.value.sourcePitchContext.scaleIntervals).toBe(null);
 
     const clearedCurve = applyMotifProperties(
-      { ...motif, velocityCurve: { exponent: 1.5 } },
+      { ...motif!, velocityCurve: { exponent: 1.5 } },
       { velocityCurve: null },
     );
-    assert.equal(clearedCurve.ok, true);
+    expect(clearedCurve.ok).toBe(true);
     if (!clearedCurve.ok) {
       return;
     }
-    assert.equal(clearedCurve.value.velocityCurve, undefined);
+    expect(clearedCurve.value.velocityCurve).toBe(undefined);
 
-    const unresolved = applyMotifProperties(motif, {
+    const unresolved = applyMotifProperties(motif!, {
       pitchMode: "scale",
       sourcePitchContext: {
-        ...motif.sourcePitchContext,
+        ...motif!.sourcePitchContext,
         scaleIntervals: null,
         scaleName: "Custom Unknown Scale",
       },
     });
-    assert.equal(unresolved.ok, false);
+    expect(unresolved.ok).toBe(false);
     if (!unresolved.ok) {
-      assert.match(unresolved.error, /source scale intervals are unresolved/);
+      expect(unresolved.error).toMatch(/source scale intervals are unresolved/);
     }
 
-    assert.equal(updateMotifNote(motif, 0, "bogus" as "pitch", 1).ok, false);
+    expect(updateMotifNote(motif!, 0, "bogus" as "pitch", 1).ok).toBe(false);
   });
 
   it("edits, appends, and removes motif notes", () => {
     const motif = new MotifStore().get("chromatic-turn");
-    assert.ok(motif);
-    const pitch = updateMotifNote(motif, 0, "pitch", -3);
-    assert.equal(pitch.ok, true);
+    expect(motif).toBeTruthy();
+    const pitch = updateMotifNote(motif!, 0, "pitch", -3);
+    expect(pitch.ok).toBe(true);
     if (!pitch.ok) {
       return;
     }
-    assert.equal(pitch.notes[0]?.pitch, -3);
-    assert.notEqual(pitch.notes, motif.notes);
+    expect(pitch.notes[0]?.pitch).toBe(-3);
+    expect(pitch.notes).not.toBe(motif!.notes);
 
-    const legato = updateMotifNote(motif, 0, "legato", true);
-    assert.equal(legato.ok && legato.notes[0]?.legato, true);
-    assert.equal(updateMotifNote(motif, -1, "pitch", 1).ok, false);
-    assert.equal(updateMotifNote(motif, 0, "velocity", 128).ok, false);
+    const legato = updateMotifNote(motif!, 0, "legato", true);
+    expect(legato.ok && legato.notes[0]?.legato).toBe(true);
+    expect(updateMotifNote(motif!, -1, "pitch", 1).ok).toBe(false);
+    expect(updateMotifNote(motif!, 0, "velocity", 128).ok).toBe(false);
 
-    const appended = appendMotifNote(motif, 512);
-    assert.equal(appended.ok, true);
+    const appended = appendMotifNote(motif!, 512);
+    expect(appended.ok).toBe(true);
     if (!appended.ok) {
       return;
     }
-    assert.equal(appended.notes.length, motif.notes.length + 1);
-    assert.equal(appendMotifNote(motif, motif.notes.length).ok, false);
-    assert.equal(removeMotifNote(motif, -1).ok, false);
-    assert.equal(removeMotifNote(motif, 0).ok, true);
+    expect(appended.notes.length).toBe(motif!.notes.length + 1);
+    expect(appendMotifNote(motif!, motif!.notes.length).ok).toBe(false);
+    expect(removeMotifNote(motif!, -1).ok).toBe(false);
+    expect(removeMotifNote(motif!, 0).ok).toBe(true);
   });
 
   it("normalizes every editable note field and rejects invalid numeric values", () => {
     const motif = new MotifStore().get("chromatic-turn");
-    assert.ok(motif);
+    expect(motif).toBeTruthy();
     const accepted: Array<readonly [Parameters<typeof updateMotifNote>[2], unknown]> = [
       ["accidental", 1],
       ["accidental", null],
@@ -238,7 +237,7 @@ describe("motif authoring", () => {
       ["tie", false],
     ];
     for (const [field, value] of accepted) {
-      assert.equal(updateMotifNote(motif, 0, field, value).ok, true, field);
+      expect(updateMotifNote(motif!, 0, field, value).ok).toBe(true);
     }
 
     for (const [field, value] of [
@@ -250,7 +249,7 @@ describe("motif authoring", () => {
       ["velocity", 1.5],
       ["velocityScale", -1],
     ] as const) {
-      assert.equal(updateMotifNote(motif, 0, field, value).ok, false, field);
+      expect(updateMotifNote(motif!, 0, field, value).ok).toBe(false);
     }
   });
 });

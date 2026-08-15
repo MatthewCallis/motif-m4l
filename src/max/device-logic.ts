@@ -8,10 +8,7 @@ import { flattenValues } from "./max-helpers.js";
  * @param {T[]} values Allowed values.
  * @returns {value is T} Whether the candidate is allowed.
  */
-export function isStringEnumValue<T extends string>(
-  value: string,
-  values: T[],
-): value is T {
+export function isStringEnumValue<T extends string>(value: string, values: T[]): value is T {
   return values.some((candidate) => candidate === value);
 }
 

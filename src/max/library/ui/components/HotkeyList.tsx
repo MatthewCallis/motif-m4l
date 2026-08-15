@@ -22,18 +22,18 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
   }
 
   return (
-    <div class="property-grid">
+    <div className="property-grid">
       <label htmlFor="hotkey-input">Trigger note</label>
-      <div class="wide" id="hotkey-controls">
+      <div className="wide" id="hotkey-controls">
         <input
-          class="field identity"
+          className="field identity"
           id="hotkey-input"
           name="hotkey-input"
           type="text"
           value={pitch}
           placeholder="C3"
-          autocomplete="off"
-          spellcheck={false}
+          autoComplete="off"
+          spellCheck={false}
           disabled={disabled}
           onInput={(event) => setPitch(event.currentTarget.value)}
           onKeyDown={(event) => {
@@ -44,7 +44,7 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
           }}
         />
         <select
-          class="field"
+          className="field"
           id="hotkey-action"
           name="hotkey-action"
           disabled={disabled}
@@ -56,7 +56,7 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
         </select>
         <button
           type="button"
-          class="btn"
+          className="btn"
           id="assign-hotkey-btn"
           disabled={disabled}
           onClick={assignHotkey}
@@ -64,9 +64,9 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
           Assign to Motif
         </button>
       </div>
-      <span class="field-label">Assigned</span>
-      <div class="wide" id="hotkey-list">
-        {selected && mappings.length === 0 ? <span class="help">None</span> : null}
+      <span className="field-label">Assigned</span>
+      <div className="wide" id="hotkey-list">
+        {selected && mappings.length === 0 ? <span className="help">None</span> : null}
         {selected
           ? mappings.map((mapping) => {
               const actionLabel = mapping.action === "select" ? "Select" : "Trigger";
@@ -74,7 +74,7 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
                 <button
                   type="button"
                   key={`${mapping.pitch}:${mapping.action}`}
-                  class="hotkey-chip"
+                  className="hotkey-chip"
                   title={`Remove ${mapping.label} · ${actionLabel}`}
                   onClick={() => send({ type: "unmap_trigger", pitch: mapping.pitch })}
                 >
@@ -84,10 +84,10 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
             })
           : null}
       </div>
-      <div class="help">
-        Trigger Motif plays this motif using the device’s current Trigger Mode. Select Motif makes
-        it active for later trigger-zone notes. Enter a note name such as C3, F♯2, or Bb4; click an
-        assignment to remove it.
+      <div className="help">
+        Trigger Motif plays this motif using the current Trigger Mode on the device. Select Motif
+        makes it active for later trigger-zone notes. Enter a note name such as C3, F♯2, or Bb4;
+        click an assignment to remove it.
       </div>
     </div>
   );

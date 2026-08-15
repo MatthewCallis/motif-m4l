@@ -1,6 +1,7 @@
 /** @jsxImportSource preact */
 import { useEffect, useState } from "preact/hooks";
 import { subscribeDebug } from "../bridge.js";
+import { classNames } from "../class-names.js";
 import type { DebugLevel } from "../page-state.js";
 
 /** Collapsible debug log bar for the Library page. */
@@ -18,29 +19,22 @@ export function DebugBar() {
     });
   }, []);
 
-  let indicatorClass = "";
-  if (level === "error") {
-    indicatorClass = "error";
-  } else if (level === "ok") {
-    indicatorClass = "ok";
-  }
   const hasError = entries.some((entry) => entry.includes("[error]"));
-
-  let panelClass = "";
-  if (open) {
-    panelClass += "open";
-  }
-  if (hasError) {
-    panelClass += (panelClass ? " " : "") + "has-error";
-  }
 
   return (
     <>
-      <div id="debug-panel" class={panelClass || undefined} aria-live="polite">
+      <div
+        id="debug-panel"
+        className={classNames({ open, "has-error": hasError })}
+        aria-live="polite"
+      >
         {entries.join("\n")}
       </div>
       <div id="debug-bar">
-        <span id="debug-indicator" class={indicatorClass || undefined}>
+        <span
+          id="debug-indicator"
+          className={classNames({ error: level === "error", ok: level === "ok" })}
+        >
           ●
         </span>
         <span id="debug-summary">{summary}</span>

@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import { decodeLibraryAction } from "../../../../src/max/library/device/action.js";
 
 function encoded(action: unknown): string {
@@ -30,9 +29,9 @@ describe("Library action boundary", () => {
 
     for (const [input, expectedType] of cases) {
       const result = decodeLibraryAction([encoded(input)]);
-      assert.equal(result.ok, true);
+      expect(result.ok).toBe(true);
       if (result.ok) {
-        assert.equal(result.action.type, expectedType);
+        expect(result.action.type).toBe(expectedType);
       }
     }
   });
@@ -41,7 +40,7 @@ describe("Library action boundary", () => {
     const mapped = decodeLibraryAction([
       encoded({ type: "map_trigger", pitch: 36, motifId: "scale-turn" }),
     ]);
-    assert.deepEqual(mapped, {
+    expect(mapped).toEqual({
       ok: true,
       action: {
         type: "map_trigger",
@@ -52,7 +51,7 @@ describe("Library action boundary", () => {
     });
 
     const imported = decodeLibraryAction([encoded({ type: "import_clip" })]);
-    assert.deepEqual(imported, {
+    expect(imported).toEqual({
       ok: true,
       action: { type: "import_clip" },
     });
@@ -60,7 +59,7 @@ describe("Library action boundary", () => {
     const filtered = decodeLibraryAction([
       encoded({ type: "filter_motifs", query: "bass", tags: ["demo"], tagMode: "and" }),
     ]);
-    assert.deepEqual(filtered, {
+    expect(filtered).toEqual({
       ok: true,
       action: {
         type: "filter_motifs",
@@ -71,28 +70,24 @@ describe("Library action boundary", () => {
     });
 
     const refreshed = decodeLibraryAction([encoded({ type: "refresh_library" })]);
-    assert.deepEqual(refreshed, {
+    expect(refreshed).toEqual({
       ok: true,
       action: { type: "refresh_library" },
     });
-    assert.equal(
-      refreshed.ok && !("discardChanges" in refreshed.action),
-      true,
-      "omit discardChanges when the browser did not send it",
-    );
+    expect(refreshed.ok && !("discardChanges" in refreshed.action)).toBe(true);
   });
 
   it("rejects missing, malformed, non-record, and unknown payloads", () => {
-    assert.deepEqual(decodeLibraryAction([]), {
+    expect(decodeLibraryAction([])).toEqual({
       ok: false,
       error: "lib_action: missing JSON payload",
     });
-    assert.equal(decodeLibraryAction(["%not-json"]).ok, false);
-    assert.deepEqual(decodeLibraryAction([encoded([])]), {
+    expect(decodeLibraryAction(["%not-json"]).ok).toBe(false);
+    expect(decodeLibraryAction([encoded([])])).toEqual({
       ok: false,
       error: "lib_action: unknown type ",
     });
-    assert.deepEqual(decodeLibraryAction([encoded({ type: "missing" })]), {
+    expect(decodeLibraryAction([encoded({ type: "missing" })])).toEqual({
       ok: false,
       error: "lib_action: unknown type missing",
     });

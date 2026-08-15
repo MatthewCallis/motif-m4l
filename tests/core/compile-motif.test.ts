@@ -1,5 +1,4 @@
-import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { describe, it, expect } from "vitest";
 import { compileMotif, effectiveDuration, resolveVelocity } from "../../src/core/compile-motif.js";
 import { convertMotifPitchMode } from "../../src/core/import-notes.js";
 import { PPQ, type HostContext, type Motif, type MotifNote } from "../../src/core/types.js";
@@ -34,7 +33,7 @@ const MOTIF: Motif = {
 
 describe("compileMotif", () => {
   it("compiles note-on and note-off events", () => {
-    assert.deepEqual(
+    expect(
       compileMotif(MOTIF, HOST, {
         channel: 2,
         meterMode: "preserve",
@@ -42,11 +41,10 @@ describe("compileMotif", () => {
         triggerVelocity: 90,
         instanceId: 7,
       }),
-      [
-        { pitch: 52, velocity: 90, channel: 2, offsetTicks: 0, offsetMs: 0, instanceId: 7 },
-        { pitch: 52, velocity: 0, channel: 2, offsetTicks: 960, offsetMs: 500, instanceId: 7 },
-      ],
-    );
+    ).toEqual([
+      { pitch: 52, velocity: 90, channel: 2, offsetTicks: 0, offsetMs: 0, instanceId: 7 },
+      { pitch: 52, velocity: 0, channel: 2, offsetTicks: 960, offsetMs: 500, instanceId: 7 },
+    ]);
   });
 
   it("fits a 4/4 source bar into a 3/4 target bar", () => {
@@ -61,8 +59,8 @@ describe("compileMotif", () => {
       triggerVelocity: 100,
     });
 
-    assert.equal(events[1]?.offsetTicks, 720);
-    assert.equal(events[1]?.offsetMs, 375);
+    expect(events[1]?.offsetTicks).toBe(720);
+    expect(events[1]?.offsetMs).toBe(375);
   });
 
   it("source-aware override converts scale degrees back to chromatic offsets", () => {
@@ -74,7 +72,7 @@ describe("compileMotif", () => {
       triggerVelocity: 100,
     });
 
-    assert.equal(events[0]?.pitch, 52);
+    expect(events[0]?.pitch).toBe(52);
   });
 
   it("resolves hybrid scale degrees with chromatic accidentals", () => {
@@ -92,7 +90,7 @@ describe("compileMotif", () => {
         triggerVelocity: 100,
       },
     );
-    assert.equal(events[0]?.pitch, 63);
+    expect(events[0]?.pitch).toBe(63);
   });
 
   it("keeps stored hybrid spelling when source intervals are unresolved", () => {
@@ -117,7 +115,7 @@ describe("compileMotif", () => {
       },
     );
     // degree 2 + accidental 1 in C major from C3 ➜ E + 1 = F
-    assert.equal(events[0]?.pitch, 65);
+    expect(events[0]?.pitch).toBe(65);
   });
 
   it("respells Hybrid notes at playback to preserve the imported chromatic contour", () => {
@@ -153,31 +151,23 @@ describe("compileMotif", () => {
         .filter(({ velocity }) => velocity > 0)
         .map(({ pitch }) => pitch);
 
-    assert.deepEqual(
-      hybrid.notes.map(({ pitch, accidental }) => [pitch, accidental ?? 0]),
-      [
-        [0, 0],
-        [-1, 0],
-        [2, 0],
-        [1, 1],
-        [1, 0],
-        [0, 0],
-        [-1, 0],
-        [-2, 0],
-      ],
-      "conversion keeps the canonical source spelling",
-    );
-    assert.deepEqual(noteOnPitches(scale, target), [48, 46, 51, 50, 50, 48, 46, 45]);
-    assert.deepEqual(noteOnPitches(hybrid, target), [48, 46, 51, 50, 49, 48, 46, 45]);
-    assert.deepEqual(
-      noteOnPitches(hybrid, { ...HOST, rootNote: 1, scaleName: "Major" }),
-      [48, 46, 51, 50, 49, 48, 46, 44],
-      "same-scale playback remains exact",
-    );
-    assert.deepEqual(
-      convertMotifPitchMode(hybrid, "chromatic").notes.map(({ pitch }) => pitch),
+    expect(hybrid.notes.map(({ pitch, accidental }) => [pitch, accidental ?? 0])).toEqual([
+      [0, 0],
+      [-1, 0],
+      [2, 0],
+      [1, 1],
+      [1, 0],
+      [0, 0],
+      [-1, 0],
+      [-2, 0],
+    ]);
+    expect(noteOnPitches(scale, target)).toEqual([48, 46, 51, 50, 50, 48, 46, 45]);
+    expect(noteOnPitches(hybrid, target)).toEqual([48, 46, 51, 50, 49, 48, 46, 45]);
+    expect(noteOnPitches(hybrid, { ...HOST, rootNote: 1, scaleName: "Major" })).toEqual([
+      48, 46, 51, 50, 49, 48, 46, 44,
+    ]);
+    expect(convertMotifPitchMode(hybrid, "chromatic").notes.map(({ pitch }) => pitch)).toEqual(
       offsets,
-      "target-time respelling does not mutate the reversible stored representation",
     );
   });
 
@@ -199,10 +189,9 @@ describe("compileMotif", () => {
         triggerVelocity: 100,
       },
     );
-    assert.deepEqual(
-      events.filter(({ velocity }) => velocity > 0).map(({ pitch }) => pitch),
-      [60, 63, 67],
-    );
+    expect(events.filter(({ velocity }) => velocity > 0).map(({ pitch }) => pitch)).toEqual([
+      60, 63, 67,
+    ]);
   });
 
   it("quantizes off-scale triggers before applying Scale degrees", () => {
@@ -216,7 +205,7 @@ describe("compileMotif", () => {
         triggerVelocity: 100,
       },
     );
-    assert.equal(events[0]?.pitch, 62);
+    expect(events[0]?.pitch).toBe(62);
   });
 
   it("adds a quantized launch offset without altering phrase timing", () => {
@@ -228,25 +217,25 @@ describe("compileMotif", () => {
       launchOffsetTicks: PPQ / 2,
     });
 
-    assert.equal(events[0]?.offsetTicks, 480);
-    assert.equal(events[1]?.offsetTicks, 1440);
+    expect(events[0]?.offsetTicks).toBe(480);
+    expect(events[1]?.offsetTicks).toBe(1440);
   });
 
   it("applies velocity curves, note overrides, scaling, offsets, and clamping", () => {
     const linearCurve = { inputMin: 1, inputMax: 127, outputMin: 10, outputMax: 110, exponent: 1 };
     const note = { at: 0, duration: 1, pitch: 0 };
     // Velocity curve maps input boundaries to output boundaries when no note override is set
-    assert.equal(resolveVelocity(note, { ...MOTIF, velocityCurve: linearCurve }, 1), 10);
-    assert.equal(resolveVelocity(note, { ...MOTIF, velocityCurve: linearCurve }, 127), 110);
+    expect(resolveVelocity(note, { ...MOTIF, velocityCurve: linearCurve }, 1)).toBe(10);
+    expect(resolveVelocity(note, { ...MOTIF, velocityCurve: linearCurve }, 127)).toBe(110);
     // No curve: trigger velocity passes through unchanged
-    assert.equal(resolveVelocity(note, MOTIF, 64), 64);
+    expect(resolveVelocity(note, MOTIF, 64)).toBe(64);
 
     const motif: Motif = {
       ...MOTIF,
       velocityCurve: { inputMin: 0, inputMax: 0, outputMin: 1, outputMax: 127, exponent: 0 },
     };
-    assert.equal(resolveVelocity({ at: 0, duration: 1, pitch: 0 }, motif, 100), 127);
-    assert.equal(
+    expect(resolveVelocity({ at: 0, duration: 1, pitch: 0 }, motif, 100)).toBe(127);
+    expect(
       resolveVelocity(
         {
           at: 0,
@@ -259,9 +248,8 @@ describe("compileMotif", () => {
         motif,
         100,
       ),
-      15,
-    );
-    assert.equal(
+    ).toBe(15);
+    expect(
       resolveVelocity(
         {
           at: 0,
@@ -273,26 +261,17 @@ describe("compileMotif", () => {
         motif,
         100,
       ),
-      127,
-    );
+    ).toBe(127);
   });
 
   it("extends durations for legato and matching ties", () => {
     const next = { at: 480, duration: 480, pitch: 0 };
-    assert.equal(
-      effectiveDuration({ at: 0, duration: 120, pitch: 0, legato: true }, next, MOTIF),
+    expect(effectiveDuration({ at: 0, duration: 120, pitch: 0, legato: true }, next, MOTIF)).toBe(
       480,
     );
-    assert.equal(
-      effectiveDuration({ at: 0, duration: 600, pitch: 0, tie: true }, next, MOTIF),
-      960,
-    );
-    assert.equal(
-      effectiveDuration({ at: 0, duration: 600, pitch: 1, tie: true }, next, MOTIF),
-      600,
-    );
-    assert.equal(
-      effectiveDuration({ at: 0, duration: 100, pitch: 0, gate: 0 }, undefined, MOTIF),
+    expect(effectiveDuration({ at: 0, duration: 600, pitch: 0, tie: true }, next, MOTIF)).toBe(960);
+    expect(effectiveDuration({ at: 0, duration: 600, pitch: 1, tie: true }, next, MOTIF)).toBe(600);
+    expect(effectiveDuration({ at: 0, duration: 100, pitch: 0, gate: 0 }, undefined, MOTIF)).toBe(
       1,
     );
   });
@@ -309,16 +288,13 @@ describe("compileMotif", () => {
       launchOffsetTicks: -20,
     });
 
-    assert.equal(events.length, 4);
-    assert.ok(events.every(({ channel }) => channel === 16));
-    assert.deepEqual(
-      events.map(({ offsetTicks, velocity }) => [offsetTicks, velocity]),
-      [
-        [0, 100],
-        [10, 0],
-        [10, 100],
-        [20, 0],
-      ],
-    );
+    expect(events.length).toBe(4);
+    expect(events.every(({ channel }) => channel === 16)).toBeTruthy();
+    expect(events.map(({ offsetTicks, velocity }) => [offsetTicks, velocity])).toEqual([
+      [0, 100],
+      [10, 0],
+      [10, 100],
+      [20, 0],
+    ]);
   });
 });

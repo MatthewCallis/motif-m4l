@@ -1,8 +1,7 @@
-import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { after, describe, it } from "node:test";
+import { afterAll, describe, it, expect } from "vitest";
 import {
   LIBRARY_WINDOW_LIMITS,
   parseLibraryWindowConfig,
@@ -20,7 +19,7 @@ const completeConfig = {
   sidebarResizerWidth: 5,
 };
 
-after(async () => {
+afterAll(async () => {
   await Promise.all(
     temporaryDirectories.map((directory) => rm(directory, { recursive: true, force: true })),
   );
@@ -28,22 +27,22 @@ after(async () => {
 
 describe("Library window configuration", () => {
   it("accepts bounded integer dimensions and rejects unsafe shapes", () => {
-    assert.deepEqual(parseLibraryWindowConfig(completeConfig), completeConfig);
-    assert.throws(() => parseLibraryWindowConfig({ ...completeConfig, file: "/tmp/x" }));
-    assert.throws(() => parseLibraryWindowConfig({ width: 640, height: 460 }));
-    assert.throws(() =>
+    expect(parseLibraryWindowConfig(completeConfig)).toEqual(completeConfig);
+    expect(() => parseLibraryWindowConfig({ ...completeConfig, file: "/tmp/x" })).toThrow();
+    expect(() => parseLibraryWindowConfig({ width: 640, height: 460 })).toThrow();
+    expect(() =>
       parseLibraryWindowConfig({
         ...completeConfig,
         width: LIBRARY_WINDOW_LIMITS.width.min - 1,
       }),
-    );
-    assert.throws(() => parseLibraryWindowConfig({ ...completeConfig, width: 640.5 }));
-    assert.throws(() =>
+    ).toThrow();
+    expect(() => parseLibraryWindowConfig({ ...completeConfig, width: 640.5 })).toThrow();
+    expect(() =>
       parseLibraryWindowConfig({
         ...completeConfig,
         sidebarMinWidth: completeConfig.sidebarMaxWidth + 1,
       }),
-    );
+    ).toThrow();
   });
 
   it("writes deterministic JSON that can be loaded again", async () => {
@@ -54,10 +53,9 @@ describe("Library window configuration", () => {
     const config = { ...completeConfig, width: 720, height: 540, sidebarResizerWidth: 7 };
     await writeLibraryWindowConfig(config, filename);
 
-    assert.equal(
-      await readFile(filename, "utf8"),
+    expect(await readFile(filename, "utf8")).toBe(
       '{\n  "width": 720,\n  "height": 540,\n  "sidebarMinWidth": 160,\n  "sidebarMaxWidth": 420,\n  "detailMinWidth": 320,\n  "sidebarResizerWidth": 7\n}\n',
     );
-    assert.deepEqual(await readLibraryWindowConfig(filename), config);
+    expect(await readLibraryWindowConfig(filename)).toEqual(config);
   });
 });
