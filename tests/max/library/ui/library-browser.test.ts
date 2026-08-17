@@ -221,6 +221,64 @@ describe("Library browser runtime", () => {
     };
 
     outlets.length = 0;
+    nameEdit!.value = "Browser Test Renamed";
+    nameEdit!.dispatchEvent(new Event("input", { bubbles: true }));
+    nameEdit!.dispatchEvent(new Event("change", { bubbles: true }));
+    expect(lastLibAction()).toMatchObject({
+      type: "edit_motif",
+      properties: { name: "Browser Test Renamed" },
+    });
+
+    const descriptionEdit = doc.getElementById("description-edit") as HTMLTextAreaElement | null;
+    expect(descriptionEdit).toBeTruthy();
+    descriptionEdit!.value = "Updated description";
+    descriptionEdit!.dispatchEvent(new Event("input", { bubbles: true }));
+    descriptionEdit!.dispatchEvent(new Event("blur", { bubbles: true }));
+    expect(lastLibAction()).toMatchObject({
+      type: "edit_motif",
+      properties: { description: "Updated description" },
+    });
+
+    outlets.length = 0;
+    (doc.getElementById("save-motif-btn") as HTMLButtonElement | null)?.click();
+    expect(lastLibAction()).toMatchObject({ type: "save_motif" });
+    (doc.getElementById("cancel-edit-btn") as HTMLButtonElement | null)?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(doc.getElementById("modal-title")?.textContent).toBe("Discard unsaved changes?");
+    (doc.getElementById("modal-confirm") as HTMLButtonElement | null)?.click();
+    expect(lastLibAction()).toEqual({ type: "cancel_edit" });
+
+    receiveData(
+      encodeURIComponent(
+        JSON.stringify({
+          ...state,
+          libraryLoaded: false,
+          libraryScanning: true,
+          editing: { ...state.editing, active: false, dirty: false },
+          actions: { ...state.actions, editing: false, canImportClip: false },
+          selectedIndex: 0,
+          selected: {
+            ...state.selected,
+            id: "scale-turn",
+            name: "Scale Turn",
+            isBuiltin: true,
+            isPersisted: false,
+          },
+        }),
+      ),
+    );
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect((doc.getElementById("import-clip-btn") as HTMLButtonElement | null)?.title).toBe(
+      "Wait for the Library scan to finish",
+    );
+    expect(doc.getElementById("edit-state")?.textContent).toBe(
+      "Built-in · Edit creates a user copy",
+    );
+    receiveData(encodeURIComponent(JSON.stringify(state)));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    window.dispatchEvent(new Event("resize"));
+
+    outlets.length = 0;
     (doc.querySelector('[data-tag-mode="and"]') as HTMLButtonElement | null)?.click();
     expect(lastLibAction()).toEqual({
       type: "filter_motifs",
@@ -356,6 +414,9 @@ describe("Library browser runtime", () => {
     );
     await new Promise((resolve) => setTimeout(resolve, 0));
     outlets.length = 0;
+    (doc.getElementById("edit-btn") as HTMLButtonElement | null)?.click();
+    expect(lastLibAction()).toEqual({ type: "begin_edit" });
+    outlets.length = 0;
     (doc.getElementById("import-clip-btn") as HTMLButtonElement | null)?.click();
     expect(
       outlets.some((args) => {
@@ -373,6 +434,9 @@ describe("Library browser runtime", () => {
     (doc.querySelector('.panel-tab[data-panel="notes"]') as HTMLButtonElement | null)?.click();
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(doc.getElementById("notes-panel")?.classList.contains("hidden")).toBe(false);
+    (doc.querySelector('.panel-tab[data-panel="properties"]') as HTMLButtonElement | null)?.click();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(doc.getElementById("notes-panel")?.classList.contains("hidden")).toBe(true);
 
     outlets.length = 0;
     (doc.getElementById("choose-btn") as HTMLButtonElement | null)?.click();

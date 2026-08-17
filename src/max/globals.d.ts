@@ -71,13 +71,8 @@ declare class Task {
   schedule(delay?: number): void;
 }
 
-/**
- * Read/write text files from Max JavaScript (motif JSON load/save).
- *
- * @see https://docs.cycling74.com/apiref/js/file/
- */
-declare class File {
-  constructor(filename?: string, access?: "read" | "write" | "readwrite", typelist?: string[]);
+/** Read/write text file returned by Max's JavaScript host API. */
+interface MaxFile {
   isopen: boolean;
   eof: number;
   foldername: string;
@@ -85,6 +80,18 @@ declare class File {
   readstring(count: number): string;
   writestring(text: string): void;
   close(text?: string): void;
+}
+
+/**
+ * Constructor shape for Max's `File` global.
+ *
+ * This intentionally has a distinct TypeScript name because Node also
+ * declares a web-standard `File` global with an incompatible API.
+ *
+ * @see https://docs.cycling74.com/apiref/js/file/
+ */
+interface MaxFileConstructor {
+  new (filename?: string, access?: "read" | "write" | "readwrite", typelist?: string[]): MaxFile;
 }
 
 /** HTML source injected by the build into the frozen Max engine bundle. */

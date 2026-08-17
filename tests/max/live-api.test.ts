@@ -165,4 +165,67 @@ describe("LiveAPI adapter", () => {
     vi.stubGlobal("LiveAPI", ThrowingDetailApi);
     expect(resolveDetailClip()).toBe(undefined);
   });
+
+  it("normalizes array, boolean, and object Live properties", () => {
+    installMaxMocks();
+    class FlexibleTruthyApi {
+      id = 1;
+      get(property: string): unknown {
+        if (property === "is_midi_clip") {
+          return [true];
+        }
+        return false;
+      }
+      getstring(): string {
+        return "";
+      }
+      call(): unknown {
+        return { notes: [] };
+      }
+    }
+    vi.stubGlobal("LiveAPI", FlexibleTruthyApi);
+    expect(resolveDetailClip()).toBeTruthy();
+
+    class ObjectTruthyApi extends FlexibleTruthyApi {
+      override get(property: string): unknown {
+        return property === "is_midi_clip" ? {} : false;
+      }
+    }
+    vi.stubGlobal("LiveAPI", ObjectTruthyApi);
+    expect(resolveDetailClip()).toBeTruthy();
+  });
+
+  it("falls through after an unusable highlighted clip", () => {
+    installMaxMocks();
+    class InvalidHighlightedClipApi {
+      id: number;
+      path: string;
+      constructor(_callback?: (args: unknown[]) => void, path = "") {
+        this.path = path;
+        this.id = path.endsWith("highlighted_clip_slot") ? 1 : 0;
+      }
+      get(property: string): unknown {
+        return property === "has_clip" ? true : false;
+      }
+      getstring(): string {
+        return "";
+      }
+      call(): unknown {
+        return { notes: [] };
+      }
+    }
+    vi.stubGlobal("LiveAPI", InvalidHighlightedClipApi);
+    expect(resolveDetailClip()).toBe(undefined);
+  });
+
+  it("fails soft for every malformed notes payload shape", () => {
+    const clipFor = (payload: unknown) => ({ call: () => payload }) as unknown as LiveAPI;
+
+    expect(readClipNotes(clipFor("   "))).toEqual([]);
+    expect(readClipNotes(clipFor({ stringify: () => "{invalid" }))).toEqual([]);
+    expect(readClipNotes(clipFor({ stringify: () => JSON.stringify({ notes: [null] }) }))).toEqual(
+      [],
+    );
+    expect(readClipNotes(clipFor({ notes: [null, 4, "note"] }))).toEqual([]);
+  });
 });

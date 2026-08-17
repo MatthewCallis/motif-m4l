@@ -96,6 +96,7 @@ export function MotifTags({
           spellCheck={false}
           disabled={!editing}
           value={query}
+          aria-controls="tag-suggestions"
           onFocus={() => setSuggestionsOpen(true)}
           onInput={(event) => {
             setQuery(event.currentTarget.value);
@@ -113,7 +114,12 @@ export function MotifTags({
           }}
           onBlur={() => setSuggestionsOpen(false)}
         />
-        <div id="tag-suggestions" className={classNames({ hidden: matches.length === 0 })}>
+        <div
+          id="tag-suggestions"
+          className={classNames({ hidden: matches.length === 0 })}
+          aria-label="Tag suggestions"
+          aria-live="polite"
+        >
           {matches.map((tag) => (
             <button
               key={tag}

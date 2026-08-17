@@ -26,6 +26,7 @@ export function TagFilter({
         <button
           type="button"
           className={classNames("tag-mode-btn", { active: tagMode === "or" })}
+          aria-pressed={tagMode === "or"}
           data-tag-mode="or"
           title="Match any selected tag"
           onClick={() => {
@@ -37,6 +38,7 @@ export function TagFilter({
         <button
           type="button"
           className={classNames("tag-mode-btn", { active: tagMode === "and" })}
+          aria-pressed={tagMode === "and"}
           data-tag-mode="and"
           title="Match all selected tags"
           onClick={() => {
@@ -57,6 +59,7 @@ export function TagFilter({
                 key={tag}
                 type="button"
                 className={classNames("tag-chip", { selected: isSelected })}
+                aria-pressed={isSelected}
                 title={isSelected ? `Remove filter: ${tag}` : `Filter by ${tag}`}
                 onClick={() => {
                   send({

@@ -749,7 +749,6 @@ const engineCanonicalSources = await Promise.all(
     "src/max/library/ui/preview.ts",
     "src/max/library/ui/store.tsx",
     "src/max/library/ui/browser-model.ts",
-    "src/max/library/ui/format.ts",
     "src/max/library/ui/page-store.ts",
     "src/max/library/ui/sidebar-layout.ts",
     "src/max/library/ui/components/BrowserList.tsx",

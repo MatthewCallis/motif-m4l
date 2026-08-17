@@ -74,4 +74,51 @@ describe("Max helpers", () => {
     expect(mockMessages(mocks.post)[0] ?? "").toMatch(/ready now/);
     expect(mockMessages(mocks.error)[0] ?? "").toMatch(/%invalid/);
   });
+
+  it("reports Max write and Library page materialization failures", () => {
+    let closeCount = 0;
+    class ClosedFile {
+      isopen = false;
+      eof = 0;
+      foldername = "/tmp";
+      position = 0;
+      readstring(): string {
+        return "";
+      }
+      writestring(): void {}
+      close(): void {
+        closeCount += 1;
+      }
+    }
+    vi.stubGlobal("File", ClosedFile);
+    expect(() => writeJsonFile("/tmp/output.json", {})).toThrow(/could not open file for write/);
+    expect(() => prepareLibraryPage("closed.html", "page")).toThrow(/could not create/);
+
+    class ReopenFailureFile extends ClosedFile {
+      override isopen: boolean;
+      constructor(_filename: string, access: string) {
+        super();
+        this.isopen = access === "write";
+      }
+    }
+    vi.stubGlobal("File", ReopenFailureFile);
+    expect(() => prepareLibraryPage("missing.html", "page")).toThrow(/could not reopen/);
+
+    class TruncatedFile extends ClosedFile {
+      override isopen = true;
+      override eof = 1;
+    }
+    vi.stubGlobal("File", TruncatedFile);
+    expect(() => prepareLibraryPage("short.html", "long page")).toThrow(/truncated page/);
+
+    class ThrowingWriteFile extends TruncatedFile {
+      override writestring(): void {
+        throw new Error("write failed");
+      }
+    }
+    closeCount = 0;
+    vi.stubGlobal("File", ThrowingWriteFile);
+    expect(() => prepareLibraryPage("failed.html", "page")).toThrow(/write failed/);
+    expect(closeCount).toBe(1);
+  });
 });

@@ -21,8 +21,10 @@ export function BrowserList({ server }: { server: LibraryServerState | null }) {
     const emptyText =
       server?.query || (server?.tags.length ?? 0) > 0 ? "No matching motifs" : "No motifs found";
     return (
-      <div id="browser-list">
-        <div id="empty-list">{emptyText}</div>
+      <div id="browser-list" aria-label="Motif library">
+        <div id="empty-list" role="status">
+          {emptyText}
+        </div>
       </div>
     );
   }
@@ -73,6 +75,7 @@ export function BrowserList({ server }: { server: LibraryServerState | null }) {
         key={item.id}
         type="button"
         className={classNames("browser-item", { selected })}
+        aria-current={selected ? "true" : undefined}
         title={item.showId ? `${item.name}\nID: ${item.id}` : item.name}
         onClick={() => {
           if (server.selected?.id === item.id) {
@@ -100,5 +103,9 @@ export function BrowserList({ server }: { server: LibraryServerState | null }) {
     );
   }
 
-  return <div id="browser-list">{nodes}</div>;
+  return (
+    <div id="browser-list" aria-label="Motif library">
+      {nodes}
+    </div>
+  );
 }

@@ -3,6 +3,19 @@ import { send } from "../bridge.js";
 import { NOTE_FIELDS } from "../page-state.js";
 import type { LibraryServerState } from "../../protocol.js";
 
+const NOTE_FIELD_LABELS: Record<string, string> = {
+  pitch: "Pitch",
+  accidental: "Accidental",
+  at: "Start",
+  duration: "Duration",
+  gate: "Gate",
+  velocity: "Velocity",
+  velocityOffset: "Velocity offset",
+  velocityScale: "Velocity scale",
+  legato: "Legato",
+  tie: "Tie",
+};
+
 /**
  * Editable note rows for the selected motif.
  * @param {{ server: LibraryServerState | null; editing: boolean }} props Note table state.
@@ -39,7 +52,7 @@ export function NoteTable({
           // Notes have no stable IDs: the device protocol intentionally
           // addresses every edit and removal by its current array index.
           // oxlint-disable-next-line react/no-array-index-key
-          <div className="note-row" key={index}>
+          <div className="note-row" key={index} role="group" aria-label={`Note ${index + 1}`}>
             <span>{index + 1}</span>
             {NOTE_FIELDS.map((field) => {
               if (field.type === "checkbox") {
@@ -53,6 +66,7 @@ export function NoteTable({
                       id={controlId}
                       type="checkbox"
                       name={field.name}
+                      aria-label={`${NOTE_FIELD_LABELS[field.name]}, note ${index + 1}`}
                       checked={Boolean(note[field.name])}
                       disabled={!editing}
                       onChange={(event) => {
@@ -72,6 +86,7 @@ export function NoteTable({
                 <input
                   key={`${index}-${field.name}-${fieldValue ?? ""}`}
                   type="number"
+                  aria-label={`${NOTE_FIELD_LABELS[field.name]}, note ${index + 1}`}
                   value={fieldValue == null ? "" : String(fieldValue)}
                   disabled={!editing}
                   min={field.min}
@@ -91,6 +106,7 @@ export function NoteTable({
             <button
               type="button"
               className="remove-btn"
+              aria-label={`Remove note ${index + 1}`}
               title="Remove note"
               disabled={!canRemove}
               onClick={() => send({ type: "remove_note", index })}

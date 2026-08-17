@@ -28,6 +28,8 @@ describe("TagFilter", () => {
     render(<TagFilter server={server} searchQuery="bass" />, root);
 
     expect(root.querySelector('[data-tag-mode="or"]')?.classList.contains("active")).toBe(true);
+    expect(root.querySelector('[data-tag-mode="or"]')?.getAttribute("aria-pressed")).toBe("true");
+    expect(root.querySelector('[data-tag-mode="and"]')?.getAttribute("aria-pressed")).toBe("false");
     (root.querySelector('[data-tag-mode="and"]') as HTMLButtonElement).click();
     expect(send).toHaveBeenCalledWith({
       type: "filter_motifs",
@@ -41,6 +43,7 @@ describe("TagFilter", () => {
       (button) => button.textContent === "demo",
     ) as HTMLButtonElement;
     demo.click();
+    expect(demo.getAttribute("aria-pressed")).toBe("true");
     expect(send).toHaveBeenCalledWith({
       type: "filter_motifs",
       query: "bass",
@@ -54,5 +57,25 @@ describe("TagFilter", () => {
     document.body.appendChild(root);
     render(<TagFilter server={null} searchQuery="" />, root);
     expect(root.querySelector(".tag-chip.empty")?.textContent).toBe("No tags yet");
+  });
+
+  it("falls back to the local search query and adds an unselected tag", () => {
+    const root = document.createElement("div");
+    document.body.appendChild(root);
+    const server = {
+      availableTags: ["Scale"],
+      tags: ["demo"],
+      tagMode: "and",
+    } as LibraryServerState;
+    render(<TagFilter server={server} searchQuery="lead" />, root);
+    const scale = root.querySelector("#tag-filter-chips .tag-chip") as HTMLButtonElement;
+    expect(scale.getAttribute("aria-pressed")).toBe("false");
+    scale.click();
+    expect(send).toHaveBeenCalledWith({
+      type: "filter_motifs",
+      query: "lead",
+      tags: ["demo", "Scale"],
+      tagMode: "and",
+    });
   });
 });

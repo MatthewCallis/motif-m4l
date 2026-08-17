@@ -202,4 +202,67 @@ describe("Max user library", () => {
       errors.some((message) => message.includes("maximum library folder depth exceeded")),
     ).toBeTruthy();
   });
+
+  it("isolates malformed files, stale scans, visited roots, and vanished folders", () => {
+    const mocks = installMaxMocks();
+    const store = new MotifStore();
+    const errors: string[] = [];
+    class DeferredTask {
+      callback: (...args: unknown[]) => void;
+      constructor(callback: (...args: unknown[]) => void) {
+        this.callback = callback;
+      }
+      cancel(): void {}
+      freepeer(): void {}
+      schedule(): void {}
+    }
+    vi.stubGlobal("Task", DeferredTask);
+    mocks.folders["/library"] = [];
+    mocks.files["/library/malformed.json"] = "{invalid";
+    mocks.files["/library/rejected.json"] = JSON.stringify({
+      ...store.get("chromatic-turn")!,
+      id: "rejected",
+      name: "Rejected",
+    });
+    const library = new MaxUserLibrary(store, {
+      onError: (message) => errors.push(message),
+      onStateChange: () => undefined,
+      onStatus: () => undefined,
+      onContentsChanged: () => undefined,
+    });
+
+    expect(library.selectPath("/library")).toBe(true);
+    const staleScan = library.scanState!;
+    library.loadMotifFile("/library/malformed.json", "malformed.json", staleScan);
+    const add = staleScan.candidateStore.add.bind(staleScan.candidateStore);
+    staleScan.candidateStore.add = () => ["forced candidate rejection"];
+    library.loadMotifFile("/library/rejected.json", "rejected.json", staleScan);
+    staleScan.candidateStore.add = add;
+    expect(errors.some((message) => message.startsWith("malformed.json:"))).toBe(true);
+    expect(errors.some((message) => message.includes("forced candidate rejection"))).toBe(true);
+
+    library.scanGeneration += 1;
+    library.finish(staleScan);
+    expect(library.loaded).toBe(false);
+    library.cancelScan();
+    library.processBatch();
+
+    expect(library.selectPath("/library")).toBe(true);
+    const visitedScan = library.scanState!;
+    visitedScan.current = undefined;
+    visitedScan.pending.push({ pathname: "/library/", relativePath: "", depth: 0 });
+    library.processBatch();
+    expect(library.loaded).toBe(true);
+
+    expect(library.load("library-refreshed")).toBe(true);
+    const missingFolderScan = library.scanState!;
+    missingFolderScan.current = undefined;
+    missingFolderScan.pending.push({
+      pathname: "/library/vanished",
+      relativePath: "vanished",
+      depth: 1,
+    });
+    library.processBatch();
+    expect(library.loaded).toBe(true);
+  });
 });

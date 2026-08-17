@@ -486,4 +486,117 @@ describe("MotifAuthoringController", () => {
       ),
     ).toBeTruthy();
   });
+
+  it("recovers from clip conversion and import transaction failures", () => {
+    const invalidClip = createAuthoring();
+    invalidClip.library.path = "/library";
+    invalidClip.library.loaded = true;
+    installClipLiveApi({
+      notes: [{ pitch: 999, start_time: 0, duration: 1, velocity: 100 }],
+    });
+    invalidClip.controller.importClip();
+    expect(
+      invalidClip.effects.some((effect) => effect.includes("Source anchor pitch must be")),
+    ).toBe(true);
+
+    const cleanEdit = createAuthoring();
+    cleanEdit.library.path = "/library";
+    cleanEdit.library.loaded = true;
+    installClipLiveApi({ name: "Replacement" });
+    cleanEdit.controller.beginEdit();
+    expect(cleanEdit.editor.isDirty()).toBe(false);
+    cleanEdit.controller.importClip();
+    expect(cleanEdit.store.current?.name).toBe("Replacement");
+    expect(cleanEdit.editor.isDirty()).toBe(true);
+
+    const throwing = createAuthoring();
+    throwing.library.path = "/library";
+    throwing.library.loaded = true;
+    installClipLiveApi({});
+    const begin = throwing.editor.begin.bind(throwing.editor);
+    throwing.editor.begin = () => {
+      throw new Error("transaction exploded");
+    };
+    const idsBefore = throwing.store.list().map(({ id }) => id);
+    throwing.controller.importClip();
+    throwing.editor.begin = begin;
+    expect(throwing.store.list().map(({ id }) => id)).toEqual(idsBefore);
+    expect(throwing.effects.some((effect) => effect.includes("transaction exploded"))).toBe(true);
+
+    const catchFallback = createAuthoring();
+    catchFallback.library.path = "/library";
+    catchFallback.library.loaded = true;
+    installClipLiveApi({});
+    const removedRestore = addUserCopy(catchFallback.store, "chromatic-turn", "removed-restore");
+    expect(removedRestore).toBeTruthy();
+    catchFallback.store.select(removedRestore!.id);
+    const catchBegin = catchFallback.editor.begin.bind(catchFallback.editor);
+    catchFallback.editor.begin = (store) => {
+      store.remove(removedRestore!.id);
+      throw new Error("rollback required");
+    };
+    catchFallback.controller.importClip();
+    catchFallback.editor.begin = catchBegin;
+    expect(catchFallback.store.currentId).toBe("scale-turn");
+
+    const missingRestore = createAuthoring();
+    missingRestore.library.path = "/library";
+    missingRestore.library.loaded = true;
+    installClipLiveApi({});
+    const disposable = addUserCopy(missingRestore.store, "chromatic-turn", "disposable");
+    expect(disposable).toBeTruthy();
+    missingRestore.store.select(disposable!.id);
+    const originalBegin = missingRestore.editor.begin.bind(missingRestore.editor);
+    missingRestore.editor.begin = (store) => {
+      store.remove(disposable!.id);
+      return undefined;
+    };
+    missingRestore.controller.importClip();
+    missingRestore.editor.begin = originalBegin;
+    expect(missingRestore.store.currentId).toBe("scale-turn");
+  });
+
+  it("covers no-change, missing-selection, and browser selection guards", () => {
+    const harness = createAuthoring();
+    harness.controller.beginEdit();
+    const currentName = harness.store.current?.name;
+    expect(harness.controller.applyMotifProperties({ name: currentName })).toBe(true);
+
+    harness.effects.length = 0;
+    harness.controller.saveMotif({ triggerMode: "not-a-mode" });
+    expect(harness.effects.some((effect) => effect.includes("triggerMode must be"))).toBe(true);
+
+    harness.controller.cancelEdit();
+    harness.effects.length = 0;
+    harness.controller.addNote();
+    harness.controller.removeNote(0);
+    harness.controller.selectBrowser("missing");
+    harness.controller.selectBrowser(harness.store.currentId);
+    expect(
+      harness.effects.filter((effect) => effect.includes("Start editing before changing")),
+    ).toHaveLength(2);
+
+    harness.library.path = "/library";
+    harness.library.loaded = true;
+    harness.store.currentId = "ghost";
+    harness.effects.length = 0;
+    harness.controller.saveMotif();
+    expect(harness.effects).toContain("error:No motif selected");
+  });
+
+  it("handles a browser target disappearing during edit cancellation", () => {
+    const disappearing = createAuthoring();
+    const target = addUserCopy(disappearing.store, "chromatic-turn", "browser-target");
+    expect(target).toBeTruthy();
+    disappearing.controller.beginEdit();
+    const cancel = disappearing.editor.cancel.bind(disappearing.editor);
+    disappearing.editor.cancel = (store) => {
+      const restored = cancel(store);
+      store.remove(target!.id);
+      return restored;
+    };
+    disappearing.controller.selectBrowser(target!.id, true);
+    disappearing.editor.cancel = cancel;
+    expect(disappearing.store.currentId).not.toBe(target!.id);
+  });
 });

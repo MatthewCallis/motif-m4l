@@ -34,6 +34,7 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
           placeholder="C3"
           autoComplete="off"
           spellCheck={false}
+          aria-describedby="hotkey-help"
           disabled={disabled}
           onInput={(event) => setPitch(event.currentTarget.value)}
           onKeyDown={(event) => {
@@ -47,6 +48,7 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
           className="field"
           id="hotkey-action"
           name="hotkey-action"
+          aria-label="Hot-key action"
           disabled={disabled}
           value={action}
           onInput={(event) => setAction(event.currentTarget.value)}
@@ -64,8 +66,10 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
           Assign to Motif
         </button>
       </div>
-      <span className="field-label">Assigned</span>
-      <div className="wide" id="hotkey-list">
+      <span className="field-label" id="hotkey-list-label">
+        Assigned
+      </span>
+      <div className="wide" id="hotkey-list" aria-labelledby="hotkey-list-label">
         {selected && mappings.length === 0 ? <span className="help">None</span> : null}
         {selected
           ? mappings.map((mapping) => {
@@ -84,7 +88,7 @@ export function HotkeyList({ selected }: { selected: LibrarySelectedMotifData | 
             })
           : null}
       </div>
-      <div className="help">
+      <div className="help" id="hotkey-help">
         Trigger Motif plays this motif using the current Trigger Mode on the device. Select Motif
         makes it active for later trigger-zone notes. Enter a note name such as C3, F♯2, or Bb4;
         click an assignment to remove it.

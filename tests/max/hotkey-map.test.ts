@@ -13,6 +13,10 @@ describe("hotkey map", () => {
     expect(hotkeys.assign("62", "scale-turn", "select").ok).toBe(true);
     expect(hotkeys.assign(60, "scale-turn").ok).toBe(true);
     expect(hotkeys.has(60)).toBe(true);
+    expect(hotkeys.list()).toEqual([
+      { pitch: 60, motifId: "scale-turn", action: "trigger" },
+      { pitch: 62, motifId: "scale-turn", action: "select" },
+    ]);
     expect(hotkeys.forMotif("scale-turn").map(({ pitch }) => pitch)).toEqual([60, 62]);
     expect(hotkeys.remove("C3")).toBe(60);
     expect(hotkeys.remove("invalid")).toBe(undefined);

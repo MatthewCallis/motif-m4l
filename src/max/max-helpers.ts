@@ -6,6 +6,16 @@
  */
 
 /**
+ * Open a Max host file without adopting Node's incompatible web `File` type.
+ * Resolve the constructor per call so tests can install their Max host mock
+ * after this module is evaluated.
+ */
+function openMaxFile(filename: string, access: "read" | "write" | "readwrite"): MaxFile {
+  const HostFile = File as unknown as MaxFileConstructor;
+  return new HostFile(filename, access);
+}
+
+/**
  * Send a list through the device's single Max outlet.
  * @param {unknown[]} values Message atoms.
  */
@@ -85,10 +95,10 @@ export function joinMaxPath(folder: string, filename: string): string {
 
 /**
  * Write text without crossing Max's per-call string limit.
- * @param {File} file Open output file.
+ * @param {MaxFile} file Open output file.
  * @param {string} text Complete content.
  */
-export function writeTextChunks(file: File, text: string): void {
+export function writeTextChunks(file: MaxFile, text: string): void {
   const chunkSize = 8_192;
   for (let offset = 0; offset < text.length; offset += chunkSize) {
     file.writestring(text.slice(offset, offset + chunkSize));
@@ -102,7 +112,7 @@ export function writeTextChunks(file: File, text: string): void {
  * @throws {Error} When the file cannot be opened or parsed.
  */
 export function readJsonFile(filename: string): unknown {
-  const file = new File(filename, "read");
+  const file = openMaxFile(filename, "read");
   if (!file.isopen) {
     throw new Error("could not open file");
   }
@@ -120,7 +130,7 @@ export function readJsonFile(filename: string): unknown {
  * @throws {Error} When the file cannot be opened for writing.
  */
 export function writeJsonFile(filename: string, value: unknown): void {
-  const file = new File(filename, "write");
+  const file = openMaxFile(filename, "write");
   if (!file.isopen) {
     throw new Error("could not open file for write");
   }
@@ -137,7 +147,7 @@ export function writeJsonFile(filename: string, value: unknown): void {
  * @returns {boolean} Whether the file exists and is readable.
  */
 export function fileExists(filename: string): boolean {
-  const file = new File(filename, "read");
+  const file = openMaxFile(filename, "read");
   const exists = file.isopen;
   if (exists) {
     file.close();
@@ -202,10 +212,10 @@ export function discardAllowed(value: number | boolean | undefined): boolean {
  */
 export function prepareLibraryPage(pageName: string, html: string): string {
   const temporaryPath = `Tempfolder:/${pageName}`;
-  let output: File | undefined;
+  let output: MaxFile | undefined;
 
   try {
-    output = new File(temporaryPath, "write");
+    output = openMaxFile(temporaryPath, "write");
     if (!output.isopen) {
       throw new Error(`could not create ${temporaryPath}`);
     }
@@ -217,7 +227,7 @@ export function prepareLibraryPage(pageName: string, html: string): string {
     output.close();
     output = undefined;
 
-    const verification = new File(absolutePath, "read");
+    const verification = openMaxFile(absolutePath, "read");
     if (!verification.isopen) {
       throw new Error(`could not reopen ${absolutePath}`);
     }

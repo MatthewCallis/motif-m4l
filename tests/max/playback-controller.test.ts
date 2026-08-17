@@ -343,4 +343,113 @@ describe("PlaybackController", () => {
     harness.playback.note(62, 100, 1);
     expect(harness.scheduled[harness.scheduled.length - 1]?.delay).toBe(1625);
   });
+
+  it("reports unknown motifs and compilation failures without scheduling", () => {
+    const harness = createPlayback();
+    harness.store.currentId = "missing";
+    expect(harness.playback.triggerMotif(60, 100, 1)).toBe(undefined);
+    harness.playback.note(60, 100, 1);
+    expect(
+      harness.errors.filter((message) => message.includes("Unknown motif: missing")).length,
+    ).toBe(2);
+
+    harness.store.select("chromatic-turn");
+    const chromatic = harness.store.current!;
+    harness.settings.pitchModeOverride = "hybrid";
+    harness.settings.transform = () => ({
+      ...chromatic,
+      sourcePitchContext: {
+        ...chromatic.sourcePitchContext,
+        scaleName: "Unresolved Custom Scale",
+        scaleIntervals: null,
+      },
+    });
+    expect(harness.playback.triggerMotif(60, 100, 1, { motifId: "chromatic-turn" })).toBe(
+      undefined,
+    );
+    expect(harness.errors.some((message) => message.includes("source scale intervals"))).toBe(true);
+
+    const clears = harness.clears;
+    harness.playback.cancelTrigger(99);
+    harness.playback.cc(1, 127);
+    expect(harness.clears).toBe(clears);
+  });
+
+  it("releases toggle, hold, release-tail, and sustained repeat triggers", () => {
+    const toggle = createPlayback();
+    toggle.settings.triggerMode = "toggle";
+    toggle.playback.note(60, 100, 1);
+    expect(toggle.playback.activeTriggers.has(60)).toBe(true);
+    toggle.playback.note(60, 100, 1);
+    expect(toggle.playback.activeTriggers.has(60)).toBe(false);
+
+    const hold = createPlayback();
+    hold.settings.triggerMode = "hold";
+    hold.playback.note(60, 100, 1);
+    hold.playback.note(60, 0, 1);
+    expect(hold.playback.activeTriggers.has(60)).toBe(false);
+
+    const releaseTail = createPlayback();
+    releaseTail.settings.triggerMode = "release-tail";
+    releaseTail.playback.note(60, 100, 1);
+    releaseTail.playback.note(60, 0, 1);
+    expect(releaseTail.playback.activeTriggers.has(60)).toBe(false);
+    expect(releaseTail.playback.activeTriggerModes.has(60)).toBe(false);
+
+    const repeat = createPlayback();
+    repeat.settings.triggerMode = "hold-repeat";
+    repeat.playback.note(60, 100, 1);
+    repeat.playback.sustain(127);
+    repeat.playback.note(60, 0, 1);
+    expect(repeat.playback.sustainedRepeatReleases.has(60)).toBe(true);
+    repeat.playback.sustain(0);
+    expect(repeat.playback.heldRepeats.has(60)).toBe(false);
+
+    repeat.playback.note(61, 100, 1);
+    expect(repeat.playback.heldRepeats.has(61)).toBe(true);
+    repeat.playback.stopAllHeldRepeats(true);
+    expect(repeat.playback.heldRepeats.size).toBe(0);
+    expect(repeat.statuses.some(([selector]) => selector === "repeat-stopped")).toBe(true);
+  });
+
+  it("guards held-repeat tasks when their captured state becomes stale", () => {
+    const stale = createPlayback();
+    stale.settings.triggerMode = "hold-repeat";
+    stale.playback.note(60, 100, 1);
+    const captured = stale.playback.heldRepeats.get(60)!;
+    stale.playback.heldRepeats.set(60, { ...captured });
+    const triggersBefore = stale.statuses.filter(([selector]) => selector === "trigger").length;
+    stale.scheduled.shift()?.run();
+    expect(stale.statuses.filter(([selector]) => selector === "trigger")).toHaveLength(
+      triggersBefore,
+    );
+
+    const vanished = createPlayback();
+    const user = { ...vanished.store.current!, id: "temporary-repeat", name: "Temporary Repeat" };
+    expect(vanished.store.add(user)).toEqual([]);
+    vanished.store.select(user.id);
+    vanished.settings.triggerMode = "hold-repeat";
+    vanished.playback.note(60, 100, 1);
+    vanished.store.remove(user.id);
+    vanished.scheduled.shift()?.run();
+    expect(vanished.playback.heldRepeats.has(60)).toBe(false);
+
+    const failedCycle = createPlayback();
+    failedCycle.settings.triggerMode = "hold-repeat";
+    failedCycle.playback.note(60, 100, 1);
+    failedCycle.playback.triggerMotif = () => undefined;
+    failedCycle.scheduled.shift()?.run();
+    expect(failedCycle.scheduled).toHaveLength(0);
+
+    const failedStart = createPlayback();
+    failedStart.settings.triggerMode = "hold-repeat";
+    failedStart.playback.triggerMotif = () => undefined;
+    failedStart.playback.startHeldRepeat(60, 100, 1);
+    expect(failedStart.playback.heldRepeats.size).toBe(0);
+
+    const unknownStart = createPlayback();
+    unknownStart.store.currentId = "missing-repeat";
+    unknownStart.playback.startHeldRepeat(60, 100, 1);
+    expect(unknownStart.errors).toContain("Unknown motif: missing-repeat");
+  });
 });

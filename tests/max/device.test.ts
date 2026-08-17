@@ -176,6 +176,100 @@ describe("TypeScript device dispatcher", () => {
     dispatch("library_path", ["/Motifs"]);
     dispatch("library_path", ["/Motifs"]);
 
+    const deferred: Array<{ run: () => void }> = [];
+    class DeferredTask {
+      #cancelled = false;
+      callback: (...args: unknown[]) => void;
+      context?: object;
+      args: unknown[];
+      constructor(
+        callback: (...args: unknown[]) => void,
+        context: object = {},
+        args: unknown[] = [],
+      ) {
+        this.callback = callback;
+        this.context = context;
+        this.args = args;
+      }
+      cancel(): void {
+        this.#cancelled = true;
+      }
+      freepeer(): void {
+        this.#cancelled = true;
+      }
+      schedule(): void {
+        deferred.push({
+          run: () => {
+            if (!this.#cancelled) {
+              this.callback.apply(this.context, this.args);
+            }
+          },
+        });
+      }
+    }
+    vi.stubGlobal("Task", DeferredTask);
+    mocks.folders["/Pending"] = [];
+    dispatch("library_path", ["/Pending"]);
+    dispatch("restore_state", [
+      encodeURIComponent(
+        JSON.stringify({
+          schemaVersion: 1,
+          selectedMotifId: "missing-selection",
+          hotkeys: [{ pitch: 65, motifId: "scale-turn", action: "trigger" }],
+        }),
+      ),
+    ]);
+    deferred.shift()?.run();
+
+    dispatch("map_trigger", [64, "scale-turn"]);
+    dispatch("restore_state", [
+      encodeURIComponent(
+        JSON.stringify({
+          schemaVersion: 1,
+          selectedMotifId: "scale-turn",
+          hotkeys: [{ pitch: 66, motifId: "scale-turn", action: "trigger" }],
+        }),
+      ),
+    ]);
+    dispatch("restore_state", []);
+    dispatch("restore_state", ["invalid-state"]);
+    dispatch("restore_state", ["0"]);
+
+    dispatch("map_trigger", ["not-a-note", "scale-turn"]);
+    dispatch("map_trigger", [67, "scale-turn", "select"]);
+    dispatch("note", [67, 100, 1]);
+    dispatch("unmap_trigger", ["not-a-note"]);
+    dispatch("clear_trigger_map", []);
+    dispatch("map_trigger", [68, "scale-turn"]);
+    dispatch("clear_trigger_map", []);
+
+    dispatch("map_trigger", [60, "scale-turn"]);
+    dispatch("trigger_mode", ["hold-repeat"]);
+    dispatch("note", [60, 100, 1]);
+    dispatch("trigger_mode", ["one-shot"]);
+    dispatch("cc", [1, 127]);
+    dispatch("save_motif", [{}]);
+    dispatch("select_browser", ["chromatic-turn", false]);
+
+    dispatch("motif", ["scale-turn"]);
+    dispatch("begin_edit", []);
+    dispatch("map_trigger", [70, "scale-turn-2"]);
+    dispatch("cancel_edit", []);
+
+    class ClosedFile {
+      isopen = false;
+      eof = 0;
+      foldername = "/tmp";
+      position = 0;
+      readstring(): string {
+        return "";
+      }
+      writestring(): void {}
+      close(): void {}
+    }
+    vi.stubGlobal("File", ClosedFile);
+    dispatch("library_prepare", []);
+
     dispatch("unknown-source-message", []);
 
     expect(
@@ -186,6 +280,19 @@ describe("TypeScript device dispatcher", () => {
     ).toBeTruthy();
     expect(
       mockMessages(mocks.error).some((message) => message.includes("Unknown Song property")),
+    ).toBeTruthy();
+    expect(
+      mockMessages(mocks.error).some((message) => message.includes("Cannot map invalid MIDI note")),
+    ).toBeTruthy();
+    expect(
+      mockMessages(mocks.error).some((message) =>
+        message.includes("Saved device state is invalid"),
+      ),
+    ).toBeTruthy();
+    expect(
+      mockMessages(mocks.error).some((message) =>
+        message.includes("Library page preparation failed"),
+      ),
     ).toBeTruthy();
   });
 });

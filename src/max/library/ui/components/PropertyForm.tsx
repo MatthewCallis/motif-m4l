@@ -1,4 +1,5 @@
 /** @jsxImportSource preact */
+import type {} from "../jsx-attributes.js";
 import { midiNoteName } from "../../../../core/preview.js";
 import { pushProperties } from "../bridge.js";
 import { classNames } from "../class-names.js";
@@ -55,7 +56,7 @@ export function PropertyForm({
   }
 
   return (
-    <div className={classNames("panel", { hidden })} id="properties-panel">
+    <div className={classNames("panel", { hidden })} id="properties-panel" aria-hidden={hidden}>
       <div className="section">
         <div className="section-title">Motif</div>
         <div className="property-grid">
@@ -251,6 +252,7 @@ export function PropertyForm({
             <select
               className="field editable-property"
               id="meter-denominator-edit"
+              aria-label="Source meter denominator"
               disabled={controlsDisabled}
               value={draft.meterDenominator}
               onInput={(event) =>

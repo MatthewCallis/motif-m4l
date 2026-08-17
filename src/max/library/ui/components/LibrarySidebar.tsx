@@ -206,6 +206,7 @@ export function LibrarySidebar() {
           <input
             id="search"
             type="text"
+            aria-label="Search motifs"
             placeholder="Search..."
             autoComplete="off"
             spellCheck={false}
@@ -228,6 +229,7 @@ export function LibrarySidebar() {
           <button
             type="button"
             id="clear-search"
+            aria-label="Clear search and tag filters"
             title="Clear search and tag filters"
             onClick={() => {
               // The timer captures typed text; cancel it before sending the clear.
@@ -279,7 +281,11 @@ export function LibrarySidebar() {
             {server?.libraryScanning ? "Scanning..." : "Refresh"}
           </button>
         </div>
-        <div id="library-path" title={server?.libraryPath || "No user library selected"}>
+        <div
+          id="library-path"
+          role="status"
+          title={server?.libraryPath || "No user library selected"}
+        >
           {libraryPathText}
         </div>
       </div>

@@ -586,6 +586,7 @@ select:disabled {
   text-align: right;
   width: 100%;
   outline: none;
+  appearance: textfield;
   -moz-appearance: textfield;
 }
 .note-row input[type="number"]::-webkit-inner-spin-button,
@@ -669,7 +670,7 @@ select:disabled {
 #modal-title {
   font-size: 13px;
   font-weight: 600;
-  margin-bottom: 7px;
+  margin: 0 0 7px;
 }
 #modal-message {
   color: var(--text);

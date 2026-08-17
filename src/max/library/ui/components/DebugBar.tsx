@@ -34,11 +34,18 @@ export function DebugBar() {
         <span
           id="debug-indicator"
           className={classNames({ error: level === "error", ok: level === "ok" })}
+          aria-hidden="true"
         >
           ●
         </span>
         <span id="debug-summary">{summary}</span>
-        <button id="debug-toggle" type="button" onClick={() => setOpen((value) => !value)}>
+        <button
+          id="debug-toggle"
+          type="button"
+          aria-controls="debug-panel"
+          aria-expanded={open}
+          onClick={() => setOpen((value) => !value)}
+        >
           Debug
         </button>
       </div>
