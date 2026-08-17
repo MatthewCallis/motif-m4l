@@ -37,10 +37,10 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 
 ### 0.4 validation still required in Live
 
-- [ ] Confirm Motif/Settings tabs, enlarged contour, and Library/Info floating window in the target Max 9 / Live themes.
-- [ ] Check text wrapping and control spacing at default and HiDPI display scaling.
-- [ ] Freeze the device and verify the exact `motif-device-<hash>.js` and `motif-preview-<hash>.js` dependencies are embedded.
-- [ ] Smoke-test all controls, automation recall, pass-through modes, BPM multiplier, and tempo automation.
+- [x] Confirm Motif/Settings tabs, enlarged contour, and Library/Info floating window in the target Max 9 / Live themes.
+- [x] Check text wrapping and control spacing at default and HiDPI display scaling.
+- [x] Freeze the device and verify the exact `motif-device-<hash>.js` and `motif-preview-<hash>.js` dependencies are embedded.
+- [x] Smoke-test all controls, automation recall, pass-through modes, BPM multiplier, and tempo automation.
 
 ## 0.5 - Authoring UI
 
@@ -49,7 +49,7 @@ Status reflects the TypeScript engine and generated Max patch in this repository
 - [x] Exact Chromatic import with saved source key/scale/anchor and reversible Scale/Hybrid analysis.
 - [x] Per-note editing of degree, accidental, timing, gate, and velocity.
 - [ ] Record a played phrase and convert it into a motif.
-- [ ] Favorites in the library browser.
+- [x] Favorites in the library browser.
 
 ## 0.6 - Trigger Modes
 

@@ -157,7 +157,10 @@ export function propertyDraftFromSelected(
   };
 }
 
-/** Initial browser-local page state before the first device payload. */
+/**
+ * Initial browser-local page state before the first device payload.
+ * @returns {LibraryPageState} Initial page state.
+ */
 export function initialLibraryPageState(): LibraryPageState {
   return {
     server: null,

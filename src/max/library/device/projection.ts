@@ -85,12 +85,18 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
     browserTagMode = "or",
     alert,
   } = input;
+
+  /** Normalized browser query. */
   const normalizedQuery = browserQuery.trim().toLowerCase();
+  /** Matched motif IDs. */
   const matchedIds = new Set(store.filter(browserQuery).map((item) => item.id));
+  /** Parsed browser tags. */
   const parsedBrowserTags = normalizeTags(browserTags);
+  /** Selected tags. */
   const selectedTags = parsedBrowserTags.ok ? parsedBrowserTags.value : [];
+  /** Tag filter mode. */
   const tagMode = normalizeTagFilterMode(browserTagMode);
-  // Build lookup indexes once per projection to avoid O(N*M) repeated scans.
+  /** Build lookup indexes for folders once per projection to avoid O(N*M) repeated scans. */
   const folderById = new Map<string, string>();
   for (const item of store.list()) {
     folderById.set(item.id, library.browserFolder(item.id));

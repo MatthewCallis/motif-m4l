@@ -33,6 +33,11 @@ export interface BeginEditOptions {
   targetId?: string;
 }
 
+/**
+ * Deep clone a motif object.
+ * @param {Motif} motif The motif to clone.
+ * @returns {Motif} The cloned motif.
+ */
 function cloneMotif(motif: Motif): Motif {
   return {
     ...motif,
@@ -53,14 +58,14 @@ function cloneMotif(motif: Motif): Motif {
  * to a frozen Max for Live device.
  */
 export class MotifEditorState {
-  #edit: ActiveEdit | undefined;
+  edit: ActiveEdit | undefined;
 
   /**
    * Read an immutable summary of the current edit session.
    * @returns {EditSnapshot} The active or inactive edit snapshot.
    */
   snapshot(): EditSnapshot {
-    const edit = this.#edit;
+    const edit = this.edit;
     return edit
       ? {
           active: true,
@@ -84,7 +89,7 @@ export class MotifEditorState {
    * @returns {boolean} Whether the requested edit session is active.
    */
   isEditing(id?: string): boolean {
-    return this.#edit !== undefined && (id === undefined || this.#edit.targetId === id);
+    return this.edit !== undefined && (id === undefined || this.edit.targetId === id);
   }
 
   /**
@@ -92,7 +97,7 @@ export class MotifEditorState {
    * @returns {boolean} Whether the current edit is dirty.
    */
   isDirty(): boolean {
-    return this.#edit?.dirty ?? false;
+    return this.edit?.dirty ?? false;
   }
 
   /**
@@ -101,7 +106,7 @@ export class MotifEditorState {
    * @returns {Motif | undefined} Active editable motif.
    */
   current(store: MotifStore): Motif | undefined {
-    const targetId = this.#edit?.targetId;
+    const targetId = this.edit?.targetId;
     return targetId ? store.get(targetId) : undefined;
   }
 
@@ -113,8 +118,8 @@ export class MotifEditorState {
    * @returns {Motif | undefined} The editable motif, or undefined when editing cannot start.
    */
   begin(store: MotifStore, id: string, options: BeginEditOptions = {}): Motif | undefined {
-    if (this.#edit) {
-      return this.#edit.targetId === id ? store.get(this.#edit.targetId) : undefined;
+    if (this.edit) {
+      return this.edit.targetId === id ? store.get(this.edit.targetId) : undefined;
     }
 
     const source = store.get(id);
@@ -135,7 +140,7 @@ export class MotifEditorState {
         return undefined;
       }
 
-      this.#edit = {
+      this.edit = {
         sourceId: id,
         targetId,
         original: cloneMotif(source),
@@ -145,7 +150,7 @@ export class MotifEditorState {
       return draft;
     }
 
-    this.#edit = {
+    this.edit = {
       sourceId: options.sourceId ?? id,
       targetId: id,
       original: cloneMotif(source),
@@ -160,8 +165,8 @@ export class MotifEditorState {
    * @returns {void}
    */
   markDirty(): void {
-    if (this.#edit) {
-      this.#edit.dirty = true;
+    if (this.edit) {
+      this.edit.dirty = true;
     }
   }
 
@@ -171,7 +176,7 @@ export class MotifEditorState {
    * @returns {string | undefined} The motif id to select, or undefined when no edit is active.
    */
   cancel(store: MotifStore): string | undefined {
-    const edit = this.#edit;
+    const edit = this.edit;
     if (!edit) {
       return undefined;
     }
@@ -182,7 +187,7 @@ export class MotifEditorState {
       store.update(edit.original);
     }
 
-    this.#edit = undefined;
+    this.edit = undefined;
     return edit.sourceId;
   }
 
@@ -191,8 +196,8 @@ export class MotifEditorState {
    * @returns {string | undefined} The persisted motif id, or undefined when no edit is active.
    */
   finishSave(): string | undefined {
-    const id = this.#edit?.targetId;
-    this.#edit = undefined;
+    const id = this.edit?.targetId;
+    this.edit = undefined;
     return id;
   }
 
@@ -200,6 +205,6 @@ export class MotifEditorState {
    * Drop session bookkeeping without restoring data after deletion or reload.
    */
   abandon(): void {
-    this.#edit = undefined;
+    this.edit = undefined;
   }
 }

@@ -18,19 +18,37 @@ import { normalizeTags } from "./tags.js";
 
 /** Result of {@link validateMotif}; `motif` is present only when `valid` is true. */
 export interface ValidationResult {
+  /** Whether the motif is valid. */
   valid: boolean;
+  /** Human-readable paths of invalid fields. */
   errors: string[];
+  /** The typed motif when valid, otherwise undefined. */
   motif?: Motif;
 }
 
+/**
+ * Whether the value is a finite number.
+ * @param {unknown} value The value to check.
+ * @returns {boolean} Whether the value is a finite number.
+ */
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
+/**
+ * Whether the value is a valid pitch mode.
+ * @param {unknown} value The value to check.
+ * @returns {boolean} Whether the value is a valid pitch mode.
+ */
 function isPitchMode(value: unknown): value is PitchMode {
   return value === "scale" || value === "chromatic" || value === "hybrid";
 }
 
+/**
+ * Whether the value is a valid trigger mode.
+ * @param {unknown} value The value to check.
+ * @returns {boolean} Whether the value is a valid trigger mode.
+ */
 function isTriggerMode(value: unknown): value is TriggerMode {
   return (
     value === "one-shot" ||
@@ -42,10 +60,22 @@ function isTriggerMode(value: unknown): value is TriggerMode {
   );
 }
 
+/**
+ * Whether the value is a valid repeat rounding.
+ * @param {unknown} value The value to check.
+ * @returns {boolean} Whether the value is a valid repeat rounding.
+ */
 function isRepeatRounding(value: unknown): value is RepeatRounding {
   return value === "exact" || value === "1/4-bar" || value === "1/2-bar" || value === "1-bar";
 }
 
+/**
+ * Validate a time signature.
+ * @param {unknown} value The value to validate.
+ * @param {string} path The path to the value.
+ * @param {string[]} errors The errors to add to.
+ * @returns {boolean} Whether the value is a valid time signature.
+ */
 function validateMeter(value: unknown, path: string, errors: string[]): value is TimeSignature {
   if (!isRecord(value)) {
     errors.push(`${path} must be an object`);
@@ -66,6 +96,12 @@ function validateMeter(value: unknown, path: string, errors: string[]): value is
   return valid;
 }
 
+/**
+ * Validate a source pitch context.
+ * @param {unknown} value The value to validate.
+ * @param {string[]} errors The errors to add to.
+ * @returns {boolean} Whether the value is a valid source pitch context.
+ */
 function validateSourcePitchContext(value: unknown, errors: string[]): value is SourcePitchContext {
   const path = "sourcePitchContext";
   if (!isRecord(value)) {
@@ -120,6 +156,15 @@ function validateSourcePitchContext(value: unknown, errors: string[]): value is 
   return valid;
 }
 
+/**
+ * Validate an optional number.
+ * @param {Record<string, unknown>} record The record to validate.
+ * @param {string} field The field to validate.
+ * @param {string} path The path to the value.
+ * @param {string[]} errors The errors to add to.
+ * @param {Function} predicate The predicate to validate the number.
+ * @param {string} requirement The requirement to validate the number.
+ */
 function validateOptionalNumber(
   record: Record<string, unknown>,
   field: string,
@@ -137,6 +182,13 @@ function validateOptionalNumber(
   }
 }
 
+/**
+ * Validate a note.
+ * @param {unknown} value The value to validate.
+ * @param {number} index The index of the note.
+ * @param {string[]} errors The errors to add to.
+ * @returns {boolean} Whether the value is a valid note.
+ */
 function validateNote(value: unknown, index: number, errors: string[]): value is MotifNote {
   const path = `notes[${index}]`;
   if (!isRecord(value)) {
@@ -184,6 +236,11 @@ function validateNote(value: unknown, index: number, errors: string[]): value is
   return true;
 }
 
+/**
+ * Validate a velocity curve.
+ * @param {unknown} value The value to validate.
+ * @param {string[]} errors The errors to add to.
+ */
 function validateVelocityCurve(value: unknown, errors: string[]): void {
   if (value === undefined) {
     return;

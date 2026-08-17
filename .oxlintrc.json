@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/oxlint/configuration_schema.json",
   "plugins": ["import", "jsdoc", "node", "promise", "typescript"],
-  "jsPlugins": ["./scripts/eslint-plugin-unicode/index.ts"],
+  "jsPlugins": [],
   "options": {
     "typeAware": true
   },
@@ -17,7 +17,6 @@
     }
   },
   "rules": {
-    "unicode/no-invisible": "error",
     "curly": ["error", "all"],
     "import/namespace": "error",
     "import/default": "error",

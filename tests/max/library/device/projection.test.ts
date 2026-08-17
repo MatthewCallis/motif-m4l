@@ -8,7 +8,7 @@ import {
   buildLibraryServerState,
   type LibraryProjectionRepository,
 } from "../../../../src/max/library/device/projection.js";
-import { formatPreviewBarCount } from "../../../../src/max/library/ui/format.js";
+import { formatPreviewBarCount } from "../../../../src/max/library/ui/components/PropertyForm.tsx";
 
 const hostContext: HostContext = {
   tempo: 120,

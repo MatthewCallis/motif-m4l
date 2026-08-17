@@ -2,7 +2,6 @@
 import { midiNoteName } from "../../../../core/preview.js";
 import { pushProperties } from "../bridge.js";
 import { classNames } from "../class-names.js";
-import { formatPreviewBarCount } from "../format.js";
 import { PITCH_CLASS_NAMES, type PropertyDraft } from "../page-state.js";
 import { useLibraryStore } from "../store.js";
 import type { LibraryServerState } from "../../protocol.js";
@@ -21,6 +20,11 @@ function sourceRootLabel(raw: string): string {
   return Number.isInteger(value) && value >= 0 && value <= 11
     ? (PITCH_CLASS_NAMES[value] ?? "—")
     : "—";
+}
+
+/** Format a preview bar count without redundant decimal zeros. */
+export function formatPreviewBarCount(bars: number): string {
+  return Number.isInteger(bars) ? String(bars) : bars.toFixed(1).replace(/\.0$/, "");
 }
 
 /**

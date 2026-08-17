@@ -21,6 +21,7 @@ import {
   type PropertyDraft,
 } from "./page-state.js";
 
+/** Max bridge interface. */
 interface MaxBridge {
   outlet: (...args: unknown[]) => void;
   bindInlet?: (name: string, handler: (...values: unknown[]) => void) => void;
@@ -33,14 +34,23 @@ declare global {
   }
 }
 
+/** Pending state transfer. */
 interface PendingStateTransfer {
+  /** Transfer ID. */
   id: number;
+  /** Total number of parts. */
   total: number;
+  /** Parts of the transfer. */
   parts: string[];
+  /** Received parts. */
   received: Set<number>;
 }
 
-/** Format an arbitrary thrown value for bridge diagnostics. */
+/**
+ * Format an arbitrary thrown value for bridge diagnostics.
+ * @param {unknown} reason The thrown value.
+ * @returns {string} The formatted error text.
+ */
 function errorText(reason: unknown): string {
   return reason instanceof Error ? `${reason.name}: ${reason.message}` : String(reason);
 }
@@ -52,6 +62,7 @@ export const WORKBENCH_STATE_MESSAGE = "motif-library-workbench-state";
 /** Same-origin development message used for live sidebar layout previews. */
 export const WORKBENCH_LAYOUT_MESSAGE = "motif-library-workbench-layout";
 
+/** Native Max bridge. */
 const nativeMax = typeof window !== "undefined" ? window.max : undefined;
 /** Whether the page is running inside Max's jweb bridge instead of a normal browser. */
 export const isMax = nativeMax !== undefined && typeof nativeMax.outlet === "function";
@@ -73,9 +84,13 @@ if (typeof window !== "undefined") {
   }
 }
 
+/** Debug log entries. */
 const debugEntries: string[] = [];
+/** Latest debug level. */
 let latestDebugLevel: DebugLevel = "info";
+/** Latest debug message. */
 let latestDebugMessage = "";
+
 let stateDeadline: ReturnType<typeof setTimeout> | null = null;
 let payloadErrorSignature = "";
 let pendingStateTransfer: PendingStateTransfer | null = null;

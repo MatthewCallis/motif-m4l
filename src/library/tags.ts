@@ -9,7 +9,7 @@ export type NormalizeTagsResult = { ok: true; value: string[] } | { ok: false; e
 export type TagFilterMode = "and" | "or";
 
 /**
- * Trim, reject blanks/non-strings, and case-insensitively dedupe tags.
+ * Trim, reject blanks / non-strings, and case-insensitively dedupe tags.
  * Preserves first-seen casing. Empty input yields an empty array (omit on Motif).
  * @param {unknown} value Submitted tags value.
  * @returns {NormalizeTagsResult} Normalized tags or a validation error.

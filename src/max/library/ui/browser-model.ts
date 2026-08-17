@@ -20,6 +20,9 @@ export function isFolderCollapsed(
 /**
  * Toggle one tag in a filter or edit selection without mutating the source.
  * Matching is case-insensitive; first-seen casing is preserved when adding.
+ * @param {string} tag The tag to toggle.
+ * @param {string[]} selected The selected tags.
+ * @returns {string[]} The updated selected tags.
  */
 export function toggleTagSelection(tag: string, selected: string[]): string[] {
   const trimmed = tag.trim();
@@ -31,7 +34,12 @@ export function toggleTagSelection(tag: string, selected: string[]): string[] {
   return exists ? selected.filter((entry) => entry.toLowerCase() !== key) : [...selected, trimmed];
 }
 
-/** Add one tag if missing (case-insensitive), without mutating the source. */
+/**
+ * Add one tag if missing (case-insensitive), without mutating the source.
+ * @param {string[]} tags The tags to add to.
+ * @param {string} tag The tag to add.
+ * @returns {string[]} The updated tags.
+ */
 export function addTagSelection(tags: string[], tag: string): string[] {
   const trimmed = tag.trim();
   if (!trimmed) {
@@ -41,13 +49,25 @@ export function addTagSelection(tags: string[], tag: string): string[] {
   return tags.some((entry) => entry.toLowerCase() === key) ? [...tags] : [...tags, trimmed];
 }
 
-/** Remove one tag if present (case-insensitive), without mutating the source. */
+/**
+ * Remove one tag if present (case-insensitive), without mutating the source.
+ * @param {string[]} tags The tags to remove from.
+ * @param {string} tag The tag to remove.
+ * @returns {string[]} The updated tags.
+ */
 export function removeTagSelection(tags: string[], tag: string): string[] {
   const key = tag.trim().toLowerCase();
   return key ? tags.filter((entry) => entry.toLowerCase() !== key) : [...tags];
 }
 
-/** Suggest unused vocabulary tags matching a partial query. */
+/**
+ * Suggest unused vocabulary tags matching a partial query.
+ * @param {string[]} available The available tags.
+ * @param {string[]} applied The applied tags.
+ * @param {string} query The query to match.
+ * @param {number} limit The maximum number of suggestions.
+ * @returns {string[]} The suggested tags.
+ */
 export function suggestTags(
   available: string[],
   applied: string[],
@@ -72,7 +92,12 @@ export function suggestTags(
   return matches;
 }
 
-/** Toggle one folder without mutating the existing state. */
+/**
+ * Toggle one folder without mutating the existing state.
+ * @param {string} folder The folder to toggle.
+ * @param {Set<string>} collapsedFolders The collapsed folders.
+ * @returns {Set<string>} The updated collapsed folders.
+ */
 export function toggleCollapsedFolder(folder: string, collapsedFolders: Set<string>): Set<string> {
   const next = new Set(collapsedFolders);
   if (next.has(folder)) {
@@ -86,6 +111,9 @@ export function toggleCollapsedFolder(folder: string, collapsedFolders: Set<stri
 /**
  * Remove a redundant `Folder Name - ` prefix from one browser-row label.
  * Stored motif names, search data, details, and tooltips remain unchanged.
+ * @param {string} name The motif name.
+ * @param {string} folder The folder name.
+ * @returns {string} The formatted motif name.
  */
 export function libraryBrowserDisplayName(name: string, folder: string): string {
   const folderSegments = folder.split(/[\\/]/);
