@@ -60,11 +60,11 @@ The observer values may be forwarded to TypeScript for motif calculations, but t
 
 **Exception - clip import only:** `import_clip` may use JavaScript `LiveAPI` to read the selected Detail View clip (`detail_clip` / `highlighted_clip_slot clip`) via the current `get_notes_extended` API. Construct it with the documented `(callback?, path?)` signature. Do not use LiveAPI for Song tempo/key/scale/meter/transport sync and do not restore the retired `get_notes` fallback.
 
-## MIDI safety
+## MIDI Safety
 
 MIDI input must remain fail-open until the engine reports `Ready`. Non-note MIDI should bypass JavaScript. Do not remove the validator assertions around `midiin`, the startup gate, `midiselect`, `midiflush`, and `midiout`.
 
-## UI constraints
+## UI Constraints
 
 - Presentation Mode must be enabled.
 - Device width is fixed at 475px by the patch generator.
@@ -83,9 +83,9 @@ MIDI input must remain fail-open until the engine reports `Ready`. Non-note MIDI
 
 ## Adding built-in motifs
 
-Phrase JSON under `motifs/builtin/` - follow [add-motif](../add-motif/SKILL.md). Do not hand-edit `src/generated/builtins.ts`.
+Phrase JSON under `motifs/builtin/`. Do not hand-edit `src/generated/builtins.ts`.
 
-## Required verification
+## Required Verification
 
 Run before sharing any patch or JavaScript file:
 
@@ -104,4 +104,4 @@ The verification must cover:
 - Presentation bounds
 - content-addressed dependencies and absence of stale/stable-name leftovers
 
-Do not replace a runtime under the same filename. Rebuild and copy the generated patch plus its newly hashed dependencies together, then close and reopen the device.
+Do not replace a runtime under the same filename. Rebuild and copy the generated patch plus its newly hashed dependencies together.

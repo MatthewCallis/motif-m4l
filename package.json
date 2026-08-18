@@ -1,6 +1,6 @@
 {
   "name": "motif-m4l",
-  "version": "0.3.8",
+  "version": "1.0.0",
   "private": true,
   "description": "A scale-aware, triggerable motif engine for Max for Live.",
   "type": "module",

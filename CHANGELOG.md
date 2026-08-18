@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.0.0
 
 - Add motif-owned Trigger Mode and upward hold-repeat rounding, plus device-level `Motif`/explicit overrides. Existing motifs fall back to one-shot and exact length; the bundled turn motifs advance repeats to the next one-bar boundary without overlapping their source length.
 - Added the native content-addressed `jsui` / MGraphics preview with timing, duration, pitch range, exact note names, and clickable diagnostics.

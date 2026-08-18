@@ -1,101 +1,189 @@
 # Motif for Max for Live
 
-A scale-aware MIDI phrase trigger written in TypeScript. Ableton Live Song state is observed by native Max for Live objects; TypeScript handles motif selection, pitch mapping, preview generation, and MIDI compilation.
+![Motif device in Ableton Live](docs/Max%20Device.png)
 
-## Current focus
+Motif is a scale-aware MIDI phrase launcher for Ableton Live. Play a note to trigger a saved phrase starting from that pitch and Motif can preserve the phrase's exact intervals or adapt it to the Live Set's current scale. It is designed for performance, variation, and quickly turning MIDI clips into a reusable phrase library.
 
-- Native `live.path live_set` and `live.observer` synchronization for tempo, scale, meter, transport, and song position.
-- Fail-open native MIDI routing: raw MIDI passes while the engine starts, then `midiselect` extracts notes while preserving unrelated MIDI bytes.
-- Compact 475 × 169 Presentation Mode UI with Motif/Settings tabs, Ableton Sans, and Live theme colors.
-- Native `jsui` phrase contour preview plus exact note names beside the current root/scale, with a device-local BPM multiplier.
-- Floating Library window: recursively grouped/searchable folders, MIDI hot-key assignments, Live clip import, per-note editor, Save, plus description/stats and library Choose/Refresh.
-- Clue-window annotations and locked-patcher hints on every interactive control.
-- Content-addressed runtime filenames so Max cannot silently reuse an older frozen JavaScript dependency.
+## Use Cases
 
-## Build
+- Play complete melodies, arpeggios, fills, and rhythmic figures from a single MIDI note.
+- Reuse one phrase in different keys and scales without editing the original notes.
+- Build performance zones where different keys select or immediately trigger specific motifs.
+- Import ideas from Live MIDI clips, refine the parameters in the editor, and save them as JSON motifs.
+- Create variations in real time with inversion, reversal, launch quantization, meter fitting, and tempo multiplication.
+
+## Features
+
+- **Scale-aware pitch mapping.** Choose the motif's saved pitch mode or override it with Scale, Chromatic, or Hybrid playback.
+- **Live Set synchronization.** Tempo, Current Scale, time signature, transport, and song position follow Live automatically.
+- **Visual preview.** See note timing, duration, contour, and resulting note names before playing the phrase.
+- **Non-destructive transforms.** Invert pitch offsets or reverse note timing without changing the saved motif.
+- **Performance controls.** Configure trigger lifecycle, launch quantization, hold-repeat rounding, retrigger behavior, trigger zone, MIDI pass-through, meter handling, and a device-local BPM multiplier.
+- **Library and authoring window.** Search nested folders, filter by tags, import the selected Live MIDI clip, edit motif properties and individual notes, and save user motifs.
+- **MIDI hot keys.** Assign a note to play a particular motif immediately or select it for later trigger-zone notes.
+- **Safe MIDI routing.** Non-note MIDI passes through unchanged, notes can pass according to the selected policy, and Panic clears scheduled events and releases held notes.
+- **Live Set recall.** Device parameters, motif selection, hot-key assignments, and the chosen library folder are restored with the saved Ableton Live Set.
+
+### Pitch Modes
+
+| Mode      | Behavior                                                                         |
+| --------- | -------------------------------------------------------------------------------- |
+| Scale     | Stores scale-degree movement and maps it through Live's current scale.           |
+| Chromatic | Preserves exact semitone offsets and ignores Live's current scale.               |
+| Hybrid    | Maps scale degrees while retaining chromatic alterations from the source phrase. |
+
+The device's **Motif** pitch choice uses the mode saved with the selected phrase. Scale and Hybrid motifs also retain their source root, scale, intervals, and anchor so conversion does not depend on whichever target scale happens to be active later.
+
+![Motif Library and authoring window](docs/Library%20Window.png)
+
+## Installation
+
+Motif requires Ableton Live 11 or later with Max for Live. Live 11's note API is required for MIDI clip import.
+
+1. Download `Motif.amxd` into your Ableton User Library, or keep it anywhere Live can access.
+2. Drag **Motif** onto a MIDI track before an instrument.
+3. Play a note in the trigger zone. The default zone is MIDI notes 36–84 (C1–C5 using Live's octave names).
+
+The two built-in motifs work immediately. To use your own library, open **Info**, choose a folder for motif JSON files, and use **Import Clip** or edit a built-in motif to create a user copy. Clip import reads the MIDI clip open in Detail View, falling back to the highlighted MIDI clip slot.
+
+---
+
+## Development
+
+### Prerequisites
+
+- Node.js v26
+- `npm`
+- Ableton Live with Max for Live for device packaging and in-host testing
+
+Install dependencies and build the generated Max assets:
 
 ```bash
 npm install
-npm run verify
+npm run build
 ```
 
-`verify` type-checks the TypeScript, rebuilds generated files, runs the test suite, executes the compiled Max runtime in a VM, and validates the native MIDI graph, Song observers, dependency list, help metadata, and all 475×169 Presentation bounds.
+The build reads the built-in motif JSON and the TypeScript, HTML, CSS, and preview sources, then writes:
 
-Every Max object, JavaScript runtime call, jweb bridge method, and Live Object Model call is inventoried against its official Cycling ’74 reference in [`MAX-DOCUMENTATION.md`](MAX-DOCUMENTATION.md). The verification suite fails if the generated patch introduces an undocumented surface.
+| Output File                   | Purpose                                                                                                        |
+| ----------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `src/generated/builtins.ts`   | Generated TypeScript representation of `motifs/builtin/*.json`, the built in Motifs.                           |
+| `max/Motif.maxpat`            | Complete generated Max patch with the current runtime filenames.                                               |
+| `max/motif-device-<hash>.js`  | Minified TypeScript engine for Max's `v8` object, powers the library and playback.                             |
+| `max/motif-preview-<hash>.js` | Minified ES5-compatible renderer for Max's `jsui` object for the note preview in Ableton.                      |
+| `max/library.html`            | Self-contained production Library page used for inspection and validation and embedded into the engine bundle. |
 
-Production performance work is tracked in [`OPTIMIZATION-PLAN.md`](OPTIMIZATION-PLAN.md), including the current artifact-size baseline, MIDI hot-path findings, and release gates.
+Runtime JavaScript filenames are derived from their content. A normal build removes stale hashes; use `npm run clean && npm run build` when you want to recreate every generated artifact.
 
-Source-aware pitch behavior and its implementation contract are documented in [`SCALE-MODE-PLAN.md`](SCALE-MODE-PLAN.md).
+`max/Motif.amxd` is preserved because only Max can write the packaged device container.
 
-Use `npm run clean && npm run build` to remove and recreate every generated runtime artifact. A normal build already removes stale content-addressed runtimes. The Library uses `src/max/library.html` as its markup template, `src/max/library.ts` as its typed browser controller, and `src/max/library.css` as its stylesheet. The build compiles the controller to an ES2018 browser IIFE, minifies the JavaScript and CSS, compresses the markup, and writes the self-contained result to `max/library.html` before embedding that exact page in the Max engine. Cleaning preserves `max/Motif.amxd` and `max/INSTALL.md`.
+### Library UI Workbench
 
-Before distribution, freeze and save the device in Max, then run `npm run verify:release`. The release check inspects the packaged `.amxd` as well as the generated patch and refuses stale embedded hashes, retired handlers, or obsolete Live API calls.
-
-## Library workbench
-
-Run the Library UI directly in a browser while editing its production HTML, CSS, and TypeScript:
+Run the production Library UI in a browser for easier testing and development without opening Live or Max:
 
 ```bash
 npm run dev:library
 ```
 
-The workbench opens the real Library page in an isolated, resizable viewport. Its fixture menu covers normal, editing, large-table, long-content, scanning, empty, and warning states; common authoring actions are handled locally and recorded in the action log.
+The workbench loads the actual code from `src/max/library/ui/` inside a resizable viewport and supplies a simulated `window.max` bridge. The fixtures cover normal, editing, large-note-table, long-content, scanning, empty-library, and warning states. Authoring actions are handled locally and shown in the action log.
 
-Use **Save to JSON** to persist the current viewport dimensions and sidebar constraints to `config/library-window.json`. Sidebar edits are previewed immediately in the iframe. The Max build reads the same configuration for the Library layout, floating patcher, `jweb`, and window-size messages. Run `npm run build` after saving to regenerate the production artifacts.
+Viewport and sidebar changes are previewed immediately. **Save to JSON** writes the selected dimensions and constraints to `config/library-window.json` that the Max patch generator reads for the floating patcher and `jweb` layout. Run `npm run build` afterward to update the production artifacts.
 
-## Development files
+![Motif Library Workbench](docs/Motif%20Library%20Workbench.png)
 
-Keep these files together while editing the device:
+### How Motif Interacts with Max and Ableton Live
 
-```text
-Motif.maxpat
-motif-device-<content-hash>.js
-motif-preview-<content-hash>.js
+```mermaid
+flowchart LR
+    Live["Ableton Live Song"] -->|"live.path + live.observer"| Patch["Motif Max Patch"]
+    Patch -->|"song_context"| Engine["TypeScript Engine in v8"]
+    Input["MIDI input"] --> Gate["Fail-Open Gate + midiselect"]
+    Gate -->|"Notes"| Engine
+    Gate -->|"Unselected Raw MIDI"| Output["MIDI Output"]
+    Clip["Selected Live MIDI Clip"] -->|"LiveAPI (Import Clip only)"| Engine
+    Library["Library UI in jweb"] <-->|"Encoded Actions & State"| Engine
+    Engine -->|"Timed Note Events"| Pipe["Native Max pipe"]
+    Pipe --> Output
+    Engine -->|"Preview State"| Preview["Native jsui Preview"]
 ```
 
-`npm run build` minifies both JavaScript runtimes, creates content-addressed files, and writes their exact names into `Motif.maxpat`. The `max/` output intentionally contains no stable-name JavaScript or standalone HTML copies: only the two files referenced by the generated patch belong beside it. Open an existing Max MIDI Effect using **Edit in Max**, replace every old patch object with the contents of `Motif.maxpat`, and save. Max sees new JavaScript content as a new dependency instead of reusing a frozen file with the same name. Freeze the device after confirming the engine says `Ready`, Live scale updates, the preview renders, and MIDI reaches the following instrument.
+#### Song State
 
-## Host behavior
+The patch observes nine Live `Song` properties with native `live.path live_set` and `live.observer` objects:
 
-- Tempo, Current Scale root/name/mode, Set meter, and transport state update directly from native Song observers.
-- Root and scale name are Song-driven, non-clickable `live.menu` displays; the device has no BPM readout.
-- Changing root, scale, pitch mode, meter mode, motif, Invert, or Reverse recalculates the preview.
-- The latched Invert button mirrors relative pitch offsets around zero; Reverse mirrors note spans across the phrase length. Both affect playback and preview without modifying saved motif JSON.
-- Playing a trigger note moves the preview anchor to that note, so the displayed note names match the next phrase transposition.
-- Host displays continue to work independently of the TypeScript engine.
+- tempo
+- root note
+- scale mode
+- scale intervals
+- scale name
+- time-signature numerator
+- time-signature denominator
+- transport state
+- current song time
 
-## Pitch modes and source scales
+Root and scale also update the read-only device displays directly. Each value is normalized to `song_context <property> <value...>`, and passed through `deferlow`, and sent to the TypeScript engine for compilation, MIDI scheduling calculations, and note preview generation.
 
-- Every motif stores the original anchor MIDI note, scale root, scale name, and authoritative scale intervals in `sourcePitchContext` while remaining schema version 1.
-- Chromatic stores exact semitone offsets and ignores Live's scale.
-- Scale stores scale-degree offsets and maps them through Live's current root and `scale_intervals`. Retained source accidentals are ignored, so output remains in the target scale.
-- Hybrid uses the same scale degrees and retained chromatic alterations. At playback it may respell a note against one neighboring source degree when a single accidental produces a target pitch closer to the imported chromatic contour; the stored canonical spelling wins ties.
-- Scale/Hybrid conversion uses the motif's saved source context, never whichever target scale Live currently displays.
-- Off-scale Scale/Hybrid triggers resolve to the nearest target-scale anchor; equidistant ties prefer the lower note.
+Continuous host synchronization deliberately stays in native Max objects. This keeps the visible host state independent of the JavaScript engine and avoids polling or maintaining a persistent JavaScript `LiveAPI` object. `LiveAPI` is created only when **Import Clip** needs `get_notes_extended` for the currently selected MIDI clip.
 
-## MIDI behavior
+#### MIDI & Scheduling
 
-- Before the JavaScript engine reports `Ready`, all raw MIDI bypasses it and passes directly to `midiout`.
-- After `Ready`, `midiselect @ch all @note all` extracts notes for motif processing.
-- The eighth `midiselect` outlet passes controllers, bend, pressure, program changes, and other unselected raw MIDI directly to `midiout`.
-- The default `non-triggers` policy consumes notes inside the trigger zone and passes notes outside it.
-- Library MIDI hot keys map individual trigger notes to specific motifs. A mapped note remains a trigger even when it is outside the global trigger zone.
-- Motifs can save their own Trigger Mode; legacy and newly imported motifs default to `one-shot`. The Settings Trigger menu defaults to `motif` and can override that lifecycle device-wide.
-- Motifs can also save `exact`, `1/4-bar`, `1/2-bar`, or `1-bar` repeat rounding. The Settings Repeat menu defaults to `motif`; rounding advances hold-repeat to the next selected boundary, never shortens the phrase, and never rewrites or truncates notes.
+`midiin` starts on a fail-open path, so MIDI reaches the next device while the engine initializes. After the engine emits `status Ready`, `midiselect @ch all @note all` sends notes to the engine while controllers, pitch bend, pressure, program changes, and other unselected MIDI bytes continue directly to `midiout`.
 
-## User library
+The TypeScript engine resolves trigger behavior, compiles motif notes, and emits `event <pitch> <velocity> <channel> <delayMs>`. Native Max `pipe`, `midiformat`, and `midiflush` handle timed output and cleanup. This division keeps pitch and phrase logic testable in TypeScript while leaving time-critical event delivery to Max.
 
-- Choose a root library folder from the floating Library window before importing clips. Every `.json` motif beneath it is discovered recursively in bounded background batches so large folder trees do not lock the Max UI.
-- Built-in motifs stay at the top inside the browser's `Library` group instead of using a separate Built-ins folder. Relative user folders are naturally sorted, shown as searchable groups, and can be found by path (for example, searching `Bass/Fills`).
-- Folder groups can be collapsed to keep large libraries compact; active searches temporarily expand matching groups.
-- Editing an existing motif saves it back to its original subfolder. New motifs are saved at the chosen library root.
-- Motif ids must remain unique across the entire folder tree; duplicate ids are skipped with an error naming the conflicting relative path.
-- MIDI hot keys are entered and displayed as Ableton-style note names such as `C3`, `F♯2`, or `Bb4` rather than raw MIDI numbers. Each mapping either triggers its motif using the resolved motif/device Trigger Mode or selects that motif for subsequent trigger-zone notes.
-- Motifs and Live clip imports support up to 512 editable notes. The Notes panel is one scrollable table; Library state is transported to jweb in size-aware bounded chunks and assembled before rendering so motifs and large catalogs remain editable without exceeding Max’s message capacity. Longer clips receive an actionable warning to shorten or split the phrase.
-- Live clips always import as exact Chromatic motifs and snapshot Live's current source root, scale name, intervals, and the earliest-onset/lowest-note anchor. The standalone MIDI converter also preserves exact Chromatic offsets and defaults its source context to C Major when the caller does not supply one. Changing Pitch Mode later performs source-aware Scale or Hybrid analysis without depending on the current target scale.
+#### Library, Note Preview, and Persistence
 
-## Max JavaScript message boundary
+The Library uses `jweb` because I found the Motif search & editing are better represented as a structured browser UI. The build embeds its self-contained HTML in the engine and at runtime the engine materializes that page in Max's temporary folder and loads it with `jweb readfile`, so the frozen device does not require a separate HTML dependency. Library state is URL-encoded and split into bounded chunks before crossing the Max-to-browser message boundary.
 
-The generated `motif-device-<content-hash>.js` intentionally exposes only one top-level Max function: `anything()`. It uses Max's global `messagename` and `arrayfromargs(arguments)` values, then forwards the message to the TypeScript engine's `dispatch()` function. This avoids relying on bundler-generated global functions for selectors such as `song_context`.
+The compact device preview stays in native `jsui` / MGraphics rather than HTML, avoiding a web renderer in Live's device chain. User-facing controls are parameter-enabled `live.*` objects so Live owns automation and Set recall. Stable motif IDs, MIDI hot keys, and the user-library path are stored in hidden `pattr` blobs rather than menu indexes.
 
-Do not replace JavaScript inside an open device. Rebuild and copy the regenerated patch; its new hashed dependency name forces Max to load the new engine.
+The Max runtime exposes one global handler, `anything()`, which forwards `messagename` and `arrayfromargs(arguments)` to the engine's typed `dispatch()` function. Keeping this bridge outside the bundled IIFE is necessary because Max cannot discover bundler-scoped selector functions. Content-addressed runtime filenames ensure that rebuilding produces a new Max dependency instead of silently reusing cached JavaScript with an older filename.
+
+### Updating the Packaged Device
+
+`npm run build` generates a `.maxpat`, not a distributable `.amxd`. To move a build into the packaged device:
+
+1. Keep `max/Motif.maxpat` and its two referenced hashed JavaScript files together.
+2. Open `max/Motif.amxd` in Live and choose **Edit in Max**.
+3. Unlock both patchers.
+4. Select everything in `max/Motif.maxpat` and copy
+5. Select everything in `max/Motif.amxd` and delete, then paste what we copied to replace the packaged device's objects with the contents of `Motif.maxpat` and save in Max.
+6. Remove and re-add the device in Live. Confirm that the preview renders, Live's scale updates, the engine reaches `Ready`, and MIDI reaches the following instrument.
+7. [Freeze and save the device](https://docs.cycling74.com/userguide/m4l/live_freezing/) so Max embeds the exact hashed dependencies.
+8. Run `npm run verify:release` before distribution.
+
+Do not rename `Motif.maxpat` to `.amxd`, and do not replace JavaScript under an existing filename while the device is open. Rebuild and use the newly generated patch and hashes together.
+
+### Verification & Utilities
+
+| Command                                                       | Purpose                                                                                                  |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| `npm run check`                                               | Type-check the device, Library UI, and workbench TypeScript projects.                                    |
+| `npm run test:unit`                                           | Run the fast unit suite without a production build or coverage.                                          |
+| `npm test`                                                    | Build and run the full test suite with coverage.                                                         |
+| `npm run validate:max`                                        | Validate the generated patch graph, UI bounds, handlers, dependencies, and embedded Library output.      |
+| `npm run verify`                                              | Format, lint, type-check, build, test, execute the compiled runtime in a VM, and validate the Max patch. |
+| `npm run verify:release`                                      | Run the full verification suite and inspect the packaged `.amxd`.                                        |
+| `npm run midi:import -- input.mid output.json`                | Convert a Standard MIDI File to a Chromatic motif.                                                       |
+| `npm run midi:export -- input.json output.mid [triggerPitch]` | Render a motif to a Standard MIDI File; the trigger pitch defaults to MIDI 60.                           |
+
+### Repository Layout
+
+| Path                        | Contents                                                                             |
+| --------------------------- | ------------------------------------------------------------------------------------ |
+| `src/core/`                 | Pure motif transformation, timing, pitch mapping, compilation, and preview logic.    |
+| `src/library/`              | Motif validation, authoring, tags, and in-memory storage.                            |
+| `src/max/`                  | Max runtime, Live API boundary, playback controller, Library bridge, and Library UI. |
+| `scripts/`                  | Build, Max patch generation / validation, cleanup, and MIDI conversion tools.        |
+| `motifs/builtin/`           | Built-in motif JSON files compiled into the device.                                  |
+| `schemas/motif.schema.json` | Motif v1 JSON Schema.                                                                |
+| `tests/`                    | Unit, integration, generated-patch, browser UI, and runtime contract tests.          |
+| `docs/`                     | Focused installation, debugging, and Max API reference notes.                        |
+
+### Additional Technical References
+
+- [Max object, JavaScript, jweb, and Live API inventory](docs/MAX-DOCUMENTATION.md)
+- [Host Synchronization Debugging](docs/HOST-SYNC.md)
+- [MIDI Routing Debugging](docs/MIDI-DEBUG.md)
+- [UI Debugging](docs/UI-DEBUG.md)
+- [Motif JSON Schema](schemas/motif.schema.json)
