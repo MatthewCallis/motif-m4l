@@ -64,6 +64,13 @@ type Patcher = {
 };
 
 const DEVICE_HEIGHT = 169;
+const packageMetadata = JSON.parse(await readFile("package.json", "utf8")) as {
+  version?: unknown;
+};
+assert.ok(
+  typeof packageMetadata.version === "string" && packageMetadata.version.length > 0,
+  "package.json must contain a version",
+);
 const libraryWindow = await readLibraryWindowConfig();
 const libraryWindowSizeMessage = `window size ${libraryWindow.width} ${libraryWindow.height}`;
 const patch = (JSON.parse(await readFile("max/Motif.maxpat", "utf8")) as { patcher: Patcher })
@@ -259,6 +266,22 @@ assert.ok(
 );
 assert.equal(byVarname("page-tab")?.maxclass, "live.tab", "Motif/Settings page tabs are required");
 assert.equal(byVarname("page-tab")?.livemode, 1, "page tabs must enable Live mode");
+assert.equal(
+  byVarname("version-label")?.text,
+  `Version ${packageMetadata.version}`,
+  "Settings must show the package.json version",
+);
+assert.equal(byVarname("author-label")?.text, "Matthew Callis", "Settings must show the author");
+const githubButton = byVarname("github-button");
+const githubLaunchMessage = byText(
+  "; max launchbrowser https://github.com/MatthewCallis/motif-m4l",
+);
+assert.equal(githubButton?.maxclass, "live.text", "Settings must include a GitHub button");
+assert.equal(githubButton?.parameter_enable, 0, "GitHub must not become a Live parameter");
+assert.ok(
+  hasLine(githubButton, 0, githubLaunchMessage, 0),
+  "GitHub button must open the repository in the default browser",
+);
 assert.equal(
   byVarname("tempo-mult-menu")?.maxclass,
   "live.menu",

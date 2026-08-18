@@ -47,6 +47,12 @@ This is the production Max surface used by Motif. Every generated object, Max Ja
 | `uzi`                                             | [uzi](https://docs.cycling74.com/reference/uzi/)                         |
 | `v8`                                              | [v8](https://docs.cycling74.com/reference/v8/)                           |
 
+## Max Application Messages
+
+| Surface         | Official documentation                                                                                             |
+| --------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `launchbrowser` | [Controlling Max with Messages](https://docs.cycling74.com/userguide/controlling_max_with_messages/#launchbrowser) |
+
 ## Max JavaScript Runtime
 
 | Surface                                                                                                  | Official documentation                                           |

@@ -40,6 +40,8 @@ import { readLibraryWindowConfig } from "./library-window-config.js";
 
 const WIDTH = 475;
 const FONT = "Ableton Sans";
+const AUTHOR = "Matthew Callis";
+const REPOSITORY_URL = "https://github.com/MatthewCallis/motif-m4l";
 const INITIAL_DEVICE_STATE = encodeURIComponent(
   JSON.stringify({ schemaVersion: 1, selectedMotifId: "scale-turn", hotkeys: [] }),
 );
@@ -48,6 +50,8 @@ const INITIAL_DEVICE_STATE = encodeURIComponent(
 export interface MaxRuntimeArtifacts {
   engineFilename: string;
   previewFilename: string;
+  /** User-facing version read from package.json by the build. */
+  version: string;
 }
 
 /** Fixed RGBA values for non-`live.*` UI. Live owns the theme of `live.*` objects. */
@@ -118,7 +122,6 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   const libraryWindow = await readLibraryWindowConfig();
   const libraryWindowSizeMessage = `window size ${libraryWindow.width} ${libraryWindow.height}`;
   const builder = new MaxPatchBuilder({ fontName: FONT, colors: COLORS });
-  const { boxes, lines } = builder;
   const {
     addBox: add,
     addObject: object,
@@ -132,6 +135,8 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     addLiveTextButton: uiButton,
     addPatchComment: patchComment,
     addJsuiPreview: uiPreview,
+    boxes,
+    lines,
     connect,
     wireTabVisibility,
   } = builder;
@@ -303,6 +308,19 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   // Settings tab (initially hidden) - same 8px vertical rhythm
   const settingsHidden = { hidden: 1 } as const;
 
+  uiLiveComment("version-label", `Version ${runtime.version}`, [104, 5, 82, 18], settingsHidden);
+  uiLiveComment("author-label", AUTHOR, [190, 5, 128, 18], settingsHidden);
+  uiButton(
+    "github-button",
+    "GitHub Repository",
+    [322, 4, 145, 20],
+    {
+      name: "Motif GitHub Repository",
+      description: `Open ${REPOSITORY_URL} in the default browser.`,
+    },
+    settingsHidden,
+  );
+
   uiComment("trigger-label", "Trigger", [8, 30, 80, 16], { fontsize: 10, ...settingsHidden });
   uiComment("quant-label", "Launch", [8, 52, 80, 16], { fontsize: 10, ...settingsHidden });
   uiComment("pass-label", "MIDI Pass", [8, 74, 80, 16], { fontsize: 10, ...settingsHidden });
@@ -441,6 +459,9 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     "scale-name-display",
   ];
   const SETTINGS_BOXES = [
+    "version-label",
+    "author-label",
+    "github-button",
     "trigger-label",
     "trigger-menu",
     "quant-label",
@@ -1022,6 +1043,13 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   object("low-prepend", "prepend trigger_low", COL.controls + 480, CTL_Y + ROW, 150);
   object("high-prepend", "prepend trigger_high", COL.controls + 720, CTL_Y + ROW, 150);
   message("panic-message", "panic", COL.controls + 980, CTL_Y + ROW, 60);
+  message(
+    "github-launch-message",
+    `; max launchbrowser ${REPOSITORY_URL}`,
+    COL.controls + 980,
+    CTL_Y + ROW * 2,
+    430,
+  );
 
   connect("motif-menu", 1, "motif-prepend", 0);
   connect("motif-prepend", 0, "v8", 0);
@@ -1052,6 +1080,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect("high-prepend", 0, "v8", 0);
   connect("panic-button", 0, "panic-message", 0);
   connect("panic-message", 0, "v8", 0);
+  connect("github-button", 0, "github-launch-message", 0);
 
   // Live restores Parameter Mode values before live.thisdevice. Explicitly
   // output the restored values after initialization rather than overwriting

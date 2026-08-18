@@ -103,6 +103,9 @@ describe("Motif Max patch integration", () => {
   it("generates a compact Max 9 device with Motif/Settings tabs and native preview", async () => {
     const libraryWindow = await readLibraryWindowConfig();
     const libraryWindowSizeMessage = `window size ${libraryWindow.width} ${libraryWindow.height}`;
+    const packageMetadata = JSON.parse(await readFile("package.json", "utf8")) as {
+      version: string;
+    };
     const patcher = await readPatch();
     const { boxes, lines } = patcher;
     const dependencyNames = patcher.dependency_cache.map(({ name }) => name);
@@ -161,6 +164,20 @@ describe("Motif Max patch integration", () => {
     expect(texts.includes("pcontrol")).toBeTruthy();
     expect(texts.includes("p library-info")).toBeTruthy();
     expect(texts.includes("prepend tempo_multiplier")).toBeTruthy();
+    expect(boxByVarname(boxes, "version-label")?.text).toBe(`Version ${packageMetadata.version}`);
+    expect(boxByVarname(boxes, "author-label")?.text).toBe("Matthew Callis");
+    const githubButton = boxByVarname(boxes, "github-button");
+    const githubLaunchMessage = boxByText(
+      boxes,
+      "; max launchbrowser https://github.com/MatthewCallis/motif-m4l",
+    );
+    expect(githubButton?.maxclass).toBe("live.text");
+    expect(githubButton?.parameter_enable).toBe(0);
+    expect(
+      githubButton &&
+        githubLaunchMessage &&
+        hasLine(lines, githubButton, 0, githubLaunchMessage, 0),
+    ).toBeTruthy();
     for (const property of [
       "tempo",
       "root_note",

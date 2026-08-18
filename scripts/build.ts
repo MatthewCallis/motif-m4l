@@ -43,6 +43,19 @@ export const BUILTIN_MOTIFS = ${JSON.stringify(motifs, null, 2)} as const satisf
 }
 
 /**
+ * Read the user-facing device version from package metadata.
+ * @param {string} source Raw package.json contents.
+ * @returns {string} The non-empty package version embedded in the generated Max UI.
+ */
+function packageVersionFrom(source: string): string {
+  const metadata = JSON.parse(source) as { version?: unknown };
+  if (typeof metadata.version !== "string" || metadata.version.trim() === "") {
+    throw new Error("package.json must contain a non-empty version");
+  }
+  return metadata.version;
+}
+
+/**
  * Top-level Max `v8` entry: route every unknown selector through MotifEngine.dispatch.
  * Uses Max globals `messagename` and `arrayfromargs` - not `this.messagename`.
  * @see https://docs.cycling74.com/apiref/js/jsthis/#anything
@@ -138,27 +151,30 @@ async function listTypeScriptModules(directory: string): Promise<string[]> {
 
 await generateBuiltins();
 
-const [libraryTemplate, libraryStyleSource, previewSource, libraryBuild] = await Promise.all([
-  readFile("src/max/library/ui/index.html", "utf8"),
-  readFile("src/max/library/ui/styles.css", "utf8"),
-  readFile("src/max/motif-preview.js", "utf8"),
-  build({
-    entryPoints: ["src/max/library/ui/main.ts"],
-    bundle: true,
-    format: "iife",
-    platform: "browser",
-    // Max's jweb is Chromium-based. ES2018 avoids newer syntax while retaining
-    // standard DOM APIs available across supported Max releases.
-    target: "es2018",
-    jsx: "automatic",
-    jsxImportSource: "preact",
-    write: false,
-    metafile: true,
-    minify: true,
-    sourcemap: false,
-    legalComments: "none",
-  }),
-]);
+const [libraryTemplate, libraryStyleSource, previewSource, packageSource, libraryBuild] =
+  await Promise.all([
+    readFile("src/max/library/ui/index.html", "utf8"),
+    readFile("src/max/library/ui/styles.css", "utf8"),
+    readFile("src/max/motif-preview.js", "utf8"),
+    readFile("package.json", "utf8"),
+    build({
+      entryPoints: ["src/max/library/ui/main.ts"],
+      bundle: true,
+      format: "iife",
+      platform: "browser",
+      // Max's jweb is Chromium-based. ES2018 avoids newer syntax while retaining
+      // standard DOM APIs available across supported Max releases.
+      target: "es2018",
+      jsx: "automatic",
+      jsxImportSource: "preact",
+      write: false,
+      metafile: true,
+      minify: true,
+      sourcemap: false,
+      legalComments: "none",
+    }),
+  ]);
+const packageVersion = packageVersionFrom(packageSource);
 const libraryScript = libraryBuild.outputFiles?.[0]?.text;
 if (libraryScript === undefined) {
   throw new Error("esbuild did not produce the Library browser bundle");
@@ -249,5 +265,5 @@ await Promise.all([
 await writeFile("max/library.html", libraryHtml);
 await writeFile(path.join("max", engineFilename), output);
 await writeFile(path.join("max", previewFilename), preview);
-await generateMaxPatch({ engineFilename, previewFilename });
+await generateMaxPatch({ engineFilename, previewFilename, version: packageVersion });
 await rm("max/motif-device.js.map", { force: true });
