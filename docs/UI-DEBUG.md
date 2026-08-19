@@ -2,7 +2,7 @@
 
 - Presentation dimensions are fixed at 475 × 169.
 - Motif and Settings pages share that area via `live.tab` (Live mode) and `thispatcher` hide/show scripting.
-- Root and scale name are Song-driven, non-clickable `live.menu` displays; BPM and status readouts are absent. BPM × is a separate device-local `live.menu`.
+- With Scale off, root and scale name are disabled, Song-driven `live.menu` displays. With Scale on, the same visible menus proxy the stored device-local override parameters. BPM and status readouts are absent; BPM × is a separate device-local `live.menu`.
 - The pitch contour uses the content-addressed native `jsui` / MGraphics renderer; there is no `v8ui`, Jitter, or HTML preview dependency in the device view.
 - Encoded `receiveData` payloads provide note timing, duration, pitch range, and exact note names to the renderer.
 - Exact note names appear in the renderer footer above the Live root/scale row.

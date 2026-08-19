@@ -39,6 +39,12 @@ export interface MotifHandlers {
   motif: (id: string) => void;
   /** Set or clear the performance pitch-mode override. */
   pitch_mode: (mode: string) => void;
+  /** Choose whether Motif uses its device-local scale instead of Live's scale. */
+  scale_override: (value: string | number | boolean) => void;
+  /** Set the root pitch class used by the device-local scale. */
+  scale_override_root: (value: string | number) => void;
+  /** Set the named scale used by the device-local scale. */
+  scale_override_name: (...values: unknown[]) => void;
   /** Set non-destructive pitch inversion. */
   invert: (value: string | number | boolean) => void;
   /** Set non-destructive note-order reversal. */

@@ -256,11 +256,63 @@ describe("Motif Max patch integration", () => {
     expect(rootDisplay?.maxclass).toBe("live.menu");
     expect(rootDisplay?.parameter_enable).toBe(1);
     expect(rootDisplay?.saved_attribute_attributes?.valueof?.parameter_invisible).toBe(2);
-    expect(rootDisplay?.ignoreclick).toBe(1);
+    expect(rootDisplay?.ignoreclick).toBe(0);
     const scaleNameDisplay = boxByVarname(boxes, "scale-name-display");
     expect(scaleNameDisplay?.maxclass).toBe("live.menu");
-    expect(scaleNameDisplay?.ignoreclick).toBe(1);
+    expect(scaleNameDisplay?.parameter_enable).toBe(1);
+    expect(scaleNameDisplay?.ignoreclick).toBe(0);
     expect(scaleNameDisplay?.saved_attribute_attributes?.valueof?.parameter_invisible).toBe(2);
+    const scaleButton = boxByVarname(boxes, "scale-button");
+    expect(scaleButton?.maxclass).toBe("live.text");
+    expect(scaleButton?.text).toBe("Scale");
+    expect(scaleButton?.mode).toBe(1);
+    expect(scaleButton?.parameter_enable).toBe(1);
+    expect(boxByVarname(boxes, "scale-label")).toBeUndefined();
+    const scaleRootOverride = boxByVarname(boxes, "scale-root-override");
+    const scaleNameOverride = boxByVarname(boxes, "scale-name-override");
+    expect(scaleRootOverride?.parameter_enable).toBe(1);
+    expect(scaleRootOverride?.hidden).toBe(1);
+    expect(scaleNameOverride?.parameter_enable).toBe(1);
+    expect(scaleNameOverride?.hidden).toBe(1);
+    expect(texts.includes("prepend scale_override")).toBeTruthy();
+    expect(texts.includes("prepend scale_override_root")).toBeTruthy();
+    expect(texts.includes("prepend scale_override_name")).toBeTruthy();
+    const rootProperty = boxByText(boxes, "property root_note");
+    const scaleNameProperty = boxByText(boxes, "property scale_name");
+    const observerFor = (property: Box | undefined): Box | undefined => {
+      const observerId = property
+        ? lines.find(({ patchline }) => patchline.source[0] === property.id)?.patchline
+            .destination[0]
+        : undefined;
+      return boxes.find(({ box }) => box.id === observerId)?.box;
+    };
+    const dataGateFor = (observer: Box | undefined): Box | undefined => {
+      const gateId = observer
+        ? lines.find(
+            ({ patchline }) =>
+              patchline.source[0] === observer.id &&
+              patchline.destination[1] === 1 &&
+              boxes.find(({ box }) => box.id === patchline.destination[0])?.box.text === "gate 1",
+          )?.patchline.destination[0]
+        : undefined;
+      return boxes.find(({ box }) => box.id === gateId)?.box;
+    };
+    const rootObserver = observerFor(rootProperty);
+    const scaleNameObserver = observerFor(scaleNameProperty);
+    const rootDisplayGate = dataGateFor(rootObserver);
+    const scaleNameDisplayGate = dataGateFor(scaleNameObserver);
+    const scaleFollowInvert = boxByText(boxes, "!- 1");
+    expect(rootDisplayGate && scaleNameDisplayGate && scaleFollowInvert).toBeTruthy();
+    expect(hasLine(lines, scaleFollowInvert!, 0, rootDisplayGate!, 0)).toBeTruthy();
+    expect(hasLine(lines, scaleFollowInvert!, 0, scaleNameDisplayGate!, 0)).toBeTruthy();
+    expect(
+      rootObserver && hasLine(lines, rootObserver, 0, rootDisplayGate!, 1),
+      "observed values must enter the gate data inlet",
+    ).toBeTruthy();
+    expect(
+      scaleNameObserver && hasLine(lines, scaleNameObserver, 0, scaleNameDisplayGate!, 1),
+      "observed scale names must enter the gate data inlet",
+    ).toBeTruthy();
     expect(
       !boxByVarname(boxes, "scale-mode-display"),
       "scale ♭♯ chip must be removed",
@@ -279,7 +331,7 @@ describe("Motif Max patch integration", () => {
     ).toBeTruthy();
     expect(
       texts.includes("active 0") && texts.includes("active 1"),
-      "Scale menus must toggle active from Song.scale_mode",
+      "Scale menus must toggle active from the Scale button",
     ).toBeTruthy();
     expect(
       texts.some((text) => text.startsWith("§ ")),
@@ -402,26 +454,34 @@ describe("Motif Max patch integration", () => {
     ).toBeTruthy();
     expect(reversePrepend && hasLine(lines, reversePrepend, 0, v8!, 0)).toBeTruthy();
     expect(boxes.filter(({ box }) => box.text === "loadmess set 0").length).toBe(0);
-    const parameterRestore = boxByText(boxes, "t b b b b b b b b b b b b b");
+    const parameterRestore = boxByText(boxes, "t b b b b b b b b b b b b b b b b");
     const invertOutputValue = boxByText(boxes, "outputvalue");
     const outputValueMessages = boxes
       .filter(({ box }) => box.text === "outputvalue")
       .map(({ box }) => box);
-    expect(outputValueMessages.length).toBe(2);
+    expect(outputValueMessages.length).toBe(3);
     expect(parameterRestore && invertOutputValue).toBeTruthy();
     expect(
       outputValueMessages.some(
         (box) =>
-          hasLine(lines, parameterRestore!, 11, box, 0) && hasLine(lines, box, 0, invertButton!, 0),
+          hasLine(lines, parameterRestore!, 14, box, 0) && hasLine(lines, box, 0, invertButton!, 0),
       ),
     ).toBeTruthy();
     expect(
       outputValueMessages.some(
         (box) =>
-          hasLine(lines, parameterRestore!, 12, box, 0) &&
+          hasLine(lines, parameterRestore!, 15, box, 0) &&
           hasLine(lines, box, 0, reverseButton!, 0),
       ),
     ).toBeTruthy();
+    expect(
+      outputValueMessages.some(
+        (box) =>
+          hasLine(lines, parameterRestore!, 11, box, 0) && hasLine(lines, box, 0, scaleButton!, 0),
+      ),
+    ).toBeTruthy();
+    expect(hasLine(lines, parameterRestore!, 12, scaleNameOverride!, 0)).toBeTruthy();
+    expect(hasLine(lines, parameterRestore!, 13, scaleRootOverride!, 0)).toBeTruthy();
     const lowNumber = boxByVarname(boxes, "low-number");
     const highNumber = boxByVarname(boxes, "high-number");
     expect(lowNumber && highNumber).toBeTruthy();

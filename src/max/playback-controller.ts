@@ -278,11 +278,12 @@ export class PlaybackController {
 
     let events;
     try {
+      const effectiveHostContext = this.settings.effectiveHostContext(this.hostContext);
       events = compileMotif(
         selected,
         {
-          ...this.hostContext,
-          tempo: this.hostContext.tempo * this.settings.tempoMultiplier,
+          ...effectiveHostContext,
+          tempo: effectiveHostContext.tempo * this.settings.tempoMultiplier,
         },
         options,
       );

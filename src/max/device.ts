@@ -215,11 +215,12 @@ function emitPreviewState(): void {
   if (!selected) {
     return;
   }
+  const effectiveHostContext = settings.effectiveHostContext(hostContext);
   const preview = buildMotifPreview(
     selected,
     {
-      ...hostContext,
-      tempo: hostContext.tempo * settings.tempoMultiplier,
+      ...effectiveHostContext,
+      tempo: effectiveHostContext.tempo * settings.tempoMultiplier,
     },
     previewTriggerPitch,
     settings.pitchModeOverride,
@@ -234,6 +235,15 @@ function emitPreviewState(): void {
 function emitSelectedMotifUi(): void {
   emitLibraryState();
   emitPreviewState();
+}
+
+/**
+ * Keep the untouched preview anchor aligned with the scale context currently in use.
+ */
+function synchronizePreviewRoot(): void {
+  if (!previewWasTriggered) {
+    previewTriggerPitch = 60 + settings.effectiveHostContext(hostContext).rootNote;
+  }
 }
 
 /**
@@ -257,9 +267,7 @@ function song_context(property: string, ...values: unknown[]): void {
       const value = numeric[0];
       if (value !== undefined) {
         hostContext.rootNote = Math.round(value);
-        if (!previewWasTriggered) {
-          previewTriggerPitch = 60 + hostContext.rootNote;
-        }
+        synchronizePreviewRoot();
         emitSelectedMotifUi();
       }
       break;
@@ -467,6 +475,49 @@ function pitch_mode(mode: string): void {
   }
   emitSelectedMotifUi();
   emitStatus("Pitch", mode);
+}
+
+/**
+ * Enable or disable Motif's device-local scale context.
+ * @param {string | number | boolean} value The toggle state.
+ */
+function scale_override(value: string | number | boolean): void {
+  settings.scaleOverrideEnabled = toggleEnabled(value);
+  synchronizePreviewRoot();
+  emitSelectedMotifUi();
+  emitStatus("Scale", settings.scaleOverrideEnabled ? "override" : "Live");
+}
+
+/**
+ * Store the root used when the Scale button is enabled.
+ * @param {string | number} value The scale root value.
+ */
+function scale_override_root(value: string | number): void {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) {
+    emitError(`Unknown scale root: ${String(value)}`);
+    return;
+  }
+  settings.setScaleOverrideRootNote(parsed);
+  if (settings.scaleOverrideEnabled) {
+    synchronizePreviewRoot();
+    emitSelectedMotifUi();
+  }
+}
+
+/**
+ * Store the scale used when the Scale button is enabled.
+ * @param {unknown[]} values The scale name parts.
+ */
+function scale_override_name(...values: unknown[]): void {
+  const name = flattenValues(values).map(String).join(" ").trim();
+  if (!settings.setScaleOverrideName(name)) {
+    emitError(`Unknown scale: ${name || "(blank)"}`);
+    return;
+  }
+  if (settings.scaleOverrideEnabled) {
+    emitSelectedMotifUi();
+  }
 }
 
 /**
@@ -806,12 +857,13 @@ function lib_action(...encodedParts: unknown[]): void {
  * Dump the context.
  */
 function dump_context(): void {
+  const effectiveHostContext = settings.effectiveHostContext(hostContext);
   emit(
     "context",
-    hostContext.tempo,
-    hostContext.rootNote,
-    hostContext.scaleName,
-    ...hostContext.scaleIntervals,
+    effectiveHostContext.tempo,
+    effectiveHostContext.rootNote,
+    effectiveHostContext.scaleName,
+    ...effectiveHostContext.scaleIntervals,
   );
 }
 
@@ -835,6 +887,9 @@ const performanceHandlers = {
   sustain: (value) => playback.sustain(value),
   motif: (value) => authoring.selectMotif(value),
   pitch_mode,
+  scale_override,
+  scale_override_root,
+  scale_override_name,
   invert,
   reverse,
   meter_mode,

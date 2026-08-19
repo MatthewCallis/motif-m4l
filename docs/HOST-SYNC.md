@@ -21,7 +21,7 @@ Observed Song properties:
 - `is_playing`
 - `current_song_time`
 
-Root and scale name connect directly to Song-driven, non-clickable Presentation `live.menu` displays. The other observed values feed the engine without adding stale BPM/status controls to Presentation.
+While the Scale button is off, root and scale name feed disabled Presentation `live.menu` displays and the engine follows the observed Song context. Enabling Scale activates the dropdowns and switches playback and previews to parameter-restored, device-local root/name values. Song observation continues in the background so disabling Scale immediately returns to the latest Live context.
 
 Each observer value is also normalized as:
 
@@ -51,6 +51,13 @@ If BPM or key does not update:
 2. Confirm each observer receives its `property ...` message before the ID.
 3. Inspect the direct observer-to-comment path before inspecting JavaScript.
 4. Run `npm run validate:max` to verify all nine native properties and display types.
+
+If the Scale controls report a Max object error:
+
+1. For `live.menu: Something bad happened, there's no enum, is there?`, confirm both visible proxy menus have Parameter Mode enabled and `parameter_invisible 2`. The hidden backing menus remain the stored override parameters.
+2. For `gate: doesn't understand "<scale name>"`, confirm `!- 1` enters gate inlet `0` and the `live.observer` value enters inlet `1`.
+3. Regenerate `max/Motif.maxpat`; do not repair only the packaged patch by hand.
+4. Run `npm run validate:max` before pasting the patch into Live.
 
 If Import Clip fails:
 

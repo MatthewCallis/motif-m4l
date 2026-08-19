@@ -30,6 +30,8 @@ type MaxBox = {
   presentation_rect?: Rect;
   livemode?: number;
   ignoreclick?: number;
+  hidden?: number;
+  mode?: number;
   rendermode?: number;
   url?: string;
   parameter_enable?: number;
@@ -228,20 +230,59 @@ assert.equal(
   "Song root display must not become a stored/automatable device parameter",
 );
 assert.equal(
+  byVarname("root-display")?.parameter_enable,
+  1,
+  "root proxy needs Parameter Mode so live.menu can load its enum",
+);
+assert.equal(
   byVarname("scale-name-display")?.saved_attribute_attributes?.valueof?.parameter_invisible,
   2,
   "Song scale display must not become a stored/automatable device parameter",
 );
+assert.equal(
+  byVarname("scale-name-display")?.parameter_enable,
+  1,
+  "scale proxy needs Parameter Mode so live.menu can load its enum",
+);
+const scaleFollowInvert = byText("!- 1");
+const scaleDisplayGates = boxes.filter((box) => box.text === "gate 1");
+assert.equal(scaleDisplayGates.length, 2, "root and scale displays each need one follow gate");
+for (const displayGate of scaleDisplayGates) {
+  assert.ok(
+    scaleFollowInvert && hasLine(scaleFollowInvert, 0, displayGate, 0),
+    "Scale follow state must drive gate inlet 0 (control)",
+  );
+  const dataSourceIds = lines
+    .filter((line) => line.destination[0] === displayGate.id && line.destination[1] === 1)
+    .map((line) => line.source[0]);
+  assert.ok(
+    boxes.some((box) => dataSourceIds.includes(box.id) && box.text === "live.observer"),
+    "observed root/scale values must enter gate inlet 1 (data)",
+  );
+}
 assert.ok(!byVarname("scale-mode-display"), "scale ♭♯ chip must not appear");
 assert.ok(!byVarname("tempo-display"), "Presentation UI must not show a BPM readout");
 assert.ok(!byVarname("status-display"), "Presentation UI must not show debug status text");
-assert.equal(byVarname("scale-label")?.maxclass, "live.comment");
-assert.equal(byVarname("scale-label")?.text, "Scale", "Scale strip label is required");
+assert.ok(!byVarname("scale-label"), "Scale label must be replaced by the Scale toggle");
+assert.equal(byVarname("scale-button")?.maxclass, "live.text");
+assert.equal(byVarname("scale-button")?.text, "Scale", "Scale toggle label is required");
+assert.equal(byVarname("scale-button")?.mode, 1, "Scale must be a toggle");
+assert.equal(byVarname("scale-button")?.parameter_enable, 1, "Scale toggle must be stored by Live");
+assert.equal(
+  byVarname("scale-root-override")?.hidden,
+  1,
+  "stored Scale root must stay behind the visible proxy menu",
+);
+assert.equal(
+  byVarname("scale-name-override")?.hidden,
+  1,
+  "stored Scale name must stay behind the visible proxy menu",
+);
 assert.equal(byVarname("pitch-label")?.text, "Pitch", "Pitch label is required beside Scale");
 assert.equal(byVarname("tempo-mult-label")?.text, "BPM ×", "BPM multiplier label must be BPM ×");
 assert.ok(
   boxes.some((box) => box.text === "active 0"),
-  "Scale menus need active 0 when scale mode is off",
+  "Scale menus need active 0 while the Scale override is off",
 );
 assert.equal(byVarname("motif-preview")?.maxclass, "jsui", "preview must use native jsui in Live");
 assert.equal(
@@ -576,7 +617,7 @@ assert.ok(hasLine(stateRestorePrepend, 0, v8, 0));
 assert.ok(hasLine(engineRoute, 12, deviceStatePattr, 0));
 
 const initOrder = byText("t b b b b b b");
-const parameterRestore = byText("t b b b b b b b b b b b b b");
+const parameterRestore = byText("t b b b b b b b b b b b b b b b b");
 assert.ok(
   initOrder &&
     pathRestoreBang &&

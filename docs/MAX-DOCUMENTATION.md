@@ -85,11 +85,20 @@ Motif follows Live's parameter storage contract rather than treating patch-load 
 
 - Every user-facing setting is a parameter-enabled `live.*` object with Initial Enable and a unique long name. Trigger Mode and Repeat Rounding default to motif-owned values while remaining automatable device overrides. Invert and Reverse are integer `live.text` toggle parameters; their documented left outlet supplies the absolute `0`/`1` value.
 - The selected motif id, MIDI hot-key assignments, and user-library path use parameter-enabled `pattr` objects with Blob type and **Stored Only** visibility. The blob stores stable motif ids, never menu indexes or labels.
-- Song-owned Root and Scale display menus keep Parameter Mode enabled only to supply their enums, but use **Hidden** visibility so Live does not store or automate values that the Song observers own.
+- Visible Root and Scale menus are proxy controls with Parameter Mode enabled so `live.menu` can load its enum, but **Hidden** parameter visibility prevents Live from storing or automating their display values. With Scale off they show the observed Song values; with Scale on they edit separate automatable `live.menu` parameters that retain the device-local override without being overwritten by Song display updates. The Scale toggle is also a normal Live parameter.
 - No `loadmess` writes a default into a stateful control. Max initializes parameters before `loadmess`, so such a message would overwrite the value Live just restored.
 - `live.thisdevice` drives one explicit `trigger` sequence after parameter initialization: replay the library path, queue engine-owned state until the library scan finishes, output every restored Live control value, refresh Song observers, and initialize the engine.
 
 These choices implement Cycling ’74's [Device Parameters in Max for Live](https://docs.cycling74.com/userguide/m4l/live_parameters/), [Patcher Lifecycle](https://docs.cycling74.com/userguide/patcher_lifecycle/), and [pattr](https://docs.cycling74.com/userguide/pattr/) guidance. Library actions also pass through `deferlow`, as required before creating or using `LiveAPI`.
+
+## Scale Proxy Invariants
+
+The generated Root and Scale controls deliberately separate display state from stored override state. Preserve both rules when changing this graph:
+
+1. The visible proxy `live.menu` objects must keep `parameter_enable 1`. A `live.menu` obtains its `parameter_enum` through Parameter Mode; disabling it leaves the menu without an enum and Max reports `live.menu: Something bad happened, there's no enum, is there?`. Use `parameter_invisible 2` to keep a proxy out of Live's stored and automatable parameters. Do not disable Parameter Mode.
+2. For each `gate 1`, inlet `0` is the control/selector inlet and inlet `1` is the data inlet. The inverted Scale-button state (`!- 1`) connects to inlet `0`; `root_note` or `scale_name` observer output connects to inlet `1`. Reversing them sends a scale label to the control inlet and Max reports errors such as `gate: doesn't understand "Lydian Dominant"`.
+
+The generated-patch integration test and `validate:max` both assert these contracts. Run `npm run verify` after changing the Scale controls or their observer wiring.
 
 ## Distribution
 

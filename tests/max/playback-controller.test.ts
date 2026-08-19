@@ -229,6 +229,31 @@ describe("PlaybackController", () => {
     expect(harness.clears > 0).toBeTruthy();
   });
 
+  it("uses the device-local scale only while the Scale toggle is enabled", () => {
+    const harness = createPlayback();
+    harness.playback.triggerMotif(60, 100, 1);
+    const livePitches = harness.events
+      .filter((event) => (event[1] ?? 0) > 0)
+      .map(([pitch]) => pitch);
+
+    harness.events.length = 0;
+    harness.settings.setScaleOverrideRootNote(1);
+    harness.settings.setScaleOverrideName("Minor");
+    harness.settings.scaleOverrideEnabled = true;
+    harness.playback.triggerMotif(60, 100, 1);
+    const overridePitches = harness.events
+      .filter((event) => (event[1] ?? 0) > 0)
+      .map(([pitch]) => pitch);
+
+    expect(overridePitches).not.toEqual(livePitches);
+    harness.events.length = 0;
+    harness.settings.scaleOverrideEnabled = false;
+    harness.playback.triggerMotif(60, 100, 1);
+    expect(harness.events.filter((event) => (event[1] ?? 0) > 0).map(([pitch]) => pitch)).toEqual(
+      livePitches,
+    );
+  });
+
   it("schedules one held repeat and cancels it on release and panic", () => {
     const harness = createPlayback();
     harness.settings.triggerMode = "hold-repeat";

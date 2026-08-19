@@ -142,11 +142,12 @@ export function buildLibraryServerState(input: LibraryStateProjectionInput): Lib
 
   let selectedData: LibrarySelectedMotifData | null = null;
   if (selected) {
+    const effectiveHostContext = settings.effectiveHostContext(hostContext);
     const preview = buildMotifPreview(
       settings.transform(selected),
       {
-        ...hostContext,
-        tempo: hostContext.tempo * settings.tempoMultiplier,
+        ...effectiveHostContext,
+        tempo: effectiveHostContext.tempo * settings.tempoMultiplier,
       },
       previewTriggerPitch,
       settings.pitchModeOverride,

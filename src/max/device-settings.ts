@@ -1,6 +1,8 @@
-import { clamp } from "../core/math.js";
+import { clamp, mod } from "../core/math.js";
+import { knownScaleIntervals } from "../core/scales.js";
 import { transformMotif } from "../core/transform-motif.js";
 import type {
+  HostContext,
   LaunchQuantization,
   MeterMode,
   Motif,
@@ -23,6 +25,12 @@ import type {
 export class DeviceSettingsState {
   /** Optional override for the selected motif's stored pitch interpretation. */
   pitchModeOverride: PitchMode | undefined;
+  /** Whether Motif uses its own root and scale instead of the observed Live scale. */
+  scaleOverrideEnabled = false;
+  /** Device-local scale root restored from a Live parameter. */
+  scaleOverrideRootNote = 0;
+  /** Device-local scale choice restored from a Live parameter. */
+  scaleOverrideName = "Major";
   /** Whether source timing is preserved or fitted to the current Live bar. */
   meterMode: MeterMode = "preserve";
   /** Whether a new trigger replaces or overlaps already scheduled notes. */
@@ -43,6 +51,46 @@ export class DeviceSettingsState {
   invert = false;
   /** Mirror note spans across the motif length. */
   reverse = false;
+
+  /**
+   * Store a normalized device-local root note.
+   * @param {number} value Root pitch class submitted by the Max menu.
+   */
+  setScaleOverrideRootNote(value: number): void {
+    this.scaleOverrideRootNote = mod(Math.round(value), 12);
+  }
+
+  /**
+   * Store a known device-local scale choice.
+   * @param {string} value Scale label submitted by the Max menu.
+   * @returns {boolean} Whether the scale is supported.
+   */
+  setScaleOverrideName(value: string): boolean {
+    const name = value.trim();
+    if (!knownScaleIntervals(name)) {
+      return false;
+    }
+    this.scaleOverrideName = name;
+    return true;
+  }
+
+  /**
+   * Resolve the context used by playback and previews without mutating observed Song state.
+   * @param {HostContext} hostContext Latest values received from Live's Song observers.
+   * @returns {HostContext} Live context with the optional device-local scale applied.
+   */
+  effectiveHostContext(hostContext: HostContext): HostContext {
+    if (!this.scaleOverrideEnabled) {
+      return hostContext;
+    }
+    return {
+      ...hostContext,
+      rootNote: this.scaleOverrideRootNote,
+      scaleName: this.scaleOverrideName,
+      scaleIntervals: knownScaleIntervals(this.scaleOverrideName) ?? hostContext.scaleIntervals,
+      scaleMode: true,
+    };
+  }
 
   /**
    * Resolve the trigger lifecycle for one motif, defaulting to `one-shot` behavior.

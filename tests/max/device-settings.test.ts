@@ -1,12 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { MotifStore } from "../../src/library/store.js";
 import { DeviceSettingsState } from "../../src/max/device-settings.js";
+import type { HostContext } from "../../src/core/types.js";
 
 describe("DeviceSettingsState", () => {
   it("owns Live-restored performance defaults and trigger-zone invariants", () => {
     const settings = new DeviceSettingsState();
 
     expect(settings.pitchModeOverride).toBe(undefined);
+    expect(settings.scaleOverrideEnabled).toBe(false);
+    expect(settings.scaleOverrideRootNote).toBe(0);
+    expect(settings.scaleOverrideName).toBe("Major");
     expect(settings.meterMode).toBe("preserve");
     expect(settings.retriggerMode).toBe("replace");
     expect(settings.triggerMode).toBe("motif");
@@ -30,6 +34,35 @@ describe("DeviceSettingsState", () => {
     expect(settings.setTriggerHigh(-20)).toEqual({ low: 84, high: 84 });
     expect(settings.setTriggerLow(-20)).toEqual({ low: 0, high: 84 });
     expect(settings.setTriggerHigh(200)).toEqual({ low: 0, high: 127 });
+  });
+
+  it("resolves a device-local scale without mutating the observed Live context", () => {
+    const settings = new DeviceSettingsState();
+    const host: HostContext = {
+      tempo: 120,
+      rootNote: 2,
+      scaleName: "Dorian",
+      scaleIntervals: [0, 2, 3, 5, 7, 9, 10],
+      scaleMode: false,
+      timeSignature: { numerator: 4, denominator: 4 },
+      isPlaying: false,
+      currentSongTime: 0,
+    };
+
+    expect(settings.effectiveHostContext(host)).toBe(host);
+    settings.setScaleOverrideRootNote(13);
+    expect(settings.setScaleOverrideName("Pelog Tembung")).toBe(true);
+    expect(settings.setScaleOverrideName("Unknown Scale")).toBe(false);
+    settings.scaleOverrideEnabled = true;
+
+    const effective = settings.effectiveHostContext(host);
+    expect(effective).toMatchObject({
+      rootNote: 1,
+      scaleName: "Pelog Tembung",
+      scaleMode: true,
+    });
+    expect(effective.scaleIntervals).not.toBe(host.scaleIntervals);
+    expect(host).toMatchObject({ rootNote: 2, scaleName: "Dorian", scaleMode: false });
   });
 
   it("applies transforms without mutating catalog motifs", () => {

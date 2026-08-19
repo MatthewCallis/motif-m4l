@@ -29,6 +29,7 @@
  */
 
 import { writeFile } from "node:fs/promises";
+import { SCALE_NAMES } from "../src/core/scales.js";
 import {
   createStoredBlobParameterAttributes,
   MaxPatchBuilder,
@@ -63,45 +64,6 @@ const COLORS: MaxBuilderColors = {
   previewBg: [0.08, 0.08, 0.09, 1],
   previewBorder: [0.2, 0.2, 0.22, 1],
 };
-
-/** Common Live `Song.scale_name` values, keeping `live.menu setsymbol` in range. */
-const LIVE_SCALE_NAMES = [
-  "Major",
-  "Minor",
-  "Dorian",
-  "Mixolydian",
-  "Lydian",
-  "Phrygian",
-  "Locrian",
-  "Whole Tone",
-  "Half-whole Dim.",
-  "Whole-half Dim.",
-  "Minor Blues",
-  "Minor Pentatonic",
-  "Major Pentatonic",
-  "Harmonic Minor",
-  "Harmonic Major",
-  "Dorian #4",
-  "Phrygian Dominant",
-  "Melodic Minor",
-  "Lydian Augmented",
-  "Lydian Dominant",
-  "Super Locrian",
-  "Spanish",
-  "Bhairav",
-  "Hungarian Minor",
-  "Chinese",
-  "Hirajoshi",
-  "In-Sen",
-  "Iwato",
-  "Kumoi",
-  "Pelog",
-  "Messiaen 3",
-  "Messiaen 4",
-  "Messiaen 5",
-  "Messiaen 6",
-  "Messiaen 7",
-] as const;
 
 /** Chromatic note names used by Live's `Song.root_note` property. */
 const LIVE_ROOT_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] as const;
@@ -209,7 +171,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     {
       name: "Motif Note Preview",
       description:
-        "A time-and-pitch preview of the selected motif after applying the current Live scale, pitch mode, meter mode, BPM multiplier, and most recent trigger note.",
+        "A time-and-pitch preview of the selected motif after applying the effective scale, pitch mode, meter mode, BPM multiplier, and most recent trigger note.",
     },
     {
       ...motifHidden,
@@ -219,7 +181,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     },
   );
 
-  // Single bottom row - inline labels; Scale menus dim via `active` when Song.scale_mode is off
+  // Single bottom row - the Scale toggle chooses between Live and device-local scale context.
   uiLiveComment("pitch-label", "Pitch", [0, 150, 40, 18], motifHidden);
   uiLiveMenu(
     "pitch-menu",
@@ -231,7 +193,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     {
       name: "Pitch Mode",
       description:
-        "Motif uses the phrase's stored pitch mode. Scale maps stored degrees through Live's current scale; Chromatic preserves semitone intervals; Hybrid combines scale degrees with accidentals.",
+        "Motif uses the phrase's stored pitch mode. Scale maps stored degrees through the effective scale; Chromatic preserves semitone intervals; Hybrid combines scale degrees with accidentals.",
     },
     motifHidden,
   );
@@ -273,36 +235,81 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
       ...motifHidden,
     },
   );
-  uiLiveComment("scale-label", "Scale", [208, 150, 40, 18], motifHidden);
-  // parameter_enable must stay 1 - live.menu loads parameter_enum from the Live parameter.
-  // ignoreclick keeps them Song-driven; active 0/1 follows Song.scale_mode for Live’s disabled look.
+  uiButton(
+    "scale-button",
+    "Scale",
+    [208, 150, 40, 18],
+    {
+      name: "Scale Override",
+      description:
+        "Use the selected root and scale for Motif instead of Live's current scale. Turn off to follow Live again.",
+    },
+    {
+      mode: 1,
+      parameter: {
+        longName: "Scale Override",
+        shortName: "Scale",
+        initial: 0,
+      },
+      ...motifHidden,
+    },
+  );
+  // Visible live.menu proxies keep Parameter Mode enabled because that is how live.menu
+  // receives its enum. Hidden visibility prevents Live from storing/automating the proxy;
+  // separate normal parameters retain and automate the actual override selections.
   uiLiveMenu(
     "root-display",
     LIVE_ROOT_NAMES,
     [252, 151, 40, 18],
-    "Live Scale Root",
+    "Scale Root Display",
     "Root",
     0,
     {
-      name: "Live Scale Root",
+      name: "Scale Root",
       description:
-        "Live Set's current scale root, observed from Song.root_note. Dimmed when Scale Mode is off.",
+        "Shows Live's root while Scale is off. When Scale is on, choose Motif's device-local root.",
     },
-    { ignoreclick: 1, parameterVisibility: 2, ...motifHidden },
+    { parameterVisibility: 2, ...motifHidden },
   );
   uiLiveMenu(
     "scale-name-display",
-    LIVE_SCALE_NAMES,
+    SCALE_NAMES,
     [296, 151, 177, 18],
-    "Live Scale Name",
+    "Scale Name Display",
     "Scale",
     0,
     {
-      name: "Live Scale Name",
+      name: "Scale Name",
       description:
-        "Live Set's current scale name, observed from Song.scale_name. Dimmed when Scale Mode is off.",
+        "Shows Live's scale while Scale is off. When Scale is on, choose Motif's device-local scale.",
     },
-    { ignoreclick: 1, parameterVisibility: 2, ...motifHidden },
+    { parameterVisibility: 2, ...motifHidden },
+  );
+  uiLiveMenu(
+    "scale-root-override",
+    LIVE_ROOT_NAMES,
+    [252, 151, 40, 18],
+    "Scale Override Root",
+    "Root",
+    0,
+    {
+      name: "Scale Override Root",
+      description: "Stored and automatable root used while the Scale button is enabled.",
+    },
+    { hidden: 1 },
+  );
+  uiLiveMenu(
+    "scale-name-override",
+    SCALE_NAMES,
+    [296, 151, 177, 18],
+    "Scale Override Name",
+    "Scale",
+    0,
+    {
+      name: "Scale Override Name",
+      description: "Stored and automatable scale used while the Scale button is enabled.",
+    },
+    { hidden: 1 },
   );
 
   // Settings tab (initially hidden) - same 8px vertical rhythm
@@ -454,7 +461,7 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
     "pitch-menu",
     "invert-button",
     "reverse-button",
-    "scale-label",
+    "scale-button",
     "root-display",
     "scale-name-display",
   ];
@@ -762,36 +769,56 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   const FMT_Y = OBS_Y + ROW * 16;
   patchComment(
     "section-format",
-    "§ Host displays - Scale live.menus; active follows Song.scale_mode",
+    "§ Scale display - follow Live when off; expose stored override when on",
     COL.format,
     FMT_Y - 40,
-    520,
+    600,
   );
   object("root-set", "prepend set", COL.format, FMT_Y, 100);
   object("scale-name-set", "prepend setsymbol", COL.format + 160, FMT_Y, 140);
-  object("scale-mode-select", "sel 0 1", COL.format + 360, FMT_Y, 70);
-  object("scale-off-fan", "t b b", COL.format + 500, FMT_Y, 60);
-  object("scale-on-fan", "t b b", COL.format + 500, FMT_Y + ROW, 60);
-  message("root-active-off", "active 0", COL.format + 620, FMT_Y, 80);
-  message("scale-name-active-off", "active 0", COL.format + 760, FMT_Y, 80);
-  message("root-active-on", "active 1", COL.format + 620, FMT_Y + ROW, 80);
-  message("scale-name-active-on", "active 1", COL.format + 760, FMT_Y + ROW, 80);
+  // gate inlet contract: inlet 0 selects/opens the outlet; inlet 1 carries values.
+  // Reversing these produces errors such as `gate: doesn't understand "Lydian Dominant"`.
+  object("root-display-gate", "gate 1", COL.format, FMT_Y + ROW, 80);
+  object("scale-name-display-gate", "gate 1", COL.format + 160, FMT_Y + ROW, 100);
+  object("scale-button-trigger", "t i i i", COL.format + 360, FMT_Y, 80);
+  object("scale-follow-invert", "!- 1", COL.format + 360, FMT_Y + ROW, 60);
+  object("scale-override-select", "sel 0 1", COL.format + 460, FMT_Y, 70);
+  object("scale-off-fan", "t b b b", COL.format + 560, FMT_Y, 70);
+  object("scale-on-fan", "t b b b", COL.format + 560, FMT_Y + ROW, 70);
+  message("scale-menus-active-off", "active 0", COL.format + 680, FMT_Y, 80);
+  message("scale-menus-active-on", "active 1", COL.format + 680, FMT_Y + ROW, 80);
+  object("override-root-set", "prepend set", COL.format + 820, FMT_Y, 100);
+  object("override-scale-name-set", "prepend setsymbol", COL.format + 820, FMT_Y + ROW, 140);
 
-  connect("root-note-observer", 0, "root-set", 0);
+  connect("root-note-observer", 0, "root-display-gate", 1);
+  connect("root-display-gate", 0, "root-set", 0);
   connect("root-set", 0, "root-display", 0);
-  connect("scale-name-observer", 0, "scale-name-set", 0);
+  connect("scale-name-observer", 0, "scale-name-display-gate", 1);
+  connect("scale-name-display-gate", 0, "scale-name-set", 0);
   connect("scale-name-set", 0, "scale-name-display", 0);
-  connect("scale-mode-observer", 0, "scale-mode-select", 0);
-  connect("scale-mode-select", 0, "scale-off-fan", 0);
-  connect("scale-mode-select", 1, "scale-on-fan", 0);
-  connect("scale-off-fan", 0, "root-active-off", 0);
-  connect("scale-off-fan", 1, "scale-name-active-off", 0);
-  connect("root-active-off", 0, "root-display", 0);
-  connect("scale-name-active-off", 0, "scale-name-display", 0);
-  connect("scale-on-fan", 0, "root-active-on", 0);
-  connect("scale-on-fan", 1, "scale-name-active-on", 0);
-  connect("root-active-on", 0, "root-display", 0);
-  connect("scale-name-active-on", 0, "scale-name-display", 0);
+  connect("scale-button", 0, "scale-button-trigger", 0);
+  connect("scale-button-trigger", 2, "scale-follow-invert", 0);
+  connect("scale-follow-invert", 0, "root-display-gate", 0);
+  connect("scale-follow-invert", 0, "scale-name-display-gate", 0);
+  connect("scale-button-trigger", 1, "scale-override-select", 0);
+  connect("scale-override-select", 0, "scale-off-fan", 0);
+  connect("scale-override-select", 1, "scale-on-fan", 0);
+  connect("scale-off-fan", 2, "root-note-observer", 0);
+  connect("scale-off-fan", 1, "scale-name-observer", 0);
+  connect("scale-off-fan", 0, "scale-menus-active-off", 0);
+  connect("scale-menus-active-off", 0, "root-display", 0);
+  connect("scale-menus-active-off", 0, "scale-name-display", 0);
+  connect("scale-on-fan", 2, "scale-root-override", 0);
+  connect("scale-on-fan", 1, "scale-name-override", 0);
+  connect("scale-on-fan", 0, "scale-menus-active-on", 0);
+  connect("scale-menus-active-on", 0, "root-display", 0);
+  connect("scale-menus-active-on", 0, "scale-name-display", 0);
+  connect("scale-root-override", 0, "override-root-set", 0);
+  connect("override-root-set", 0, "root-display", 0);
+  connect("scale-name-override", 1, "override-scale-name-set", 0);
+  connect("override-scale-name-set", 0, "scale-name-display", 0);
+  connect("root-display", 0, "scale-root-override", 0);
+  connect("scale-name-display", 0, "scale-name-override", 0);
 
   connect("thisdevice", 0, "init-order", 0);
   connect("init-order", 2, "property-fanout", 0);
@@ -1031,6 +1058,21 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   );
   object("motif-prepend", "prepend motif", COL.controls, CTL_Y, 110);
   object("pitch-prepend", "prepend pitch_mode", COL.controls + 200, CTL_Y, 150);
+  object("scale-override-prepend", "prepend scale_override", COL.controls, CTL_Y + ROW * 2, 170);
+  object(
+    "scale-override-root-prepend",
+    "prepend scale_override_root",
+    COL.controls + 200,
+    CTL_Y + ROW * 2,
+    200,
+  );
+  object(
+    "scale-override-name-prepend",
+    "prepend scale_override_name",
+    COL.controls + 430,
+    CTL_Y + ROW * 2,
+    210,
+  );
   object("invert-prepend", "prepend invert", COL.controls + 400, CTL_Y, 150);
   object("reverse-prepend", "prepend reverse", COL.controls + 560, CTL_Y, 160);
   object("tempo-mult-prepend", "prepend tempo_multiplier", COL.controls + 740, CTL_Y, 180);
@@ -1055,6 +1097,12 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   connect("motif-prepend", 0, "v8", 0);
   connect("pitch-menu", 1, "pitch-prepend", 0);
   connect("pitch-prepend", 0, "v8", 0);
+  connect("scale-button-trigger", 0, "scale-override-prepend", 0);
+  connect("scale-override-prepend", 0, "v8", 0);
+  connect("scale-root-override", 0, "scale-override-root-prepend", 0);
+  connect("scale-override-root-prepend", 0, "v8", 0);
+  connect("scale-name-override", 1, "scale-override-name-prepend", 0);
+  connect("scale-override-name-prepend", 0, "v8", 0);
   // The documented left outlet carries the absolute 0/1 toggle state.
   connect("invert-button", 0, "invert-prepend", 0);
   connect("invert-prepend", 0, "v8", 0);
@@ -1086,7 +1134,14 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   // output the restored values after initialization rather than overwriting
   // them with loadmess defaults.
   const RESTORE_Y = CTL_Y + ROW * 3;
-  object("parameter-restore-trigger", "t b b b b b b b b b b b b b", COL.controls, RESTORE_Y, 270);
+  object(
+    "parameter-restore-trigger",
+    "t b b b b b b b b b b b b b b b b",
+    COL.controls,
+    RESTORE_Y,
+    320,
+  );
+  message("scale-outputvalue", "outputvalue", COL.controls + 280, RESTORE_Y, 90);
   message("invert-outputvalue", "outputvalue", COL.controls + 280, RESTORE_Y, 90);
   message("reverse-outputvalue", "outputvalue", COL.controls + 400, RESTORE_Y, 90);
   const restoredControls = [
@@ -1106,9 +1161,13 @@ export async function generateMaxPatch(runtime: MaxRuntimeArtifacts): Promise<vo
   restoredControls.forEach((destination, outlet) => {
     connect("parameter-restore-trigger", outlet, destination, 0);
   });
-  connect("parameter-restore-trigger", 11, "invert-outputvalue", 0);
+  connect("parameter-restore-trigger", 11, "scale-outputvalue", 0);
+  connect("scale-outputvalue", 0, "scale-button", 0);
+  connect("parameter-restore-trigger", 12, "scale-name-override", 0);
+  connect("parameter-restore-trigger", 13, "scale-root-override", 0);
+  connect("parameter-restore-trigger", 14, "invert-outputvalue", 0);
   connect("invert-outputvalue", 0, "invert-button", 0);
-  connect("parameter-restore-trigger", 12, "reverse-outputvalue", 0);
+  connect("parameter-restore-trigger", 15, "reverse-outputvalue", 0);
   connect("reverse-outputvalue", 0, "reverse-button", 0);
   // trigger outputs right-to-left: library path starts its scan first, then
   // engine-owned state can wait for that scan, then Live parameters synchronize.

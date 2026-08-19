@@ -16,6 +16,7 @@ Motif is a scale-aware MIDI phrase launcher for Ableton Live. Play a note to tri
 
 - **Scale-aware pitch mapping.** Choose the motif's saved pitch mode or override it with Scale, Chromatic, or Hybrid playback.
 - **Live Set synchronization.** Tempo, Current Scale, time signature, transport, and song position follow Live automatically.
+- **Device-local scale override.** Enable the Scale button to choose a root and scale for Motif without changing Live's Set scale; disable it to follow Live again.
 - **Visual preview.** See note timing, duration, contour, and resulting note names before playing the phrase.
 - **Non-destructive transforms.** Invert pitch offsets or reverse note timing without changing the saved motif.
 - **Performance controls.** Configure trigger lifecycle, launch quantization, hold-repeat rounding, retrigger behavior, trigger zone, MIDI pass-through, meter handling, and a device-local BPM multiplier.
@@ -121,7 +122,7 @@ The patch observes nine Live `Song` properties with native `live.path live_set` 
 - transport state
 - current song time
 
-Root and scale also update the read-only device displays directly. Each value is normalized to `song_context <property> <value...>`, and passed through `deferlow`, and sent to the TypeScript engine for compilation, MIDI scheduling calculations, and note preview generation.
+Root and scale update the device displays while the Scale button is off. Enabling Scale activates the dropdowns and uses their parameter-restored values for Motif playback and previews without writing back to the Live Set. Every observed value is still normalized to `song_context <property> <value...>`, passed through `deferlow`, and sent to the TypeScript engine.
 
 Continuous host synchronization deliberately stays in native Max objects. This keeps the visible host state independent of the JavaScript engine and avoids polling or maintaining a persistent JavaScript `LiveAPI` object. `LiveAPI` is created only when **Import Clip** needs `get_notes_extended` for the currently selected MIDI clip.
 
